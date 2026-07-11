@@ -1,0 +1,202 @@
+[
+  {
+    "date": "2026-07-08",
+    "contenu": "Prioriser systématiquement les avertissements sur les risques et les conseils de sécurité cruciaux pour l'utilisateur."
+  },
+  {
+    "date": "2026-07-08",
+    "contenu": "Ne fabrique pas de faits temps réel; déclare tes limites d'accès à l'information actuelle."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Le Grid Trading exploite la volatilité, pas une direction, le résultat est neutre."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Attendre les seuils définis pour exécuter une action de trading."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Assurer les données de marché nécessaires avant toute analyse/exécution."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Vérifie la cohérence des conditions d'entrée de ta stratégie."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Évaluez uniquement les stratégies déclenchées."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Toute stratégie doit être concrète et exécutable."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Attendre le signal d'entrée."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Toujours valider les conditions de la stratégie avant d'agir."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Configure des ordres auto pour déclencher des profits sur les mouvements de marché."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Alignez votre stratégie sur les conditions de marché."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Adhérer strictement aux seuils d'entrée avant toute action."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Un seuil d'entrée irréaliste peut empêcher la stratégie de s'activer et de capturer des opportunités."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Pas de condition remplie = pas de trade."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Sans volatilité significative, les stratégies neutres basées sur le rebond ne profitent pas."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Anticipe les entrées non déclenchées."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "L'adhésion stricte aux conditions d'entrée protège des mauvais trades. Parfois, ne rien faire est clé."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Respecte les conditions de déclenchement; sans elles, la stratégie est inactive."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "La discipline est clé: attendre le déclencheur pour exécuter."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Vérifier tous les prérequis avant d'entrer dans une stratégie."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Respecter les conditions d'entrée."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Assure la pertinence contextuelle, la fiabilité de l'information et la mise en garde sur les risques réels."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Toujours respecter les conditions d'entrée définies."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "**Mean reversion : acheter sur écart négatif à la MA, jamais sur écart positif extrême (>2σ = tendance, pas retournement"
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "Toujours vérifier la disponibilité des données de marché avant d'évaluer une stratégie."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "**Vérifier que les indicateurs franchissent réellement les seuils d'entrée avant de conclure à un signal.**"
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "**Leçon :** Prix sous bande de Bollinger inférieure sans confirmation de rebond = ne pas trader, attendre signal clair."
+  },
+  {
+    "date": "2026-07-09",
+    "contenu": "**Leçon (max 100 caractères) :**  \"Éviter mean-reversion en tendance haussière forte (SP500 >15-20%).\""
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Respectez les règles d'entrée."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Attendre que le niveau d'entrée soit atteint avant de trader."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Ne pas entrer si les conditions d'activation ne sont pas remplies."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Respecter rigoureusement toutes les conditions d'entrée de la stratégie."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Une stratégie sans exécution est une perte. Réévalue les critères d'entrée."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Pas d'entrée, pas de trade."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Validez toujours les stratégies avec des données de marché réelles et à jour."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Ne pas utiliser une stratégie de trend following si les conditions du marché ne sont pas réunies."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Adapter les paramètres de stratégie aux prévisions de marché pour éviter l'inapplicabilité."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Laisser courir les gains."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Ne pas lutter contre une tendance forte. Attendre la stabilisation du marché avant d'entrer."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Adapte la stratégie à la tendance du marché."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Pas de déclenchement, pas de trade."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Vérifier la disponibilité des données avant toute évaluation."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Sans données, pas d'évaluation fiable de la stratégie."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Les seuils fixes sont faillibles. Anticipez les franchissements et ajustez votre stratégie."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "L'évaluation de stratégie exige des données complètes et à jour."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Assure la disponibilité des données pour évaluer toute stratégie."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "L'activation de la stratégie dépend strictement du respect de toutes les conditions d'entrée."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Confirmer cassure avec tendance pour une meilleure fiabilité."
+  },
+  {
+    "date": "2026-07-10",
+    "contenu": "Valider l'atteignabilité des seuils d'entrée."
+  }
+]

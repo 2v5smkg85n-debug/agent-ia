@@ -1,0 +1,188 @@
+{
+  "cycles": 22,
+  "date_creation": "2026-07-09 01:26",
+  "historique_performance": [
+    {
+      "date": "2026-07-09 07:38",
+      "cycle": 4,
+      "analyse": "# Analyse Meta - Performance Agent Trading\n\n**1. Marchés forts/faibles**\n- **Meilleurs**: Crypto et Forex (50% WR) — marchés liquides avec mouvements directionnels clairs, propices aux seuils d'entrée bien calibrés.\n- **Pires**: Matières premières (0G/1P) et Actions (aucun trade exécuté) — soit mauvaise lecture des conditions, soit seuils mal calibrés empêchant l'activation.\n- **Indices**: WR affi"
+    },
+    {
+      "date": "2026-07-09 07:39",
+      "cycle": 4,
+      "analyse": "# Analyse des performances de l'agent IA\n\n**1. Marchés — meilleur/pire:**\nÉchantillon trop faible pour conclure statistiquement (2 trades gagnants/perdants total sur 5 marchés). Indices semble positif (1G/0P) mais sur une seule donnée. Forex et matières sont perdants (0G/1P chacun). Crypto et actions : aucune donnée exploitable (inactivité totale).\n\n**2. Stratégies efficaces:**\nImpossible à déterm"
+    },
+    {
+      "date": "2026-07-09 13:42",
+      "cycle": 6,
+      "analyse": "# Analyse Meta - Performance Agent Trading\n\n## 1. Marchés\n**Meilleur** : Indices (1G/0P, 33% winrate) — seul marché avec un trade gagnant.\n**Pires** : Crypto, Forex, Actions (0 trades exécutés) et Matières premières (1G/0P... attends, 0 gains/1 perte = 0%).\n**Constat critique** : L'échantillon est trop faible pour tirer des conclusions fiables. L'absence totale de trades sur 3 marchés suggère soit"
+    },
+    {
+      "date": "2026-07-09 13:44",
+      "cycle": 6,
+      "analyse": "# Analyse Meta - Agent de Trading IA\n\n**1. Performance par marché**\n- Crypto (0/2) et matières (0/2) : échecs complets — 4 pertes sur 4 trades tentés.\n- Indices : seul marché avec un gain, mais échantillon trop faible (1 trade) pour conclure.\n- Forex/actions : aucune donnée = inaction totale, possiblement bon signe si discipline appliquée.\n\n**2. Stratégies efficaces**\nImpossible à déterminer préci"
+    },
+    {
+      "date": "2026-07-09 19:49",
+      "cycle": 8,
+      "analyse": "# Analyse Meta - Performance Agent Trading\n\n**1. Marchés : forte disparité**\n- Matières premières (0/3) et crypto (0/2) : échecs systématiques — marchés volatils où l'agent semble entrer sans confirmation.\n- Indices : seul marché positif (1G/0P), mais échantillon trop faible (1 trade) pour conclure à une vraie compétence.\n- Forex : aucune donnée, marché non testé.\n\n**2. Stratégies efficaces**\nImpo"
+    },
+    {
+      "date": "2026-07-09 19:52",
+      "cycle": 8,
+      "analyse": "# Analyse des performances de l'agent de trading\n\n## 1. Marchés : où et pourquoi\nL'agent est **globalement défaillant** sur tous les marchés. Matières premières (0/3) et crypto (0/2) sont catastrophiques. Le seul \"succès\" sur indices (1G/0P) repose sur un échantillon trop faible pour être significatif — ce n'est pas une preuve de compétence, juste du bruit statistique. Forex reste inexploité (0/0)"
+    },
+    {
+      "date": "2026-07-09 23:11",
+      "cycle": 9,
+      "analyse": "# Analyse Méta - Agent de Trading IA\n\n**1. Performance par marché**\nÉchec total et uniforme : 0% de win rate sur crypto, forex, actions, matières premières (7 positions perdantes/7). Aucune différenciation par marché — le problème n'est pas la classe d'actif mais la méthode d'exécution elle-même. Indices non testés (échantillon nul).\n\n**2. Stratégies efficaces**\nAucune ne fonctionne actuellement. "
+    },
+    {
+      "date": "2026-07-09 23:26",
+      "cycle": 10,
+      "analyse": "# Analyse Meta - Performance Agent Trading\n\n**1. Marchés meilleurs/pires:**\nAucun marché ne performe réellement bien (échantillons trop petits pour conclure). Forex et actions (33%) sont légèrement moins mauvais que matières/crypto (0%). Indices affiche une incohérence (1G/1P mais 20% win rate) — **vérifier l'intégrité des données**, ce chiffre est suspect.\n\n**2. Stratégies qui fonctionnent:**\nAuc"
+    },
+    {
+      "date": "2026-07-10 01:57",
+      "cycle": 12,
+      "analyse": "L'agent performe **pire** en crypto et matières (0% win rate) par absence de signaux valables, et **meilleur** en forex (25% win rate) grâce à une exécution plus stable. Les stratégies de **mean-reversion** échouent en tendance forte (erreur SP500 >15-20%), tandis que le **trend following** avec confirmation de seuil est plus efficace. Les erreurs récurrentes incluent : trader sur des seuils franc"
+    },
+    {
+      "date": "2026-07-10 01:59",
+      "cycle": 12,
+      "analyse": "L'agent performe **très mal** : win rates entre 0–25 %, avec le pire en **crypto** et **matières** (0 %), et le meilleur en **forex** (25 %). Il échoue sur les stratégies de **mean-reversion en tendance haussière forte** et sur les signaux de **breakout sans confirmation**. Erreurs récurrentes : entrer avant confirmation de seuil, trader sous bande de Bollinger sans rebond, ignorer les règles d'en"
+    },
+    {
+      "date": "2026-07-10 08:00",
+      "cycle": 14,
+      "analyse": "L'agent performe **le mieux** en **actions** (25 % de win rate) et **forex** (20 %), mais **le pire** en **crypto** et **matières** (0 %). Cela suggère que des stratégies de **trend following** ou de **mean reversion** adaptées aux marchés liquides et réguliers sont efficaces, tandis que la volatilité extrême des crypto et la faiblesse des signaux sur les matières échouent.\n\nLes **erreurs récurren"
+    },
+    {
+      "date": "2026-07-10 08:02",
+      "cycle": 14,
+      "analyse": "L'agent performe **le mieux sur actions** (40 % de win rate) et **le pire sur crypto/matières** (0 %), car il échoue à détecter les conditions favorables ou à éviter les faux signaux. La stratégie **trend following** est efficace (conseil : ne l'utiliser que si les conditions sont réunies), tandis que **mean reversion** semble inadaptée. Les erreurs récurrentes : entrer sans stabilisation du march"
+    },
+    {
+      "date": "2026-07-10 14:02",
+      "cycle": 16,
+      "analyse": "L'agent performe le mieux sur **actions** (33%) et **indices** (29%), probablement grâce à des tendances plus claires, et le pire sur **crypto** et **matières** (0%), où la volatilité et les données insuffisantes empêchent toute stratégie fiable. La stratégie dominante semble être le **trend following**, car l'IA place des transactions dans la direction de la tendance [1][7]. Les erreurs récurrent"
+    },
+    {
+      "date": "2026-07-10 14:05",
+      "cycle": 16,
+      "analyse": "L'agent performe **mieux en actions et indices** (29% win rate) et **pire en crypto/matières** (0%), car les marchés volatils exigent des données plus complètes et à jour[1][5]. Les stratégies **breakout** (confirmed casse avec tendance) semblent seules partiellement efficaces, tandis que le **mean reversion** est faible[7]. Erreurs récurrentes : validation de seuils d'entrée non atteignables et d"
+    },
+    {
+      "date": "2026-07-10 20:07",
+      "cycle": 18,
+      "analyse": "L'agent est **globalement défaillant** : il perd sur 3 des 5 marchés (crypto, matières, forex) et son seul marché gagnant (actions, 44%) reste insuffisant pour couvrir les risques.\n\n1. **Performances** : Le mieux sur **actions** (44%) suggère une adaptation aux tendances de marché liquide ; le pire sur **crypto** (0%) et **matières** (14%) indique une incapacité à gérer la volatilité extrême ou le"
+    },
+    {
+      "date": "2026-07-10 20:10",
+      "cycle": 18,
+      "analyse": "L'agent de trading IA est **mauvais** : son win rate moyen est de seulement **22 %**, avec une performance catastrophique en crypto (0 %) et en matières premières (14 %), tandis que les **actions** sont son seul marché viable (44 %).\n\n1. **Meilleur/marché pire** : Il performe mieux sur les **actions** (liquidité élevée, tendances structurées) et pire sur la **crypto** (volatilité extrême, absence "
+    },
+    {
+      "date": "2026-07-11 02:12",
+      "cycle": 20,
+      "analyse": "L'agent de trading IA est **globalement inefficace** (win rate moyen de ~22 %) et doit être ** sospendu** jusqu'à correction.\n\n1. **Performances par marché** : L'agent perfore le mieux en **actions** (44 %) et **forex** (30 %), mais est catastrophique en **crypto** (0 %) et **matières premières** (14 %). Cela suggère une incapacité à gérer la volatilité extrême (crypto) et les cycles de commoditie"
+    },
+    {
+      "date": "2026-07-11 02:16",
+      "cycle": 20,
+      "analyse": "L'agent est **globalement défaillant**, avec un win rate inférieur à 50% sur tous les marchés et un **0% en crypto** (0G/4P).\n\n1.  **Performances :** Il performe mieux en **actions** (40%) et pire en **crypto** (0%) et **matières premières** (12%). Les matières premières, souvent volatiles et non directionnelles, semblent écraser sa logique, tandis que les actions offrent une structure de tendance"
+    },
+    {
+      "date": "2026-07-11 08:15",
+      "cycle": 21,
+      "analyse": "L'agent de trading IA est **globalement inefficace**, avec un taux de réussite moyen de **21 %** et une perte nette de 10 trades sur 5 marchés [1].\n\n1. **Performances par marché** : L'agent performe le mieux sur les **indices (33 %)** et les **actions (30 %)**, probablemente grâce à une volatilité plus prévisible. Il échoue totalement sur les **crypto (0 %)** et s'effondre sur les **matières premi"
+    },
+    {
+      "date": "2026-07-11 08:18",
+      "cycle": 22,
+      "analyse": "L'agent IA est **globalement défaillant** (win rate total de 30% sur 27 trades), avec une fragilité critique sur les crypto (0%) et matières (10%).\n\n1. **Marchés :** Il performe mieux sur **actions et indices** (40%), probablement grâce à des tendances plus structurées, et pire sur **crypto** (manque de signal) et **matières** (volatilité non capturée).\n2. **Stratégies :** Les performances suggère"
+    }
+  ],
+  "ajustements": [
+    {
+      "date": "2026-07-09 07:38",
+      "contenu": "actions: SOUS-PERFORMANT (0%) - changer d'approche | matieres: SOUS-PERFORMANT (0%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-09 07:39",
+      "contenu": "actions: SOUS-PERFORMANT (0%) - changer d'approche | matieres: SOUS-PERFORMANT (0%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-09 13:42",
+      "contenu": "actions: SOUS-PERFORMANT (0%) - changer d'approche | matieres: SOUS-PERFORMANT (0%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-09 13:44",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | actions: SOUS-PERFORMANT (0%) - changer d'approche | matieres: SOUS-PERFORMANT (0%) - changer d'approche | indices: SOUS-PERFORMANT (25%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-09 19:49",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | actions: SOUS-PERFORMANT (0%) - changer d'approche | matieres: SOUS-PERFORMANT (0%) - changer d'approche | indices: SOUS-PERFORMANT (20%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-09 19:52",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | actions: SOUS-PERFORMANT (0%) - changer d'approche | matieres: SOUS-PERFORMANT (0%) - changer d'approche | indices: SOUS-PERFORMANT (20%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-09 23:11",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | actions: SOUS-PERFORMANT (0%) - changer d'approche | matieres: SOUS-PERFORMANT (0%) - changer d'approche | indices: SOUS-PERFORMANT (0%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-09 23:26",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | matieres: SOUS-PERFORMANT (0%) - changer d'approche | indices: SOUS-PERFORMANT (20%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-10 01:57",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | forex: SOUS-PERFORMANT (25%) - changer d'approche | actions: SOUS-PERFORMANT (25%) - changer d'approche | indices: SOUS-PERFORMANT (20%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-10 01:59",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | forex: SOUS-PERFORMANT (25%) - changer d'approche | actions: SOUS-PERFORMANT (25%) - changer d'approche | indices: SOUS-PERFORMANT (20%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-10 08:00",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | forex: SOUS-PERFORMANT (20%) - changer d'approche | actions: SOUS-PERFORMANT (25%) - changer d'approche | indices: SOUS-PERFORMANT (20%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-10 08:02",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | forex: SOUS-PERFORMANT (17%) - changer d'approche | matieres: SOUS-PERFORMANT (0%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-10 14:02",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | forex: SOUS-PERFORMANT (14%) - changer d'approche | matieres: SOUS-PERFORMANT (0%) - changer d'approche | indices: SOUS-PERFORMANT (29%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-10 14:05",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | forex: SOUS-PERFORMANT (25%) - changer d'approche | actions: SOUS-PERFORMANT (29%) - changer d'approche | matieres: SOUS-PERFORMANT (0%) - changer d'approche | indices: SOUS-PERFORMANT (29%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-10 20:07",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | forex: SOUS-PERFORMANT (20%) - changer d'approche | matieres: SOUS-PERFORMANT (14%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-10 20:10",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | forex: SOUS-PERFORMANT (20%) - changer d'approche | matieres: SOUS-PERFORMANT (14%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-11 02:12",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | forex: SOUS-PERFORMANT (30%) - changer d'approche | matieres: SOUS-PERFORMANT (14%) - changer d'approche | indices: SOUS-PERFORMANT (22%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-11 02:16",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | forex: SOUS-PERFORMANT (27%) - changer d'approche | matieres: SOUS-PERFORMANT (12%) - changer d'approche | indices: SOUS-PERFORMANT (30%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-11 08:15",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | forex: SOUS-PERFORMANT (18%) - changer d'approche | actions: SOUS-PERFORMANT (30%) - changer d'approche | matieres: SOUS-PERFORMANT (11%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-11 08:18",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | forex: SOUS-PERFORMANT (20%) - changer d'approche | matieres: SOUS-PERFORMANT (10%) - changer d'approche"
+    }
+  ]
+}

@@ -1,0 +1,884 @@
+{
+  "BTCUSDT": {
+    "marche": "crypto",
+    "bougies": 365,
+    "precision_walk_forward": 51.0,
+    "details": {
+      "precision_moyenne": 51.0,
+      "details": [
+        {
+          "split": 1,
+          "train": 60,
+          "test": 60,
+          "precision": 51.7
+        },
+        {
+          "split": 2,
+          "train": 120,
+          "test": 60,
+          "precision": 48.3
+        },
+        {
+          "split": 3,
+          "train": 180,
+          "test": 60,
+          "precision": 56.7
+        },
+        {
+          "split": 4,
+          "train": 240,
+          "test": 60,
+          "precision": 45.0
+        },
+        {
+          "split": 5,
+          "train": 300,
+          "test": 60,
+          "precision": 53.3
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:46",
+    "n_features": 22
+  },
+  "ETHUSDT": {
+    "marche": "crypto",
+    "bougies": 365,
+    "precision_walk_forward": 49.0,
+    "details": {
+      "precision_moyenne": 49.0,
+      "details": [
+        {
+          "split": 1,
+          "train": 60,
+          "test": 60,
+          "precision": 46.7
+        },
+        {
+          "split": 2,
+          "train": 120,
+          "test": 60,
+          "precision": 50.0
+        },
+        {
+          "split": 3,
+          "train": 180,
+          "test": 60,
+          "precision": 53.3
+        },
+        {
+          "split": 4,
+          "train": 240,
+          "test": 60,
+          "precision": 46.7
+        },
+        {
+          "split": 5,
+          "train": 300,
+          "test": 60,
+          "precision": 48.3
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:46",
+    "n_features": 22
+  },
+  "SOLUSDT": {
+    "marche": "crypto",
+    "bougies": 365,
+    "precision_walk_forward": 47.3,
+    "details": {
+      "precision_moyenne": 47.3,
+      "details": [
+        {
+          "split": 1,
+          "train": 60,
+          "test": 60,
+          "precision": 43.3
+        },
+        {
+          "split": 2,
+          "train": 120,
+          "test": 60,
+          "precision": 53.3
+        },
+        {
+          "split": 3,
+          "train": 180,
+          "test": 60,
+          "precision": 38.3
+        },
+        {
+          "split": 4,
+          "train": 240,
+          "test": 60,
+          "precision": 45.0
+        },
+        {
+          "split": 5,
+          "train": 300,
+          "test": 60,
+          "precision": 56.7
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "BNBUSDT": {
+    "marche": "crypto",
+    "bougies": 365,
+    "precision_walk_forward": 51.3,
+    "details": {
+      "precision_moyenne": 51.3,
+      "details": [
+        {
+          "split": 1,
+          "train": 60,
+          "test": 60,
+          "precision": 50.0
+        },
+        {
+          "split": 2,
+          "train": 120,
+          "test": 60,
+          "precision": 51.7
+        },
+        {
+          "split": 3,
+          "train": 180,
+          "test": 60,
+          "precision": 51.7
+        },
+        {
+          "split": 4,
+          "train": 240,
+          "test": 60,
+          "precision": 43.3
+        },
+        {
+          "split": 5,
+          "train": 300,
+          "test": 60,
+          "precision": 60.0
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "XRPUSDT": {
+    "marche": "crypto",
+    "bougies": 365,
+    "precision_walk_forward": 59.0,
+    "details": {
+      "precision_moyenne": 59.0,
+      "details": [
+        {
+          "split": 1,
+          "train": 60,
+          "test": 60,
+          "precision": 51.7
+        },
+        {
+          "split": 2,
+          "train": 120,
+          "test": 60,
+          "precision": 68.3
+        },
+        {
+          "split": 3,
+          "train": 180,
+          "test": 60,
+          "precision": 58.3
+        },
+        {
+          "split": 4,
+          "train": 240,
+          "test": 60,
+          "precision": 51.7
+        },
+        {
+          "split": 5,
+          "train": 300,
+          "test": 60,
+          "precision": 65.0
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "EURUSD=X": {
+    "marche": "forex",
+    "bougies": 260,
+    "precision_walk_forward": 52.6,
+    "details": {
+      "precision_moyenne": 52.6,
+      "details": [
+        {
+          "split": 1,
+          "train": 43,
+          "test": 43,
+          "precision": 46.5
+        },
+        {
+          "split": 2,
+          "train": 86,
+          "test": 43,
+          "precision": 60.5
+        },
+        {
+          "split": 3,
+          "train": 129,
+          "test": 43,
+          "precision": 67.4
+        },
+        {
+          "split": 4,
+          "train": 172,
+          "test": 43,
+          "precision": 48.8
+        },
+        {
+          "split": 5,
+          "train": 215,
+          "test": 43,
+          "precision": 39.5
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "GBPUSD=X": {
+    "marche": "forex",
+    "bougies": 260,
+    "precision_walk_forward": 50.2,
+    "details": {
+      "precision_moyenne": 50.2,
+      "details": [
+        {
+          "split": 1,
+          "train": 43,
+          "test": 43,
+          "precision": 41.9
+        },
+        {
+          "split": 2,
+          "train": 86,
+          "test": 43,
+          "precision": 46.5
+        },
+        {
+          "split": 3,
+          "train": 129,
+          "test": 43,
+          "precision": 39.5
+        },
+        {
+          "split": 4,
+          "train": 172,
+          "test": 43,
+          "precision": 72.1
+        },
+        {
+          "split": 5,
+          "train": 215,
+          "test": 43,
+          "precision": 51.2
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "JPY=X": {
+    "marche": "forex",
+    "bougies": 260,
+    "precision_walk_forward": 55.3,
+    "details": {
+      "precision_moyenne": 55.3,
+      "details": [
+        {
+          "split": 1,
+          "train": 43,
+          "test": 43,
+          "precision": 55.8
+        },
+        {
+          "split": 2,
+          "train": 86,
+          "test": 43,
+          "precision": 41.9
+        },
+        {
+          "split": 3,
+          "train": 129,
+          "test": 43,
+          "precision": 51.2
+        },
+        {
+          "split": 4,
+          "train": 172,
+          "test": 43,
+          "precision": 67.4
+        },
+        {
+          "split": 5,
+          "train": 215,
+          "test": 43,
+          "precision": 60.5
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "GC=F": {
+    "marche": "forex",
+    "bougies": 252,
+    "precision_walk_forward": 54.6,
+    "details": {
+      "precision_moyenne": 54.6,
+      "details": [
+        {
+          "split": 1,
+          "train": 41,
+          "test": 41,
+          "precision": 68.3
+        },
+        {
+          "split": 2,
+          "train": 82,
+          "test": 41,
+          "precision": 58.5
+        },
+        {
+          "split": 3,
+          "train": 123,
+          "test": 41,
+          "precision": 65.9
+        },
+        {
+          "split": 4,
+          "train": 164,
+          "test": 41,
+          "precision": 41.5
+        },
+        {
+          "split": 5,
+          "train": 205,
+          "test": 41,
+          "precision": 39.0
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "AAPL": {
+    "marche": "actions",
+    "bougies": 251,
+    "precision_walk_forward": 51.7,
+    "details": {
+      "precision_moyenne": 51.7,
+      "details": [
+        {
+          "split": 1,
+          "train": 41,
+          "test": 41,
+          "precision": 51.2
+        },
+        {
+          "split": 2,
+          "train": 82,
+          "test": 41,
+          "precision": 51.2
+        },
+        {
+          "split": 3,
+          "train": 123,
+          "test": 41,
+          "precision": 48.8
+        },
+        {
+          "split": 4,
+          "train": 164,
+          "test": 41,
+          "precision": 58.5
+        },
+        {
+          "split": 5,
+          "train": 205,
+          "test": 41,
+          "precision": 48.8
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "TSLA": {
+    "marche": "actions",
+    "bougies": 251,
+    "precision_walk_forward": 52.2,
+    "details": {
+      "precision_moyenne": 52.2,
+      "details": [
+        {
+          "split": 1,
+          "train": 41,
+          "test": 41,
+          "precision": 43.9
+        },
+        {
+          "split": 2,
+          "train": 82,
+          "test": 41,
+          "precision": 56.1
+        },
+        {
+          "split": 3,
+          "train": 123,
+          "test": 41,
+          "precision": 53.7
+        },
+        {
+          "split": 4,
+          "train": 164,
+          "test": 41,
+          "precision": 53.7
+        },
+        {
+          "split": 5,
+          "train": 205,
+          "test": 41,
+          "precision": 53.7
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "NVDA": {
+    "marche": "actions",
+    "bougies": 251,
+    "precision_walk_forward": 50.2,
+    "details": {
+      "precision_moyenne": 50.2,
+      "details": [
+        {
+          "split": 1,
+          "train": 41,
+          "test": 41,
+          "precision": 56.1
+        },
+        {
+          "split": 2,
+          "train": 82,
+          "test": 41,
+          "precision": 53.7
+        },
+        {
+          "split": 3,
+          "train": 123,
+          "test": 41,
+          "precision": 56.1
+        },
+        {
+          "split": 4,
+          "train": 164,
+          "test": 41,
+          "precision": 39.0
+        },
+        {
+          "split": 5,
+          "train": 205,
+          "test": 41,
+          "precision": 46.3
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "MSFT": {
+    "marche": "actions",
+    "bougies": 251,
+    "precision_walk_forward": 47.8,
+    "details": {
+      "precision_moyenne": 47.8,
+      "details": [
+        {
+          "split": 1,
+          "train": 41,
+          "test": 41,
+          "precision": 51.2
+        },
+        {
+          "split": 2,
+          "train": 82,
+          "test": 41,
+          "precision": 56.1
+        },
+        {
+          "split": 3,
+          "train": 123,
+          "test": 41,
+          "precision": 36.6
+        },
+        {
+          "split": 4,
+          "train": 164,
+          "test": 41,
+          "precision": 36.6
+        },
+        {
+          "split": 5,
+          "train": 205,
+          "test": 41,
+          "precision": 58.5
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "BZ=F": {
+    "marche": "matieres",
+    "bougies": 252,
+    "precision_walk_forward": 51.7,
+    "details": {
+      "precision_moyenne": 51.7,
+      "details": [
+        {
+          "split": 1,
+          "train": 41,
+          "test": 41,
+          "precision": 43.9
+        },
+        {
+          "split": 2,
+          "train": 82,
+          "test": 41,
+          "precision": 63.4
+        },
+        {
+          "split": 3,
+          "train": 123,
+          "test": 41,
+          "precision": 39.0
+        },
+        {
+          "split": 4,
+          "train": 164,
+          "test": 41,
+          "precision": 70.7
+        },
+        {
+          "split": 5,
+          "train": 205,
+          "test": 41,
+          "precision": 41.5
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "NG=F": {
+    "marche": "matieres",
+    "bougies": 252,
+    "precision_walk_forward": 51.7,
+    "details": {
+      "precision_moyenne": 51.7,
+      "details": [
+        {
+          "split": 1,
+          "train": 41,
+          "test": 41,
+          "precision": 53.7
+        },
+        {
+          "split": 2,
+          "train": 82,
+          "test": 41,
+          "precision": 39.0
+        },
+        {
+          "split": 3,
+          "train": 123,
+          "test": 41,
+          "precision": 46.3
+        },
+        {
+          "split": 4,
+          "train": 164,
+          "test": 41,
+          "precision": 61.0
+        },
+        {
+          "split": 5,
+          "train": 205,
+          "test": 41,
+          "precision": 58.5
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "HG=F": {
+    "marche": "matieres",
+    "bougies": 252,
+    "precision_walk_forward": 54.1,
+    "details": {
+      "precision_moyenne": 54.1,
+      "details": [
+        {
+          "split": 1,
+          "train": 41,
+          "test": 41,
+          "precision": 48.8
+        },
+        {
+          "split": 2,
+          "train": 82,
+          "test": 41,
+          "precision": 48.8
+        },
+        {
+          "split": 3,
+          "train": 123,
+          "test": 41,
+          "precision": 63.4
+        },
+        {
+          "split": 4,
+          "train": 164,
+          "test": 41,
+          "precision": 53.7
+        },
+        {
+          "split": 5,
+          "train": 205,
+          "test": 41,
+          "precision": 56.1
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "ZW=F": {
+    "marche": "matieres",
+    "bougies": 252,
+    "precision_walk_forward": 52.7,
+    "details": {
+      "precision_moyenne": 52.7,
+      "details": [
+        {
+          "split": 1,
+          "train": 41,
+          "test": 41,
+          "precision": 56.1
+        },
+        {
+          "split": 2,
+          "train": 82,
+          "test": 41,
+          "precision": 56.1
+        },
+        {
+          "split": 3,
+          "train": 123,
+          "test": 41,
+          "precision": 58.5
+        },
+        {
+          "split": 4,
+          "train": 164,
+          "test": 41,
+          "precision": 46.3
+        },
+        {
+          "split": 5,
+          "train": 205,
+          "test": 41,
+          "precision": 46.3
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "^GSPC": {
+    "marche": "indices",
+    "bougies": 251,
+    "precision_walk_forward": 53.7,
+    "details": {
+      "precision_moyenne": 53.7,
+      "details": [
+        {
+          "split": 1,
+          "train": 41,
+          "test": 41,
+          "precision": 53.7
+        },
+        {
+          "split": 2,
+          "train": 82,
+          "test": 41,
+          "precision": 56.1
+        },
+        {
+          "split": 3,
+          "train": 123,
+          "test": 41,
+          "precision": 53.7
+        },
+        {
+          "split": 4,
+          "train": 164,
+          "test": 41,
+          "precision": 48.8
+        },
+        {
+          "split": 5,
+          "train": 205,
+          "test": 41,
+          "precision": 56.1
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "^IXIC": {
+    "marche": "indices",
+    "bougies": 251,
+    "precision_walk_forward": 53.7,
+    "details": {
+      "precision_moyenne": 53.7,
+      "details": [
+        {
+          "split": 1,
+          "train": 41,
+          "test": 41,
+          "precision": 53.7
+        },
+        {
+          "split": 2,
+          "train": 82,
+          "test": 41,
+          "precision": 53.7
+        },
+        {
+          "split": 3,
+          "train": 123,
+          "test": 41,
+          "precision": 51.2
+        },
+        {
+          "split": 4,
+          "train": 164,
+          "test": 41,
+          "precision": 65.9
+        },
+        {
+          "split": 5,
+          "train": 205,
+          "test": 41,
+          "precision": 43.9
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "^GDAXI": {
+    "marche": "indices",
+    "bougies": 254,
+    "precision_walk_forward": 46.2,
+    "details": {
+      "precision_moyenne": 46.2,
+      "details": [
+        {
+          "split": 1,
+          "train": 42,
+          "test": 42,
+          "precision": 57.1
+        },
+        {
+          "split": 2,
+          "train": 84,
+          "test": 42,
+          "precision": 38.1
+        },
+        {
+          "split": 3,
+          "train": 126,
+          "test": 42,
+          "precision": 42.9
+        },
+        {
+          "split": 4,
+          "train": 168,
+          "test": 42,
+          "precision": 38.1
+        },
+        {
+          "split": 5,
+          "train": 210,
+          "test": 42,
+          "precision": 54.8
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  },
+  "^FCHI": {
+    "marche": "indices",
+    "bougies": 256,
+    "precision_walk_forward": 51.9,
+    "details": {
+      "precision_moyenne": 51.9,
+      "details": [
+        {
+          "split": 1,
+          "train": 42,
+          "test": 42,
+          "precision": 47.6
+        },
+        {
+          "split": 2,
+          "train": 84,
+          "test": 42,
+          "precision": 52.4
+        },
+        {
+          "split": 3,
+          "train": 126,
+          "test": 42,
+          "precision": 54.8
+        },
+        {
+          "split": 4,
+          "train": 168,
+          "test": 42,
+          "precision": 54.8
+        },
+        {
+          "split": 5,
+          "train": 210,
+          "test": 42,
+          "precision": 50.0
+        }
+      ]
+    },
+    "date_entrainement": "2026-07-10 00:47",
+    "n_features": 22
+  }
+}

@@ -1,0 +1,127 @@
+[
+  {
+    "symbole": "BTCUSDT",
+    "prix": 62996.47,
+    "intervalle": "4h",
+    "indicateurs": {
+      "RSI": 46.36567259350528,
+      "SMA20": 62979.326,
+      "SMA50": 62372.1834,
+      "MACD": 13.187481513552484,
+      "MACD_signal": 85.09445260647973,
+      "MACD_histo": -71.90697109292725,
+      "BB_milieu": 62979.326,
+      "BB_haut": 64277.22812414342,
+      "BB_bas": 61681.423875856584
+    },
+    "signaux": [
+      "SMA: tendance haussiere (SMA20 > SMA50)",
+      "RSI: neutre (46.4)",
+      "MACD: momentum negatif (croisement baissier)",
+      "Bollinger: dans les bandes normales"
+    ],
+    "score": 0,
+    "verdict": "NEUTRE",
+    "date": "2026-07-09 15:52"
+  },
+  {
+    "symbole": "ETHUSDT",
+    "prix": 1741.54,
+    "intervalle": "4h",
+    "indicateurs": {
+      "RSI": 42.18412986718129,
+      "SMA20": 1762.8465,
+      "SMA50": 1738.0027999999993,
+      "MACD": -1.7379382746350984,
+      "MACD_signal": 3.7725943663037333,
+      "MACD_histo": -5.510532640938832,
+      "BB_milieu": 1762.8465,
+      "BB_haut": 1807.9517073601264,
+      "BB_bas": 1717.7412926398738
+    },
+    "signaux": [
+      "SMA: tendance haussiere (SMA20 > SMA50)",
+      "RSI: neutre (42.2)",
+      "MACD: momentum negatif (croisement baissier)",
+      "Bollinger: dans les bandes normales"
+    ],
+    "score": 0,
+    "verdict": "NEUTRE",
+    "date": "2026-07-09 15:52"
+  },
+  {
+    "symbole": "BNBUSDT",
+    "prix": 571.3,
+    "intervalle": "4h",
+    "indicateurs": {
+      "RSI": 39.255537794016895,
+      "SMA20": 574.9725,
+      "SMA50": 570.8288000000002,
+      "MACD": -1.4651323634496976,
+      "MACD_signal": -0.5907227697213338,
+      "MACD_histo": -0.8744095937283638,
+      "BB_milieu": 574.9725,
+      "BB_haut": 589.6028750806328,
+      "BB_bas": 560.3421249193672
+    },
+    "signaux": [
+      "SMA: tendance haussiere (SMA20 > SMA50)",
+      "RSI: neutre (39.3)",
+      "MACD: momentum negatif (croisement baissier)",
+      "Bollinger: dans les bandes normales"
+    ],
+    "score": 0,
+    "verdict": "NEUTRE",
+    "date": "2026-07-09 15:52"
+  },
+  {
+    "symbole": "SOLUSDT",
+    "prix": 77.72,
+    "intervalle": "4h",
+    "indicateurs": {
+      "RSI": 32.34086242299797,
+      "SMA20": 79.566,
+      "SMA50": 80.19540000000002,
+      "MACD": -0.7971018917834698,
+      "MACD_signal": -0.5280446558089791,
+      "MACD_histo": -0.2690572359744907,
+      "BB_milieu": 79.566,
+      "BB_haut": 83.35745038210973,
+      "BB_bas": 75.77454961789027
+    },
+    "signaux": [
+      "SMA: tendance baissiere (SMA20 < SMA50)",
+      "RSI: neutre (32.3)",
+      "MACD: momentum negatif (croisement baissier)",
+      "Bollinger: dans les bandes normales"
+    ],
+    "score": -2,
+    "verdict": "VENTE",
+    "date": "2026-07-09 15:52"
+  },
+  {
+    "symbole": "XRPUSDT",
+    "prix": 1.0911,
+    "intervalle": "4h",
+    "indicateurs": {
+      "RSI": 32.62135922330097,
+      "SMA20": 1.1111299999999997,
+      "SMA50": 1.1130740000000001,
+      "MACD": -0.00932719045981334,
+      "MACD_signal": -0.006754810604884914,
+      "MACD_histo": -0.0025723798549284254,
+      "BB_milieu": 1.1111299999999997,
+      "BB_haut": 1.1566214541425088,
+      "BB_bas": 1.0656385458574906
+    },
+    "signaux": [
+      "SMA: tendance baissiere (SMA20 < SMA50)",
+      "RSI: neutre (32.6)",
+      "MACD: momentum negatif (croisement baissier)",
+      "Bollinger: dans les bandes normales"
+    ],
+    "score": -2,
+    "verdict": "VENTE",
+    "date": "2026-07-09 15:52"
+  }
+]

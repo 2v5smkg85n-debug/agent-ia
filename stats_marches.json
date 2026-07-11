@@ -1,0 +1,37 @@
+{
+  "crypto": {
+    "total": 10,
+    "gagnes": 0,
+    "perdus": 4,
+    "win_rate": 0.0,
+    "derniere_maj": "2026-07-11 08:18"
+  },
+  "forex": {
+    "total": 10,
+    "gagnes": 2,
+    "perdus": 1,
+    "win_rate": 0.2,
+    "derniere_maj": "2026-07-11 08:18"
+  },
+  "actions": {
+    "total": 10,
+    "gagnes": 4,
+    "perdus": 3,
+    "win_rate": 0.4,
+    "derniere_maj": "2026-07-11 08:18"
+  },
+  "matieres": {
+    "total": 10,
+    "gagnes": 1,
+    "perdus": 8,
+    "win_rate": 0.1,
+    "derniere_maj": "2026-07-11 08:18"
+  },
+  "indices": {
+    "total": 10,
+    "gagnes": 4,
+    "perdus": 4,
+    "win_rate": 0.4,
+    "derniere_maj": "2026-07-11 08:18"
+  }
+}
