@@ -1,65 +1,5 @@
 [
   {
-    "date": "2026-07-09 01:28",
-    "type": "generation",
-    "marche": "actions",
-    "strategie": "# Stratégie de Trading - AAPL (Actions Tech US)\n\n⚠️ **Avertissement préalable** : Je n'ai des données fiables que pour AAPL (310.66, -0.64%). TSLA, NVDA, MSFT sont indisponibles dans mon flux actuel —"
-  },
-  {
-    "date": "2026-07-09 01:28",
-    "type": "generation",
-    "marche": "actions",
-    "strategie": "# ⚠️ Avertissement préalable important\n\nAvant la stratégie, je dois être transparent sur les limites des données fournies :\n\n- **TSLA, NVDA, MSFT : aucune donnée disponible** — je ne peux pas construi"
-  },
-  {
-    "date": "2026-07-09 01:29",
-    "type": "generation",
-    "marche": "matieres",
-    "strategie": "TYPE: [trend following]\nENTREE: [Achat du pétrole **PETROLE_BRENT** uniquement si le prix dépasse 79,50 $ (confirmant la rupture de la résistance immédiate) avec un MACD haussier en D1][1]\nSORTIE: [Ve"
-  },
-  {
-    "date": "2026-07-09 01:29",
-    "type": "generation",
-    "marche": "matieres",
-    "strategie": "TYPE: [trend following]\nENTREE: [Acheter du pétrole Brent uniquement si le prix fracture 79.50 $ avec un volume supérieur à 10% de la moyenne, ou si le RSI (14) confirme une sortie de la zone de surve"
-  },
-  {
-    "date": "2026-07-09 01:30",
-    "type": "generation",
-    "marche": "indices",
-    "strategie": "TYPE: [trend following]\nENTREE: [Achat lorsque le prix du SP500 clôture au-dessus de sa moyenne mobile 50 avec un RSI > 55, et confirmation par une bougie de consolidation (pullback) touchant la moyen"
-  },
-  {
-    "date": "2026-07-09 01:30",
-    "type": "generation",
-    "marche": "indices",
-    "strategie": "TYPE: [trend following]\n\nENTREE: [Acheter uniquement si le SP500 dépasse 7 500,00 USD (seuil de cassure haussière) ET que la moyenne mobile 50 jours est supérieure à la moyenne mobile 200 jours (confi"
-  },
-  {
-    "date": "2026-07-09 07:33",
-    "type": "generation",
-    "marche": "crypto",
-    "strategie": "TYPE: [grid trading]\n\nENTREE: [Activer un bot de grille nécessaire au prix actuel de Bitcoin (BTCUSDT) à 62866,42$ ; placer des ordres d'achat (longs) à 62500$, 62000$, 61544,56$ (bas 24h) et des ordr"
-  },
-  {
-    "date": "2026-07-09 07:33",
-    "type": "generation",
-    "marche": "crypto",
-    "strategie": "TYPE: [grid trading]\nENTREE: [Déclencher un bot de grille centralisé sur BTCUSDT avec le prix actuel de 62847,16$ comme centre. Placer 10 ordres d'achat (long) espacés de 2% (environ 1256$) en dessous"
-  },
-  {
-    "date": "2026-07-09 07:33",
-    "type": "generation",
-    "marche": "forex",
-    "strategie": "TYPE: [trend following]\nENTREE: [Achat d'EUR/USD si la clôture de la barre H4 est supérieure à l'EMA(70) et si l'EMA(21) est inférieure à l'EMA(70), avec un histogramme AO vert et haussier (seuil actu"
-  },
-  {
-    "date": "2026-07-09 07:34",
-    "type": "generation",
-    "marche": "forex",
-    "strategie": "TYPE: trend following\n\nENTREE: **Acheter** (long) EUR/USD si le prix dépasse **1,1445** (brouture de la zone haute actuelle 1,1417–1,1443) avec une confirmation de la **moyenne mobile 200 périodes** o"
-  },
-  {
     "date": "2026-07-09 07:34",
     "type": "generation",
     "marche": "actions",
@@ -598,5 +538,65 @@
     "type": "generation",
     "marche": "indices",
     "strategie": "TYPE: [Trend Following (Cassure avec confirmation Ichimoku multi-timeframe)]\n\nENTREE: [Achat sur le Future S&P500 uniquement si : 1) Le prix clôture au-dessus du nuage Keltner (Senkou Span B) sur le g"
+  },
+  {
+    "date": "2026-07-11 14:15",
+    "type": "generation",
+    "marche": "crypto",
+    "strategie": "TYPE: Trend Following (Suivi de tendance) avec confirmation de cassure et filtre de moyenne mobile\n\nENTREE: \n- Actif prioritaire : **Bitcoin (BTCUSDT)** (volume 24h > 780M$, tendance la plus stable).\n"
+  },
+  {
+    "date": "2026-07-11 14:15",
+    "type": "generation",
+    "marche": "forex",
+    "strategie": "TYPE: [Trend Following avec confirmation de cassure de support et rebond sur moyenne mobile]\n\nENTREE: [Achat (BUY) si le prix de l'EUR/USD casse en clôture de bougie 4H sous le niveau **1.1470** (Supp"
+  },
+  {
+    "date": "2026-07-11 14:15",
+    "type": "generation",
+    "marche": "actions",
+    "strategie": "TYPE: Trend Following (Breakout avec confirmation de tendance)\n\nENTREE: Acheter **NVDA** (ou le leader du groupe Big Tech le plus fort sur 5 jours) uniquement si le cours clôture au-dessus de **225,00"
+  },
+  {
+    "date": "2026-07-11 14:15",
+    "type": "generation",
+    "marche": "matieres",
+    "strategie": "TYPE: Breakout avec confirmation de tendance (Trend Following)\nENTREE: Achat de contrats GAZ (Naturel) uniquement si le prix casse et clôture au-dessus de **3,050 $** (résistance immédiate + 2,6% de r"
+  },
+  {
+    "date": "2026-07-11 14:16",
+    "type": "generation",
+    "marche": "indices",
+    "strategie": "TYPE: [Trend Following avec confirmation de cassure et filtre de tendance]\n\nENTREE: [Achat sur le NASDAQ (IXIC) uniquement si : 1) Le prix de clôture > 20 030 (au-dessus du haut de la journée précéden"
+  },
+  {
+    "date": "2026-07-11 20:17",
+    "type": "generation",
+    "marche": "crypto",
+    "strategie": "TYPE: Suivi de tendance avec confirmation de momentum (Trend Following + Momentum)\n\nENTREE: Achat sur **Bitcoin (BTCUSDT)** uniquement si :\n1. Le prix clôture au-dessus du **plus haut des 24h (64 504,"
+  },
+  {
+    "date": "2026-07-11 20:18",
+    "type": "generation",
+    "marche": "forex",
+    "strategie": "TYPE: [Breakout avec confirmation de tendance et filtrage macro (DXY)]\n\nENTREE: [Achat uniquement si : 1) Le DXY (indice dollar) est en baisse ou touche une résistance majeure (ex: cassure haussière d"
+  },
+  {
+    "date": "2026-07-11 20:18",
+    "type": "generation",
+    "marche": "actions",
+    "strategie": "TYPE: Trend Following breakout avec confirmation de tendance (EMA + ATR)\n\nENTREE: Acheter AAPL uniquement si le prix casse le **plus haut de la journée précédente** (ou le haut du range de 5 jours) ET"
+  },
+  {
+    "date": "2026-07-11 20:18",
+    "type": "generation",
+    "marche": "matieres",
+    "strategie": "TYPE: [Breakout avec confirmation de tendance]\n\nENTREE: [Achat de contrats à terme ou CFD sur le **Gaz Naturel (XNGUSD)** uniquement si le prix casse et clôture au-dessus de **3,05 $** (résistance imm"
+  },
+  {
+    "date": "2026-07-11 20:18",
+    "type": "generation",
+    "marche": "indices",
+    "strategie": "TYPE: Trend Following avec confirmation de cassure (Breakout)\n\nENTREE: Achat sur le S&P 500 (ETF SPY ou futures US500) lorsque :\n1. Le prix clôture > SMA(20) ET > SMA(50) (tendance haussière courte et"
   }
 ]

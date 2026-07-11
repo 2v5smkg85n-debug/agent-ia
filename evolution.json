@@ -1,17 +1,7 @@
 {
-  "cycles": 22,
+  "cycles": 24,
   "date_creation": "2026-07-09 01:26",
   "historique_performance": [
-    {
-      "date": "2026-07-09 07:38",
-      "cycle": 4,
-      "analyse": "# Analyse Meta - Performance Agent Trading\n\n**1. Marchés forts/faibles**\n- **Meilleurs**: Crypto et Forex (50% WR) — marchés liquides avec mouvements directionnels clairs, propices aux seuils d'entrée bien calibrés.\n- **Pires**: Matières premières (0G/1P) et Actions (aucun trade exécuté) — soit mauvaise lecture des conditions, soit seuils mal calibrés empêchant l'activation.\n- **Indices**: WR affi"
-    },
-    {
-      "date": "2026-07-09 07:39",
-      "cycle": 4,
-      "analyse": "# Analyse des performances de l'agent IA\n\n**1. Marchés — meilleur/pire:**\nÉchantillon trop faible pour conclure statistiquement (2 trades gagnants/perdants total sur 5 marchés). Indices semble positif (1G/0P) mais sur une seule donnée. Forex et matières sont perdants (0G/1P chacun). Crypto et actions : aucune donnée exploitable (inactivité totale).\n\n**2. Stratégies efficaces:**\nImpossible à déterm"
-    },
     {
       "date": "2026-07-09 13:42",
       "cycle": 6,
@@ -101,17 +91,19 @@
       "date": "2026-07-11 08:18",
       "cycle": 22,
       "analyse": "L'agent IA est **globalement défaillant** (win rate total de 30% sur 27 trades), avec une fragilité critique sur les crypto (0%) et matières (10%).\n\n1. **Marchés :** Il performe mieux sur **actions et indices** (40%), probablement grâce à des tendances plus structurées, et pire sur **crypto** (manque de signal) et **matières** (volatilité non capturée).\n2. **Stratégies :** Les performances suggère"
+    },
+    {
+      "date": "2026-07-11 14:17",
+      "cycle": 23,
+      "analyse": "L'agent est **globalement inefficace** (taux de réussite global de 25 % sur 23 trades) et performe **uniquement sur les actions et les indices** (40 %), tandis qu'il est **catastrophique sur les crypto (0 %) et les matières premières (10 %)** [1].\n\n1. **Performances :** Les marchés \"traditionnels\" (actions, indices) semblent mieux adaptés à sa logique, probablement car ils sont moins bruités que l"
+    },
+    {
+      "date": "2026-07-11 20:20",
+      "cycle": 24,
+      "analyse": "L'agent est **globalement défaillant** (taux de réussite global de 23 %), performant uniquement sur les **indices** (50 %) et catastrophique sur les **crypto** (0 %) et **matières** (10 %).\n\n1. **Performances par marché** : Les indices, souvent plus tendances et moins volatils, confirment une stratégie de **trend following** ou **breakout** efficace. Les crypto (0 %) et matières (10 %) suggèrent u"
     }
   ],
   "ajustements": [
-    {
-      "date": "2026-07-09 07:38",
-      "contenu": "actions: SOUS-PERFORMANT (0%) - changer d'approche | matieres: SOUS-PERFORMANT (0%) - changer d'approche"
-    },
-    {
-      "date": "2026-07-09 07:39",
-      "contenu": "actions: SOUS-PERFORMANT (0%) - changer d'approche | matieres: SOUS-PERFORMANT (0%) - changer d'approche"
-    },
     {
       "date": "2026-07-09 13:42",
       "contenu": "actions: SOUS-PERFORMANT (0%) - changer d'approche | matieres: SOUS-PERFORMANT (0%) - changer d'approche"
@@ -183,6 +175,14 @@
     {
       "date": "2026-07-11 08:18",
       "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | forex: SOUS-PERFORMANT (20%) - changer d'approche | matieres: SOUS-PERFORMANT (10%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-11 14:17",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | forex: SOUS-PERFORMANT (20%) - changer d'approche | matieres: SOUS-PERFORMANT (10%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-11 20:20",
+      "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | forex: SOUS-PERFORMANT (20%) - changer d'approche | actions: SOUS-PERFORMANT (30%) - changer d'approche | matieres: SOUS-PERFORMANT (10%) - changer d'approche"
     }
   ]
 }
