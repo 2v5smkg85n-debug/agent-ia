@@ -1,12 +1,7 @@
 {
-  "cycles": 24,
+  "cycles": 25,
   "date_creation": "2026-07-09 01:26",
   "historique_performance": [
-    {
-      "date": "2026-07-09 13:42",
-      "cycle": 6,
-      "analyse": "# Analyse Meta - Performance Agent Trading\n\n## 1. Marchés\n**Meilleur** : Indices (1G/0P, 33% winrate) — seul marché avec un trade gagnant.\n**Pires** : Crypto, Forex, Actions (0 trades exécutés) et Matières premières (1G/0P... attends, 0 gains/1 perte = 0%).\n**Constat critique** : L'échantillon est trop faible pour tirer des conclusions fiables. L'absence totale de trades sur 3 marchés suggère soit"
-    },
     {
       "date": "2026-07-09 13:44",
       "cycle": 6,
@@ -101,13 +96,14 @@
       "date": "2026-07-11 20:20",
       "cycle": 24,
       "analyse": "L'agent est **globalement défaillant** (taux de réussite global de 23 %), performant uniquement sur les **indices** (50 %) et catastrophique sur les **crypto** (0 %) et **matières** (10 %).\n\n1. **Performances par marché** : Les indices, souvent plus tendances et moins volatils, confirment une stratégie de **trend following** ou **breakout** efficace. Les crypto (0 %) et matières (10 %) suggèrent u"
+    },
+    {
+      "date": "2026-07-12 02:24",
+      "cycle": 25,
+      "analyse": "L'agent performe **uniquement sur les indices** (50 % de win rate), où il semble maîtriser les stratégies de **breakout** et de **trend following**, tandis qu'il est **catastrophique sur les matières premières** (10 %) et la **crypto** (10 %), probablement en raison d'une volatilité mal gérée ou de l'absence de confirmation de tendance.\n\nLes erreurs récurrentes sont : l'entrée sans **confirmation "
     }
   ],
   "ajustements": [
-    {
-      "date": "2026-07-09 13:42",
-      "contenu": "actions: SOUS-PERFORMANT (0%) - changer d'approche | matieres: SOUS-PERFORMANT (0%) - changer d'approche"
-    },
     {
       "date": "2026-07-09 13:44",
       "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | actions: SOUS-PERFORMANT (0%) - changer d'approche | matieres: SOUS-PERFORMANT (0%) - changer d'approche | indices: SOUS-PERFORMANT (25%) - changer d'approche"
@@ -183,6 +179,10 @@
     {
       "date": "2026-07-11 20:20",
       "contenu": "crypto: SOUS-PERFORMANT (0%) - changer d'approche | forex: SOUS-PERFORMANT (20%) - changer d'approche | actions: SOUS-PERFORMANT (30%) - changer d'approche | matieres: SOUS-PERFORMANT (10%) - changer d'approche"
+    },
+    {
+      "date": "2026-07-12 02:24",
+      "contenu": "crypto: SOUS-PERFORMANT (10%) - changer d'approche | forex: SOUS-PERFORMANT (20%) - changer d'approche | actions: SOUS-PERFORMANT (30%) - changer d'approche | matieres: SOUS-PERFORMANT (10%) - changer d'approche"
     }
   ]
 }
