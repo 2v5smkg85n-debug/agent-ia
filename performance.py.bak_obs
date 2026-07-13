@@ -267,13 +267,10 @@ th{color:var(--muted);font-weight:600;font-size:11px}
     else:
         tt += "<p class='muted'>Aucun trade fermé</p>"
 
-    # chart + metriques + breakdown (observabilite Phase 5)
-    try:
-        import observabilite
-        chart = observabilite.render_section_obs(live["trades"], token)
-    except Exception as e:
-        chart = f"<p class='muted'>Observabilite indispo: {e}</p>"
-        chart = ""  # fallback silencieux
+    # chart
+    chart = ""
+    if live["hist"]:
+        chart = f"<h3>Évolution du capital (live)</h3>{render_chart(live['hist'])}"
 
     # BACKTESTS
     bt_html = ""

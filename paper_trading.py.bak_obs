@@ -445,8 +445,7 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
     pf.setdefault("trades_fermes", []).append(trade)
     pf["positions"].remove(position)
     # Phase 2: met a jour le pic de capital pour le drawdown scaler
-    _cap_total = pf["liquidites"] + sum(p.get("montant_eur", 0) for p in pf.get("positions", []))
-    pf["pic_capital"] = max(pf.get("pic_capital", pf.get("capital_initial", 1000.0)), _cap_total)
+    pf["pic_capital"] = max(pf.get("pic_capital", pf.get("capital_initial", 1000.0)), pf["liquidites"])
     print(f"  [{raison}] {position.get('nom',position['symbole'])} @ {prix_actuel:.2f} | var {variation:+.2f}% | gain {gain:+.2f} EUR")
     notify_ifft("Paper Trade fermeture", f"{raison} {position.get('nom','?')} var {variation:+.2f}%")
 
