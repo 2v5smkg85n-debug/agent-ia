@@ -118,6 +118,13 @@ def strategies_gagnantes_par_actif():
         sym = r.get("actif")
         if not sym:
             continue
+        # AUTO-PRUNING-INSTALLE : skip strategies desactivees en live (auto_pruning)
+        try:
+            from auto_pruning import est_desactivee
+            if est_desactivee(r.get("strategie", ""), r.get("actif", "")):
+                continue
+        except Exception:
+            pass
         gagnantes.setdefault(sym, []).append(r)
     # Trie chaque liste par retour decroissant
     for sym in gagnantes:
