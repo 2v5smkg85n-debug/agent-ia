@@ -289,17 +289,11 @@ def calculer_taille(pf, signal, prix_actuel, backtest_stats=None):
     # 2. Edge (Kelly)
     if backtest_stats:
         wr = backtest_stats.get("win_rate", 0)
+        pf_val = backtest_stats.get("profit_factor", 1.0)
         if backtest_stats.get("verdict") != "GAGNANTE":
             return 0.0, "strategie_perdante"
-        pf_val = backtest_stats.get("profit_factor")
-        if pf_val and pf_val > 0:
-            # profit_factor present (backtests_pro): ratio derive precis
-            loss_rate = (100 - wr) / 100 if wr < 100 else 0.01
-            ratio = pf_val * loss_rate / (wr / 100) if wr > 0 else 0
-        else:
-            # profit_factor absent (backtest_moteur.simuler): TP/SL symetriques
-            # +1.5%/-1.5% -> payoff ratio ~1.0 (conservateur, realiste)
-            ratio = 1.0
+        loss_rate = (100 - wr) / 100 if wr < 100 else 0.01
+        ratio = pf_val * loss_rate / (wr / 100) if wr > 0 else 0
     else:
         wr, ratio = estimer_edge(strategie, symbole)
         if not wr or not ratio or ratio <= 0:

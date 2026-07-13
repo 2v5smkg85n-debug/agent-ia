@@ -222,8 +222,6 @@ def generer_signaux_gagnants(prix_actuels, marches_paper):
                 "marche": config["marche"],
                 "source": "backtest-gagnant",
                 "score": 2,
-                "strategie": meilleure_strat.get("strategie", ""),
-                "backtest_stats": meilleure_strat,
                 "raison": (f"strategie gagnante backtest "
                            f"({meilleure_strat['strategie']} [{interv_aff}], "
                            f"retour {meilleur_retour:+.1f}%, "

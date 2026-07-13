@@ -346,7 +346,7 @@ def ouvrir_position(pf, signal, prix_actuel):
     # + vol targeting + correlation + drawdown + caps durs
     try:
         from gestion_risque import calculer_taille
-        montant, raison = calculer_taille(pf, signal, prix_actuel, signal.get("backtest_stats"))
+        montant, raison = calculer_taille(pf, signal, prix_actuel)
         if montant <= 0:
             print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> pas de trade ({raison})")
             return False

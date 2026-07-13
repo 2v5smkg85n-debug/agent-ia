@@ -1,6 +1,6 @@
 {
   "capital_initial": 1000.0,
-  "liquidites": 668.2541347926804,
+  "liquidites": 573.0041347926804,
   "positions": [
     {
       "symbole": "JPY=X",
@@ -31,6 +31,30 @@
       "montant_eur": 110.28687481270924,
       "frais_entree": 0.11028687481270924,
       "date_ouverture": "2026-07-10 04:37"
+    },
+    {
+      "symbole": "BTCUSDT",
+      "nom": "Bitcoin",
+      "marche": "crypto",
+      "prix_entree": 63032.0,
+      "quantite": 0.0010328853598172358,
+      "montant_eur": 65.17,
+      "frais_entree": 0.06517,
+      "date_ouverture": "2026-07-13 03:18",
+      "signal_raison": "strategie gagnante backtest (RSI Mean Reversion [1h], retour +9.1%, win rate 80.0%)",
+      "source": "backtest-gagnant"
+    },
+    {
+      "symbole": "SOLUSDT",
+      "nom": "Solana",
+      "marche": "crypto",
+      "prix_entree": 75.96,
+      "quantite": 0.39560189573459714,
+      "montant_eur": 30.08,
+      "frais_entree": 0.03008,
+      "date_ouverture": "2026-07-13 03:18",
+      "signal_raison": "strategie gagnante backtest (Bollinger Breakout [1h], retour +15.3%, win rate 75.0%)",
+      "source": "backtest-gagnant"
     }
   ],
   "historique": [
@@ -445,8 +469,8 @@
     }
   ],
   "date_creation": "2026-07-09 13:22",
-  "dernier_tick": "2026-07-13 02:42",
-  "total_frais": 6.622083995005782,
+  "dernier_tick": "2026-07-13 03:18",
+  "total_frais": 6.717333995005782,
   "pic_capital": 1000.0,
   "trades_fermes": [
     {
