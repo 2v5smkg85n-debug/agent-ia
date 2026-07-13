@@ -1,6 +1,6 @@
 {
   "capital_initial": 1000.0,
-  "liquidites": 559.7455274326497,
+  "liquidites": 668.2541347926804,
   "positions": [
     {
       "symbole": "JPY=X",
@@ -21,16 +21,6 @@
       "montant_eur": 110.32559584630874,
       "frais_entree": 0.11032559584630874,
       "date_ouverture": "2026-07-10 03:00"
-    },
-    {
-      "symbole": "GC=F",
-      "nom": "Or",
-      "marche": "forex",
-      "prix_entree": 4141.2,
-      "quantite": 0.026638844504982412,
-      "montant_eur": 110.42721007410726,
-      "frais_entree": 0.11042721007410727,
-      "date_ouverture": "2026-07-10 03:10"
     },
     {
       "symbole": "AAPL",
@@ -435,11 +425,28 @@
       "frais_total": 0.22447989113718592,
       "date_ouverture": "2026-07-10 14:22",
       "date_fermeture": "2026-07-10 16:34"
+    },
+    {
+      "symbole": "GC=F",
+      "nom": "Or",
+      "marche": "forex",
+      "prix_entree": 4141.2,
+      "prix_sortie": 4077.4,
+      "quantite": 0.026638844504982412,
+      "montant_eur": 110.42721007410726,
+      "gain_eur": -1.9186027140765987,
+      "variation_pct": -1.5406162464985929,
+      "raison": "STOP-LOSS",
+      "signal_raison": "",
+      "source": "",
+      "frais_total": 0.21904443465872256,
+      "date_ouverture": "2026-07-10 03:10",
+      "date_fermeture": "2026-07-12 23:21"
     }
   ],
   "date_creation": "2026-07-09 13:22",
-  "dernier_tick": "2026-07-12 04:33",
-  "total_frais": 6.513466770421166,
+  "dernier_tick": "2026-07-13 02:42",
+  "total_frais": 6.622083995005782,
   "pic_capital": 1000.0,
   "trades_fermes": [
     {
@@ -548,6 +555,23 @@
       "frais_total": 0.22447989113718592,
       "date_ouverture": "2026-07-10 14:22",
       "date_fermeture": "2026-07-10 16:34"
+    },
+    {
+      "symbole": "GC=F",
+      "nom": "Or",
+      "marche": "forex",
+      "prix_entree": 4141.2,
+      "prix_sortie": 4077.4,
+      "quantite": 0.026638844504982412,
+      "montant_eur": 110.42721007410726,
+      "gain_eur": -1.9186027140765987,
+      "variation_pct": -1.5406162464985929,
+      "raison": "STOP-LOSS",
+      "signal_raison": "",
+      "source": "",
+      "frais_total": 0.21904443465872256,
+      "date_ouverture": "2026-07-10 03:10",
+      "date_fermeture": "2026-07-12 23:21"
     }
   ]
 }

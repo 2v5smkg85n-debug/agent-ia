@@ -1,0 +1,47 @@
+{
+  "date": "20260713_014329",
+  "avant": 50,
+  "apres": 24,
+  "coupees": 26,
+  "critere": "resultat == perdu (évaluation AI unique par stratégie)",
+  "distribution_avant": {
+    "neutre": 13,
+    "perdu": 26,
+    "gagne": 11
+  },
+  "coupees_par_marche": {
+    "crypto": 7,
+    "forex": 3,
+    "matieres": 8,
+    "indices": 5,
+    "actions": 3
+  },
+  "indices_coupees": [
+    1,
+    2,
+    4,
+    5,
+    11,
+    13,
+    14,
+    15,
+    16,
+    19,
+    21,
+    24,
+    25,
+    29,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    38,
+    39,
+    42,
+    44,
+    46,
+    49
+  ]
+}

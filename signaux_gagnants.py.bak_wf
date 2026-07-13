@@ -109,12 +109,6 @@ def strategies_gagnantes_par_actif():
             continue
         if r.get("drawdown_max", 99) > DRAWDOWN_MAX_ACCEPTABLE:
             continue  # trop risque
-        # Walk-forward: ignore les stratégies non-robustes (anti-surapprentissage)
-        # Uniquement si wf_precision a été mesurée (sinon on garde la stratégie)
-        # WF-FILTER-INSTALLE
-        wf = r.get("wf_precision")
-        if wf is not None and wf < 50.0:
-            continue  # stratégie surajustée — pas fiable out-of-sample
         sym = r.get("actif")
         if not sym:
             continue

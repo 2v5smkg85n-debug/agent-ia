@@ -20,7 +20,15 @@
     "expectancy": -0.3,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -6.2,
+      0.0,
+      8.64,
+      -3.9
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -43,7 +51,15 @@
     "expectancy": -7.34,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -10.84,
+      -18.8,
+      2.62,
+      -14.61
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -66,7 +82,15 @@
     "expectancy": -2.44,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      0.0,
+      0.0,
+      3.85,
+      0.0
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -89,7 +113,15 @@
     "expectancy": -18.31,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -112,7 +144,15 @@
     "expectancy": -3.13,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 4.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      0.59,
+      0.0,
+      4.61,
+      -2.8
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -135,7 +175,15 @@
     "expectancy": -7.37,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 4.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      -2.4,
+      -27.28,
+      0.0,
+      -15.96
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -158,7 +206,15 @@
     "expectancy": -2.5,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 4.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      0.0,
+      0.0,
+      -2.58,
+      0.0
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -181,7 +237,15 @@
     "expectancy": 0,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 4.0,
-    "verdict": "NEUTRE"
+    "verdict": "NEUTRE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -204,7 +268,15 @@
     "expectancy": -4.72,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 8.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -4.46,
+      0.0,
+      -5.18,
+      4.63
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -227,7 +299,15 @@
     "expectancy": -3.83,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 8.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      15.06,
+      -32.09,
+      -1.64,
+      -13.53
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -250,7 +330,15 @@
     "expectancy": -15.7,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 8.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -273,7 +361,15 @@
     "expectancy": -98.52,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 8.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -296,7 +392,15 @@
     "expectancy": -1.49,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 5.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      -3.88,
+      0.0,
+      -0.18,
+      -1.02
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -319,7 +423,15 @@
     "expectancy": -2.63,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 5.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      4.13,
+      -26.24,
+      -3.74,
+      9.6
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -342,7 +454,15 @@
     "expectancy": 1.53,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 5.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -365,7 +485,15 @@
     "expectancy": 123.9,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 5.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -388,7 +516,15 @@
     "expectancy": -7.08,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 10.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -11.55,
+      0.0,
+      4.18,
+      -1.9
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -411,7 +547,15 @@
     "expectancy": 1.98,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 10.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 75.0,
+    "wf_folds": [
+      7.98,
+      -14.8,
+      1.46,
+      0.72
+    ],
+    "robuste": true
   },
   {
     "date": "2026-07-10 01:14",
@@ -434,7 +578,15 @@
     "expectancy": -17.81,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 10.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      0.0,
+      0.0,
+      -2.48,
+      0.0
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -457,7 +609,15 @@
     "expectancy": 0,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 10.0,
-    "verdict": "NEUTRE"
+    "verdict": "NEUTRE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -480,7 +640,10 @@
     "expectancy": 2.44,
     "frais_effectif_pct": 0.044,
     "slippage_bps": 1.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -503,7 +666,10 @@
     "expectancy": 0.05,
     "frais_effectif_pct": 0.044,
     "slippage_bps": 1.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -526,7 +692,10 @@
     "expectancy": 1.74,
     "frais_effectif_pct": 0.044,
     "slippage_bps": 1.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -549,7 +718,10 @@
     "expectancy": 1.07,
     "frais_effectif_pct": 0.044,
     "slippage_bps": 1.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -572,7 +744,10 @@
     "expectancy": -0.54,
     "frais_effectif_pct": 0.044,
     "slippage_bps": 2.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -595,7 +770,10 @@
     "expectancy": 0.23,
     "frais_effectif_pct": 0.044,
     "slippage_bps": 2.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -618,7 +796,10 @@
     "expectancy": -8.74,
     "frais_effectif_pct": 0.044,
     "slippage_bps": 2.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -641,7 +822,10 @@
     "expectancy": 0,
     "frais_effectif_pct": 0.044,
     "slippage_bps": 2.0,
-    "verdict": "NEUTRE"
+    "verdict": "NEUTRE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -664,7 +848,10 @@
     "expectancy": 5.3,
     "frais_effectif_pct": 0.044,
     "slippage_bps": 2.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -687,7 +874,10 @@
     "expectancy": 13.27,
     "frais_effectif_pct": 0.044,
     "slippage_bps": 2.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -710,7 +900,10 @@
     "expectancy": -2.76,
     "frais_effectif_pct": 0.044,
     "slippage_bps": 2.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -733,7 +926,10 @@
     "expectancy": 0,
     "frais_effectif_pct": 0.044,
     "slippage_bps": 2.0,
-    "verdict": "NEUTRE"
+    "verdict": "NEUTRE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -756,7 +952,10 @@
     "expectancy": 5.72,
     "frais_effectif_pct": 0.044,
     "slippage_bps": 3.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -779,7 +978,10 @@
     "expectancy": -0.53,
     "frais_effectif_pct": 0.044,
     "slippage_bps": 3.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -802,7 +1004,10 @@
     "expectancy": 0.49,
     "frais_effectif_pct": 0.044,
     "slippage_bps": 3.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -825,7 +1030,10 @@
     "expectancy": 0,
     "frais_effectif_pct": 0.044,
     "slippage_bps": 3.0,
-    "verdict": "NEUTRE"
+    "verdict": "NEUTRE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -848,7 +1056,10 @@
     "expectancy": 4.17,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 2.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -871,7 +1082,10 @@
     "expectancy": -2.22,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 2.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -894,7 +1108,10 @@
     "expectancy": 6.43,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 2.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -917,7 +1134,10 @@
     "expectancy": -0.6,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 2.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -940,7 +1160,10 @@
     "expectancy": 0.34,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 4.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -963,7 +1186,10 @@
     "expectancy": 4.26,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 4.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -986,7 +1212,10 @@
     "expectancy": -7.33,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 4.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1009,7 +1238,10 @@
     "expectancy": 0,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 4.0,
-    "verdict": "NEUTRE"
+    "verdict": "NEUTRE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1032,7 +1264,10 @@
     "expectancy": 12.55,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1055,7 +1290,10 @@
     "expectancy": -2.97,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1078,7 +1316,10 @@
     "expectancy": -9.17,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1101,7 +1342,10 @@
     "expectancy": -47.82,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1124,7 +1368,10 @@
     "expectancy": -3.11,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 2.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1147,7 +1394,10 @@
     "expectancy": -7.02,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 2.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1170,7 +1420,10 @@
     "expectancy": -14.31,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 2.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1193,7 +1446,10 @@
     "expectancy": -32.79,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 2.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1216,7 +1472,10 @@
     "expectancy": -18.2,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 5.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1239,7 +1498,10 @@
     "expectancy": -7.77,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 5.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1262,7 +1524,10 @@
     "expectancy": 4.63,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 5.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1285,7 +1550,10 @@
     "expectancy": 21.63,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 5.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1308,7 +1576,10 @@
     "expectancy": -7.82,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 8.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1331,7 +1602,10 @@
     "expectancy": 16.97,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 8.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1354,7 +1628,10 @@
     "expectancy": -2.22,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 8.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1377,7 +1654,10 @@
     "expectancy": -34.76,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 8.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1400,7 +1680,10 @@
     "expectancy": 1.49,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 4.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1423,7 +1706,10 @@
     "expectancy": 6.15,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 4.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1446,7 +1732,10 @@
     "expectancy": -1.94,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 4.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1469,7 +1758,10 @@
     "expectancy": 19.29,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 4.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1492,7 +1784,10 @@
     "expectancy": 1.79,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 6.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1515,7 +1810,10 @@
     "expectancy": 17.52,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 6.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1538,7 +1836,10 @@
     "expectancy": -3.32,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 6.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1561,7 +1862,10 @@
     "expectancy": 14.44,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 6.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1584,7 +1888,10 @@
     "expectancy": -1.64,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 2.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1607,7 +1914,10 @@
     "expectancy": 3.36,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 2.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1630,7 +1940,10 @@
     "expectancy": -6.19,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 2.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1653,7 +1966,10 @@
     "expectancy": 17.16,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 2.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1676,7 +1992,10 @@
     "expectancy": -2.38,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 2.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1699,7 +2018,10 @@
     "expectancy": 5.47,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 2.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1722,7 +2044,10 @@
     "expectancy": -3.11,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 2.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1745,7 +2070,10 @@
     "expectancy": 18.41,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 2.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1768,7 +2096,10 @@
     "expectancy": 9.02,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1791,7 +2122,10 @@
     "expectancy": 2.14,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1814,7 +2148,10 @@
     "expectancy": -8.23,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1837,7 +2174,10 @@
     "expectancy": 21.46,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1860,7 +2200,10 @@
     "expectancy": 9.65,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:14",
@@ -1883,7 +2226,10 @@
     "expectancy": 12.69,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:15",
@@ -1906,7 +2252,10 @@
     "expectancy": -5.16,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
-    "verdict": "PERDANTE"
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   },
   {
     "date": "2026-07-10 01:15",
@@ -1929,6 +2278,9 @@
     "expectancy": 10.29,
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
-    "verdict": "GAGNANTE"
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [],
+    "robuste": false
   }
 ]

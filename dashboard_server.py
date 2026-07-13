@@ -7,6 +7,7 @@ import html
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
+import performance
 
 
 def load_env():
@@ -283,9 +284,10 @@ th,td{{text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);wh
 th:first-child,td:first-child{{text-align:left}}
 th{{color:var(--muted);font-weight:600;font-size:11px}}
 .chart{{width:100%;height:auto;background:var(--card);border:1px solid var(--border);border-radius:8px}}
+.lnk{{color:#58a6ff;text-decoration:none}}
 </style></head><body>
 <h1>Agent IA — Paper Trading</h1>
-<div class="meta">Dernier tick : {esc(str(tick))} · actualisation auto 60s</div>
+<div class="meta">Dernier tick : {esc(str(tick))} · actualisation auto 60s · <a class="lnk" href="/perf?token={TOKEN}">📈 Performance</a></div>
 {cards}
 {chart}
 {open_t}
@@ -305,6 +307,17 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "text/plain")
             self.end_headers()
             self.wfile.write(b"Forbidden")
+            return
+        # Route /perf : rapport de performance complet
+        if parsed.path in ("/perf", "/performance"):
+            try:
+                out = performance.render_perf(token)
+            except Exception as e:
+                out = f"<html><body style='background:#0d1117;color:#e6edf3;font-family:sans-serif;padding:20px'><h2>Erreur rapport perf</h2><pre>{html.escape(str(e))}</pre></body></html>"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(out.encode())
             return
         try:
             d = json.load(open(DATA_FILE))

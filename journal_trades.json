@@ -1,29 +1,5 @@
 [
   {
-    "date": "2026-07-09 07:36",
-    "type": "generation",
-    "marche": "indices",
-    "strategie": "TYPE: break trading\n[1][2]\n\nENTREE: Achat lorsque le SP500 (prix actuel 7 580,06) franchit le seuil de 7 600,00 avec une confirmation de volume supérieur à la moyenne mobile 20 des volumes [1].\n[1]\n\nS"
-  },
-  {
-    "date": "2026-07-09 13:38",
-    "type": "generation",
-    "marche": "crypto",
-    "strategie": "TYPE: [momentum trend following]\nENTREE: [Achat uniquement si BTCUSDT > 63283,26 (le haut des 24h) ET la variation horaire sur BTC est > +0,5% ET le RSI 14 est entre 55 et 75, ce qui confirme un momen"
-  },
-  {
-    "date": "2026-07-09 13:39",
-    "type": "generation",
-    "marche": "forex",
-    "strategie": "TYPE: [trend following]\n\nENTREE: [Achat uniquement si le prix clôture AU-DESSUS de la moyenne mobile 50 périodes (MA50) ET que le MACD est supérieur à 0 (ligne de signal croisée), applicable sur EUR/U"
-  },
-  {
-    "date": "2026-07-09 13:39",
-    "type": "generation",
-    "marche": "crypto",
-    "strategie": "TYPE: [trend following]\nENTREE: [Achat de BTCUSDT uniquement si le prix clôture au-dessus de 63283.26$ (le haut de 24h) avec une confirmation RSI > 60 sur la bougie de 1h]\nSORTIE: [Vente si le prix cl"
-  },
-  {
     "date": "2026-07-09 13:40",
     "type": "generation",
     "marche": "actions",
@@ -598,5 +574,29 @@
     "type": "generation",
     "marche": "indices",
     "strategie": "TYPE: Trend Following avec confirmation de cassure (Breakout)\n\nENTREE: Acheter le **NASDAQ 100** (leurant sur le NASDAQ Composite à 20 026,77) uniquement si le prix clôture **au-dessus de 20 150** (ré"
+  },
+  {
+    "date": "2026-07-12 08:25",
+    "type": "generation",
+    "marche": "crypto",
+    "strategie": "TYPE: Breakout avec filtre de tendance (Trend-following sur cassure de consolidation)\n\nENTREE: Achat sur BTCUSDT uniquement si :\n1. Le prix clôture une bougie 15min **au-dessus du haut des 24h** (64 5"
+  },
+  {
+    "date": "2026-07-12 08:25",
+    "type": "generation",
+    "marche": "forex",
+    "strategie": "TYPE: Breakout (trading de cassure) avec confirmation de tendance\n\nENTREE: Acheter EUR/USD uniquement si le prix casse le plus haut de la dernière heure (H1) **au-dessus de 1,1430** (1,1414 actuel + 0"
+  },
+  {
+    "date": "2026-07-12 08:25",
+    "type": "generation",
+    "marche": "actions",
+    "strategie": "TYPE: **Breakout** (cassure de range confirmée par tendance)\n\nENTREE: Achat de **AAPL** (ou du secteur Tech US via un ETF si le prix manque) uniquement si :\n1. Le prix clos une bougie jour **entièreme"
+  },
+  {
+    "date": "2026-07-12 08:25",
+    "type": "generation",
+    "marche": "indices",
+    "strategie": "TYPE: Breakout avec confirmation de tendance (Ichimoku + VWAP)\n\nENTREE: Achat sur le **DAX** uniquement si le prix clôture une bougie horaire (H1) **au-dessus de 19 450,00** (rupture de la résistance "
   }
 ]
