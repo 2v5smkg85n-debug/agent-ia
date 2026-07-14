@@ -196,6 +196,7 @@ def generer_signaux_gagnants(prix_actuels, marches_paper):
         meilleur_signal = None
         meilleure_strat = None
         meilleur_retour = -999
+        meilleur_score = -999  # REGIME-FIT-INSTALLE
 
         # Pour chaque intervalle, fetch l'historique une fois et teste les strategies
         for interv, strats in par_intervalle.items():
@@ -208,15 +209,26 @@ def generer_signaux_gagnants(prix_actuels, marches_paper):
                 continue
             clotures = [b["cloture"] for b in bougies]
             donnees = calculer_donnees(clotures)
+            # REGIME-FIT-INSTALLE : regime de marche pour ponderer la selection
+            try:
+                from regime import regime_depuis_clotures, strategie_regime_fit
+                _reg = regime_depuis_clotures(clotures)
+            except Exception:
+                _reg = {"regime": "INCONNU"}
 
             for strat in strats:
                 nom = strat.get("strategie")
                 sig = signal_strategie(nom, donnees)
                 if sig == "ACHAT":
-                    if strat.get("retour_pct", 0) > meilleur_retour:
+                    _fit = strategie_regime_fit(nom, _reg.get("regime"))
+                    _score = strat.get("retour_pct", 0) * _fit
+                    if _score > meilleur_score:
+                        meilleur_score = _score
                         meilleur_retour = strat.get("retour_pct", 0)
                         meilleur_signal = sig
-                        meilleure_strat = {**strat, "intervalle_live": interv_live}
+                        meilleure_strat = {**strat, "intervalle_live": interv_live,
+                                           "regime": _reg.get("regime"),
+                                           "regime_fit": round(_fit, 3)}
 
         if meilleur_signal == "ACHAT":
             interv_aff = meilleure_strat.get("intervalle", "?")

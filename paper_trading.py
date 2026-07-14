@@ -394,11 +394,17 @@ def verifier_sorties(pf, prix_actuels):
         prix_actuel = prix_actuels[sym]
         prix_entree = pos["prix_entree"]
         variation = (prix_actuel - prix_entree) / prix_entree * 100
-        # Take-profit serre: encaisse des que +1.5%
-        if variation >= TAKE_PROFIT_PCT:
+        # META-TUNING-INSTALLE : TP/SL par actif (fallback constantes globales)
+        try:
+            from meta_tuning import tp_sl_actif
+            _tp, _sl = tp_sl_actif(sym)
+        except Exception:
+            _tp, _sl = TAKE_PROFIT_PCT, STOP_LOSS_PCT
+        # Take-profit: encaisse des que +_tp%
+        if variation >= _tp:
             positions_a_fermer.append((pos, prix_actuel, "TAKE-PROFIT", variation))
-        # Stop-loss serre: coupe des que -1.5%
-        elif variation <= -STOP_LOSS_PCT:
+        # Stop-loss: coupe des que -_sl%
+        elif variation <= -_sl:
             positions_a_fermer.append((pos, prix_actuel, "STOP-LOSS", variation))
         else:
             # Sortie par duree: UNIQUEMENT si la position est en gain SUFFISANT.
