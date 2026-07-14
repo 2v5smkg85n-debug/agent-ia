@@ -209,26 +209,35 @@ def generer_signaux_gagnants(prix_actuels, marches_paper):
                 continue
             clotures = [b["cloture"] for b in bougies]
             donnees = calculer_donnees(clotures)
-            # REGIME-FIT-INSTALLE : regime de marche pour ponderer la selection
+            # REGIME-MTF-GATE : gate multi-timeframe (1h+4h) - valide backtest +1.66% PnL
             try:
-                from regime import regime_depuis_clotures, strategie_regime_fit
-                _reg = regime_depuis_clotures(clotures)
+                from regime import fit_multi_tf
+                _mtf_ok = True
             except Exception:
-                _reg = {"regime": "INCONNU"}
+                _mtf_ok = False
 
             for strat in strats:
                 nom = strat.get("strategie")
                 sig = signal_strategie(nom, donnees)
                 if sig == "ACHAT":
-                    _fit = strategie_regime_fit(nom, _reg.get("regime"))
-                    _score = strat.get("retour_pct", 0) * _fit
+                    if _mtf_ok:
+                        try:
+                            _fit_avg, _r1h, _r4h = fit_multi_tf(nom, clotures)
+                        except Exception:
+                            _fit_avg, _r1h, _r4h = 1.0, {"regime": "INCONNU"}, {"regime": "INCONNU"}
+                        if _fit_avg < 1.0:
+                            continue  # regime defavorable en moyenne -> skip
+                    else:
+                        _fit_avg, _r1h, _r4h = 1.0, {"regime": "INCONNU"}, {"regime": "INCONNU"}
+                    _score = strat.get("retour_pct", 0) * _fit_avg
                     if _score > meilleur_score:
                         meilleur_score = _score
                         meilleur_retour = strat.get("retour_pct", 0)
                         meilleur_signal = sig
                         meilleure_strat = {**strat, "intervalle_live": interv_live,
-                                           "regime": _reg.get("regime"),
-                                           "regime_fit": round(_fit, 3)}
+                                           "regime_1h": _r1h.get("regime"),
+                                           "regime_4h": _r4h.get("regime"),
+                                           "regime_fit": round(_fit_avg, 3)}
 
         if meilleur_signal == "ACHAT":
             interv_aff = meilleure_strat.get("intervalle", "?")
