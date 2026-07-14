@@ -1,0 +1,111 @@
+{
+  "totaux": {
+    "FIXE": {
+      "pnl": 13.36,
+      "n": 13,
+      "wins": 9,
+      "sum_win": 17.626107318335723,
+      "max_win": 9.59,
+      "win_rate": 69.2,
+      "avg_win": 1.96
+    },
+    "TRAIL": {
+      "pnl": 7.54,
+      "n": 13,
+      "wins": 9,
+      "sum_win": 10.13690011025227,
+      "max_win": 7.46,
+      "win_rate": 69.2,
+      "avg_win": 1.13
+    }
+  },
+  "par_actif": {
+    "BTCUSDT": {
+      "FIXE": {
+        "pnl": 2.71,
+        "n": 3,
+        "wins": 2,
+        "max_win": 1.66,
+        "sum_win": 3.2519779275733223,
+        "win_rate": 66.7,
+        "avg_win": 1.63
+      },
+      "TRAIL": {
+        "pnl": 1.17,
+        "n": 3,
+        "wins": 2,
+        "max_win": 0.87,
+        "sum_win": 1.4570658692967506,
+        "win_rate": 66.7,
+        "avg_win": 0.73
+      }
+    },
+    "ETHUSDT": {
+      "FIXE": {
+        "pnl": 4.19,
+        "n": 5,
+        "wins": 3,
+        "max_win": 4.1,
+        "sum_win": 7.521851445125657,
+        "win_rate": 60.0,
+        "avg_win": 2.51
+      },
+      "TRAIL": {
+        "pnl": 3.41,
+        "n": 5,
+        "wins": 3,
+        "max_win": 4.1,
+        "sum_win": 5.388360828662362,
+        "win_rate": 60.0,
+        "avg_win": 1.8
+      }
+    },
+    "BNBUSDT": {
+      "FIXE": {
+        "pnl": 5.33,
+        "n": 3,
+        "wins": 3,
+        "max_win": 2.31,
+        "sum_win": 5.334472925204747,
+        "win_rate": 100.0,
+        "avg_win": 1.78
+      },
+      "TRAIL": {
+        "pnl": 1.88,
+        "n": 3,
+        "wins": 3,
+        "max_win": 1.08,
+        "sum_win": 1.8806931048403512,
+        "win_rate": 100.0,
+        "avg_win": 0.63
+      }
+    },
+    "XRPUSDT": {
+      "FIXE": {
+        "pnl": 1.13,
+        "n": 2,
+        "wins": 1,
+        "max_win": 1.52,
+        "sum_win": 1.5178050204319962,
+        "win_rate": 50.0,
+        "avg_win": 1.52
+      },
+      "TRAIL": {
+        "pnl": 1.08,
+        "n": 2,
+        "wins": 1,
+        "max_win": 1.41,
+        "sum_win": 1.4107803074528076,
+        "win_rate": 50.0,
+        "avg_win": 1.41
+      }
+    }
+  },
+  "config": {
+    "TP": 1.5,
+    "SL": 1.5,
+    "TRAIL_ACTIVATE": 0.5,
+    "TRAIL_PCT": 0.8,
+    "HARD_CAP": 3.0
+  }
+}

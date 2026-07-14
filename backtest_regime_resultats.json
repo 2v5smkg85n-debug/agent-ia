@@ -1,0 +1,150 @@
+{
+  "totaux": {
+    "A": {
+      "pnl": 13.750000000000002,
+      "n": 29,
+      "wins": 17,
+      "entrees": 29,
+      "skipped": 0
+    },
+    "B": {
+      "pnl": 13.750000000000002,
+      "n": 29,
+      "wins": 17,
+      "entrees": 29,
+      "skipped": 0
+    },
+    "C": {
+      "pnl": 11.77,
+      "n": 14,
+      "wins": 9,
+      "entrees": 37,
+      "skipped": 23
+    }
+  },
+  "par_actif": {
+    "BTCUSDT": {
+      "A": {
+        "pnl": 3.85,
+        "n": 3,
+        "wins": 2,
+        "ouvert": null,
+        "entrees": 3,
+        "skipped": 0,
+        "win_rate": 66.7
+      },
+      "B": {
+        "pnl": 3.85,
+        "n": 3,
+        "wins": 2,
+        "ouvert": null,
+        "entrees": 3,
+        "skipped": 0,
+        "win_rate": 66.7
+      },
+      "C": {
+        "pnl": 3.85,
+        "n": 3,
+        "wins": 2,
+        "ouvert": null,
+        "entrees": 3,
+        "skipped": 0,
+        "win_rate": 66.7
+      }
+    },
+    "ETHUSDT": {
+      "A": {
+        "pnl": 7.71,
+        "n": 12,
+        "wins": 8,
+        "ouvert": null,
+        "entrees": 12,
+        "skipped": 0,
+        "win_rate": 66.7
+      },
+      "B": {
+        "pnl": 7.71,
+        "n": 12,
+        "wins": 8,
+        "ouvert": null,
+        "entrees": 12,
+        "skipped": 0,
+        "win_rate": 66.7
+      },
+      "C": {
+        "pnl": 5.84,
+        "n": 4,
+        "wins": 3,
+        "ouvert": null,
+        "entrees": 15,
+        "skipped": 11,
+        "win_rate": 75.0
+      }
+    },
+    "BNBUSDT": {
+      "A": {
+        "pnl": 3.13,
+        "n": 9,
+        "wins": 5,
+        "ouvert": null,
+        "entrees": 9,
+        "skipped": 0,
+        "win_rate": 55.6
+      },
+      "B": {
+        "pnl": 3.13,
+        "n": 9,
+        "wins": 5,
+        "ouvert": null,
+        "entrees": 9,
+        "skipped": 0,
+        "win_rate": 55.6
+      },
+      "C": {
+        "pnl": 4.53,
+        "n": 3,
+        "wins": 3,
+        "ouvert": null,
+        "entrees": 13,
+        "skipped": 10,
+        "win_rate": 100.0
+      }
+    },
+    "XRPUSDT": {
+      "A": {
+        "pnl": -0.94,
+        "n": 5,
+        "wins": 2,
+        "ouvert": null,
+        "entrees": 5,
+        "skipped": 0,
+        "win_rate": 40.0
+      },
+      "B": {
+        "pnl": -0.94,
+        "n": 5,
+        "wins": 2,
+        "ouvert": null,
+        "entrees": 5,
+        "skipped": 0,
+        "win_rate": 40.0
+      },
+      "C": {
+        "pnl": -2.45,
+        "n": 4,
+        "wins": 1,
+        "ouvert": null,
+        "entrees": 6,
+        "skipped": 2,
+        "win_rate": 25.0
+      }
+    }
+  },
+  "config": {
+    "TP": 1.5,
+    "SL": 1.5,
+    "MAX_BARS": 48,
+    "GATE": 1.0,
+    "LIMITE_BARS": 400
+  }
+}

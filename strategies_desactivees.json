@@ -1,0 +1,18 @@
+{
+  "desactivees": {
+    "MACD Momentum|SOLUSDT": {
+      "strategie": "MACD Momentum",
+      "actif": "SOLUSDT",
+      "disabled": true,
+      "raison": "[reflection] Désactiver temporairement MACD Momentum jusqu'à un win_rate > 40% sur 10 trades consécutifs (pnl -0.29€ sur 1 trades)",
+      "since": "2026-07-14 00:30:54",
+      "source": "reflection",
+      "stats": {
+        "n": 1,
+        "win_rate": 0.0,
+        "pnl_total": -0.29
+      }
+    }
+  },
+  "dernier_cycle": "2026-07-14 04:30:01"
+}
