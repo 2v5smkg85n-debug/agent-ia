@@ -1,0 +1,85 @@
+{
+  "params": {
+    "BTCUSDT": {
+      "tp": 2.0,
+      "sl": 2.5,
+      "historique": [
+        {
+          "ts": "2026-07-14 01:17:47",
+          "tp": 2.0,
+          "sl": 2.5,
+          "raison": "grid search optimal (avant 1.5/1.5)",
+          "source": "backtest_tp_optim"
+        }
+      ],
+      "ajuste_le": "2026-07-14 01:17:47",
+      "raison": "[backtest grid search] optimal TP/SL: +7.36% PnL, win 69%->77% (500h x 5 cryptos)",
+      "source": "backtest_tp_optim"
+    },
+    "SOLUSDT": {
+      "tp": 2.0,
+      "sl": 2.5,
+      "historique": [
+        {
+          "ts": "2026-07-14 01:17:47",
+          "tp": 2.0,
+          "sl": 2.5,
+          "raison": "grid search optimal (avant 1.5/1.5)",
+          "source": "backtest_tp_optim"
+        }
+      ],
+      "ajuste_le": "2026-07-14 01:17:47",
+      "raison": "[backtest grid search] optimal TP/SL: +7.36% PnL, win 69%->77% (500h x 5 cryptos)",
+      "source": "backtest_tp_optim"
+    },
+    "ETHUSDT": {
+      "tp": 2.0,
+      "sl": 2.5,
+      "historique": [
+        {
+          "ts": "2026-07-14 01:17:47",
+          "tp": 2.0,
+          "sl": 2.5,
+          "raison": "grid search optimal (avant 1.5/1.5)",
+          "source": "backtest_tp_optim"
+        }
+      ],
+      "ajuste_le": "2026-07-14 01:17:47",
+      "raison": "[backtest grid search] optimal TP/SL: +7.36% PnL, win 69%->77% (500h x 5 cryptos)",
+      "source": "backtest_tp_optim"
+    },
+    "BNBUSDT": {
+      "tp": 2.0,
+      "sl": 2.5,
+      "historique": [
+        {
+          "ts": "2026-07-14 01:17:47",
+          "tp": 2.0,
+          "sl": 2.5,
+          "raison": "grid search optimal (avant 1.5/1.5)",
+          "source": "backtest_tp_optim"
+        }
+      ],
+      "ajuste_le": "2026-07-14 01:17:47",
+      "raison": "[backtest grid search] optimal TP/SL: +7.36% PnL, win 69%->77% (500h x 5 cryptos)",
+      "source": "backtest_tp_optim"
+    },
+    "XRPUSDT": {
+      "tp": 2.0,
+      "sl": 2.5,
+      "historique": [
+        {
+          "ts": "2026-07-14 01:17:47",
+          "tp": 2.0,
+          "sl": 2.5,
+          "raison": "grid search optimal (avant 1.5/1.5)",
+          "source": "backtest_tp_optim"
+        }
+      ],
+      "ajuste_le": "2026-07-14 01:17:47",
+      "raison": "[backtest grid search] optimal TP/SL: +7.36% PnL, win 69%->77% (500h x 5 cryptos)",
+      "source": "backtest_tp_optim"
+    }
+  },
+  "dernier_cycle": "2026-07-14 01:17:47"
+}
