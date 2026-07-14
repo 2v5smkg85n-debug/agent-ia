@@ -171,8 +171,14 @@ ANALYSE et reponds en JSON STRICT (sans markdown, sans texte autour) avec ce sch
   "points_faibles": ["..."],
   "insights": ["observation concrete, ex: strategie X performe mieux en regime Y"],
   "suggestions": ["action concrete d'amelioration, ex: reduire TP sur SOL, desactiver Z si n>3"],
-  "priorite": "la suggestion la plus importante a court terme"
+  "priorite": "la suggestion la plus importante a court terme",
+  "actions": [
+    {{"type": "desactiver_strategie", "strategie": "MACD Momentum", "actif": "SOLUSDT", "confiance": 0.8, "raison": "..."}},
+    {{"type": "ajuster_tp", "actif": "SOLUSDT", "tp": 1.0, "confiance": 0.7, "raison": "..."}},
+    {{"type": "ajuster_sl", "actif": "SOLUSDT", "sl": 2.0, "confiance": 0.7, "raison": "..."}}
+  ]
 }}
+IMPORTANT: chaque action doit reposer sur les donnees reelles fournies. Ne propose une desactivation QUE pour une strategie avec pnl negatif. confiance entre 0.0 et 1.0. Liste vide [] si aucune action justifiee. # ACTIONS-FIELD-INSTALLE
 Reponds UNIQUEMENT avec le JSON."""
 
 
