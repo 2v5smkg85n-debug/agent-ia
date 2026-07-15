@@ -38,12 +38,12 @@ FICHIER_BACKTESTS = os.path.join(DOSSIER, "backtests_pro.json")
 # CONFIG RISQUE
 # ============================================
 KELLY_FRACTION = 0.50        # Half Kelly (plus agressif) - SIZING-BOOST-INSTALLE
-VOL_CIBLE_JOUR = 0.02        # 2% de volatilite quotidienne cible au niveau portfolio
+VOL_CIBLE_JOUR = 0.03        # 2% de volatilite quotidienne cible au niveau portfolio
 DRAWDOWN_SEUIL = 10.0        # si drawdown recent > 10%, on reduit
 DRAWDOWN_REDUCTION = 0.50    # ... de 50%
 CIRCUIT_BREAKER_JOUR = 5.0   # perte journaliere > 5% -> stop trading
 CAP_ACTIF = 0.15             # max 15% du capital sur un seul actif
-CAP_SECTEUR = 0.25           # max 25% du capital sur un secteur (crypto, forex, etc.)
+CAP_SECTEUR = 0.40           # max 25% du capital sur un secteur (crypto, forex, etc.)
 CORRELATION_SEUIL = 0.60     # rho > 0.6 = positions correlees, groupees
 RISK_MIN_EUR = 5.0           # en dessous de 5 EUR, on n'ouvre pas
 
@@ -442,3 +442,5 @@ if __name__ == "__main__":
         tester()
     else:
         afficher_etat()
+
+# CAPITAL-DEPLOI-INSTALLE: VOL_CIBLE_JOUR 0.02->0.03, CAP_SECTEUR 0.25->0.40 (deploiement capital)
