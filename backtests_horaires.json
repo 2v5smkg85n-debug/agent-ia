@@ -14,14 +14,14 @@
     "win_rate": 50.0,
     "drawdown_max": 4.07,
     "verdict": "GAGNANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -1.83,
-      0.0,
-      -0.23,
-      0.0
+      1.35,
+      -1.88,
+      1.37,
+      -0.22
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:55",
@@ -38,14 +38,14 @@
     "win_rate": 80.0,
     "drawdown_max": 6.11,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      2.87,
+      1.39,
+      2.7,
       0.0,
-      0.0,
-      -0.72
+      1.63
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:55",
@@ -62,14 +62,14 @@
     "win_rate": 61.5,
     "drawdown_max": 8.85,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      -1.31,
-      0.0,
+      1.39,
+      2.7,
       0.72,
-      -2.49
+      -0.18
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:55",
@@ -86,12 +86,12 @@
     "win_rate": 33.3,
     "drawdown_max": 17.28,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      -1.13,
-      0.09,
-      -1.13,
-      -0.84
+      0.52,
+      0.2,
+      -2.29,
+      1.25
     ],
     "robuste": false
   },
@@ -110,14 +110,14 @@
     "win_rate": 62.5,
     "drawdown_max": 4.87,
     "verdict": "GAGNANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -2.26,
+      1.45,
       0.0,
-      -0.33,
-      0.0
+      1.43,
+      -0.54
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:55",
@@ -158,14 +158,14 @@
     "win_rate": 58.8,
     "drawdown_max": 10.73,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      5.39,
-      0.0,
+      1.49,
+      1.5,
       -2.07,
       -1.71
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:55",
@@ -184,10 +184,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      3.21,
-      0.07,
-      -3.5,
-      -2.51
+      9.28,
+      -0.29,
+      -1.87,
+      3.57
     ],
     "robuste": true
   },
@@ -206,14 +206,14 @@
     "win_rate": 83.3,
     "drawdown_max": 2.78,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 75.0,
     "wf_folds": [
       1.81,
       0.0,
-      -0.2,
-      0.0
+      1.31,
+      0.23
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:55",
@@ -230,14 +230,14 @@
     "win_rate": 62.5,
     "drawdown_max": 4.63,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
       0.0,
-      0.0,
-      -0.7,
+      1.49,
+      -1.17,
       1.69
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:55",
@@ -254,12 +254,12 @@
     "win_rate": 75.0,
     "drawdown_max": 6.26,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 75.0,
     "wf_folds": [
       1.79,
-      0.05,
-      -2.53,
-      -1.86
+      3.37,
+      -2.05,
+      0.77
     ],
     "robuste": true
   },
@@ -280,10 +280,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      0.22,
-      -0.42,
-      0.05,
-      -5.18
+      -0.3,
+      0.13,
+      -1.27,
+      0.1
     ],
     "robuste": false
   },
@@ -302,12 +302,12 @@
     "win_rate": 60.0,
     "drawdown_max": 4.18,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -1.76,
+      1.41,
       0.0,
-      -0.75,
-      -0.72
+      0.42,
+      -1.1
     ],
     "robuste": false
   },
@@ -326,12 +326,12 @@
     "win_rate": 66.7,
     "drawdown_max": 6.58,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      -0.5,
+      1.74,
       0.0,
-      2.22,
-      0.89
+      0.92,
+      1.31
     ],
     "robuste": true
   },
@@ -350,14 +350,14 @@
     "win_rate": 61.1,
     "drawdown_max": 8.57,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      4.69,
-      0.0,
+      3.28,
+      1.13,
       -0.67,
-      -1.42
+      -1.0
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:55",
@@ -374,12 +374,12 @@
     "win_rate": 35.5,
     "drawdown_max": 12.54,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      -0.84,
-      -0.2,
-      -2.18,
-      -1.66
+      -2.25,
+      2.57,
+      -1.94,
+      -0.41
     ],
     "robuste": false
   },
@@ -398,14 +398,14 @@
     "win_rate": 50.0,
     "drawdown_max": 5.82,
     "verdict": "GAGNANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -1.7,
+      1.68,
       0.0,
-      -0.58,
-      0.0
+      1.46,
+      -1.13
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:55",
@@ -426,8 +426,8 @@
     "wf_folds": [
       1.31,
       0.0,
-      -0.42,
-      -0.97
+      -0.38,
+      -0.75
     ],
     "robuste": false
   },
@@ -446,14 +446,14 @@
     "win_rate": 62.5,
     "drawdown_max": 5.77,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      3.51,
-      0.0,
+      1.31,
+      2.42,
       -3.58,
-      -3.56
+      -1.27
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:55",
@@ -470,12 +470,12 @@
     "win_rate": 41.4,
     "drawdown_max": 10.09,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -0.39,
-      0.07,
-      -2.82,
-      -3.62
+      2.37,
+      1.56,
+      -0.75,
+      -1.38
     ],
     "robuste": false
   },
@@ -494,12 +494,12 @@
     "win_rate": 16.7,
     "drawdown_max": 2.45,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      0.0,
-      0.0,
+      0.23,
+      -0.25,
       -0.28,
-      0.0
+      -0.1
     ],
     "robuste": false
   },
@@ -520,9 +520,9 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -0.54,
+      -0.04,
       0.0,
-      -0.2,
+      -0.03,
       0.0
     ],
     "robuste": false
@@ -544,10 +544,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -0.94,
-      -0.29,
-      -0.39,
-      -0.29
+      -0.4,
+      -0.15,
+      -0.22,
+      -0.17
     ],
     "robuste": false
   },
@@ -568,10 +568,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -1.48,
-      -1.08,
-      -0.26,
-      -1.52
+      -1.49,
+      -0.51,
+      -1.2,
+      -1.27
     ],
     "robuste": false
   },
@@ -592,10 +592,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
+      -0.03,
       0.0,
       0.0,
-      -0.53,
-      0.0
+      -0.13
     ],
     "robuste": false
   },
@@ -616,7 +616,7 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      0.03,
+      0.31,
       0.0,
       0.0,
       0.0
@@ -640,10 +640,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -0.17,
+      -0.47,
       0.0,
-      -0.36,
-      -0.33
+      -0.08,
+      -0.17
     ],
     "robuste": false
   },
@@ -662,12 +662,12 @@
     "win_rate": 30.0,
     "drawdown_max": 4.02,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 0.0,
     "wf_folds": [
-      -0.91,
-      -1.12,
-      0.31,
-      -1.18
+      -0.75,
+      -0.17,
+      -0.77,
+      -0.9
     ],
     "robuste": false
   },
@@ -688,10 +688,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -0.13,
       0.0,
-      -0.29,
-      -0.21
+      0.0,
+      -0.04,
+      -0.27
     ],
     "robuste": false
   },
@@ -710,12 +710,12 @@
     "win_rate": 33.3,
     "drawdown_max": 0.75,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 0.0,
     "wf_folds": [
       0.0,
-      0.16,
-      0.12,
-      -0.03
+      -0.71,
+      0.0,
+      -0.13
     ],
     "robuste": false
   },
@@ -736,10 +736,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      0.0,
-      -0.17,
+      -0.19,
+      -1.07,
       -0.07,
-      -0.37
+      -0.39
     ],
     "robuste": false
   },
@@ -760,10 +760,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -1.32,
-      -0.55,
-      0.11,
-      -1.13
+      -1.43,
+      -0.27,
+      0.34,
+      -1.22
     ],
     "robuste": false
   },
@@ -785,9 +785,9 @@
     "wf_precision": 0.0,
     "wf_folds": [
       0.0,
+      -0.37,
       0.0,
-      0.0,
-      0.0
+      -0.69
     ],
     "robuste": false
   },
@@ -806,14 +806,14 @@
     "win_rate": 71.4,
     "drawdown_max": 5.52,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      -2.52,
-      0.87,
-      0.0,
-      -1.44
+      -1.45,
+      2.37,
+      0.26,
+      0.14
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:55",
@@ -830,12 +830,12 @@
     "win_rate": 33.3,
     "drawdown_max": 8.15,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
       -3.38,
-      0.67,
-      0.44,
-      -2.51
+      2.17,
+      -1.79,
+      -0.95
     ],
     "robuste": false
   },
@@ -854,12 +854,12 @@
     "win_rate": 33.3,
     "drawdown_max": 8.52,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -1.25,
-      0.53,
-      -1.7,
-      -0.24
+      -1.64,
+      2.0,
+      -3.02,
+      0.82
     ],
     "robuste": false
   },
@@ -1185,9 +1185,9 @@
     "wf_precision": 0.0,
     "wf_folds": [
       0.0,
-      -1.07,
       0.0,
-      -2.27
+      0.0,
+      0.0
     ],
     "robuste": false
   },
@@ -1208,10 +1208,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      -2.37,
-      0.58,
-      1.61,
-      0.0
+      3.04,
+      -1.38,
+      0.0,
+      2.83
     ],
     "robuste": false
   },
@@ -1230,12 +1230,12 @@
     "win_rate": 47.1,
     "drawdown_max": 11.96,
     "verdict": "PERDANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -4.36,
-      1.86,
-      2.87,
-      5.58
+      -3.29,
+      -1.38,
+      1.32,
+      3.69
     ],
     "robuste": false
   },
@@ -1254,12 +1254,12 @@
     "win_rate": 36.4,
     "drawdown_max": 13.04,
     "verdict": "PERDANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -9.19,
-      0.29,
-      2.51,
-      7.32
+      -4.38,
+      -3.9,
+      1.17,
+      1.77
     ],
     "robuste": false
   },
@@ -1281,9 +1281,9 @@
     "wf_precision": 25.0,
     "wf_folds": [
       1.32,
-      -1.06,
+      -1.76,
       0.0,
-      0.0
+      -0.44
     ],
     "robuste": false
   },
@@ -1302,11 +1302,11 @@
     "win_rate": 28.6,
     "drawdown_max": 6.38,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
       0.0,
       1.64,
-      1.49,
+      0.0,
       -6.08
     ],
     "robuste": false
@@ -1330,8 +1330,8 @@
     "wf_folds": [
       0.78,
       -1.56,
-      1.31,
-      -7.63
+      -0.39,
+      0.25
     ],
     "robuste": false
   },
@@ -1350,12 +1350,12 @@
     "win_rate": 37.5,
     "drawdown_max": 9.19,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -1.71,
-      2.8,
-      -3.23,
-      -11.01
+      2.99,
+      2.9,
+      -5.52,
+      -7.38
     ],
     "robuste": false
   },
@@ -1376,10 +1376,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
+      -0.67,
       0.0,
       0.0,
-      0.0,
-      0.16
+      1.39
     ],
     "robuste": false
   },
@@ -1400,10 +1400,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -4.0,
+      -2.71,
       0.0,
-      0.0,
-      1.42
+      0.21,
+      0.0
     ],
     "robuste": false
   },
@@ -1422,11 +1422,11 @@
     "win_rate": 50.0,
     "drawdown_max": 8.87,
     "verdict": "PERDANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 50.0,
     "wf_folds": [
       -4.22,
-      1.25,
-      0.42,
+      1.62,
+      -0.94,
       1.21
     ],
     "robuste": false
@@ -1448,10 +1448,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      -0.32,
-      1.41,
-      -3.55,
-      0.64
+      -1.09,
+      0.49,
+      -2.82,
+      2.03
     ],
     "robuste": false
   },
@@ -1470,10 +1470,10 @@
     "win_rate": 100.0,
     "drawdown_max": 0.89,
     "verdict": "GAGNANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 25.0,
     "wf_folds": [
       0.0,
-      -0.95,
+      1.43,
       0.0,
       0.0
     ],
@@ -1494,14 +1494,14 @@
     "win_rate": 75.0,
     "drawdown_max": 3.33,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      -1.24,
+      -0.28,
       1.96,
-      0.0,
-      2.2
+      -0.2,
+      0.0
     ],
-    "robuste": true
+    "robuste": false
   },
   {
     "date": "2026-07-10 13:56",
@@ -1518,14 +1518,14 @@
     "win_rate": 57.1,
     "drawdown_max": 6.6,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
       -1.81,
-      0.11,
-      0.0,
-      0.0
+      0.61,
+      -1.3,
+      1.62
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:56",
@@ -1544,10 +1544,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -3.22,
-      -2.14,
-      -1.52,
-      2.55
+      -4.01,
+      -1.78,
+      -0.47,
+      4.16
     ],
     "robuste": false
   },
@@ -1894,12 +1894,12 @@
     "win_rate": 35.7,
     "drawdown_max": 20.45,
     "verdict": "PERDANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 50.0,
     "wf_folds": [
       1.64,
-      -20.19,
+      -15.67,
       2.55,
-      2.82
+      0.0
     ],
     "robuste": false
   },
@@ -1923,7 +1923,7 @@
       2.69,
       -6.88,
       -0.3,
-      1.2
+      4.83
     ],
     "robuste": false
   },
@@ -1944,10 +1944,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -3.47,
-      -2.3,
-      5.37,
-      -0.28
+      -3.9,
+      -3.2,
+      4.39,
+      -0.24
     ],
     "robuste": false
   },
@@ -1993,7 +1993,7 @@
     "wf_precision": 0.0,
     "wf_folds": [
       -6.08,
-      -15.46,
+      -13.1,
       -0.15,
       0.0
     ],
@@ -2016,7 +2016,7 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -7.6,
+      -5.32,
       -5.89,
       -2.74,
       1.56
@@ -2040,10 +2040,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -7.83,
-      -3.19,
-      1.47,
-      -1.34
+      -8.35,
+      -3.18,
+      0.26,
+      -0.09
     ],
     "robuste": false
   },
@@ -2089,7 +2089,7 @@
     "wf_precision": 25.0,
     "wf_folds": [
       -0.34,
-      -16.64,
+      -16.05,
       2.79,
       0.0
     ],
@@ -2115,7 +2115,7 @@
       3.06,
       -7.7,
       0.09,
-      -3.9
+      -0.7
     ],
     "robuste": false
   },
@@ -2134,12 +2134,12 @@
     "win_rate": 52.0,
     "drawdown_max": 10.38,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      2.19,
-      -4.89,
-      2.48,
-      -2.53
+      2.38,
+      -3.58,
+      -0.44,
+      -2.58
     ],
     "robuste": false
   },
@@ -2158,14 +2158,14 @@
     "win_rate": 83.3,
     "drawdown_max": 3.09,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      0.52,
-      0.0,
+      1.32,
+      0.8,
       0.0,
       0.0
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:56",
@@ -2185,7 +2185,7 @@
     "wf_precision": 75.0,
     "wf_folds": [
       1.64,
-      1.05,
+      1.53,
       3.67,
       0.0
     ],
@@ -2209,7 +2209,7 @@
     "wf_precision": 25.0,
     "wf_folds": [
       -0.4,
-      -0.02,
+      -1.41,
       -1.73,
       1.61
     ],
@@ -2232,10 +2232,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 75.0,
     "wf_folds": [
-      3.88,
-      2.04,
-      2.32,
-      -2.46
+      5.76,
+      2.38,
+      0.8,
+      -3.52
     ],
     "robuste": false
   },
@@ -2278,12 +2278,12 @@
     "win_rate": 61.5,
     "drawdown_max": 9.93,
     "verdict": "GAGNANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 50.0,
     "wf_folds": [
       1.6,
-      -6.91,
+      -6.88,
       4.65,
-      1.44
+      0.0
     ],
     "robuste": true
   },
@@ -2328,10 +2328,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      -3.49,
-      4.84,
-      3.87,
-      -2.07
+      -1.5,
+      2.55,
+      0.9,
+      -1.82
     ],
     "robuste": false
   },
@@ -2376,9 +2376,9 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -0.88,
-      -0.26,
-      -1.51,
+      -0.62,
+      -0.02,
+      -1.32,
       0.0
     ],
     "robuste": false
@@ -2400,10 +2400,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -1.17,
-      -0.25,
-      -1.48,
-      0.1
+      -0.98,
+      -0.0,
+      -1.65,
+      0.47
     ],
     "robuste": false
   },
@@ -2424,10 +2424,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -1.48,
-      -2.85,
-      -1.05,
-      -1.49
+      -1.33,
+      -2.57,
+      -0.16,
+      -1.62
     ],
     "robuste": false
   },
@@ -2449,7 +2449,7 @@
     "wf_precision": 0.0,
     "wf_folds": [
       0.0,
-      -1.37,
+      -0.85,
       0.0,
       0.0
     ],
@@ -2470,11 +2470,11 @@
     "win_rate": 50.0,
     "drawdown_max": 2.86,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -0.33,
-      -0.2,
-      -1.12,
+      0.02,
+      0.09,
+      -0.93,
       0.0
     ],
     "robuste": false
@@ -2494,12 +2494,12 @@
     "win_rate": 50.0,
     "drawdown_max": 3.78,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 25.0,
     "wf_folds": [
       -1.76,
-      -0.9,
-      -1.82,
-      -0.13
+      -0.61,
+      -1.63,
+      0.19
     ],
     "robuste": false
   },
@@ -2520,10 +2520,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -2.03,
-      -1.99,
-      -1.67,
-      -0.62
+      -1.53,
+      -1.96,
+      -1.98,
+      -0.66
     ],
     "robuste": false
   },
@@ -2547,7 +2547,7 @@
       0.0,
       0.0,
       0.0,
-      -0.3
+      -0.4
     ],
     "robuste": false
   },
@@ -2571,7 +2571,7 @@
       0.0,
       0.0,
       0.0,
-      0.4
+      0.49
     ],
     "robuste": false
   },
@@ -2590,14 +2590,14 @@
     "win_rate": 100.0,
     "drawdown_max": 1.34,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
       0.0,
       0.0,
-      0.1,
-      0.4
+      0.0,
+      0.3
     ],
-    "robuste": true
+    "robuste": false
   },
   {
     "date": "2026-07-10 13:56",
@@ -2616,10 +2616,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      0.32,
-      -0.52,
-      0.26,
-      -0.53
+      0.44,
+      -0.98,
+      0.22,
+      -0.63
     ],
     "robuste": false
   },
@@ -2641,7 +2641,7 @@
     "wf_precision": 0.0,
     "wf_folds": [
       0.0,
-      -0.55,
+      0.0,
       0.0,
       0.0
     ],
@@ -2664,10 +2664,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 75.0,
     "wf_folds": [
-      0.01,
-      -0.2,
-      0.09,
-      0.09
+      -2.23,
+      0.32,
+      3.14,
+      1.42
     ],
     "robuste": false
   },
@@ -2688,10 +2688,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      -1.14,
-      0.78,
-      -1.09,
-      1.07
+      -3.16,
+      1.31,
+      -4.56,
+      1.56
     ],
     "robuste": false
   },
@@ -2712,10 +2712,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -2.35,
-      -2.25,
-      -4.19,
-      0.4
+      -2.7,
+      1.55,
+      -3.74,
+      -0.02
     ],
     "robuste": false
   },
@@ -3038,12 +3038,12 @@
     "win_rate": 50.0,
     "drawdown_max": 6.51,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
       1.59,
-      -1.21,
+      -1.72,
       0.0,
-      2.59
+      0.0
     ],
     "robuste": false
   },
@@ -3062,12 +3062,12 @@
     "win_rate": 36.4,
     "drawdown_max": 13.35,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 25.0,
     "wf_folds": [
       0.0,
-      -11.61,
-      -6.73,
-      0.0
+      -11.89,
+      -9.21,
+      1.52
     ],
     "robuste": false
   },
@@ -3088,9 +3088,9 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      1.72,
-      -2.15,
-      -9.71,
+      0.0,
+      0.21,
+      -8.77,
       1.52
     ],
     "robuste": false
@@ -3112,10 +3112,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      6.82,
-      -3.44,
-      -2.45,
-      4.03
+      5.69,
+      -6.15,
+      -0.48,
+      5.0
     ],
     "robuste": false
   },
@@ -3163,7 +3163,7 @@
       0.0,
       0.0,
       0.0,
-      -5.0
+      -4.44
     ],
     "robuste": false
   },
@@ -3182,14 +3182,14 @@
     "win_rate": 75.0,
     "drawdown_max": 1.78,
     "verdict": "GAGNANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      2.22,
+      0.0,
       0.0,
       1.59,
-      0.49
+      -1.78
     ],
-    "robuste": true
+    "robuste": false
   },
   {
     "date": "2026-07-10 13:56",
@@ -3206,12 +3206,12 @@
     "win_rate": 61.1,
     "drawdown_max": 3.77,
     "verdict": "GAGNANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 100.0,
     "wf_folds": [
-      5.33,
-      9.41,
-      1.15,
-      -1.29
+      1.42,
+      3.08,
+      2.57,
+      0.63
     ],
     "robuste": true
   },
@@ -3235,7 +3235,7 @@
       0.0,
       0.0,
       0.0,
-      0.03
+      1.33
     ],
     "robuste": false
   },
@@ -3254,14 +3254,14 @@
     "win_rate": 80.0,
     "drawdown_max": 3.47,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      3.12,
-      -0.2,
-      -3.29,
+      1.33,
+      1.53,
+      -1.48,
       0.0
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:56",
@@ -3280,9 +3280,9 @@
     "verdict": "GAGNANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      -1.93,
-      1.52,
-      -3.88,
+      -3.53,
+      3.15,
+      -3.35,
       1.92
     ],
     "robuste": true
@@ -3302,12 +3302,12 @@
     "win_rate": 46.2,
     "drawdown_max": 6.6,
     "verdict": "PERDANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      0.62,
-      1.58,
-      3.78,
-      -1.54
+      -0.27,
+      2.91,
+      -0.15,
+      1.55
     ],
     "robuste": false
   },
@@ -3350,12 +3350,12 @@
     "win_rate": 42.9,
     "drawdown_max": 9.07,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
       2.05,
-      -11.03,
+      -10.35,
       0.0,
-      1.44
+      0.0
     ],
     "robuste": false
   },
@@ -3374,11 +3374,11 @@
     "win_rate": 37.5,
     "drawdown_max": 9.55,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      2.05,
-      -3.94,
-      1.36,
+      0.0,
+      -5.22,
+      2.3,
       0.0
     ],
     "robuste": false
@@ -3400,10 +3400,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -1.23,
-      -7.52,
-      3.12,
-      -1.08
+      -1.07,
+      -7.74,
+      0.79,
+      -0.26
     ],
     "robuste": false
   },

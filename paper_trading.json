@@ -1,6 +1,6 @@
 {
   "capital_initial": 1000.0,
-  "liquidites": 852.0534894622765,
+  "liquidites": 888.21441371442,
   "positions": [
     {
       "symbole": "EURUSD=X",
@@ -11,30 +11,6 @@
       "montant_eur": 110.32559584630874,
       "frais_entree": 0.11032559584630874,
       "date_ouverture": "2026-07-10 03:00"
-    },
-    {
-      "symbole": "BNBUSDT",
-      "nom": "BNB",
-      "marche": "crypto",
-      "prix_entree": 569.93,
-      "quantite": 0.014986840489182885,
-      "montant_eur": 8.55,
-      "frais_entree": 0.00855,
-      "date_ouverture": "2026-07-13 15:26",
-      "signal_raison": "strategie gagnante backtest (MACD Momentum [1d], retour +3.0%, win rate 46.2%)",
-      "source": "backtest-gagnant"
-    },
-    {
-      "symbole": "NG=F",
-      "nom": "Gaz naturel",
-      "marche": "matieres",
-      "prix_entree": 2.902,
-      "quantite": 9.463304617505168,
-      "montant_eur": 27.49,
-      "frais_entree": 0.02749,
-      "date_ouverture": "2026-07-13 21:29",
-      "signal_raison": "strategie gagnante backtest (MACD Momentum [4h], retour +15.1%, win rate 61.1%)",
-      "source": "backtest-gagnant"
     }
   ],
   "historique": [
@@ -548,11 +524,45 @@
       "frais_total": 0.21500146244893126,
       "date_ouverture": "2026-07-10 01:28",
       "date_fermeture": "2026-07-13 16:57"
+    },
+    {
+      "symbole": "BNBUSDT",
+      "nom": "BNB",
+      "marche": "crypto",
+      "prix_entree": 569.93,
+      "prix_sortie": 574.61,
+      "quantite": 0.014986840489182885,
+      "montant_eur": 8.55,
+      "gain_eur": 0.052976825075887746,
+      "variation_pct": 0.8211534749881677,
+      "raison": "TEMPS+benefice (+0.82%)",
+      "signal_raison": "strategie gagnante backtest (MACD Momentum [1d], retour +3.0%, win rate 46.2%)",
+      "source": "backtest-gagnant",
+      "frais_total": 0.01716158841348938,
+      "date_ouverture": "2026-07-13 15:26",
+      "date_fermeture": "2026-07-14 12:44"
+    },
+    {
+      "symbole": "NG=F",
+      "nom": "Gaz naturel",
+      "marche": "matieres",
+      "prix_entree": 2.902,
+      "prix_sortie": 2.915,
+      "quantite": 9.463304617505168,
+      "montant_eur": 27.49,
+      "gain_eur": 0.06794742706753709,
+      "variation_pct": 0.44796691936595107,
+      "raison": "TEMPS+benefice (+0.45%)",
+      "signal_raison": "strategie gagnante backtest (MACD Momentum [4h], retour +15.1%, win rate 61.1%)",
+      "source": "backtest-gagnant",
+      "frais_total": 0.05507553296002757,
+      "date_ouverture": "2026-07-13 21:29",
+      "date_fermeture": "2026-07-14 19:20"
     }
   ],
   "date_creation": "2026-07-09 13:22",
-  "dernier_tick": "2026-07-14 04:38",
-  "total_frais": 7.229979395075447,
+  "dernier_tick": "2026-07-15 04:58",
+  "total_frais": 7.266176516448964,
   "pic_capital": 1000.0,
   "trades_fermes": [
     {
@@ -780,6 +790,40 @@
       "frais_total": 0.21500146244893126,
       "date_ouverture": "2026-07-10 01:28",
       "date_fermeture": "2026-07-13 16:57"
+    },
+    {
+      "symbole": "BNBUSDT",
+      "nom": "BNB",
+      "marche": "crypto",
+      "prix_entree": 569.93,
+      "prix_sortie": 574.61,
+      "quantite": 0.014986840489182885,
+      "montant_eur": 8.55,
+      "gain_eur": 0.052976825075887746,
+      "variation_pct": 0.8211534749881677,
+      "raison": "TEMPS+benefice (+0.82%)",
+      "signal_raison": "strategie gagnante backtest (MACD Momentum [1d], retour +3.0%, win rate 46.2%)",
+      "source": "backtest-gagnant",
+      "frais_total": 0.01716158841348938,
+      "date_ouverture": "2026-07-13 15:26",
+      "date_fermeture": "2026-07-14 12:44"
+    },
+    {
+      "symbole": "NG=F",
+      "nom": "Gaz naturel",
+      "marche": "matieres",
+      "prix_entree": 2.902,
+      "prix_sortie": 2.915,
+      "quantite": 9.463304617505168,
+      "montant_eur": 27.49,
+      "gain_eur": 0.06794742706753709,
+      "variation_pct": 0.44796691936595107,
+      "raison": "TEMPS+benefice (+0.45%)",
+      "signal_raison": "strategie gagnante backtest (MACD Momentum [4h], retour +15.1%, win rate 61.1%)",
+      "source": "backtest-gagnant",
+      "frais_total": 0.05507553296002757,
+      "date_ouverture": "2026-07-13 21:29",
+      "date_fermeture": "2026-07-14 19:20"
     }
   ]
 }

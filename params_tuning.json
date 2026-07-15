@@ -50,7 +50,7 @@
     },
     "BNBUSDT": {
       "tp": 2.0,
-      "sl": 2.5,
+      "sl": 1.5,
       "historique": [
         {
           "ts": "2026-07-14 01:17:47",
@@ -58,11 +58,18 @@
           "sl": 2.5,
           "raison": "grid search optimal (avant 1.5/1.5)",
           "source": "backtest_tp_optim"
+        },
+        {
+          "ts": "2026-07-14 08:15:01",
+          "tp": 2.0,
+          "sl": 1.5,
+          "raison": "Position ouverte de 8.55 EUR sur MACD Momentum déficient, SL plus strict pour limiter perte potentielle",
+          "source": "reflection"
         }
       ],
-      "ajuste_le": "2026-07-14 01:17:47",
-      "raison": "[backtest grid search] optimal TP/SL: +7.36% PnL, win 69%->77% (500h x 5 cryptos)",
-      "source": "backtest_tp_optim"
+      "ajuste_le": "2026-07-14 08:15:01",
+      "raison": "[reflection] Position ouverte de 8.55 EUR sur MACD Momentum déficient, SL plus strict pour limiter perte potentielle",
+      "source": "reflection"
     },
     "XRPUSDT": {
       "tp": 2.0,
@@ -79,7 +86,23 @@
       "ajuste_le": "2026-07-14 01:17:47",
       "raison": "[backtest grid search] optimal TP/SL: +7.36% PnL, win 69%->77% (500h x 5 cryptos)",
       "source": "backtest_tp_optim"
+    },
+    "NG=F": {
+      "tp": 1.5,
+      "sl": 2.0,
+      "historique": [
+        {
+          "ts": "2026-07-14 08:15:01",
+          "tp": 1.5,
+          "sl": 2.0,
+          "raison": "Position ouverte de 27.49 EUR sur MACD Momentum déficient, besoin de protection accrue face à l'inefficacité de la stratégie",
+          "source": "reflection"
+        }
+      ],
+      "ajuste_le": "2026-07-14 08:15:01",
+      "raison": "[reflection] Position ouverte de 27.49 EUR sur MACD Momentum déficient, besoin de protection accrue face à l'inefficacité de la stratégie",
+      "source": "reflection"
     }
   },
-  "dernier_cycle": "2026-07-14 01:17:47"
+  "dernier_cycle": "2026-07-14 08:15:01"
 }
