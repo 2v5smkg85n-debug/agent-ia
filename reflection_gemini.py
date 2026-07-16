@@ -142,6 +142,9 @@ def gather_contexte():
     }
 
 
+from sagesse_traders import sagesse_prompt
+
+
 def _prompt(ctx):
     return f"""Tu es l'IA centrale d'un systeme de trading automatique. Ton role:
 analyser les performances et proposer des ameliorations concretes (self-improvement).
@@ -163,6 +166,9 @@ EQUITY RECENTE (20 derniers points):
 
 POSITIONS OUVERTES ACTUELLES:
 {json.dumps(ctx['positions_ouvertes'], ensure_ascii=False, indent=2) or '(aucune)'}
+
+SAGESSE DES GRANDS TRADERS (applique ces principes a ton analyse ci-dessous):
+{sagesse_prompt()}
 
 ANALYSE et reponds en JSON STRICT (sans markdown, sans texte autour) avec ce schema:
 {{
