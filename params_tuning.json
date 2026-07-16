@@ -17,8 +17,8 @@
       "source": "backtest_tp_optim"
     },
     "SOLUSDT": {
-      "tp": 2.0,
-      "sl": 2.5,
+      "tp": 1.2,
+      "sl": 1.5,
       "historique": [
         {
           "ts": "2026-07-14 01:17:47",
@@ -26,11 +26,25 @@
           "sl": 2.5,
           "raison": "grid search optimal (avant 1.5/1.5)",
           "source": "backtest_tp_optim"
+        },
+        {
+          "ts": "2026-07-15 08:15:01",
+          "tp": 1.2,
+          "sl": 2.5,
+          "raison": "Réduire TP de 1,618 à 1,2 pour capturer des gains avant les retournements qui causent les pertes moyennes élevées",
+          "source": "reflection"
+        },
+        {
+          "ts": "2026-07-15 08:15:01",
+          "tp": 1.2,
+          "sl": 1.5,
+          "raison": "Stop-loss à 1,5% limite les pertes moyennes qui actuellement dépassent les gains sur MACD Momentum",
+          "source": "reflection"
         }
       ],
-      "ajuste_le": "2026-07-14 01:17:47",
-      "raison": "[backtest grid search] optimal TP/SL: +7.36% PnL, win 69%->77% (500h x 5 cryptos)",
-      "source": "backtest_tp_optim"
+      "ajuste_le": "2026-07-15 08:15:01",
+      "raison": "[reflection] Stop-loss à 1,5% limite les pertes moyennes qui actuellement dépassent les gains sur MACD Momentum",
+      "source": "reflection"
     },
     "ETHUSDT": {
       "tp": 2.0,
@@ -104,5 +118,5 @@
       "source": "reflection"
     }
   },
-  "dernier_cycle": "2026-07-14 08:15:01"
+  "dernier_cycle": "2026-07-15 08:15:01"
 }

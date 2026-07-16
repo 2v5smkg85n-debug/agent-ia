@@ -17,7 +17,7 @@
     "wf_folds": [
       0.0,
       0.0,
-      -3.35,
+      0.0,
       0.0
     ],
     "robuste": false
@@ -41,7 +41,7 @@
       -5.01,
       -8.17,
       0.0,
-      -11.96
+      -11.98
     ],
     "robuste": false
   },
@@ -82,12 +82,12 @@
     "win_rate": 50.0,
     "drawdown_max": 13.53,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      -11.55,
-      0.03,
-      12.05,
-      -0.11
+      -6.43,
+      -2.59,
+      11.83,
+      -3.08
     ],
     "robuste": false
   },
@@ -131,9 +131,9 @@
     "wf_precision": 25.0,
     "wf_folds": [
       3.79,
-      -13.66,
+      -13.13,
       0.0,
-      -16.6
+      -17.23
     ],
     "robuste": false
   },
@@ -174,12 +174,12 @@
     "win_rate": 53.8,
     "drawdown_max": 15.55,
     "verdict": "GAGNANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      -1.01,
-      -7.05,
-      -8.99,
-      -2.15
+      -11.93,
+      -4.37,
+      -8.08,
+      1.03
     ],
     "robuste": false
   },
@@ -222,10 +222,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      7.19,
-      -17.56,
+      12.04,
+      -16.57,
       0.0,
-      -5.46
+      -11.27
     ],
     "robuste": false
   },
@@ -268,10 +268,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      11.6,
-      -7.16,
-      -8.04,
-      6.81
+      9.67,
+      -10.16,
+      -3.23,
+      6.68
     ],
     "robuste": true
   },
@@ -293,7 +293,7 @@
     "wf_folds": [
       0.0,
       0.0,
-      0.11,
+      0.98,
       0.0
     ],
     "robuste": false
@@ -315,7 +315,7 @@
     "wf_precision": 25.0,
     "wf_folds": [
       1.38,
-      -21.72,
+      -19.39,
       0.0,
       0.0
     ],
@@ -360,10 +360,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      1.1,
-      0.0,
+      -4.52,
+      0.81,
       2.95,
-      -1.07
+      -5.31
     ],
     "robuste": true
   },
@@ -407,7 +407,7 @@
     "wf_precision": 0.0,
     "wf_folds": [
       0.0,
-      -12.18,
+      -11.83,
       0.0,
       -1.44
     ],
@@ -452,10 +452,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -2.47,
-      -1.12,
-      -6.24,
-      6.25
+      -3.38,
+      -4.48,
+      -3.55,
+      9.04
     ],
     "robuste": false
   },
