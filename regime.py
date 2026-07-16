@@ -138,6 +138,85 @@ def fit_multi_tf(nom_strat, closes_1h):
     return (f1 + f4) / 2.0, reg_1h, reg_4h
 
 
+# --- ADX (force de tendance, Welles Wilder) ---
+# Strategies trend-following qui ont besoin d'une tendance nette (ADX eleve).
+# Si ADX < SEUIL_ADX_TREND, on coupe leurs signaux (marche sans tendance).
+STRATEGIES_TREND_FOLLOWING = {"MACD Momentum", "SMA Crossover", "EMA Crossover",
+                              "Donchian", "Bollinger Breakout"}
+SEUIL_ADX_TREND = 25.0   # ADX<25 = pas de tendance nette (regle Wilder standard)
+
+
+def adx(bougies, period=14):
+    """ADX de Wilder (force de tendance, independant de la direction).
+    bougies: liste de dicts avec cles haut/bas/cloture (ou high/low/close).
+    Retourne float (0-100) ou None si donnees insuffisantes.
+    >25 = tendance nette, <20 = pas de tendance."""
+    if not bougies or len(bougies) < period * 3:
+        return None
+
+    def _val(b, cles):
+        for k in cles:
+            if k in b:
+                return float(b[k])
+        return None
+    H = [_val(b, ("haut", "high", "High")) for b in bougies]
+    L = [_val(b, ("bas", "low", "Low")) for b in bougies]
+    C = [_val(b, ("cloture", "close", "Close")) for b in bougies]
+    for i in range(len(bougies)):
+        if H[i] is None:
+            H[i] = C[i]
+        if L[i] is None:
+            L[i] = C[i]
+
+    tr, plus_dm, minus_dm = [], [], []
+    for i in range(1, len(bougies)):
+        h, l, c, pc = H[i], L[i], C[i], C[i - 1]
+        tr_i = max(h - l, abs(h - pc), abs(l - pc))
+        up = H[i] - H[i - 1]
+        down = L[i - 1] - L[i]
+        pdm = up if (up > down and up > 0) else 0.0
+        mdm = down if (down > up and down > 0) else 0.0
+        tr.append(tr_i); plus_dm.append(pdm); minus_dm.append(mdm)
+    if len(tr) < period:
+        return None
+
+    def _wilder(arr, p):
+        sm = [sum(arr[:p])]
+        for i in range(p, len(arr)):
+            sm.append(sm[-1] - sm[-1] / p + arr[i])
+        return sm
+
+    atr = _wilder(tr, period)
+    s_pdm = _wilder(plus_dm, period)
+    s_mdm = _wilder(minus_dm, period)
+    dx = []
+    for i in range(len(atr)):
+        if atr[i] > 0:
+            pdi = 100 * s_pdm[i] / atr[i]
+            mdi = 100 * s_mdm[i] / atr[i]
+            denom = pdi + mdi
+            dx.append(100 * abs(pdi - mdi) / denom if denom > 0 else 0.0)
+        else:
+            dx.append(0.0)
+    if len(dx) < period:
+        return None
+    val = sum(dx[:period]) / period
+    for i in range(period, len(dx)):
+        val = (val * (period - 1) + dx[i]) / period
+    return round(val, 2)
+
+
+def adx_actif(symbole, intervalle="1h", limite=100, period=14):
+    """ADX actuel d'un actif (fetch OHLCV + calcul)."""
+    try:
+        from indicateurs import historique_ohlcv
+        bougies = historique_ohlcv(symbole, intervalle, limite)
+        return adx(bougies, period)
+    except Exception as e:
+        log.warning("adx_actif %s indispo: %s", symbole, e)
+        return None
+
+
 def regimes_actuels(marches=None):
     """Regime actuel de tous les marches paper (pour dashboard/reflection)."""
     pf = {}
