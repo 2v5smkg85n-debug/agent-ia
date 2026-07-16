@@ -154,8 +154,14 @@ def miroirer_achat(client, position, mirror):
     if not DRY_RUN:
         try:
             resp = client.place_market_order(paire, "buy", quote_size=montant)
-            record["order_id"] = resp.get("id") or resp.get("order_id")
-            log.info("[LIVE] ordre achat place: %s", resp)
+            _d = resp.get("data", resp) if isinstance(resp, dict) else resp
+            _oid = None
+            if isinstance(_d, dict):
+                _oid = _d.get("id") or _d.get("order_id")
+            elif isinstance(_d, list) and _d:
+                _oid = _d[0].get("id") or _d[0].get("order_id")
+            record["order_id"] = _oid
+            log.info("[LIVE] ordre achat place (order_id=%s): %s", _oid, resp)
             _tel(f"🟦 ACHAT REEL {symbole} {montant:.2f}€ sur Revolut X ({paire})")
         except Exception as e:
             log.error("[LIVE] echec achat %s: %s", symbole, e)
