@@ -9,3 +9,4 @@ backups/
 .DS_Store
 revolut_mirror.json
 logs/
+sentiment_cache.json

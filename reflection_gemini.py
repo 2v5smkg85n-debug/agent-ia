@@ -139,6 +139,7 @@ def gather_contexte():
                                 "montant": p.get("montant_eur"),
                                 "variation": p.get("variation_pct")}
                                for p in positions],
+        "sentiment_web": digest_sentiment(),
     }
 
 
@@ -167,6 +168,7 @@ def charger_lecons():
 
 
 from sagesse_traders import sagesse_prompt
+from sentiment_web import digest_sentiment
 
 
 def _prompt(ctx):
@@ -190,6 +192,9 @@ EQUITY RECENTE (20 derniers points):
 
 POSITIONS OUVERTES ACTUELLES:
 {json.dumps(ctx['positions_ouvertes'], ensure_ascii=False, indent=2) or '(aucune)'}
+
+SENTIMENT WEB (actualite recente, biais court terme hausse/baisse par marche):
+{ctx['sentiment_web']}
 
 LECONS APPRISES (NE RE-PROPOSE PAS CES IDEES, deja rejetees par backtest):
 {charger_lecons()}
