@@ -1,6 +1,6 @@
 {
   "capital_initial": 1000.0,
-  "liquidites": 888.21441371442,
+  "liquidites": 837.8844137144199,
   "positions": [
     {
       "symbole": "EURUSD=X",
@@ -11,6 +11,18 @@
       "montant_eur": 110.32559584630874,
       "frais_entree": 0.11032559584630874,
       "date_ouverture": "2026-07-10 03:00"
+    },
+    {
+      "symbole": "ETHUSDT",
+      "nom": "Ethereum",
+      "marche": "crypto",
+      "prix_entree": 1892.62,
+      "quantite": 0.026566172818632373,
+      "montant_eur": 50.33,
+      "frais_entree": 0.05033,
+      "date_ouverture": "2026-07-16 08:33",
+      "signal_raison": "strategie gagnante backtest (Bollinger Breakout [1h], retour +2.1%, win rate 58.8%)",
+      "source": "backtest-gagnant"
     }
   ],
   "historique": [
@@ -561,8 +573,8 @@
     }
   ],
   "date_creation": "2026-07-09 13:22",
-  "dernier_tick": "2026-07-16 04:30",
-  "total_frais": 7.266176516448964,
+  "dernier_tick": "2026-07-17 04:43",
+  "total_frais": 7.316506516448964,
   "pic_capital": 1000.0,
   "trades_fermes": [
     {

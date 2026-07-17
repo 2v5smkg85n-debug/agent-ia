@@ -39,9 +39,9 @@
     "wf_precision": 0.0,
     "wf_folds": [
       -5.01,
-      -8.17,
+      -9.28,
       0.0,
-      -11.98
+      -14.79
     ],
     "robuste": false
   },
@@ -82,12 +82,12 @@
     "win_rate": 50.0,
     "drawdown_max": 13.53,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -6.43,
-      -2.59,
-      11.83,
-      -3.08
+      -8.34,
+      0.03,
+      13.29,
+      -0.57
     ],
     "robuste": false
   },
@@ -110,7 +110,7 @@
       0.0,
       0.0,
       0.0,
-      0.0
+      -0.2
     ],
     "robuste": false
   },
@@ -131,9 +131,9 @@
     "wf_precision": 25.0,
     "wf_folds": [
       3.79,
-      -13.13,
+      -13.44,
       0.0,
-      -17.23
+      -16.88
     ],
     "robuste": false
   },
@@ -176,9 +176,9 @@
     "verdict": "GAGNANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -11.93,
+      -7.63,
       -4.37,
-      -8.08,
+      -7.19,
       1.03
     ],
     "robuste": false
@@ -201,7 +201,7 @@
     "wf_folds": [
       0.0,
       0.0,
-      0.0,
+      -0.2,
       -1.8
     ],
     "robuste": false
@@ -223,7 +223,7 @@
     "wf_precision": 25.0,
     "wf_folds": [
       12.04,
-      -16.57,
+      -14.68,
       0.0,
       -11.27
     ],
@@ -266,12 +266,12 @@
     "win_rate": 64.3,
     "drawdown_max": 6.7,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      9.67,
-      -10.16,
-      -3.23,
-      6.68
+      12.03,
+      -7.16,
+      0.54,
+      8.38
     ],
     "robuste": true
   },
@@ -293,7 +293,7 @@
     "wf_folds": [
       0.0,
       0.0,
-      0.98,
+      2.25,
       0.0
     ],
     "robuste": false
@@ -358,14 +358,14 @@
     "win_rate": 46.2,
     "drawdown_max": 14.26,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      -4.52,
-      0.81,
-      2.95,
-      -5.31
+      6.36,
+      -1.59,
+      -2.08,
+      -1.67
     ],
-    "robuste": true
+    "robuste": false
   },
   {
     "date": "2026-07-10 00:14",
@@ -404,9 +404,9 @@
     "win_rate": 45.5,
     "drawdown_max": 27.07,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      0.0,
+      2.67,
       -11.83,
       0.0,
       -1.44
@@ -452,10 +452,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -3.38,
+      -2.05,
       -4.48,
-      -3.55,
-      9.04
+      -0.95,
+      5.55
     ],
     "robuste": false
   },
