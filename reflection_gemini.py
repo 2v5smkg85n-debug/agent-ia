@@ -142,6 +142,30 @@ def gather_contexte():
     }
 
 
+def charger_lecons():
+    """Charge les lecons apprises (hypotheses rejetees par backtest).
+    L'IA ne doit PAS re-proposer ces idees."""
+    import os as _os
+    _f = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                       "lecons_apprises.jsonl")
+    try:
+        lecons = []
+        with open(_f, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    lecons.append(json.loads(line))
+        if not lecons:
+            return "(aucune lecon encore)"
+        return "\n".join(
+            f"[{i}] {l.get('hypothese','?')} -> {l.get('resultat','?')} "
+            f"({l.get('decision','?')})"
+            for i, l in enumerate(lecons, 1)
+        )
+    except Exception:
+        return "(aucune lecon encore)"
+
+
 from sagesse_traders import sagesse_prompt
 
 
@@ -166,6 +190,9 @@ EQUITY RECENTE (20 derniers points):
 
 POSITIONS OUVERTES ACTUELLES:
 {json.dumps(ctx['positions_ouvertes'], ensure_ascii=False, indent=2) or '(aucune)'}
+
+LECONS APPRISES (NE RE-PROPOSE PAS CES IDEES, deja rejetees par backtest):
+{charger_lecons()}
 
 SAGESSE DES GRANDS TRADERS (applique ces principes a ton analyse ci-dessous):
 {sagesse_prompt()}
