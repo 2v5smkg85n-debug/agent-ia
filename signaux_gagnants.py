@@ -220,17 +220,6 @@ def generer_signaux_gagnants(prix_actuels, marches_paper):
                 nom = strat.get("strategie")
                 sig = signal_strategie(nom, donnees)
                 if sig == "ACHAT":
-                    # ADX-GATE: coupe les strategies trend-following si pas de tendance (ADX<25)
-                    try:
-                        from regime import (STRATEGIES_TREND_FOLLOWING,
-                                            SEUIL_ADX_TREND, adx as _calc_adx)
-                        if nom in STRATEGIES_TREND_FOLLOWING:
-                            _adx_val = _calc_adx(bougies)
-                            if _adx_val is not None and _adx_val < SEUIL_ADX_TREND:
-                                print(f"[ADX faible {_adx_val:.0f}] ", end="", flush=True)
-                                continue
-                    except Exception:
-                        pass
                     if _mtf_ok:
                         try:
                             _fit_avg, _r1h, _r4h = fit_multi_tf(nom, clotures)
