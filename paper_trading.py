@@ -50,6 +50,13 @@ INTERVALLE_BOUCLE = 1800       # 30 min (anti-churn : avant 15 min = trop de tra
 # Seuilles serres pour trading actif (prise de benefice frequente)
 TAKE_PROFIT_PCT = 1.5           # +1.5% -> encaisse le benefice
 STOP_LOSS_PCT = 1.5             # -1.5% -> coupe la perte
+# EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
+# est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
+# Idee utilisateur + valide par backtest elargi (9 marches, 30 trades, plateau a tp_ext=4).
+EXTEND_CRYPTOS = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"}
+EXTEND_SEUIL = 0.5        # active l'extension a partir de +0.5% de gain
+EXTEND_TP_PCT = 4.0       # TP monte (2.0% -> 4.0%) une fois en profit
+EXTEND_DUREE_MAX = 480    # cap duree des positions extended (8h, vs 90min normal)
 SORTIE_DUREE_MIN = 90           # ferme apres 90 min si en gain suffisant (avant 45 -> trop court)
 # Seuil de gain minimum pour fermer par duree : doit couvrir les frais (0.2% AR) + une marge.
 # Fermer a +0.05% = perte nette (frais 0.2%). Donc on n'accepte que gain >= 0.30%.
@@ -400,9 +407,16 @@ def verifier_sorties(pf, prix_actuels):
             _tp, _sl = tp_sl_actif(sym)
         except Exception:
             _tp, _sl = TAKE_PROFIT_PCT, STOP_LOSS_PCT
+        # EXTEND_TP (valide backtest +13.35% crypto): si position crypto en profit
+        # >= +0.5%, on monte le TP a 4.0% pour laisser courir les gagnants.
+        # SL fixe (pas de breakeven). Forex/or/matieres: TP fixe (non valide).
+        extend_actif = sym in EXTEND_CRYPTOS and variation >= EXTEND_SEUIL
+        if extend_actif:
+            _tp = EXTEND_TP_PCT
         # Take-profit: encaisse des que +_tp%
         if variation >= _tp:
-            positions_a_fermer.append((pos, prix_actuel, "TAKE-PROFIT", variation))
+            raison = "TAKE-PROFIT-EXTEND" if extend_actif else "TAKE-PROFIT"
+            positions_a_fermer.append((pos, prix_actuel, raison, variation))
         # Stop-loss: coupe des que -_sl%
         elif variation <= -_sl:
             positions_a_fermer.append((pos, prix_actuel, "STOP-LOSS", variation))
@@ -414,7 +428,10 @@ def verifier_sorties(pf, prix_actuels):
             try:
                 dt_ouv = datetime.strptime(pos.get("date_ouverture", ""), "%Y-%m-%d %H:%M")
                 age_min = (maintenant - dt_ouv).total_seconds() / 60
-                if age_min >= SORTIE_DUREE_MIN and variation >= SEUIL_BENEFICE_MIN:
+                # EXTEND: cap duree plus long (8h) pour laisser le TP etendu se realiser
+                duree_min = EXTEND_DUREE_MAX if extend_actif else SORTIE_DUREE_MIN
+                seuil_min = EXTEND_SEUIL if extend_actif else SEUIL_BENEFICE_MIN
+                if age_min >= duree_min and variation >= seuil_min:
                     positions_a_fermer.append((pos, prix_actuel, f"TEMPS+benefice ({variation:+.2f}%)", variation))
             except Exception:
                 pass
