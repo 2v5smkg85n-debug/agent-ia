@@ -1,6 +1,6 @@
 {
   "capital_initial": 1000.0,
-  "liquidites": 837.8844137144199,
+  "liquidites": 886.9714152615701,
   "positions": [
     {
       "symbole": "EURUSD=X",
@@ -11,18 +11,6 @@
       "montant_eur": 110.32559584630874,
       "frais_entree": 0.11032559584630874,
       "date_ouverture": "2026-07-10 03:00"
-    },
-    {
-      "symbole": "ETHUSDT",
-      "nom": "Ethereum",
-      "marche": "crypto",
-      "prix_entree": 1892.62,
-      "quantite": 0.026566172818632373,
-      "montant_eur": 50.33,
-      "frais_entree": 0.05033,
-      "date_ouverture": "2026-07-16 08:33",
-      "signal_raison": "strategie gagnante backtest (Bollinger Breakout [1h], retour +2.1%, win rate 58.8%)",
-      "source": "backtest-gagnant"
     }
   ],
   "historique": [
@@ -570,11 +558,45 @@
       "frais_total": 0.05507553296002757,
       "date_ouverture": "2026-07-13 21:29",
       "date_fermeture": "2026-07-14 19:20"
+    },
+    {
+      "symbole": "ETHUSDT",
+      "nom": "Ethereum",
+      "marche": "crypto",
+      "prix_entree": 1892.62,
+      "prix_sortie": 1832.26,
+      "quantite": 0.026566172818632373,
+      "montant_eur": 50.33,
+      "gain_eur": -1.702540327141314,
+      "variation_pct": -3.1892297450095586,
+      "raison": "STOP-LOSS",
+      "signal_raison": "strategie gagnante backtest (Bollinger Breakout [1h], retour +2.1%, win rate 58.8%)",
+      "source": "backtest-gagnant",
+      "frais_total": 0.09900613580866735,
+      "date_ouverture": "2026-07-16 08:33",
+      "date_fermeture": "2026-07-17 05:44"
+    },
+    {
+      "symbole": "BTCUSDT",
+      "nom": "Bitcoin",
+      "marche": "crypto",
+      "prix_entree": 62993.84,
+      "prix_sortie": 63314.0,
+      "quantite": 0.0023713504368046145,
+      "montant_eur": 149.53,
+      "gain_eur": 0.45954187429151716,
+      "variation_pct": 0.5082401707849584,
+      "raison": "TEMPS+benefice (+0.51%)",
+      "signal_raison": "strategie gagnante backtest (RSI Mean Reversion [1h], retour +9.1%, win rate 80.0%)",
+      "source": "backtest-gagnant",
+      "frais_total": 0.2996696815558474,
+      "date_ouverture": "2026-07-17 05:44",
+      "date_fermeture": "2026-07-17 11:48"
     }
   ],
   "date_creation": "2026-07-09 13:22",
-  "dernier_tick": "2026-07-17 04:43",
-  "total_frais": 7.316506516448964,
+  "dernier_tick": "2026-07-18 04:54",
+  "total_frais": 7.664852333813479,
   "pic_capital": 1000.0,
   "trades_fermes": [
     {
@@ -836,6 +858,40 @@
       "frais_total": 0.05507553296002757,
       "date_ouverture": "2026-07-13 21:29",
       "date_fermeture": "2026-07-14 19:20"
+    },
+    {
+      "symbole": "ETHUSDT",
+      "nom": "Ethereum",
+      "marche": "crypto",
+      "prix_entree": 1892.62,
+      "prix_sortie": 1832.26,
+      "quantite": 0.026566172818632373,
+      "montant_eur": 50.33,
+      "gain_eur": -1.702540327141314,
+      "variation_pct": -3.1892297450095586,
+      "raison": "STOP-LOSS",
+      "signal_raison": "strategie gagnante backtest (Bollinger Breakout [1h], retour +2.1%, win rate 58.8%)",
+      "source": "backtest-gagnant",
+      "frais_total": 0.09900613580866735,
+      "date_ouverture": "2026-07-16 08:33",
+      "date_fermeture": "2026-07-17 05:44"
+    },
+    {
+      "symbole": "BTCUSDT",
+      "nom": "Bitcoin",
+      "marche": "crypto",
+      "prix_entree": 62993.84,
+      "prix_sortie": 63314.0,
+      "quantite": 0.0023713504368046145,
+      "montant_eur": 149.53,
+      "gain_eur": 0.45954187429151716,
+      "variation_pct": 0.5082401707849584,
+      "raison": "TEMPS+benefice (+0.51%)",
+      "signal_raison": "strategie gagnante backtest (RSI Mean Reversion [1h], retour +9.1%, win rate 80.0%)",
+      "source": "backtest-gagnant",
+      "frais_total": 0.2996696815558474,
+      "date_ouverture": "2026-07-17 05:44",
+      "date_fermeture": "2026-07-17 11:48"
     }
   ]
 }

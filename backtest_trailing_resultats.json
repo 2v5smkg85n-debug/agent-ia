@@ -1,94 +1,159 @@
 {
   "totaux": {
     "FIXE": {
-      "pnl": 13.36,
-      "n": 13,
+      "pnl": 10.53,
+      "n": 12,
       "wins": 9,
-      "sum_win": 17.626107318335723,
-      "max_win": 9.59,
-      "win_rate": 69.2,
-      "avg_win": 1.96
+      "sum_win": 16.028225545303705,
+      "max_win": 8.7,
+      "win_rate": 75.0,
+      "avg_win": 1.78
     },
     "TRAIL": {
-      "pnl": 7.54,
-      "n": 13,
-      "wins": 9,
-      "sum_win": 10.13690011025227,
-      "max_win": 7.46,
-      "win_rate": 69.2,
-      "avg_win": 1.13
+      "pnl": 3.91,
+      "n": 12,
+      "wins": 7,
+      "sum_win": 10.02161690072094,
+      "max_win": 8.43,
+      "win_rate": 58.3,
+      "avg_win": 1.43
+    },
+    "EXTEND": {
+      "pnl": 6.92,
+      "n": 12,
+      "wins": 5,
+      "sum_win": 13.090354909533035,
+      "max_win": 9.13,
+      "win_rate": 41.7,
+      "avg_win": 2.62
     }
   },
   "par_actif": {
     "BTCUSDT": {
       "FIXE": {
-        "pnl": 2.71,
-        "n": 3,
-        "wins": 2,
-        "max_win": 1.66,
-        "sum_win": 3.2519779275733223,
-        "win_rate": 66.7,
-        "avg_win": 1.63
+        "pnl": 3.67,
+        "n": 4,
+        "wins": 3,
+        "max_win": 1.93,
+        "sum_win": 5.351128435579556,
+        "win_rate": 75.0,
+        "avg_win": 1.78
       },
       "TRAIL": {
-        "pnl": 1.17,
-        "n": 3,
+        "pnl": 0.46,
+        "n": 4,
         "wins": 2,
-        "max_win": 0.87,
-        "sum_win": 1.4570658692967506,
-        "win_rate": 66.7,
-        "avg_win": 0.73
+        "max_win": 1.84,
+        "sum_win": 2.4317419536696323,
+        "win_rate": 50.0,
+        "avg_win": 1.22
+      },
+      "EXTEND": {
+        "pnl": -0.18,
+        "n": 4,
+        "wins": 1,
+        "max_win": 1.84,
+        "sum_win": 1.8431642641537744,
+        "win_rate": 25.0,
+        "avg_win": 1.84
+      }
+    },
+    "SOLUSDT": {
+      "FIXE": {
+        "pnl": 1.08,
+        "n": 1,
+        "wins": 1,
+        "max_win": 1.08,
+        "sum_win": 1.0752688172042972,
+        "win_rate": 100.0,
+        "avg_win": 1.08
+      },
+      "TRAIL": {
+        "pnl": 1.08,
+        "n": 1,
+        "wins": 1,
+        "max_win": 1.08,
+        "sum_win": 1.0752688172042972,
+        "win_rate": 100.0,
+        "avg_win": 1.08
+      },
+      "EXTEND": {
+        "pnl": 0.0,
+        "n": 1,
+        "wins": 0,
+        "max_win": 0.0,
+        "sum_win": 0.0,
+        "win_rate": 0.0,
+        "avg_win": 0.0
       }
     },
     "ETHUSDT": {
       "FIXE": {
-        "pnl": 4.19,
+        "pnl": 2.68,
         "n": 5,
         "wins": 3,
         "max_win": 4.1,
-        "sum_win": 7.521851445125657,
+        "sum_win": 6.498646045565437,
         "win_rate": 60.0,
-        "avg_win": 2.51
+        "avg_win": 2.17
       },
       "TRAIL": {
-        "pnl": 3.41,
+        "pnl": 1.29,
         "n": 5,
         "wins": 3,
         "max_win": 4.1,
-        "sum_win": 5.388360828662362,
+        "sum_win": 5.103825822394204,
         "win_rate": 60.0,
-        "avg_win": 1.8
+        "avg_win": 1.7
+      },
+      "EXTEND": {
+        "pnl": 4.24,
+        "n": 5,
+        "wins": 3,
+        "max_win": 4.1,
+        "sum_win": 8.05590829472739,
+        "win_rate": 60.0,
+        "avg_win": 2.69
       }
     },
     "BNBUSDT": {
       "FIXE": {
-        "pnl": 5.33,
-        "n": 3,
-        "wins": 3,
-        "max_win": 2.31,
-        "sum_win": 5.334472925204747,
-        "win_rate": 100.0,
-        "avg_win": 1.78
+        "pnl": 0.0,
+        "n": 0,
+        "wins": 0,
+        "max_win": 0.0,
+        "sum_win": 0.0,
+        "win_rate": 0.0,
+        "avg_win": 0.0
       },
       "TRAIL": {
-        "pnl": 1.88,
-        "n": 3,
-        "wins": 3,
-        "max_win": 1.08,
-        "sum_win": 1.8806931048403512,
-        "win_rate": 100.0,
-        "avg_win": 0.63
+        "pnl": 0.0,
+        "n": 0,
+        "wins": 0,
+        "max_win": 0.0,
+        "sum_win": 0.0,
+        "win_rate": 0.0,
+        "avg_win": 0.0
+      },
+      "EXTEND": {
+        "pnl": 0.0,
+        "n": 0,
+        "wins": 0,
+        "max_win": 0.0,
+        "sum_win": 0.0,
+        "win_rate": 0.0,
+        "avg_win": 0.0
       }
     },
     "XRPUSDT": {
       "FIXE": {
-        "pnl": 1.13,
+        "pnl": 3.1,
         "n": 2,
-        "wins": 1,
-        "max_win": 1.52,
-        "sum_win": 1.5178050204319962,
-        "win_rate": 50.0,
-        "avg_win": 1.52
+        "wins": 2,
+        "max_win": 1.59,
+        "sum_win": 3.1031822469544155,
+        "win_rate": 100.0,
+        "avg_win": 1.55
       },
       "TRAIL": {
         "pnl": 1.08,
@@ -98,6 +163,15 @@
         "sum_win": 1.4107803074528076,
         "win_rate": 50.0,
         "avg_win": 1.41
+      },
+      "EXTEND": {
+        "pnl": 2.86,
+        "n": 2,
+        "wins": 1,
+        "max_win": 3.19,
+        "sum_win": 3.1912823506518717,
+        "win_rate": 50.0,
+        "avg_win": 3.19
       }
     }
   },
