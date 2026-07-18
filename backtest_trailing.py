@@ -19,6 +19,9 @@ DOSSIER = os.path.dirname(os.path.abspath(__file__))
 TP, SL = 1.5, 1.5
 TRAIL_ACTIVATE = 0.5
 TRAIL_PCT = 0.8
+# EXTEND: stop breakeven + TP dynamique (stop positif -> TP monte)
+BREAKEVEN_ACTIVATE = 0.5   # active breakeven + TP etend a +0.5% de gain
+TP_EXTEND = 3.0            # TP monte une fois en profit
 HARD_CAP = 3.0
 MAX_BARS = 48
 GATE = 1.0
@@ -117,12 +120,13 @@ def simuler_actif(actif, strats):
         entrees.append((ouvert["bar"], ouvert["strat"], ouvert["px"]))
     # maintenant simuler les 2 modes de sortie sur chaque entree
     res = {m: {"pnl": 0.0, "n": 0, "wins": 0, "max_win": 0.0, "sum_win": 0.0}
-           for m in ("FIXE", "TRAIL")}
+           for m in ("FIXE", "TRAIL", "EXTEND")}
     for bar_e, strat, px_e in entrees:
         fin = min(bar_e + MAX_BARS + 20, len(closes) - 1)
         peak = 0.0
         exit_fixe = None
         exit_trail = None
+        exit_ext = None
         for j in range(bar_e + 1, fin + 1):
             px = closes[j]
             var = (px - px_e) / px_e * 100
@@ -147,13 +151,27 @@ def simuler_actif(actif, strats):
                     exit_trail = (j, var, "CAP")
                 elif age >= MAX_BARS and var > 0:
                     exit_trail = (j, var, "TEMPS")
-            if exit_fixe and exit_trail:
+            # EXTEND: breakeven stop + TP etend une fois en profit
+            if exit_ext is None:
+                age = j - bar_e
+                active_be = peak >= BREAKEVEN_ACTIVATE
+                sl_niv = 0.0 if active_be else -SL
+                tp_niv = TP_EXTEND if active_be else TP
+                if var <= sl_niv:
+                    exit_ext = (j, var, "BE" if active_be else "SL")
+                elif var >= tp_niv:
+                    exit_ext = (j, var, "TP_EXT" if active_be else "TP")
+                elif age >= MAX_BARS and var > 0:
+                    exit_ext = (j, var, "TEMPS")
+            if exit_fixe and exit_trail and exit_ext:
                 break
         if exit_fixe is None:
             exit_fixe = (fin, (closes[fin] - px_e) / px_e * 100, "FIN")
         if exit_trail is None:
             exit_trail = (fin, (closes[fin] - px_e) / px_e * 100, "FIN")
-        for m, ex in (("FIXE", exit_fixe), ("TRAIL", exit_trail)):
+        if exit_ext is None:
+            exit_ext = (fin, (closes[fin] - px_e) / px_e * 100, "FIN")
+        for m, ex in (("FIXE", exit_fixe), ("TRAIL", exit_trail), ("EXTEND", exit_ext)):
             v = ex[1]
             res[m]["pnl"] += v
             res[m]["n"] += 1
@@ -177,7 +195,7 @@ def main():
     actifs = [a for a in ACTIFS_TEST if a in strats_par_actif] or list(strats_par_actif.keys())[:5]
     log.info("Backtest trailing sur: %s", actifs)
     tot = {m: {"pnl": 0.0, "n": 0, "wins": 0, "sum_win": 0.0, "max_win": 0.0}
-           for m in ("FIXE", "TRAIL")}
+           for m in ("FIXE", "TRAIL", "EXTEND")}
     par_actif = {}
     for actif in actifs:
         log.info("  -> %s ...", actif)
@@ -198,21 +216,24 @@ def main():
     print("=" * 72)
     print(f"{'Mode':<8} {'PnL%':>8} {'Trades':>7} {'Win%':>6} {'AvgWin':>8} {'MaxWin':>8}")
     print("-" * 72)
-    for m in ("FIXE", "TRAIL"):
+    for m in ("FIXE", "TRAIL", "EXTEND"):
         t = tot[m]
         print(f"{m:<8} {t['pnl']:>8.2f} {t['n']:>7} {t['win_rate']:>5.1f}% "
               f"{t['avg_win']:>+7.2f}% {t['max_win']:>+7.2f}%")
     print("=" * 72)
-    pf, pt = tot["FIXE"]["pnl"], tot["TRAIL"]["pnl"]
+    pf, pt, pe = tot["FIXE"]["pnl"], tot["TRAIL"]["pnl"], tot["EXTEND"]["pnl"]
     print(f"\nVERDICT:")
-    print(f"  TRAIL vs FIXE: {pt-pf:+.2f}% PnL")
-    print(f"  AvgWin: FIXE {tot['FIXE']['avg_win']}% -> TRAIL {tot['TRAIL']['avg_win']}%")
-    if pt > pf + 0.5:
-        print("  → Le trailing AIDE (gains plus gros sans plus de pertes): l'activer en live.")
-    elif pt < pf - 0.5:
-        print("  → Le trailing NUIT (marché trop rangeant): garder le TP fixe.")
+    print(f"  TRAIL  vs FIXE: {pt-pf:+.2f}% PnL")
+    print(f"  EXTEND vs FIXE: {pe-pf:+.2f}% PnL  (stop breakeven + TP {TP_EXTEND}%)")
+    print(f"  AvgWin: FIXE {tot['FIXE']['avg_win']}% | TRAIL {tot['TRAIL']['avg_win']}% | EXTEND {tot['EXTEND']['avg_win']}%")
+    if pe > pf + 0.5:
+        print("  -> EXTEND AIDE: activer le stop breakeven + TP dynamique en live.")
+    elif pe < pf - 0.5:
+        print("  -> EXTEND NUIT (marche rangeant, breakeven coupe les gagnants): garder le TP fixe.")
     else:
-        print("  → Neutre: le trailing ne change pas grand-chose.")
+        print("  -> EXTEND neutre.")
+    if pt < pf - 0.5:
+        print("  (rappel: le trailing nuit aussi -> garder le TP fixe.)")
     json.dump({"totaux": tot, "par_actif": par_actif,
                "config": {"TP": TP, "SL": SL, "TRAIL_ACTIVATE": TRAIL_ACTIVATE,
                           "TRAIL_PCT": TRAIL_PCT, "HARD_CAP": HARD_CAP}},
