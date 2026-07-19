@@ -1,80 +1,105 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Sagesse des grands traders — principes injectés dans la réflexion quotidienne.
+"""sagesse_traders.py — Base de connaissances: sagesse des 10 plus grands traders.
 
-Chaque principe est associé à comment le système peut l'appliquer concrètement
-(couper une stratégie perdante, ajuster TP/SL, sizing, diversification, etc.).
-Le LLM de réflexion reçoit ce corpus et doit l'utiliser pour analyser la performance."""
+Encode les principes intemporels de chaque maitre trader et comment ils
+s'appliquent (ou pas) au systeme IA (mean-reversion, intraday crypto/matieres
+premieres). Le module reflection_gemini peut citer cette base pour generer des
+hypothese testables.
 
-# (trader, principe, application concrète dans le système)
-SAGESSE = [
-    ("Jesse Livermore",
-     "Coupe tes pertes, laisse courir tes gains",
-     "Ne jamais moyenner à la baisse sur une position perdante. Si une strategie "
-     "est net negative, coupe-la (l'auto-pruning le fait ; confirme-le)."),
+DISCIPLINE: chaque principe est une HYPOTHESE a backtester avant deploiement.
+Le systeme etant mean-reversion, les principes trend-following (Turtle/Dennis,
+'let profits run') sont susceptibles d'etre rejetes en regime QUIET (comme ADX,
+trailing, EXTEND-breakeven). Les principes contrarian (Buffett, Rogers, Soros)
+sont alignes et prometteurs.
+"""
 
-    ("Paul Tudor Jones",
-     "Ratio gain/risque minimum 5:1 ; l'ego est l'ennemi",
-     "Un trade gagnant doit rapporter plusieurs fois la perte potentielle. Verifie "
-     "TP vs SL : si TP <= SL, le ratio est mauvais. TP devrait etre >= 2x SL "
-     "(ex: SL 2.5% -> TP >= 5.0%). Coupe si ratio < 1."),
+SAGESSE = {
+    "Warren Buffett": {
+        "principe": "Acheter des actifs sous-evalues, long terme, concentration, 'sois craintif quand les autres sont avides'",
+        "application_ia": "Contrarian: acheter les creux profonds (RSI tres bas), ne pas acheter dans l'euphorie. Le gate dip-buying bloque deja les bougies haussieres = ne pas acheter l'euphorie. Concentration = peu de trades haute conviction.",
+        "aligne": "OUI (mean-reversion = acheter sous-evalue)",
+        "test": "deep_contrarian: RSI<20 (creux profond) vs RSI<30, win rate?",
+    },
+    "George Soros": {
+        "principe": "Reflexivite (feedback prix/perception), parier gros quand conviction, 'je suis riche parce que je sais quand j'ai tort'",
+        "application_ia": "Cut losses fast (savoir qu'on a tort). Position sizing par conviction (score). Reflexivite: les mouvements auto-entretenus en crypto.",
+        "aligne": "PARTIEL (cut losers utile; sizing limite par caps 10€/trade)",
+        "test": "cut_losers: exit plus rapide sur position perdante, ameliore PnL?",
+    },
+    "James Simons (Medallion)": {
+        "principe": "Quantitatif, reconnaissance de patterns, data-driven, diversification massive, court terme. 39%/an depuis 1988.",
+        "application_ia": "C'est DEJA ce qu'est le systeme (quant + backtest + patterns). Lecon: miner plus de patterns, diversifier les strategies, laisser les donnees decider.",
+        "aligne": "OUI (coeur du systeme)",
+        "test": "deja applique (research_loop 24/7 mine les patterns)",
+    },
+    "John Paulson": {
+        "principe": "Paris asymetriques sur les bulles (short subprimes). Macro evenementiel.",
+        "application_ia": "Difficile a appliquer en intraday crypto. Principe: chercher l'asymetrie (gros gain potentiel, risque limite). EXTEND_TP est deja un paris asymetrique (TP 4% vs SL 2.5%).",
+        "aligne": "PARTIEL (asymetrie deja via EXTEND_TP)",
+        "test": "non prioritaire (macro evenementiel hors scope intraday)",
+    },
+    "Steven Cohen": {
+        "principe": "Multi-strategie, short-selling, intuition + data, execution rapide.",
+        "application_ia": "Multi-strategie = deja (RSI/MACD/SMA/Bollinger). Ajouter short-selling (VENTE) en regime baissier pourrait etre une piste.",
+        "aligne": "PARTIEL (multi-strat deja; short = piste future)",
+        "test": "future: strat VENTE en regime DOWN",
+    },
+    "Jim Rogers": {
+        "principe": "Matieres premieres, contrarian, 'achete quand il y a du sang dans les rues'.",
+        "application_ia": "Contrarian sur matieres premieres (GC, NG, HG, ZW que le systeme trade). Acheter les creux extremes. Alignement total avec mean-reversion.",
+        "aligne": "OUI (contrarian + commodities)",
+        "test": "deep_contrarian (avec Buffett)",
+    },
+    "Richard Dennis (Turtle Traders)": {
+        "principe": "Systeme trend-following rules-based, breakout Donchian 20 jours. 'N'importe qui peut apprendre a trader.'",
+        "application_ia": "Donchian breakout = trend-following. ATTENTION: le systeme est mean-reversion et a rejete ADX/trailing (trend) en QUIET. A tester honnetement - probablement rejete en range mais peut-etre utile en TREND.",
+        "aligne": "NON en QUIET, peut-etre en TREND",
+        "test": "turtle_breakout: Donchian 20-bar breakout, backtest honnete",
+    },
+    "Ray Dalio": {
+        "principe": "Pure Alpha, all-weather, diversifier les flux de rendement non-correles, comprendre le cycle economique, 'principles'.",
+        "application_ia": "All-weather = strategies conditionnees au regime (deja via regime.py). Diversifier across regimes (QUIET/TREND/VOL).",
+        "aligne": "OUI (regime-conditionnel = all-weather)",
+        "test": "deja applique (regime_fit dans le classement)",
+    },
+    "Paul Tudor Jones": {
+        "principe": "Contrarian aux points de retournement, R:R 5:1, 'loser averages losers' (jamais ajouter a un perdant), risk management d'abord.",
+        "application_ia": "Jamais ajouter a une position perdante (deja le cas: 1 trade par actif). R:R 5:1 = TP>>SL (EXTEND_TP fait 4% vs 2.5% SL = 1.6:1, peut-etre pousser). Cut losers fast.",
+        "aligne": "OUI (risk management)",
+        "test": "cut_losers + R:R plus eleve",
+    },
+    "Jeff Yass (SIG)": {
+        "principe": "Options, edge dans la probabilite, expected value. 'La chose la plus importante est la valeur attendue.'",
+        "application_ia": "Ne trader que quand l'EV est positive (expectancy). Le backtest mesure deja le retour moyen = proxy EV. Classement par score = bet on positive EV.",
+        "aligne": "OUI (EV-based)",
+        "test": "deja applique (score = backtest*fit*live = proxy EV)",
+    },
+}
 
-    ("Richard Dennis / Turtle Traders",
-     "Risque fixe de 1-2% du capital par trade ; trend following",
-     "Ne jamais surcharger un seul trade. Le CAP_ACTIF et drawdown_scaler "
-     "appliquent ce principe. En regime TREND, garde l'exposition ; en "
-     "QUIET, reduis-la."),
-
-    ("Ray Dalio",
-     "Pain + Reflection = Progress ; diversification all-weather",
-     "Chaque perte est une lecon : identifie la cause racine de chaque strategie "
-     "perdante (regime inadapte ? TP/SL mal regle ? actif trop volatile ?). "
-     "Diversifie pour qu'aucun actif correle ne domine le risque."),
-
-    ("George Soros",
-     "Ce n'est pas d'avoir raison qui compte, mais combien tu gagnes quand tu as "
-     "raison et perds quand tu as tort",
-     "Concentre-toi sur l'expectative (pnl_total), PAS sur le win_rate seul. "
-     "Une strategie a 70% de win mais pnl negatif est a COUPER : les pertes "
-     "moyennes depassent les gains. C'est le ratio gain/perte qui compte."),
-
-    ("Stanley Druckenmiller",
-     "La taille des positions est aussi importante que la direction",
-     "Quand une strategie est gagnante et fiable (win_rate eleve ET pnl positif), "
-     "augmente sa taille ; quand elle perd, reduis-la avant de la couper."),
-
-    ("Ed Seykota",
-     "Trend following + risk management ; tout le monde obtient ce qu'il veut du "
-     "marche",
-     "En regime QUIET/range, les strategies trend-following (Donchian, breakout) "
-     "souffrent ; privilegie mean-reversion (RSI). En TREND, l'inverse. Adapte."),
-
-    ("Larry Hite",
-     "Ne risque jamais plus de 1% par trade ; diversifie pour reduire le risque "
-     "non-systematique",
-     "Verifie la correlation entre tes positions ouvertes : si 2+ positions sont "
-     "sur des actifs tres correles (ex: BTC+ETH+SOL), c'est un risque cache. "
-     "Le CAP_SECTEUR limite deja ca."),
-
-    ("Mark Douglas",
-     "Pense en probabilites, pas en certitudes ; un seul trade n'a pas d'importance",
-     "Ce qui compte c'est l'expectative sur 50+ trades, pas le dernier trade. "
-     "Ne desactive pas une strategie sur 1 seul trade perdu (n<3 = bruit). "
-     "Mais n'attends pas non plus 20 trades pour reagir."),
-
-    ("Warren Buffett",
-     "Regle 1: ne perds pas d'argent. Regle 2: n'oublie pas la regle 1",
-     "Le drawdown protection est priorite absolue. Si drawdown > seuil, reduis "
-     "l'exposition globalement. La preservation du capital prime sur le profit."),
+# Synthese: quels principes tester maintenant (alignes + testables)
+A_TESTER = [
+    ("deep_contrarian", "Buffett + Rogers + Soros", "RSI<20 (creux profond) gagne-t-il plus que RSI<30?"),
+    ("cut_losers", "Soros + Paul Tudor Jones", "Exit plus rapide des perdants ameliore-t-il le PnL?"),
+    ("turtle_breakout", "Richard Dennis", "Donchian breakout: trend en QUIET = probable rejet (honneste)"),
 ]
 
 
-def sagesse_prompt():
-    """Retourne le corpus formaté pour injection dans le prompt de réflexion."""
-    lignes = []
-    for i, (trader, principe, appli) in enumerate(SAGESSE, 1):
-        lignes.append(f"{i}. [{trader}] {principe}\n   -> {appli}")
-    return "\n".join(lignes)
+def afficher():
+    print("=" * 74)
+    print("SAGESSE DES 10 MAITRES TRADERS (base de connaissances IA)")
+    print("=" * 74)
+    for nom, s in SAGESSE.items():
+        print(f"\n{nom}")
+        print(f"  principe: {s['principe']}")
+        print(f"  applique: {s['application_ia'][:90]}")
+        print(f"  aligne: {s['aligne']}")
+    print("\n" + "=" * 74)
+    print("A TESTER MAINTENANT (alignes + testables):")
+    for key, src, q in A_TESTER:
+        print(f"  - {key} [{src}]: {q}")
+    print("=" * 74)
 
 
 if __name__ == "__main__":
-    print(sagesse_prompt())
+    afficher()
