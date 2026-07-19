@@ -51,7 +51,8 @@ STOP_LOSS_PCT = 0.015      # -1.5% (symetrique au paper trading)
 
 # Actifs a tester (symboles Yahoo/Binance)
 ACTIFS = {
-    "crypto":   ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"],
+    "crypto":   ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT",
+                  "LDOUSDT", "AAVEUSDT", "UNIUSDT", "PENDLEUSDT", "ARBUSDT"],
     "forex":    ["EURUSD=X", "GBPUSD=X", "JPY=X", "GC=F"],
     "actions":  ["AAPL", "TSLA", "NVDA", "MSFT"],
     "matieres": ["BZ=F", "NG=F", "HG=F", "ZW=F"],
