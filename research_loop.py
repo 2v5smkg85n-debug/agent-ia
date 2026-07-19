@@ -313,7 +313,21 @@ def cycle(mods):
         else:
             log.info("Divergence EXTEND: %s", div.get("msg"))
 
-    # 4. lecons auto (uniquement sur evenements significatifs)
+    # 4. classement strategies selon le moment (regime + perf live)
+    try:
+        import classement_strategies as cs
+        cl = cs.calculer_classement()
+        tops = []
+        for actif, d in cl.items():
+            s = d.get("strategies", [])
+            if s and s[0].get("score", 0) > 0:
+                tops.append(f"{actif}:{s[0]['strategie']}")
+        if tops:
+            log.info("Top strat (moment): %s", ", ".join(tops))
+    except Exception:
+        log.warning("classement: echec (non bloquant)")
+
+    # 5. lecons auto (uniquement sur evenements significatifs)
     # a) shift de regime -> re-evaluer EXTEND dans le nouveau regime
     for sym, avant, apres in shifts:
         if best and base:
