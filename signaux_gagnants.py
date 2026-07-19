@@ -160,6 +160,30 @@ def signal_strategie(nom_strat, donnees):
 # ============================================
 # GENERATION DES SIGNAUX POUR LE PAPER TRADING
 # ============================================
+_CLASSEMENT_CACHE = {"data": None, "mtime": 0.0}
+
+
+def _classement_lookup():
+    """{(actif, strategie): entry} depuis classement_strategies.json (cache par mtime).
+    Mis a jour chaque heure par research_loop. Retourne {} si absent/erreur."""
+    try:
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "classement_strategies.json")
+        mt = os.path.getmtime(p)
+        if _CLASSEMENT_CACHE["data"] is None or mt != _CLASSEMENT_CACHE["mtime"]:
+            import json
+            d = json.load(open(p, encoding="utf-8"))
+            lookup = {}
+            for actif, info in d.items():
+                for s in info.get("strategies", []):
+                    lookup[(actif, s.get("strategie"))] = s
+            _CLASSEMENT_CACHE["data"] = lookup
+            _CLASSEMENT_CACHE["mtime"] = mt
+        return _CLASSEMENT_CACHE["data"]
+    except Exception:
+        return {}
+
+
 def generer_signaux_gagnants(prix_actuels, marches_paper):
     """Genere des signaux d'achat bases sur les strategies gagnantes du backtest.
 
@@ -229,7 +253,17 @@ def generer_signaux_gagnants(prix_actuels, marches_paper):
                             continue  # regime defavorable en moyenne -> skip
                     else:
                         _fit_avg, _r1h, _r4h = 1.0, {"regime": "INCONNU"}, {"regime": "INCONNU"}
-                    _score = strat.get("retour_pct", 0) * _fit_avg
+                    # CLASSEMENT-INSTALLE: enrichit le score avec live_mult (perf
+                    # live bayesienne depuis classement_strategies.json). Effet
+                    # faible avec peu de trades (shrink vers 1.0), grandit ensuite.
+                    _live_mult = 1.0
+                    try:
+                        _cl = _classement_lookup().get((symbole, nom))
+                        if _cl:
+                            _live_mult = _cl.get("live_mult", 1.0)
+                    except Exception:
+                        pass
+                    _score = strat.get("retour_pct", 0) * _fit_avg * _live_mult
                     if _score > meilleur_score:
                         meilleur_score = _score
                         meilleur_retour = strat.get("retour_pct", 0)
@@ -237,12 +271,15 @@ def generer_signaux_gagnants(prix_actuels, marches_paper):
                         meilleure_strat = {**strat, "intervalle_live": interv_live,
                                            "regime_1h": _r1h.get("regime"),
                                            "regime_4h": _r4h.get("regime"),
-                                           "regime_fit": round(_fit_avg, 3)}
+                                           "regime_fit": round(_fit_avg, 3),
+                                           "live_mult": round(_live_mult, 3)}
 
         if meilleur_signal == "ACHAT":
             interv_aff = meilleure_strat.get("intervalle", "?")
+            _lm = meilleure_strat.get("live_mult", 1.0)
+            _lm_str = f", live x{_lm:.2f}" if abs(_lm - 1.0) > 0.01 else ""
             print(f"ACHAT ({meilleure_strat['strategie']} [{interv_aff}], "
-                  f"backtest {meilleur_retour:+.1f}%)")
+                  f"backtest {meilleur_retour:+.1f}%{_lm_str})")
             signaux.append({
                 "symbole": symbole,
                 "prix_entree": prix_actuels[symbole],
