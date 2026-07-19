@@ -23,9 +23,9 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -0.64,
+      -3.05,
       0.0,
-      12.66,
+      10.44,
       -3.9
     ],
     "robuste": false
@@ -55,9 +55,9 @@
     "wf_precision": 25.0,
     "wf_folds": [
       -10.85,
-      -18.8,
+      -18.96,
       2.62,
-      -15.79
+      -14.84
     ],
     "robuste": false
   },
@@ -87,7 +87,7 @@
     "wf_folds": [
       0.0,
       0.0,
-      8.82,
+      4.02,
       0.0
     ],
     "robuste": false
@@ -147,9 +147,9 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      6.77,
+      6.55,
       0.0,
-      5.46,
+      2.78,
       -2.8
     ],
     "robuste": false
@@ -179,9 +179,9 @@
     "wf_precision": 0.0,
     "wf_folds": [
       -3.66,
-      -27.28,
+      -27.43,
       0.0,
-      -17.85
+      -17.24
     ],
     "robuste": false
   },
@@ -207,11 +207,11 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 4.0,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 0.0,
     "wf_folds": [
       0.0,
       0.0,
-      1.59,
+      -2.97,
       0.0
     ],
     "robuste": false
@@ -271,7 +271,7 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -5.67,
+      -8.53,
       0.0,
       -2.22,
       4.63
@@ -303,7 +303,7 @@
     "wf_precision": 25.0,
     "wf_folds": [
       13.86,
-      -32.09,
+      -32.22,
       -1.64,
       -13.53
     ],
@@ -395,10 +395,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -4.55,
+      -5.02,
       0.0,
-      2.15,
-      -2.47
+      0.26,
+      -2.29
     ],
     "robuste": false
   },
@@ -521,7 +521,7 @@
     "wf_folds": [
       -6.2,
       0.0,
-      3.97,
+      1.2,
       -4.26
     ],
     "robuste": false
@@ -548,12 +548,12 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 10.0,
     "verdict": "GAGNANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 50.0,
     "wf_folds": [
       9.32,
       -14.8,
       1.46,
-      0.99
+      -0.51
     ],
     "robuste": true
   },

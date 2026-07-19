@@ -1,7 +1,7 @@
 {
   "params": {
     "BTCUSDT": {
-      "tp": 2.0,
+      "tp": 1.0,
       "sl": 2.5,
       "historique": [
         {
@@ -10,11 +10,18 @@
           "sl": 2.5,
           "raison": "grid search optimal (avant 1.5/1.5)",
           "source": "backtest_tp_optim"
+        },
+        {
+          "ts": "2026-07-18 08:15:01",
+          "tp": 1.0,
+          "sl": 2.5,
+          "raison": "Biais baissier court terme=-0.35, réduire TP de 20% pour capturer gains rapides avant retournement",
+          "source": "reflection"
         }
       ],
-      "ajuste_le": "2026-07-14 01:17:47",
-      "raison": "[backtest grid search] optimal TP/SL: +7.36% PnL, win 69%->77% (500h x 5 cryptos)",
-      "source": "backtest_tp_optim"
+      "ajuste_le": "2026-07-18 08:15:01",
+      "raison": "[reflection] Biais baissier court terme=-0.35, réduire TP de 20% pour capturer gains rapides avant retournement",
+      "source": "reflection"
     },
     "SOLUSDT": {
       "tp": 1.2,
@@ -125,5 +132,5 @@
       "source": "reflection"
     }
   },
-  "dernier_cycle": "2026-07-17 08:15:01"
+  "dernier_cycle": "2026-07-18 08:15:01"
 }
