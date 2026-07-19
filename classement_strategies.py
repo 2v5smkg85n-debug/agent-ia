@@ -48,6 +48,16 @@ def _closes(actif, historique_ohlcv, n=500):
     return [b["cloture"] for b in bougies]
 
 
+# SAGESSE DES TRADERS: multiplieur de principe (validé par backtest_sagesse.py)
+# RSI=contrarian valide (x1.00), trend/breakout=regime-conditionnel (x0.95 leger penalite)
+SAGESSE_STRAT = {
+    "RSI Mean Reversion":  {"trader": "Buffett/Rogers/Soros", "verdict": "VALIDE",  "mult": 1.00},
+    "MACD Momentum":       {"trader": "Dennis/PTJ",            "verdict": "NUANCE",  "mult": 0.95},
+    "SMA Crossover":       {"trader": "Dennis (Turtle)",        "verdict": "NUANCE",  "mult": 0.95},
+    "Bollinger Breakout":  {"trader": "Dennis/Bollinger",      "verdict": "NUANCE",  "mult": 0.95},
+}
+
+
 def calculer_classement():
     bt, auto_pruning, fit_multi_tf, regime_actif, historique_ohlcv = _imports()
     strats_par_actif = bt._load_strategies()
@@ -67,6 +77,9 @@ def calculer_classement():
         for s in strats:
             nom = s.get("strategie", "")
             backtest = float(s.get("retour_pct", 0) or 0)
+            # sagesse du maitre trader (principe valide/nuance)
+            _sag = SAGESSE_STRAT.get(nom, {})
+            sagesse_mult = float(_sag.get("mult", 1.0))
             disabled = False
             try:
                 disabled = auto_pruning.est_desactivee(nom, actif)
@@ -92,13 +105,16 @@ def calculer_classement():
             if disabled:
                 score = 0.0
             else:
-                score = backtest * fit_avg * live_mult
+                score = backtest * fit_avg * live_mult * sagesse_mult
             rows.append({
                 "strategie": nom, "actif": actif, "rang": 0,
                 "score": round(score, 3),
                 "backtest": round(backtest, 2), "regime_fit": round(fit_avg, 2),
                 "live_n": n, "live_wr": round(live_wr * 100, 1),
                 "live_mult": round(live_mult, 2),
+                "sagesse_mult": round(sagesse_mult, 2),
+                "sagesse_trader": _sag.get("trader", ""),
+                "sagesse_verdict": _sag.get("verdict", ""),
                 "live_pnl": round(st.get("pnl_total", 0), 2),
                 "disabled": disabled, "regime": reg_label,
             })
