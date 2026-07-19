@@ -101,5 +101,29 @@ def afficher():
     print("=" * 74)
 
 
+def sagesse_prompt():
+    """Retourne la sagesse des maitres traders formatee pour le prompt de reflection."""
+    L = ["Sagesse des 10 maitres traders (principes + application au systeme):"]
+    for nom, s in SAGESSE.items():
+        L.append(f"- {nom}: {s['principe']}")
+        L.append(f"    applique: {s['application_ia']}")
+        L.append(f"    alignement: {s['aligne']}")
+    L.append("")
+    L.append("Tests backtest realises (backtest_sagesse.py):")
+    for key, src, q in A_TESTER:
+        L.append(f"- {key} [{src}]: {q}")
+    L.append("Resultats:")
+    L.append("- deep_contrarian REJETE: RSI<20 = couteau tombant (33% win). RSI 20-30 (creux modere) gagne 83%.")
+    L.append("- cut_losers REJETE: couper les perdants vite detruit le PnL (-7%). La patience paie en mean-reversion.")
+    L.append("- turtle_breakout NUANCE: expectancy positive (55% win) mais qualite 4x inferieure en QUIET. Piste regime TREND uniquement.")
+    L.append("")
+    L.append("META-PATTERN CRITICAL: le systeme est MEAN-REVERSION. La sagesse classique du trading est")
+    L.append("souvent INVERSEE ici: il faut de la PATIENCE et des creux MODERES, pas les extremes ni les")
+    L.append("coupes rapides. Le trend-following (ADX, trailing, bougies haussieres, Turtle) nuit en QUIET.")
+    L.append("Le contrarian modere (RSI 20-30, gate dip-buying) est valide. Ne re-propose PAS les principes")
+    L.append("deja rejetes (deep contrarian, cut losers fast, trend en QUIET).")
+    return "\n".join(L)
+
+
 if __name__ == "__main__":
     afficher()
