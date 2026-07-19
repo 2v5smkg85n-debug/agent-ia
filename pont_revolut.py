@@ -46,6 +46,11 @@ BINANCE_TO_REVOLUTX = {
     "SOLUSDT": "SOL-EUR",
     "BNBUSDT": "BNB-EUR",
     "XRPUSDT": "XRP-EUR",
+    "LDOUSDT": "LDO-EUR",
+    "AAVEUSDT": "AAVE-EUR",
+    "UNIUSDT": "UNI-EUR",
+    "PENDLEUSDT": "PENDLE-EUR",
+    "ARBUSDT": "ARB-EUR",
 }
 
 logging.basicConfig(

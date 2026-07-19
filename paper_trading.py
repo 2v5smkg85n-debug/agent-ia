@@ -53,7 +53,7 @@ STOP_LOSS_PCT = 1.5             # -1.5% -> coupe la perte
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
 # est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
 # Idee utilisateur + valide par backtest elargi (9 marches, 30 trades, plateau a tp_ext=4).
-EXTEND_CRYPTOS = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"}
+EXTEND_CRYPTOS = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "LDOUSDT", "AAVEUSDT", "UNIUSDT", "PENDLEUSDT", "ARBUSDT"}
 EXTEND_SEUIL = 0.5        # active l'extension a partir de +0.5% de gain
 EXTEND_TP_PCT = 4.0       # TP monte (2.0% -> 4.0%) une fois en profit
 EXTEND_DUREE_MAX = 480    # cap duree des positions extended (8h, vs 90min normal)
@@ -72,6 +72,11 @@ MARCHES_PAPER = {
     "SOLUSDT": {"nom": "Solana", "marche": "crypto", "source": "binance"},
     "BNBUSDT": {"nom": "BNB", "marche": "crypto", "source": "binance"},
     "XRPUSDT": {"nom": "XRP", "marche": "crypto", "source": "binance"},
+    "LDOUSDT": {"nom": "Lido DAO", "marche": "crypto", "source": "binance"},
+    "AAVEUSDT": {"nom": "Aave", "marche": "crypto", "source": "binance"},
+    "UNIUSDT": {"nom": "Uniswap", "marche": "crypto", "source": "binance"},
+    "PENDLEUSDT": {"nom": "Pendle", "marche": "crypto", "source": "binance"},
+    "ARBUSDT": {"nom": "Arbitrum", "marche": "crypto", "source": "binance"},
     # Forex (Yahoo)
     "EURUSD=X": {"nom": "EUR/USD", "marche": "forex", "source": "yahoo"},
     "GBPUSD=X": {"nom": "GBP/USD", "marche": "forex", "source": "yahoo"},
