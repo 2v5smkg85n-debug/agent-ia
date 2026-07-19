@@ -57,6 +57,10 @@ DRAWDOWN_MAX_ACCEPTABLE = 15.0
 # Nombre de bougies a fetcher en live par intervalle (assez pour les indicateurs)
 LIMITE_LIVE = {"1h": 200, "4h": 200, "15m": 200, "1d": 365}
 
+# DIP-BUYING-GATE: bloque les entrees sur bougie haussiere confirmee
+# (achat dans la force = pire groupe backtest 50% win). Autorise creux+neutre.
+DIP_BUYING_GATE = True
+
 # ============================================
 # CHARGER LES STRATEGIES GAGNANTES
 # ============================================
@@ -233,6 +237,16 @@ def generer_signaux_gagnants(prix_actuels, marches_paper):
                 continue
             clotures = [b["cloture"] for b in bougies]
             donnees = calculer_donnees(clotures)
+            # DIP-BUYING-GATE: biais des chandeliers (achat de creux).
+            # Backtest: biais>0 (force) = 50% win (pire), biais<=0 (creux) = 68.4%.
+            _biais_bougies = 0.0
+            try:
+                from bougies_patterns import biais_bougies as _bb_fn
+                _biais_bougies = _bb_fn(bougies)
+            except Exception:
+                _biais_bougies = 0.0
+            if DIP_BUYING_GATE and _biais_bougies > 0:
+                continue  # bougie haussiere confirmee -> achat dans la force -> skip
             # REGIME-MTF-GATE : gate multi-timeframe (1h+4h) - valide backtest +1.66% PnL
             try:
                 from regime import fit_multi_tf
@@ -272,14 +286,17 @@ def generer_signaux_gagnants(prix_actuels, marches_paper):
                                            "regime_1h": _r1h.get("regime"),
                                            "regime_4h": _r4h.get("regime"),
                                            "regime_fit": round(_fit_avg, 3),
-                                           "live_mult": round(_live_mult, 3)}
+                                           "live_mult": round(_live_mult, 3),
+                                           "biais_bougies": round(_biais_bougies, 2)}
 
         if meilleur_signal == "ACHAT":
             interv_aff = meilleure_strat.get("intervalle", "?")
             _lm = meilleure_strat.get("live_mult", 1.0)
             _lm_str = f", live x{_lm:.2f}" if abs(_lm - 1.0) > 0.01 else ""
+            _bb_s = meilleure_strat.get("biais_bougies", 0.0)
+            _bb_str = f", dip {_bb_s:+.2f}" if _bb_s != 0 else ""
             print(f"ACHAT ({meilleure_strat['strategie']} [{interv_aff}], "
-                  f"backtest {meilleur_retour:+.1f}%{_lm_str})")
+                  f"backtest {meilleur_retour:+.1f}%{_lm_str}{_bb_str})")
             signaux.append({
                 "symbole": symbole,
                 "prix_entree": prix_actuels[symbole],
