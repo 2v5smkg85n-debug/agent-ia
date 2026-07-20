@@ -1,6 +1,6 @@
 {
   "capital_initial": 1000.0,
-  "liquidites": 886.9714152615701,
+  "liquidites": 821.0514152615701,
   "positions": [
     {
       "symbole": "EURUSD=X",
@@ -11,6 +11,18 @@
       "montant_eur": 110.32559584630874,
       "frais_entree": 0.11032559584630874,
       "date_ouverture": "2026-07-10 03:00"
+    },
+    {
+      "symbole": "ARBUSDT",
+      "nom": "Arbitrum",
+      "marche": "crypto",
+      "prix_entree": 0.087,
+      "quantite": 756.9434482758621,
+      "montant_eur": 65.92,
+      "frais_entree": 0.06592,
+      "date_ouverture": "2026-07-20 04:27",
+      "signal_raison": "strategie gagnante backtest (Bollinger Breakout [4h], retour +8.4%, win rate 56.7%)",
+      "source": "backtest-gagnant"
     }
   ],
   "historique": [
@@ -595,8 +607,8 @@
     }
   ],
   "date_creation": "2026-07-09 13:22",
-  "dernier_tick": "2026-07-19 04:32",
-  "total_frais": 7.664852333813479,
+  "dernier_tick": "2026-07-20 04:57",
+  "total_frais": 7.730772333813479,
   "pic_capital": 1000.0,
   "trades_fermes": [
     {

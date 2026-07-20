@@ -3,27 +3,9 @@
     "regime": "QUIET",
     "strategies": [
       {
-        "strategie": "RSI Mean Reversion",
-        "actif": "BNBUSDT",
-        "rang": 1,
-        "score": 11.674,
-        "backtest": 8.98,
-        "regime_fit": 1.3,
-        "live_n": 0,
-        "live_wr": 50.0,
-        "live_mult": 1.0,
-        "sagesse_mult": 1.0,
-        "sagesse_trader": "Buffett/Rogers/Soros",
-        "sagesse_verdict": "VALIDE",
-        "live_pnl": 0,
-        "disabled": false,
-        "regime": "QUIET",
-        "score_norm": 1.0
-      },
-      {
         "strategie": "SMA Crossover",
         "actif": "BNBUSDT",
-        "rang": 2,
+        "rang": 1,
         "score": 6.764,
         "backtest": 8.9,
         "regime_fit": 0.8,
@@ -36,14 +18,14 @@
         "live_pnl": 0,
         "disabled": false,
         "regime": "QUIET",
-        "score_norm": 0.579
+        "score_norm": 1.0
       },
       {
         "strategie": "RSI Mean Reversion",
         "actif": "BNBUSDT",
-        "rang": 3,
-        "score": 3.731,
-        "backtest": 2.87,
+        "rang": 2,
+        "score": 4.29,
+        "backtest": 3.3,
         "regime_fit": 1.3,
         "live_n": 0,
         "live_wr": 50.0,
@@ -54,7 +36,25 @@
         "live_pnl": 0,
         "disabled": false,
         "regime": "QUIET",
-        "score_norm": 0.32
+        "score_norm": 0.634
+      },
+      {
+        "strategie": "RSI Mean Reversion",
+        "actif": "BNBUSDT",
+        "rang": 3,
+        "score": 4.147,
+        "backtest": 3.19,
+        "regime_fit": 1.3,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 1.0,
+        "sagesse_trader": "Buffett/Rogers/Soros",
+        "sagesse_verdict": "VALIDE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 0.613
       },
       {
         "strategie": "Bollinger Breakout",
@@ -72,12 +72,30 @@
         "live_pnl": 0,
         "disabled": false,
         "regime": "QUIET",
-        "score_norm": 0.213
+        "score_norm": 0.368
+      },
+      {
+        "strategie": "Bollinger Breakout",
+        "actif": "BNBUSDT",
+        "rang": 5,
+        "score": 1.716,
+        "backtest": 2.58,
+        "regime_fit": 0.7,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 0.95,
+        "sagesse_trader": "Dennis/Bollinger",
+        "sagesse_verdict": "NUANCE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 0.254
       },
       {
         "strategie": "MACD Momentum",
         "actif": "BNBUSDT",
-        "rang": 5,
+        "rang": 6,
         "score": 1.71,
         "backtest": 2.97,
         "regime_fit": 0.6,
@@ -90,7 +108,7 @@
         "live_pnl": 0.05,
         "disabled": false,
         "regime": "QUIET",
-        "score_norm": 0.146
+        "score_norm": 0.253
       }
     ]
   },
@@ -101,8 +119,8 @@
         "strategie": "RSI Mean Reversion",
         "actif": "BTCUSDT",
         "rang": 1,
-        "score": 12.469,
-        "backtest": 9.1,
+        "score": 9.509,
+        "backtest": 6.94,
         "regime_fit": 1.3,
         "live_n": 3,
         "live_wr": 80.0,
@@ -131,7 +149,7 @@
         "live_pnl": 0,
         "disabled": false,
         "regime": "QUIET",
-        "score_norm": 0.478
+        "score_norm": 0.627
       },
       {
         "strategie": "Bollinger Breakout",
@@ -149,7 +167,7 @@
         "live_pnl": 0,
         "disabled": false,
         "regime": "QUIET",
-        "score_norm": 0.009
+        "score_norm": 0.011
       },
       {
         "strategie": "SMA Crossover",
@@ -167,7 +185,7 @@
         "live_pnl": 0,
         "disabled": false,
         "regime": "QUIET",
-        "score_norm": 0.002
+        "score_norm": 0.003
       }
     ]
   },
@@ -178,8 +196,8 @@
         "strategie": "SMA Crossover",
         "actif": "ETHUSDT",
         "rang": 1,
-        "score": 1.702,
-        "backtest": 2.24,
+        "score": 1.877,
+        "backtest": 2.47,
         "regime_fit": 0.8,
         "live_n": 0,
         "live_wr": 50.0,
@@ -193,9 +211,45 @@
         "score_norm": 1.0
       },
       {
-        "strategie": "MACD Momentum",
+        "strategie": "SMA Crossover",
         "actif": "ETHUSDT",
         "rang": 2,
+        "score": 1.702,
+        "backtest": 2.24,
+        "regime_fit": 0.8,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 0.95,
+        "sagesse_trader": "Dennis (Turtle)",
+        "sagesse_verdict": "NUANCE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 0.907
+      },
+      {
+        "strategie": "Bollinger Breakout",
+        "actif": "ETHUSDT",
+        "rang": 3,
+        "score": 1.356,
+        "backtest": 2.06,
+        "regime_fit": 0.7,
+        "live_n": 1,
+        "live_wr": 33.3,
+        "live_mult": 0.99,
+        "sagesse_mult": 0.95,
+        "sagesse_trader": "Dennis/Bollinger",
+        "sagesse_verdict": "NUANCE",
+        "live_pnl": -1.7,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 0.722
+      },
+      {
+        "strategie": "MACD Momentum",
+        "actif": "ETHUSDT",
+        "rang": 4,
         "score": 1.26,
         "backtest": 2.21,
         "regime_fit": 0.6,
@@ -208,7 +262,7 @@
         "live_pnl": 0,
         "disabled": false,
         "regime": "QUIET",
-        "score_norm": 0.74
+        "score_norm": 0.671
       }
     ]
   },
@@ -255,8 +309,8 @@
         "strategie": "RSI Mean Reversion",
         "actif": "SOLUSDT",
         "rang": 3,
-        "score": 1.196,
-        "backtest": 0.92,
+        "score": 1.066,
+        "backtest": 0.82,
         "regime_fit": 1.3,
         "live_n": 0,
         "live_wr": 50.0,
@@ -267,7 +321,7 @@
         "live_pnl": 0,
         "disabled": false,
         "regime": "QUIET",
-        "score_norm": 0.117
+        "score_norm": 0.104
       }
     ]
   },
@@ -275,9 +329,45 @@
     "regime": "QUIET",
     "strategies": [
       {
-        "strategie": "SMA Crossover",
+        "strategie": "Bollinger Breakout",
         "actif": "XRPUSDT",
         "rang": 1,
+        "score": 2.58,
+        "backtest": 3.88,
+        "regime_fit": 0.7,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 0.95,
+        "sagesse_trader": "Dennis/Bollinger",
+        "sagesse_verdict": "NUANCE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 1.0
+      },
+      {
+        "strategie": "RSI Mean Reversion",
+        "actif": "XRPUSDT",
+        "rang": 2,
+        "score": 2.236,
+        "backtest": 1.72,
+        "regime_fit": 1.3,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 1.0,
+        "sagesse_trader": "Buffett/Rogers/Soros",
+        "sagesse_verdict": "VALIDE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 0.867
+      },
+      {
+        "strategie": "SMA Crossover",
+        "actif": "XRPUSDT",
+        "rang": 3,
         "score": 1.056,
         "backtest": 1.39,
         "regime_fit": 0.8,
@@ -290,71 +380,7 @@
         "live_pnl": 0,
         "disabled": false,
         "regime": "QUIET",
-        "score_norm": 1.0
-      }
-    ]
-  },
-  "GC=F": {
-    "regime": "QUIET",
-    "strategies": [
-      {
-        "strategie": "RSI Mean Reversion",
-        "actif": "GC=F",
-        "rang": 1,
-        "score": 4.329,
-        "backtest": 3.33,
-        "regime_fit": 1.3,
-        "live_n": 0,
-        "live_wr": 50.0,
-        "live_mult": 1.0,
-        "sagesse_mult": 1.0,
-        "sagesse_trader": "Buffett/Rogers/Soros",
-        "sagesse_verdict": "VALIDE",
-        "live_pnl": 0,
-        "disabled": false,
-        "regime": "QUIET",
-        "score_norm": 1.0
-      }
-    ]
-  },
-  "ZW=F": {
-    "regime": "QUIET",
-    "strategies": [
-      {
-        "strategie": "RSI Mean Reversion",
-        "actif": "ZW=F",
-        "rang": 1,
-        "score": 4.18,
-        "backtest": 4.4,
-        "regime_fit": 0.95,
-        "live_n": 0,
-        "live_wr": 50.0,
-        "live_mult": 1.0,
-        "sagesse_mult": 1.0,
-        "sagesse_trader": "Buffett/Rogers/Soros",
-        "sagesse_verdict": "VALIDE",
-        "live_pnl": 0,
-        "disabled": false,
-        "regime": "QUIET",
-        "score_norm": 1.0
-      },
-      {
-        "strategie": "MACD Momentum",
-        "actif": "ZW=F",
-        "rang": 2,
-        "score": 0.93,
-        "backtest": 1.03,
-        "regime_fit": 0.95,
-        "live_n": 0,
-        "live_wr": 50.0,
-        "live_mult": 1.0,
-        "sagesse_mult": 0.95,
-        "sagesse_trader": "Dennis/PTJ",
-        "sagesse_verdict": "NUANCE",
-        "live_pnl": 0,
-        "disabled": false,
-        "regime": "QUIET",
-        "score_norm": 0.222
+        "score_norm": 0.409
       }
     ]
   },
@@ -385,27 +411,9 @@
     "regime": "QUIET",
     "strategies": [
       {
-        "strategie": "RSI Mean Reversion",
-        "actif": "HG=F",
-        "rang": 1,
-        "score": 3.64,
-        "backtest": 2.8,
-        "regime_fit": 1.3,
-        "live_n": 0,
-        "live_wr": 50.0,
-        "live_mult": 1.0,
-        "sagesse_mult": 1.0,
-        "sagesse_trader": "Buffett/Rogers/Soros",
-        "sagesse_verdict": "VALIDE",
-        "live_pnl": 0,
-        "disabled": false,
-        "regime": "QUIET",
-        "score_norm": 1.0
-      },
-      {
         "strategie": "Bollinger Breakout",
         "actif": "HG=F",
-        "rang": 2,
+        "rang": 1,
         "score": 1.902,
         "backtest": 2.86,
         "regime_fit": 0.7,
@@ -418,7 +426,271 @@
         "live_pnl": 0,
         "disabled": false,
         "regime": "QUIET",
-        "score_norm": 0.523
+        "score_norm": 1.0
+      }
+    ]
+  },
+  "ZW=F": {
+    "regime": "QUIET",
+    "strategies": [
+      {
+        "strategie": "MACD Momentum",
+        "actif": "ZW=F",
+        "rang": 1,
+        "score": 0.93,
+        "backtest": 1.03,
+        "regime_fit": 0.95,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 0.95,
+        "sagesse_trader": "Dennis/PTJ",
+        "sagesse_verdict": "NUANCE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 1.0
+      }
+    ]
+  },
+  "LDOUSDT": {
+    "regime": "QUIET",
+    "strategies": [
+      {
+        "strategie": "Bollinger Breakout",
+        "actif": "LDOUSDT",
+        "rang": 1,
+        "score": 15.505,
+        "backtest": 17.18,
+        "regime_fit": 0.95,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 0.95,
+        "sagesse_trader": "Dennis/Bollinger",
+        "sagesse_verdict": "NUANCE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 1.0
+      },
+      {
+        "strategie": "RSI Mean Reversion",
+        "actif": "LDOUSDT",
+        "rang": 2,
+        "score": 13.271,
+        "backtest": 13.97,
+        "regime_fit": 0.95,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 1.0,
+        "sagesse_trader": "Buffett/Rogers/Soros",
+        "sagesse_verdict": "VALIDE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 0.856
+      },
+      {
+        "strategie": "MACD Momentum",
+        "actif": "LDOUSDT",
+        "rang": 3,
+        "score": 4.161,
+        "backtest": 4.61,
+        "regime_fit": 0.95,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 0.95,
+        "sagesse_trader": "Dennis/PTJ",
+        "sagesse_verdict": "NUANCE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 0.268
+      },
+      {
+        "strategie": "SMA Crossover",
+        "actif": "LDOUSDT",
+        "rang": 4,
+        "score": 3.9,
+        "backtest": 3.91,
+        "regime_fit": 1.05,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 0.95,
+        "sagesse_trader": "Dennis (Turtle)",
+        "sagesse_verdict": "NUANCE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 0.252
+      }
+    ]
+  },
+  "AAVEUSDT": {
+    "regime": "QUIET",
+    "strategies": [
+      {
+        "strategie": "MACD Momentum",
+        "actif": "AAVEUSDT",
+        "rang": 1,
+        "score": 8.186,
+        "backtest": 9.07,
+        "regime_fit": 0.95,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 0.95,
+        "sagesse_trader": "Dennis/PTJ",
+        "sagesse_verdict": "NUANCE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 1.0
+      }
+    ]
+  },
+  "UNIUSDT": {
+    "regime": "QUIET",
+    "strategies": [
+      {
+        "strategie": "Bollinger Breakout",
+        "actif": "UNIUSDT",
+        "rang": 1,
+        "score": 12.409,
+        "backtest": 13.75,
+        "regime_fit": 0.95,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 0.95,
+        "sagesse_trader": "Dennis/Bollinger",
+        "sagesse_verdict": "NUANCE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 1.0
+      },
+      {
+        "strategie": "Bollinger Breakout",
+        "actif": "UNIUSDT",
+        "rang": 2,
+        "score": 1.931,
+        "backtest": 2.14,
+        "regime_fit": 0.95,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 0.95,
+        "sagesse_trader": "Dennis/Bollinger",
+        "sagesse_verdict": "NUANCE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 0.156
+      }
+    ]
+  },
+  "PENDLEUSDT": {
+    "regime": "QUIET",
+    "strategies": [
+      {
+        "strategie": "Bollinger Breakout",
+        "actif": "PENDLEUSDT",
+        "rang": 1,
+        "score": 3.705,
+        "backtest": 5.2,
+        "regime_fit": 0.75,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 0.95,
+        "sagesse_trader": "Dennis/Bollinger",
+        "sagesse_verdict": "NUANCE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 1.0
+      },
+      {
+        "strategie": "SMA Crossover",
+        "actif": "PENDLEUSDT",
+        "rang": 2,
+        "score": 0.479,
+        "backtest": 0.72,
+        "regime_fit": 0.7,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 0.95,
+        "sagesse_trader": "Dennis (Turtle)",
+        "sagesse_verdict": "NUANCE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 0.129
+      }
+    ]
+  },
+  "ARBUSDT": {
+    "regime": "QUIET",
+    "strategies": [
+      {
+        "strategie": "Bollinger Breakout",
+        "actif": "ARBUSDT",
+        "rang": 1,
+        "score": 12.412,
+        "backtest": 17.42,
+        "regime_fit": 0.75,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 0.95,
+        "sagesse_trader": "Dennis/Bollinger",
+        "sagesse_verdict": "NUANCE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 1.0
+      },
+      {
+        "strategie": "RSI Mean Reversion",
+        "actif": "ARBUSDT",
+        "rang": 2,
+        "score": 11.856,
+        "backtest": 9.12,
+        "regime_fit": 1.3,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 1.0,
+        "sagesse_trader": "Buffett/Rogers/Soros",
+        "sagesse_verdict": "VALIDE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 0.955
+      },
+      {
+        "strategie": "Bollinger Breakout",
+        "actif": "ARBUSDT",
+        "rang": 3,
+        "score": 5.999,
+        "backtest": 8.42,
+        "regime_fit": 0.75,
+        "live_n": 0,
+        "live_wr": 50.0,
+        "live_mult": 1.0,
+        "sagesse_mult": 0.95,
+        "sagesse_trader": "Dennis/Bollinger",
+        "sagesse_verdict": "NUANCE",
+        "live_pnl": 0,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 0.483
       }
     ]
   }

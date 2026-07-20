@@ -18,32 +18,8 @@
     "wf_folds": [
       -1.88,
       1.37,
-      0.45,
-      0.82
-    ],
-    "robuste": true
-  },
-  {
-    "date": "2026-07-10 13:55",
-    "marche": "crypto",
-    "actif": "BTCUSDT",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 720,
-    "capital_final": 1091.03,
-    "retour_pct": 9.1,
-    "trades": 10,
-    "gagnes": 8,
-    "perdus": 2,
-    "win_rate": 80.0,
-    "drawdown_max": 6.11,
-    "verdict": "GAGNANTE",
-    "wf_precision": 75.0,
-    "wf_folds": [
-      2.7,
-      0.0,
-      1.63,
-      1.72
+      0.01,
+      0.83
     ],
     "robuste": true
   },
@@ -65,9 +41,9 @@
     "wf_precision": 50.0,
     "wf_folds": [
       2.7,
-      0.72,
-      -0.18,
-      -0.69
+      0.0,
+      -1.92,
+      0.92
     ],
     "robuste": true
   },
@@ -88,10 +64,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      0.09,
-      -0.18,
-      1.0,
-      -1.16
+      -1.5,
+      0.34,
+      1.13,
+      -1.06
     ],
     "robuste": false
   },
@@ -112,36 +88,12 @@
     "verdict": "GAGNANTE",
     "wf_precision": 75.0,
     "wf_folds": [
-      0.0,
+      -2.2,
       1.43,
-      0.69,
-      0.17
+      2.56,
+      0.53
     ],
     "robuste": true
-  },
-  {
-    "date": "2026-07-10 13:55",
-    "marche": "crypto",
-    "actif": "ETHUSDT",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 720,
-    "capital_final": 1021.8,
-    "retour_pct": 2.18,
-    "trades": 9,
-    "gagnes": 6,
-    "perdus": 3,
-    "win_rate": 66.7,
-    "drawdown_max": 5.42,
-    "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
-    "wf_folds": [
-      0.0,
-      0.0,
-      0.0,
-      1.06
-    ],
-    "robuste": false
   },
   {
     "date": "2026-07-10 13:55",
@@ -158,14 +110,14 @@
     "win_rate": 58.8,
     "drawdown_max": 10.73,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
       1.5,
-      -2.07,
+      0.0,
       -1.71,
-      -3.61
+      0.05
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:55",
@@ -182,12 +134,12 @@
     "win_rate": 42.3,
     "drawdown_max": 6.01,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      -1.21,
-      -0.67,
-      3.62,
-      3.64
+      0.01,
+      0.32,
+      4.12,
+      -0.51
     ],
     "robuste": true
   },
@@ -208,34 +160,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 75.0,
     "wf_folds": [
-      0.0,
+      0.01,
       1.31,
-      0.69,
-      0.38
-    ],
-    "robuste": true
-  },
-  {
-    "date": "2026-07-10 13:55",
-    "marche": "crypto",
-    "actif": "SOLUSDT",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 720,
-    "capital_final": 1009.23,
-    "retour_pct": 0.92,
-    "trades": 8,
-    "gagnes": 5,
-    "perdus": 3,
-    "win_rate": 62.5,
-    "drawdown_max": 4.63,
-    "verdict": "GAGNANTE",
-    "wf_precision": 75.0,
-    "wf_folds": [
-      1.49,
-      -1.17,
-      1.69,
-      1.37
+      -0.06,
+      1.84
     ],
     "robuste": true
   },
@@ -254,12 +182,12 @@
     "win_rate": 75.0,
     "drawdown_max": 6.26,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 100.0,
     "wf_folds": [
       3.37,
-      -2.35,
-      0.77,
-      -0.57
+      0.97,
+      0.91,
+      1.37
     ],
     "robuste": true
   },
@@ -278,12 +206,12 @@
     "win_rate": 50.0,
     "drawdown_max": 7.12,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -2.27,
-      -1.93,
-      -1.08,
-      -0.81
+      1.66,
+      -0.51,
+      0.19,
+      -2.83
     ],
     "robuste": false
   },
@@ -305,35 +233,11 @@
     "wf_precision": 25.0,
     "wf_folds": [
       0.0,
-      0.52,
-      -0.88,
-      -0.48
+      1.43,
+      -0.39,
+      -0.63
     ],
     "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:55",
-    "marche": "crypto",
-    "actif": "BNBUSDT",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 720,
-    "capital_final": 1028.75,
-    "retour_pct": 2.87,
-    "trades": 9,
-    "gagnes": 6,
-    "perdus": 3,
-    "win_rate": 66.7,
-    "drawdown_max": 6.58,
-    "verdict": "GAGNANTE",
-    "wf_precision": 75.0,
-    "wf_folds": [
-      0.0,
-      1.36,
-      1.31,
-      0.01
-    ],
-    "robuste": true
   },
   {
     "date": "2026-07-10 13:55",
@@ -350,14 +254,14 @@
     "win_rate": 61.1,
     "drawdown_max": 8.57,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      1.06,
-      -0.67,
-      -1.0,
-      -1.39
+      1.89,
+      0.0,
+      1.78,
+      -1.61
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:55",
@@ -376,10 +280,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      1.73,
-      -1.94,
-      -0.96,
-      -0.86
+      0.1,
+      -0.4,
+      -1.08,
+      -1.18
     ],
     "robuste": false
   },
@@ -402,34 +306,10 @@
     "wf_folds": [
       0.0,
       1.46,
-      -0.24,
-      0.05
+      -0.1,
+      0.38
     ],
     "robuste": true
-  },
-  {
-    "date": "2026-07-10 13:55",
-    "marche": "crypto",
-    "actif": "XRPUSDT",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 720,
-    "capital_final": 1009.92,
-    "retour_pct": 0.99,
-    "trades": 8,
-    "gagnes": 5,
-    "perdus": 3,
-    "win_rate": 62.5,
-    "drawdown_max": 5.77,
-    "verdict": "GAGNANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [
-      0.0,
-      -0.38,
-      -0.75,
-      0.0
-    ],
-    "robuste": false
   },
   {
     "date": "2026-07-10 13:55",
@@ -446,14 +326,14 @@
     "win_rate": 62.5,
     "drawdown_max": 5.77,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 75.0,
     "wf_folds": [
       2.42,
-      -3.58,
-      -1.27,
-      -2.11
+      0.0,
+      0.78,
+      0.39
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:55",
@@ -472,10 +352,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      0.8,
-      -0.02,
-      -0.51,
-      0.7
+      2.65,
+      0.63,
+      -2.28,
+      -3.24
     ],
     "robuste": false
   },
@@ -497,31 +377,7 @@
     "wf_precision": 0.0,
     "wf_folds": [
       0.0,
-      -0.11,
-      0.0,
-      0.0
-    ],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:55",
-    "marche": "forex",
-    "actif": "EURUSD=X",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 526,
-    "capital_final": 993.1,
-    "retour_pct": -0.69,
-    "trades": 4,
-    "gagnes": 3,
-    "perdus": 1,
-    "win_rate": 75.0,
-    "drawdown_max": 2.18,
-    "verdict": "PERDANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [
-      0.0,
-      0.0,
+      -0.28,
       0.0,
       0.0
     ],
@@ -544,10 +400,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -0.1,
-      -0.1,
-      -0.09,
-      -0.25
+      -0.31,
+      -0.34,
+      -0.32,
+      -0.26
     ],
     "robuste": false
   },
@@ -568,10 +424,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -1.02,
-      -0.32,
-      -1.48,
-      -0.8
+      -0.96,
+      -0.25,
+      -1.32,
+      -1.02
     ],
     "robuste": false
   },
@@ -593,33 +449,9 @@
     "wf_precision": 0.0,
     "wf_folds": [
       0.0,
-      -0.26,
+      -0.48,
       0.0,
       0.0
-    ],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:55",
-    "marche": "forex",
-    "actif": "GBPUSD=X",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 526,
-    "capital_final": 992.62,
-    "retour_pct": -0.74,
-    "trades": 1,
-    "gagnes": 0,
-    "perdus": 1,
-    "win_rate": 0.0,
-    "drawdown_max": 2.29,
-    "verdict": "PERDANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [
-      0.0,
-      0.0,
-      0.0,
-      -0.04
     ],
     "robuste": false
   },
@@ -638,12 +470,12 @@
     "win_rate": 71.4,
     "drawdown_max": 2.08,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 0.0,
     "wf_folds": [
       0.0,
-      0.01,
-      -0.14,
-      -0.58
+      -0.32,
+      -0.36,
+      -0.53
     ],
     "robuste": false
   },
@@ -664,10 +496,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      -1.46,
-      0.17,
-      -1.63,
-      0.03
+      -0.85,
+      0.27,
+      -0.96,
+      0.09
     ],
     "robuste": false
   },
@@ -686,36 +518,12 @@
     "win_rate": 33.3,
     "drawdown_max": 0.86,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
-    "wf_folds": [
-      0.36,
-      -0.29,
-      -0.13,
-      -0.27
-    ],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:55",
-    "marche": "forex",
-    "actif": "JPY=X",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 525,
-    "capital_final": 998.11,
-    "retour_pct": -0.19,
-    "trades": 3,
-    "gagnes": 1,
-    "perdus": 2,
-    "win_rate": 33.3,
-    "drawdown_max": 0.75,
-    "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 0.0,
     "wf_folds": [
       0.0,
-      -0.44,
-      0.24,
-      -0.09
+      -0.29,
+      -0.16,
+      -0.26
     ],
     "robuste": false
   },
@@ -734,12 +542,12 @@
     "win_rate": 66.7,
     "drawdown_max": 1.52,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 0.0,
     "wf_folds": [
-      -0.05,
-      -0.36,
+      -0.13,
+      -0.07,
       -0.37,
-      0.07
+      -0.01
     ],
     "robuste": false
   },
@@ -760,10 +568,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -0.79,
-      0.2,
-      -0.09,
-      -0.53
+      -0.56,
+      0.12,
+      -1.11,
+      -1.07
     ],
     "robuste": false
   },
@@ -787,33 +595,9 @@
       0.0,
       0.0,
       0.0,
-      0.0
+      -0.2
     ],
     "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:55",
-    "marche": "forex",
-    "actif": "GC=F",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 474,
-    "capital_final": 1033.35,
-    "retour_pct": 3.33,
-    "trades": 7,
-    "gagnes": 5,
-    "perdus": 2,
-    "win_rate": 71.4,
-    "drawdown_max": 5.52,
-    "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
-    "wf_folds": [
-      0.24,
-      0.0,
-      -0.34,
-      0.42
-    ],
-    "robuste": true
   },
   {
     "date": "2026-07-10 13:55",
@@ -830,11 +614,11 @@
     "win_rate": 33.3,
     "drawdown_max": 8.15,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -0.46,
-      0.0,
-      -2.78,
+      2.17,
+      -1.24,
+      -2.25,
       0.49
     ],
     "robuste": false
@@ -856,10 +640,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      -0.83,
-      1.64,
-      -2.06,
-      1.17
+      2.02,
+      -2.26,
+      -1.45,
+      1.11
     ],
     "robuste": false
   },
@@ -877,25 +661,6 @@
     "perdus": 0,
     "win_rate": 100.0,
     "drawdown_max": 0.1,
-    "verdict": "GAGNANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:55",
-    "marche": "actions",
-    "actif": "AAPL",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 142,
-    "capital_final": 1009.06,
-    "retour_pct": 0.91,
-    "trades": 3,
-    "gagnes": 2,
-    "perdus": 1,
-    "win_rate": 66.7,
-    "drawdown_max": 2.11,
     "verdict": "GAGNANTE",
     "wf_precision": 0.0,
     "wf_folds": [],
@@ -962,25 +727,6 @@
     "date": "2026-07-10 13:55",
     "marche": "actions",
     "actif": "TSLA",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 142,
-    "capital_final": 1022.92,
-    "retour_pct": 2.29,
-    "trades": 1,
-    "gagnes": 1,
-    "perdus": 0,
-    "win_rate": 100.0,
-    "drawdown_max": 0.91,
-    "verdict": "GAGNANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:55",
-    "marche": "actions",
-    "actif": "TSLA",
     "strategie": "Bollinger Breakout",
     "intervalle": "1h",
     "bougies": 142,
@@ -1030,25 +776,6 @@
     "win_rate": 100.0,
     "drawdown_max": 2.61,
     "verdict": "GAGNANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:55",
-    "marche": "actions",
-    "actif": "NVDA",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 142,
-    "capital_final": 978.84,
-    "retour_pct": -2.12,
-    "trades": 3,
-    "gagnes": 1,
-    "perdus": 2,
-    "win_rate": 33.3,
-    "drawdown_max": 5.71,
-    "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [],
     "robuste": false
@@ -1114,25 +841,6 @@
     "date": "2026-07-10 13:55",
     "marche": "actions",
     "actif": "MSFT",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 142,
-    "capital_final": 985.44,
-    "retour_pct": -1.46,
-    "trades": 7,
-    "gagnes": 3,
-    "perdus": 4,
-    "win_rate": 42.9,
-    "drawdown_max": 8.13,
-    "verdict": "PERDANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:55",
-    "marche": "actions",
-    "actif": "MSFT",
     "strategie": "Bollinger Breakout",
     "intervalle": "1h",
     "bougies": 142,
@@ -1182,36 +890,12 @@
     "win_rate": 25.0,
     "drawdown_max": 6.82,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      -0.48,
-      1.36,
+      -1.07,
+      0.0,
       -2.27,
-      1.11
-    ],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "matieres",
-    "actif": "BZ=F",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 475,
-    "capital_final": 970.51,
-    "retour_pct": -2.95,
-    "trades": 9,
-    "gagnes": 4,
-    "perdus": 5,
-    "win_rate": 44.4,
-    "drawdown_max": 8.1,
-    "verdict": "PERDANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [
-      0.0,
-      -0.33,
-      0.0,
-      0.0
+      4.39
     ],
     "robuste": false
   },
@@ -1230,10 +914,10 @@
     "win_rate": 47.1,
     "drawdown_max": 11.96,
     "verdict": "PERDANTE",
-    "wf_precision": 100.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      0.98,
-      2.87,
+      -0.98,
+      1.32,
       5.58,
       1.6
     ],
@@ -1254,12 +938,12 @@
     "win_rate": 36.4,
     "drawdown_max": 13.04,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      -1.69,
-      0.76,
-      5.55,
-      -0.4
+      -1.45,
+      2.36,
+      -3.97,
+      -3.26
     ],
     "robuste": false
   },
@@ -1278,36 +962,12 @@
     "win_rate": 60.0,
     "drawdown_max": 3.88,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 0.0,
     "wf_folds": [
-      -0.23,
-      1.48,
+      -1.27,
       0.0,
-      0.0
-    ],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "matieres",
-    "actif": "NG=F",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 474,
-    "capital_final": 939.63,
-    "retour_pct": -6.04,
-    "trades": 7,
-    "gagnes": 2,
-    "perdus": 5,
-    "win_rate": 28.6,
-    "drawdown_max": 6.38,
-    "verdict": "PERDANTE",
-    "wf_precision": 25.0,
-    "wf_folds": [
-      1.64,
       0.0,
-      -6.08,
-      0.0
+      -0.2
     ],
     "robuste": false
   },
@@ -1326,11 +986,11 @@
     "win_rate": 40.0,
     "drawdown_max": 11.33,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
       -1.56,
-      1.31,
-      -8.97,
+      0.0,
+      -8.36,
       3.29
     ],
     "robuste": false
@@ -1352,10 +1012,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      4.37,
-      -6.78,
-      -6.28,
-      -4.86
+      2.51,
+      -3.16,
+      -7.87,
+      -5.03
     ],
     "robuste": false
   },
@@ -1374,36 +1034,12 @@
     "win_rate": 0.0,
     "drawdown_max": 6.56,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [
-      0.0,
-      0.0,
-      0.0,
-      0.0
-    ],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "matieres",
-    "actif": "HG=F",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 474,
-    "capital_final": 968.53,
-    "retour_pct": -3.15,
-    "trades": 5,
-    "gagnes": 2,
-    "perdus": 3,
-    "win_rate": 40.0,
-    "drawdown_max": 8.17,
-    "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
       0.0,
       0.0,
-      1.68,
-      -0.49
+      1.39,
+      0.0
     ],
     "robuste": false
   },
@@ -1424,10 +1060,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      3.19,
-      0.0,
+      1.69,
+      -1.35,
       1.21,
-      -1.59
+      -1.0
     ],
     "robuste": false
   },
@@ -1446,12 +1082,12 @@
     "win_rate": 36.8,
     "drawdown_max": 7.86,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      0.57,
-      -2.99,
-      -0.16,
-      -0.01
+      0.83,
+      -3.15,
+      0.71,
+      -1.71
     ],
     "robuste": false
   },
@@ -1470,38 +1106,14 @@
     "win_rate": 100.0,
     "drawdown_max": 0.89,
     "verdict": "GAGNANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 25.0,
     "wf_folds": [
+      0.01,
       0.0,
       0.0,
-      0.0,
-      0.0
+      -0.2
     ],
     "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "matieres",
-    "actif": "ZW=F",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 382,
-    "capital_final": 1044.01,
-    "retour_pct": 4.4,
-    "trades": 4,
-    "gagnes": 3,
-    "perdus": 1,
-    "win_rate": 75.0,
-    "drawdown_max": 3.33,
-    "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
-    "wf_folds": [
-      1.96,
-      0.0,
-      2.2,
-      0.0
-    ],
-    "robuste": true
   },
   {
     "date": "2026-07-10 13:56",
@@ -1518,9 +1130,9 @@
     "win_rate": 57.1,
     "drawdown_max": 6.6,
     "verdict": "GAGNANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      -0.61,
+      0.61,
       0.0,
       0.0,
       0.0
@@ -1542,12 +1154,12 @@
     "win_rate": 35.0,
     "drawdown_max": 7.4,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -3.15,
-      -2.24,
-      2.87,
-      0.0
+      -2.55,
+      2.14,
+      3.33,
+      -0.05
     ],
     "robuste": false
   },
@@ -1565,25 +1177,6 @@
     "perdus": 0,
     "win_rate": 100.0,
     "drawdown_max": 1.65,
-    "verdict": "GAGNANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "indices",
-    "actif": "^GSPC",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 142,
-    "capital_final": 1013.96,
-    "retour_pct": 1.4,
-    "trades": 1,
-    "gagnes": 1,
-    "perdus": 0,
-    "win_rate": 100.0,
-    "drawdown_max": 1.17,
     "verdict": "GAGNANTE",
     "wf_precision": 0.0,
     "wf_folds": [],
@@ -1650,25 +1243,6 @@
     "date": "2026-07-10 13:56",
     "marche": "indices",
     "actif": "^IXIC",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 142,
-    "capital_final": 980.66,
-    "retour_pct": -1.93,
-    "trades": 1,
-    "gagnes": 0,
-    "perdus": 1,
-    "win_rate": 0.0,
-    "drawdown_max": 2.41,
-    "verdict": "PERDANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "indices",
-    "actif": "^IXIC",
     "strategie": "Bollinger Breakout",
     "intervalle": "1h",
     "bougies": 142,
@@ -1718,25 +1292,6 @@
     "win_rate": 100.0,
     "drawdown_max": 0.55,
     "verdict": "GAGNANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "indices",
-    "actif": "^GDAXI",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 200,
-    "capital_final": 994.22,
-    "retour_pct": -0.58,
-    "trades": 1,
-    "gagnes": 0,
-    "perdus": 1,
-    "win_rate": 0.0,
-    "drawdown_max": 1.44,
-    "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [],
     "robuste": false
@@ -1802,25 +1357,6 @@
     "date": "2026-07-10 13:56",
     "marche": "indices",
     "actif": "^FCHI",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "1h",
-    "bougies": 200,
-    "capital_final": 991.02,
-    "retour_pct": -0.9,
-    "trades": 2,
-    "gagnes": 1,
-    "perdus": 1,
-    "win_rate": 50.0,
-    "drawdown_max": 1.81,
-    "verdict": "PERDANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "indices",
-    "actif": "^FCHI",
     "strategie": "Bollinger Breakout",
     "intervalle": "1h",
     "bougies": 200,
@@ -1874,34 +1410,10 @@
     "wf_folds": [
       0.19,
       3.13,
-      0.0,
+      -0.2,
       0.0
     ],
     "robuste": true
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "crypto",
-    "actif": "BTCUSDT",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 600,
-    "capital_final": 857.05,
-    "retour_pct": -14.29,
-    "trades": 14,
-    "gagnes": 5,
-    "perdus": 9,
-    "win_rate": 35.7,
-    "drawdown_max": 20.45,
-    "verdict": "PERDANTE",
-    "wf_precision": 50.0,
-    "wf_folds": [
-      1.8,
-      -15.14,
-      4.27,
-      0.0
-    ],
-    "robuste": false
   },
   {
     "date": "2026-07-10 13:56",
@@ -1918,10 +1430,10 @@
     "win_rate": 50.0,
     "drawdown_max": 14.36,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -3.66,
-      -1.99,
+      -2.84,
+      1.89,
       -0.56,
       4.83
     ],
@@ -1942,12 +1454,12 @@
     "win_rate": 36.0,
     "drawdown_max": 14.25,
     "verdict": "PERDANTE",
-    "wf_precision": 100.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      1.98,
-      2.28,
-      0.09,
-      0.4
+      -3.01,
+      1.94,
+      0.55,
+      0.19
     ],
     "robuste": false
   },
@@ -1966,38 +1478,14 @@
     "win_rate": 50.0,
     "drawdown_max": 3.85,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
       0.0,
       2.88,
-      -0.2,
-      -2.2
-    ],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "crypto",
-    "actif": "ETHUSDT",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 600,
-    "capital_final": 833.96,
-    "retour_pct": -16.6,
-    "trades": 18,
-    "gagnes": 7,
-    "perdus": 11,
-    "win_rate": 38.9,
-    "drawdown_max": 22.74,
-    "verdict": "PERDANTE",
-    "wf_precision": 25.0,
-    "wf_folds": [
-      -0.52,
-      -14.68,
-      1.36,
+      2.63,
       0.0
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:56",
@@ -2017,7 +1505,7 @@
     "wf_precision": 25.0,
     "wf_folds": [
       -4.2,
-      -7.13,
+      -4.76,
       -4.19,
       1.56
     ],
@@ -2040,10 +1528,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 75.0,
     "wf_folds": [
-      -0.17,
-      3.53,
+      -5.98,
+      4.1,
       3.06,
-      5.37
+      5.72
     ],
     "robuste": false
   },
@@ -2075,30 +1563,6 @@
     "date": "2026-07-10 13:56",
     "marche": "crypto",
     "actif": "SOLUSDT",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 600,
-    "capital_final": 874.07,
-    "retour_pct": -12.59,
-    "trades": 15,
-    "gagnes": 5,
-    "perdus": 10,
-    "win_rate": 33.3,
-    "drawdown_max": 18.86,
-    "verdict": "PERDANTE",
-    "wf_precision": 75.0,
-    "wf_folds": [
-      3.02,
-      -16.05,
-      4.49,
-      1.7
-    ],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "crypto",
-    "actif": "SOLUSDT",
     "strategie": "Bollinger Breakout",
     "intervalle": "4h",
     "bougies": 600,
@@ -2113,7 +1577,7 @@
     "wf_precision": 25.0,
     "wf_folds": [
       1.33,
-      -5.41,
+      0.0,
       -1.54,
       -0.7
     ],
@@ -2134,12 +1598,12 @@
     "win_rate": 52.0,
     "drawdown_max": 10.38,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      -1.83,
-      1.16,
-      -0.67,
-      -6.72
+      0.03,
+      1.07,
+      0.32,
+      -9.47
     ],
     "robuste": false
   },
@@ -2160,34 +1624,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      1.32,
+      1.11,
       1.78,
       0.0,
       -2.02
-    ],
-    "robuste": true
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "crypto",
-    "actif": "BNBUSDT",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 600,
-    "capital_final": 1089.81,
-    "retour_pct": 8.98,
-    "trades": 10,
-    "gagnes": 7,
-    "perdus": 3,
-    "win_rate": 70.0,
-    "drawdown_max": 7.0,
-    "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
-    "wf_folds": [
-      3.45,
-      -4.29,
-      0.68,
-      0.0
     ],
     "robuste": true
   },
@@ -2209,9 +1649,9 @@
     "wf_precision": 75.0,
     "wf_folds": [
       2.53,
-      -1.41,
+      0.0,
       1.18,
-      1.95
+      1.98
     ],
     "robuste": true
   },
@@ -2232,10 +1672,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      6.54,
-      6.36,
-      -2.68,
-      -3.2
+      3.01,
+      0.1,
+      -3.05,
+      -0.36
     ],
     "robuste": false
   },
@@ -2254,36 +1694,12 @@
     "win_rate": 40.0,
     "drawdown_max": 5.31,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 25.0,
     "wf_folds": [
       0.0,
       -2.07,
-      0.0,
-      -0.55
-    ],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "crypto",
-    "actif": "XRPUSDT",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 600,
-    "capital_final": 1046.55,
-    "retour_pct": 4.65,
-    "trades": 13,
-    "gagnes": 8,
-    "perdus": 5,
-    "win_rate": 61.5,
-    "drawdown_max": 9.93,
-    "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
-    "wf_folds": [
-      4.05,
-      -11.55,
-      -4.27,
-      0.0
+      1.28,
+      -0.41
     ],
     "robuste": false
   },
@@ -2302,10 +1718,10 @@
     "win_rate": 44.0,
     "drawdown_max": 12.07,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
       -0.96,
-      -1.95,
+      0.04,
       4.74,
       -4.3
     ],
@@ -2326,12 +1742,12 @@
     "win_rate": 43.5,
     "drawdown_max": 12.96,
     "verdict": "PERDANTE",
-    "wf_precision": 100.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      2.32,
-      3.55,
+      -3.89,
+      3.62,
       0.94,
-      1.3
+      2.23
     ],
     "robuste": false
   },
@@ -2355,31 +1771,7 @@
       0.0,
       0.0,
       0.0,
-      -0.21
-    ],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "forex",
-    "actif": "EURUSD=X",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 391,
-    "capital_final": 981.84,
-    "retour_pct": -1.82,
-    "trades": 3,
-    "gagnes": 1,
-    "perdus": 2,
-    "win_rate": 33.3,
-    "drawdown_max": 3.1,
-    "verdict": "PERDANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [
-      -0.49,
-      -0.25,
-      -1.1,
-      0.0
+      -0.22
     ],
     "robuste": false
   },
@@ -2398,10 +1790,10 @@
     "win_rate": 71.4,
     "drawdown_max": 2.34,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
       -0.83,
-      -0.56,
+      0.01,
       -1.31,
       0.77
     ],
@@ -2422,12 +1814,12 @@
     "win_rate": 25.0,
     "drawdown_max": 4.94,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 0.0,
     "wf_folds": [
       -1.26,
-      -2.25,
-      0.07,
-      -1.4
+      -1.77,
+      -0.39,
+      -1.08
     ],
     "robuste": false
   },
@@ -2448,33 +1840,9 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -0.04,
-      -0.85,
+      -0.27,
       0.0,
-      0.0
-    ],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "forex",
-    "actif": "GBPUSD=X",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 391,
-    "capital_final": 990.61,
-    "retour_pct": -0.94,
-    "trades": 2,
-    "gagnes": 1,
-    "perdus": 1,
-    "win_rate": 50.0,
-    "drawdown_max": 2.86,
-    "verdict": "PERDANTE",
-    "wf_precision": 25.0,
-    "wf_folds": [
-      0.56,
-      -0.78,
-      -0.65,
+      -0.42,
       0.0
     ],
     "robuste": false
@@ -2496,8 +1864,8 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -1.76,
-      -0.87,
+      -1.7,
+      -0.14,
       -1.28,
       0.79
     ],
@@ -2520,10 +1888,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -0.66,
-      -1.69,
-      -1.19,
-      -0.38
+      -1.48,
+      -1.85,
+      -1.05,
+      -0.25
     ],
     "robuste": false
   },
@@ -2555,30 +1923,6 @@
     "date": "2026-07-10 13:56",
     "marche": "forex",
     "actif": "JPY=X",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 391,
-    "capital_final": 1008.33,
-    "retour_pct": 0.83,
-    "trades": 2,
-    "gagnes": 2,
-    "perdus": 0,
-    "win_rate": 100.0,
-    "drawdown_max": 1.34,
-    "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
-    "wf_folds": [
-      0.0,
-      0.0,
-      0.0,
-      0.47
-    ],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "forex",
-    "actif": "JPY=X",
     "strategie": "Bollinger Breakout",
     "intervalle": "4h",
     "bougies": 391,
@@ -2593,9 +1937,9 @@
     "wf_precision": 25.0,
     "wf_folds": [
       0.0,
+      -0.01,
       0.0,
-      0.0,
-      0.36
+      0.37
     ],
     "robuste": false
   },
@@ -2614,12 +1958,12 @@
     "win_rate": 38.5,
     "drawdown_max": 4.4,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      0.58,
-      -0.54,
-      -0.18,
-      -1.56
+      0.87,
+      -0.58,
+      0.39,
+      -1.36
     ],
     "robuste": false
   },
@@ -2651,30 +1995,6 @@
     "date": "2026-07-10 13:56",
     "marche": "forex",
     "actif": "GC=F",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 386,
-    "capital_final": 980.3,
-    "retour_pct": -1.97,
-    "trades": 9,
-    "gagnes": 4,
-    "perdus": 5,
-    "win_rate": 44.4,
-    "drawdown_max": 8.9,
-    "verdict": "PERDANTE",
-    "wf_precision": 50.0,
-    "wf_folds": [
-      -1.59,
-      -6.46,
-      1.96,
-      1.42
-    ],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "forex",
-    "actif": "GC=F",
     "strategie": "Bollinger Breakout",
     "intervalle": "4h",
     "bougies": 386,
@@ -2689,9 +2009,9 @@
     "wf_precision": 25.0,
     "wf_folds": [
       -2.14,
-      -4.98,
+      -1.87,
       -2.76,
-      1.06
+      1.34
     ],
     "robuste": false
   },
@@ -2712,10 +2032,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -4.77,
-      -2.14,
-      3.21,
-      -1.54
+      -5.07,
+      -2.73,
+      1.7,
+      -0.16
     ],
     "robuste": false
   },
@@ -2734,25 +2054,6 @@
     "win_rate": 0.0,
     "drawdown_max": 0.1,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "actions",
-    "actif": "AAPL",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 126,
-    "capital_final": 1013.04,
-    "retour_pct": 1.3,
-    "trades": 1,
-    "gagnes": 1,
-    "perdus": 0,
-    "win_rate": 100.0,
-    "drawdown_max": 0.1,
-    "verdict": "GAGNANTE",
     "wf_precision": 0.0,
     "wf_folds": [],
     "robuste": false
@@ -2818,25 +2119,6 @@
     "date": "2026-07-10 13:56",
     "marche": "actions",
     "actif": "TSLA",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 126,
-    "capital_final": 1000.0,
-    "retour_pct": 0.0,
-    "trades": 0,
-    "gagnes": 0,
-    "perdus": 0,
-    "win_rate": 0,
-    "drawdown_max": 0.0,
-    "verdict": "NEUTRE",
-    "wf_precision": 0.0,
-    "wf_folds": [],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "actions",
-    "actif": "TSLA",
     "strategie": "Bollinger Breakout",
     "intervalle": "4h",
     "bougies": 126,
@@ -2876,25 +2158,6 @@
     "marche": "actions",
     "actif": "NVDA",
     "strategie": "SMA Crossover",
-    "intervalle": "4h",
-    "bougies": 126,
-    "capital_final": 1000.0,
-    "retour_pct": 0.0,
-    "trades": 0,
-    "gagnes": 0,
-    "perdus": 0,
-    "win_rate": 0,
-    "drawdown_max": 0.0,
-    "verdict": "NEUTRE",
-    "wf_precision": 0.0,
-    "wf_folds": [],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "actions",
-    "actif": "NVDA",
-    "strategie": "RSI Mean Reversion",
     "intervalle": "4h",
     "bougies": 126,
     "capital_final": 1000.0,
@@ -2970,25 +2233,6 @@
     "date": "2026-07-10 13:56",
     "marche": "actions",
     "actif": "MSFT",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 126,
-    "capital_final": 1027.17,
-    "retour_pct": 2.72,
-    "trades": 3,
-    "gagnes": 2,
-    "perdus": 1,
-    "win_rate": 66.7,
-    "drawdown_max": 6.15,
-    "verdict": "GAGNANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "actions",
-    "actif": "MSFT",
     "strategie": "Bollinger Breakout",
     "intervalle": "4h",
     "bougies": 126,
@@ -3051,30 +2295,6 @@
     "date": "2026-07-10 13:56",
     "marche": "matieres",
     "actif": "BZ=F",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 384,
-    "capital_final": 920.8,
-    "retour_pct": -7.92,
-    "trades": 11,
-    "gagnes": 4,
-    "perdus": 7,
-    "win_rate": 36.4,
-    "drawdown_max": 13.35,
-    "verdict": "PERDANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [
-      0.0,
-      0.0,
-      -5.53,
-      0.0
-    ],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "matieres",
-    "actif": "BZ=F",
     "strategie": "Bollinger Breakout",
     "intervalle": "4h",
     "bougies": 384,
@@ -3088,8 +2308,8 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -1.76,
-      3.8,
+      -1.94,
+      3.07,
       0.0,
       0.0
     ],
@@ -3110,12 +2330,12 @@
     "win_rate": 31.2,
     "drawdown_max": 26.2,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 100.0,
     "wf_folds": [
-      -3.32,
-      0.15,
-      -4.08,
-      6.63
+      0.63,
+      1.45,
+      1.5,
+      10.34
     ],
     "robuste": false
   },
@@ -3147,30 +2367,6 @@
     "date": "2026-07-10 13:56",
     "marche": "matieres",
     "actif": "NG=F",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 384,
-    "capital_final": 957.59,
-    "retour_pct": -4.24,
-    "trades": 3,
-    "gagnes": 0,
-    "perdus": 3,
-    "win_rate": 0.0,
-    "drawdown_max": 4.15,
-    "verdict": "PERDANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [
-      0.0,
-      0.0,
-      0.0,
-      -5.11
-    ],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "matieres",
-    "actif": "NG=F",
     "strategie": "Bollinger Breakout",
     "intervalle": "4h",
     "bougies": 384,
@@ -3185,7 +2381,7 @@
     "wf_precision": 25.0,
     "wf_folds": [
       0.0,
-      0.0,
+      -0.07,
       2.12,
       -0.4
     ],
@@ -3209,8 +2405,8 @@
     "wf_precision": 75.0,
     "wf_folds": [
       2.88,
-      6.96,
-      -0.38,
+      6.5,
+      -0.62,
       1.93
     ],
     "robuste": true
@@ -3243,30 +2439,6 @@
     "date": "2026-07-10 13:56",
     "marche": "matieres",
     "actif": "HG=F",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 386,
-    "capital_final": 1028.02,
-    "retour_pct": 2.8,
-    "trades": 5,
-    "gagnes": 4,
-    "perdus": 1,
-    "win_rate": 80.0,
-    "drawdown_max": 3.47,
-    "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
-    "wf_folds": [
-      1.33,
-      1.33,
-      -0.97,
-      0.0
-    ],
-    "robuste": true
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "matieres",
-    "actif": "HG=F",
     "strategie": "Bollinger Breakout",
     "intervalle": "4h",
     "bougies": 386,
@@ -3281,9 +2453,9 @@
     "wf_precision": 50.0,
     "wf_folds": [
       -3.53,
-      1.22,
+      4.2,
       -3.35,
-      2.24
+      2.86
     ],
     "robuste": true
   },
@@ -3304,10 +2476,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 75.0,
     "wf_folds": [
-      1.36,
-      -1.55,
-      0.13,
-      0.73
+      1.74,
+      0.05,
+      -5.94,
+      0.77
     ],
     "robuste": false
   },
@@ -3339,30 +2511,6 @@
     "date": "2026-07-10 13:56",
     "marche": "matieres",
     "actif": "ZW=F",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 310,
-    "capital_final": 958.72,
-    "retour_pct": -4.13,
-    "trades": 7,
-    "gagnes": 3,
-    "perdus": 4,
-    "win_rate": 42.9,
-    "drawdown_max": 9.07,
-    "verdict": "PERDANTE",
-    "wf_precision": 25.0,
-    "wf_folds": [
-      0.0,
-      -6.79,
-      0.58,
-      0.0
-    ],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "matieres",
-    "actif": "ZW=F",
     "strategie": "Bollinger Breakout",
     "intervalle": "4h",
     "bougies": 310,
@@ -3376,9 +2524,9 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -0.24,
+      -0.01,
       -5.22,
-      -2.57,
+      -2.36,
       0.0
     ],
     "robuste": false
@@ -3400,10 +2548,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 75.0,
     "wf_folds": [
-      -1.9,
+      -1.45,
       1.52,
       0.71,
-      2.75
+      2.61
     ],
     "robuste": true
   },
@@ -3422,25 +2570,6 @@
     "win_rate": 100.0,
     "drawdown_max": 0.13,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "indices",
-    "actif": "^GSPC",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 126,
-    "capital_final": 1000.0,
-    "retour_pct": 0.0,
-    "trades": 0,
-    "gagnes": 0,
-    "perdus": 0,
-    "win_rate": 0,
-    "drawdown_max": 0.0,
-    "verdict": "NEUTRE",
     "wf_precision": 0.0,
     "wf_folds": [],
     "robuste": false
@@ -3506,25 +2635,6 @@
     "date": "2026-07-10 13:56",
     "marche": "indices",
     "actif": "^IXIC",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 126,
-    "capital_final": 982.45,
-    "retour_pct": -1.75,
-    "trades": 1,
-    "gagnes": 0,
-    "perdus": 1,
-    "win_rate": 0.0,
-    "drawdown_max": 3.02,
-    "verdict": "PERDANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "indices",
-    "actif": "^IXIC",
     "strategie": "Bollinger Breakout",
     "intervalle": "4h",
     "bougies": 126,
@@ -3574,25 +2684,6 @@
     "win_rate": 33.3,
     "drawdown_max": 2.27,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
-    "wf_folds": [],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "indices",
-    "actif": "^GDAXI",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 194,
-    "capital_final": 1000.0,
-    "retour_pct": 0.0,
-    "trades": 0,
-    "gagnes": 0,
-    "perdus": 0,
-    "win_rate": 0,
-    "drawdown_max": 0.0,
-    "verdict": "NEUTRE",
     "wf_precision": 0.0,
     "wf_folds": [],
     "robuste": false
@@ -3658,25 +2749,6 @@
     "date": "2026-07-10 13:56",
     "marche": "indices",
     "actif": "^FCHI",
-    "strategie": "RSI Mean Reversion",
-    "intervalle": "4h",
-    "bougies": 194,
-    "capital_final": 1000.0,
-    "retour_pct": 0.0,
-    "trades": 0,
-    "gagnes": 0,
-    "perdus": 0,
-    "win_rate": 0,
-    "drawdown_max": 0.0,
-    "verdict": "NEUTRE",
-    "wf_precision": 0.0,
-    "wf_folds": [],
-    "robuste": false
-  },
-  {
-    "date": "2026-07-10 13:56",
-    "marche": "indices",
-    "actif": "^FCHI",
     "strategie": "Bollinger Breakout",
     "intervalle": "4h",
     "bougies": 194,
@@ -3709,6 +2781,1206 @@
     "verdict": "GAGNANTE",
     "wf_precision": 0.0,
     "wf_folds": [],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:46",
+    "marche": "crypto",
+    "actif": "LDOUSDT",
+    "strategie": "SMA Crossover",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1039.06,
+    "retour_pct": 3.91,
+    "trades": 6,
+    "gagnes": 4,
+    "perdus": 2,
+    "win_rate": 66.7,
+    "drawdown_max": 2.69,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      1.83,
+      1.57,
+      0.0,
+      0.0
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-19 23:46",
+    "marche": "crypto",
+    "actif": "LDOUSDT",
+    "strategie": "Bollinger Breakout",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1171.79,
+    "retour_pct": 17.18,
+    "trades": 19,
+    "gagnes": 13,
+    "perdus": 6,
+    "win_rate": 68.4,
+    "drawdown_max": 4.42,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      9.46,
+      -1.37,
+      3.08,
+      -2.56
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-19 23:46",
+    "marche": "crypto",
+    "actif": "LDOUSDT",
+    "strategie": "MACD Momentum",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1046.11,
+    "retour_pct": 4.61,
+    "trades": 31,
+    "gagnes": 15,
+    "perdus": 16,
+    "win_rate": 48.4,
+    "drawdown_max": 7.42,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      6.34,
+      0.73,
+      -0.31,
+      -1.39
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-19 23:46",
+    "marche": "crypto",
+    "actif": "AAVEUSDT",
+    "strategie": "SMA Crossover",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 990.22,
+    "retour_pct": -0.98,
+    "trades": 8,
+    "gagnes": 4,
+    "perdus": 4,
+    "win_rate": 50.0,
+    "drawdown_max": 4.17,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      1.48,
+      0.0,
+      -2.1,
+      -1.81
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:46",
+    "marche": "crypto",
+    "actif": "AAVEUSDT",
+    "strategie": "Bollinger Breakout",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 893.27,
+    "retour_pct": -10.67,
+    "trades": 20,
+    "gagnes": 7,
+    "perdus": 13,
+    "win_rate": 35.0,
+    "drawdown_max": 13.21,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      0.0,
+      0.0,
+      0.55,
+      -0.62
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:46",
+    "marche": "crypto",
+    "actif": "AAVEUSDT",
+    "strategie": "MACD Momentum",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1090.68,
+    "retour_pct": 9.07,
+    "trades": 20,
+    "gagnes": 11,
+    "perdus": 9,
+    "win_rate": 55.0,
+    "drawdown_max": 3.44,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      2.3,
+      2.94,
+      -3.43,
+      -1.8
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-19 23:46",
+    "marche": "crypto",
+    "actif": "UNIUSDT",
+    "strategie": "SMA Crossover",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 873.97,
+    "retour_pct": -12.6,
+    "trades": 8,
+    "gagnes": 2,
+    "perdus": 6,
+    "win_rate": 25.0,
+    "drawdown_max": 12.6,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      1.32,
+      0.0,
+      -2.56,
+      -1.86
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:46",
+    "marche": "crypto",
+    "actif": "UNIUSDT",
+    "strategie": "Bollinger Breakout",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1021.39,
+    "retour_pct": 2.14,
+    "trades": 15,
+    "gagnes": 9,
+    "perdus": 6,
+    "win_rate": 60.0,
+    "drawdown_max": 5.58,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      1.75,
+      0.0,
+      1.62,
+      -2.31
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-19 23:46",
+    "marche": "crypto",
+    "actif": "UNIUSDT",
+    "strategie": "MACD Momentum",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 848.65,
+    "retour_pct": -15.13,
+    "trades": 33,
+    "gagnes": 12,
+    "perdus": 21,
+    "win_rate": 36.4,
+    "drawdown_max": 19.53,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      0.07,
+      -3.94,
+      1.91,
+      -1.66
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:46",
+    "marche": "crypto",
+    "actif": "PENDLEUSDT",
+    "strategie": "SMA Crossover",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 990.71,
+    "retour_pct": -0.93,
+    "trades": 7,
+    "gagnes": 3,
+    "perdus": 4,
+    "win_rate": 42.9,
+    "drawdown_max": 6.22,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -2.13,
+      -0.45,
+      -1.79,
+      1.94
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:46",
+    "marche": "crypto",
+    "actif": "PENDLEUSDT",
+    "strategie": "Bollinger Breakout",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1051.95,
+    "retour_pct": 5.2,
+    "trades": 21,
+    "gagnes": 13,
+    "perdus": 8,
+    "win_rate": 61.9,
+    "drawdown_max": 6.81,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      0.34,
+      2.0,
+      -1.33,
+      -0.58
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-19 23:46",
+    "marche": "crypto",
+    "actif": "PENDLEUSDT",
+    "strategie": "MACD Momentum",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 962.44,
+    "retour_pct": -3.76,
+    "trades": 29,
+    "gagnes": 14,
+    "perdus": 15,
+    "win_rate": 48.3,
+    "drawdown_max": 10.93,
+    "verdict": "PERDANTE",
+    "wf_precision": 100.0,
+    "wf_folds": [
+      4.52,
+      0.1,
+      3.04,
+      3.42
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:46",
+    "marche": "crypto",
+    "actif": "ARBUSDT",
+    "strategie": "SMA Crossover",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1038.9,
+    "retour_pct": 3.89,
+    "trades": 8,
+    "gagnes": 6,
+    "perdus": 2,
+    "win_rate": 75.0,
+    "drawdown_max": 3.61,
+    "verdict": "GAGNANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      0.18,
+      0.0,
+      -1.95,
+      0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:47",
+    "marche": "crypto",
+    "actif": "ARBUSDT",
+    "strategie": "Bollinger Breakout",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1174.2,
+    "retour_pct": 17.42,
+    "trades": 16,
+    "gagnes": 12,
+    "perdus": 4,
+    "win_rate": 75.0,
+    "drawdown_max": 6.62,
+    "verdict": "GAGNANTE",
+    "wf_precision": 75.0,
+    "wf_folds": [
+      2.24,
+      0.0,
+      6.8,
+      1.26
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-19 23:47",
+    "marche": "crypto",
+    "actif": "ARBUSDT",
+    "strategie": "MACD Momentum",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 924.28,
+    "retour_pct": -7.57,
+    "trades": 36,
+    "gagnes": 15,
+    "perdus": 21,
+    "win_rate": 41.7,
+    "drawdown_max": 13.1,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -0.26,
+      1.11,
+      -3.44,
+      0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:47",
+    "marche": "crypto",
+    "actif": "LDOUSDT",
+    "strategie": "SMA Crossover",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1031.23,
+    "retour_pct": 3.12,
+    "trades": 5,
+    "gagnes": 3,
+    "perdus": 2,
+    "win_rate": 60.0,
+    "drawdown_max": 4.2,
+    "verdict": "GAGNANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      0.0,
+      -4.1,
+      1.31,
+      0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:47",
+    "marche": "crypto",
+    "actif": "LDOUSDT",
+    "strategie": "Bollinger Breakout",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 933.47,
+    "retour_pct": -6.65,
+    "trades": 17,
+    "gagnes": 8,
+    "perdus": 9,
+    "win_rate": 47.1,
+    "drawdown_max": 12.4,
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      -3.55,
+      -1.84,
+      -3.73,
+      0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:47",
+    "marche": "crypto",
+    "actif": "LDOUSDT",
+    "strategie": "MACD Momentum",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 951.1,
+    "retour_pct": -4.89,
+    "trades": 21,
+    "gagnes": 9,
+    "perdus": 12,
+    "win_rate": 42.9,
+    "drawdown_max": 13.1,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -4.61,
+      2.78,
+      -10.06,
+      -4.94
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:47",
+    "marche": "crypto",
+    "actif": "AAVEUSDT",
+    "strategie": "SMA Crossover",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1119.36,
+    "retour_pct": 11.94,
+    "trades": 5,
+    "gagnes": 4,
+    "perdus": 1,
+    "win_rate": 80.0,
+    "drawdown_max": 2.12,
+    "verdict": "GAGNANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      0.0,
+      2.21,
+      0.0,
+      0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:47",
+    "marche": "crypto",
+    "actif": "AAVEUSDT",
+    "strategie": "Bollinger Breakout",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 818.92,
+    "retour_pct": -18.11,
+    "trades": 24,
+    "gagnes": 10,
+    "perdus": 14,
+    "win_rate": 41.7,
+    "drawdown_max": 26.69,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -3.83,
+      -6.46,
+      6.98,
+      -2.09
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:47",
+    "marche": "crypto",
+    "actif": "AAVEUSDT",
+    "strategie": "MACD Momentum",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 908.74,
+    "retour_pct": -9.13,
+    "trades": 20,
+    "gagnes": 7,
+    "perdus": 13,
+    "win_rate": 35.0,
+    "drawdown_max": 16.46,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -5.84,
+      -1.02,
+      5.18,
+      -1.52
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:47",
+    "marche": "crypto",
+    "actif": "UNIUSDT",
+    "strategie": "SMA Crossover",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 871.73,
+    "retour_pct": -12.83,
+    "trades": 5,
+    "gagnes": 0,
+    "perdus": 5,
+    "win_rate": 0.0,
+    "drawdown_max": 12.83,
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      0.0,
+      -1.79,
+      -3.37,
+      0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:47",
+    "marche": "crypto",
+    "actif": "UNIUSDT",
+    "strategie": "Bollinger Breakout",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1137.55,
+    "retour_pct": 13.75,
+    "trades": 19,
+    "gagnes": 12,
+    "perdus": 7,
+    "win_rate": 63.2,
+    "drawdown_max": 10.76,
+    "verdict": "GAGNANTE",
+    "wf_precision": 75.0,
+    "wf_folds": [
+      -1.81,
+      5.41,
+      4.69,
+      3.32
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-19 23:47",
+    "marche": "crypto",
+    "actif": "UNIUSDT",
+    "strategie": "MACD Momentum",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 931.73,
+    "retour_pct": -6.83,
+    "trades": 24,
+    "gagnes": 12,
+    "perdus": 12,
+    "win_rate": 50.0,
+    "drawdown_max": 19.4,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -11.75,
+      3.68,
+      6.43,
+      -7.11
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:47",
+    "marche": "crypto",
+    "actif": "PENDLEUSDT",
+    "strategie": "SMA Crossover",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1007.18,
+    "retour_pct": 0.72,
+    "trades": 7,
+    "gagnes": 4,
+    "perdus": 3,
+    "win_rate": 57.1,
+    "drawdown_max": 4.48,
+    "verdict": "GAGNANTE",
+    "wf_precision": 75.0,
+    "wf_folds": [
+      4.84,
+      2.28,
+      3.46,
+      -2.65
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-19 23:47",
+    "marche": "crypto",
+    "actif": "PENDLEUSDT",
+    "strategie": "Bollinger Breakout",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 971.7,
+    "retour_pct": -2.83,
+    "trades": 18,
+    "gagnes": 8,
+    "perdus": 10,
+    "win_rate": 44.4,
+    "drawdown_max": 17.41,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -11.14,
+      -1.16,
+      -2.79,
+      3.28
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:47",
+    "marche": "crypto",
+    "actif": "PENDLEUSDT",
+    "strategie": "MACD Momentum",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 943.59,
+    "retour_pct": -5.64,
+    "trades": 26,
+    "gagnes": 11,
+    "perdus": 15,
+    "win_rate": 42.3,
+    "drawdown_max": 19.12,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      9.55,
+      -7.17,
+      4.3,
+      -11.72
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:47",
+    "marche": "crypto",
+    "actif": "ARBUSDT",
+    "strategie": "SMA Crossover",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1028.11,
+    "retour_pct": 2.81,
+    "trades": 5,
+    "gagnes": 3,
+    "perdus": 2,
+    "win_rate": 60.0,
+    "drawdown_max": 3.23,
+    "verdict": "GAGNANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      0.0,
+      -1.83,
+      1.61,
+      0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-19 23:47",
+    "marche": "crypto",
+    "actif": "ARBUSDT",
+    "strategie": "Bollinger Breakout",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1084.2,
+    "retour_pct": 8.42,
+    "trades": 30,
+    "gagnes": 17,
+    "perdus": 13,
+    "win_rate": 56.7,
+    "drawdown_max": 9.88,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      4.15,
+      -3.84,
+      1.44,
+      -0.53
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-19 23:47",
+    "marche": "crypto",
+    "actif": "ARBUSDT",
+    "strategie": "MACD Momentum",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 679.52,
+    "retour_pct": -32.05,
+    "trades": 28,
+    "gagnes": 7,
+    "perdus": 21,
+    "win_rate": 25.0,
+    "drawdown_max": 34.57,
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      -5.55,
+      -0.19,
+      -7.97,
+      -4.45
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "BTCUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1069.43,
+    "retour_pct": 6.94,
+    "trades": 14,
+    "gagnes": 9,
+    "perdus": 5,
+    "win_rate": 64.3,
+    "drawdown_max": 6.96,
+    "verdict": "GAGNANTE",
+    "wf_precision": 100.0,
+    "wf_folds": [
+      2.7,
+      0.08,
+      0.46,
+      1.27
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "ETHUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1045.08,
+    "retour_pct": 4.51,
+    "trades": 17,
+    "gagnes": 11,
+    "perdus": 6,
+    "win_rate": 64.7,
+    "drawdown_max": 7.18,
+    "verdict": "GAGNANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      2.54,
+      -0.54,
+      -0.09,
+      -2.22
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "SOLUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1008.18,
+    "retour_pct": 0.82,
+    "trades": 15,
+    "gagnes": 9,
+    "perdus": 6,
+    "win_rate": 60.0,
+    "drawdown_max": 6.93,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      1.48,
+      -0.18,
+      -0.2,
+      0.98
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "BNBUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1033.01,
+    "retour_pct": 3.3,
+    "trades": 15,
+    "gagnes": 9,
+    "perdus": 6,
+    "win_rate": 60.0,
+    "drawdown_max": 6.18,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      2.03,
+      1.36,
+      -0.96,
+      -0.34
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "XRPUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1017.17,
+    "retour_pct": 1.72,
+    "trades": 16,
+    "gagnes": 9,
+    "perdus": 7,
+    "win_rate": 56.2,
+    "drawdown_max": 6.58,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      2.42,
+      -0.42,
+      -0.91,
+      0.42
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "LDOUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1139.69,
+    "retour_pct": 13.97,
+    "trades": 12,
+    "gagnes": 9,
+    "perdus": 3,
+    "win_rate": 75.0,
+    "drawdown_max": 3.11,
+    "verdict": "GAGNANTE",
+    "wf_precision": 75.0,
+    "wf_folds": [
+      4.24,
+      2.95,
+      4.48,
+      0.0
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "AAVEUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1035.15,
+    "retour_pct": 3.51,
+    "trades": 12,
+    "gagnes": 7,
+    "perdus": 5,
+    "win_rate": 58.3,
+    "drawdown_max": 7.97,
+    "verdict": "GAGNANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      0.0,
+      -0.61,
+      0.82,
+      -4.67
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "UNIUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1080.03,
+    "retour_pct": 8.0,
+    "trades": 12,
+    "gagnes": 9,
+    "perdus": 3,
+    "win_rate": 75.0,
+    "drawdown_max": 3.55,
+    "verdict": "GAGNANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      1.49,
+      0.0,
+      -0.58,
+      -0.14
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "PENDLEUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 987.9,
+    "retour_pct": -1.21,
+    "trades": 17,
+    "gagnes": 9,
+    "perdus": 8,
+    "win_rate": 52.9,
+    "drawdown_max": 13.8,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      1.68,
+      0.0,
+      0.28,
+      0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "ARBUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1091.2,
+    "retour_pct": 9.12,
+    "trades": 16,
+    "gagnes": 11,
+    "perdus": 5,
+    "win_rate": 68.8,
+    "drawdown_max": 10.86,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      3.98,
+      2.16,
+      -1.34,
+      0.0
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "BTCUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 853.93,
+    "retour_pct": -14.61,
+    "trades": 23,
+    "gagnes": 10,
+    "perdus": 13,
+    "win_rate": 43.5,
+    "drawdown_max": 23.14,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -2.33,
+      -9.96,
+      4.36,
+      0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "ETHUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 789.42,
+    "retour_pct": -21.06,
+    "trades": 25,
+    "gagnes": 10,
+    "perdus": 15,
+    "win_rate": 40.0,
+    "drawdown_max": 26.08,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -7.13,
+      -16.72,
+      0.94,
+      0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "SOLUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 923.88,
+    "retour_pct": -7.61,
+    "trades": 29,
+    "gagnes": 14,
+    "perdus": 15,
+    "win_rate": 48.3,
+    "drawdown_max": 23.84,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      3.68,
+      -14.04,
+      -0.6,
+      3.83
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "BNBUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1031.87,
+    "retour_pct": 3.19,
+    "trades": 19,
+    "gagnes": 12,
+    "perdus": 7,
+    "win_rate": 63.2,
+    "drawdown_max": 12.0,
+    "verdict": "GAGNANTE",
+    "wf_precision": 75.0,
+    "wf_folds": [
+      3.88,
+      -13.01,
+      4.67,
+      0.58
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "XRPUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 898.12,
+    "retour_pct": -10.19,
+    "trades": 23,
+    "gagnes": 10,
+    "perdus": 13,
+    "win_rate": 43.5,
+    "drawdown_max": 18.9,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -3.28,
+      -9.92,
+      -3.15,
+      4.53
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "LDOUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 950.52,
+    "retour_pct": -4.95,
+    "trades": 26,
+    "gagnes": 12,
+    "perdus": 14,
+    "win_rate": 46.2,
+    "drawdown_max": 16.62,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      3.43,
+      -8.52,
+      3.26,
+      0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "AAVEUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 788.71,
+    "retour_pct": -21.13,
+    "trades": 37,
+    "gagnes": 17,
+    "perdus": 20,
+    "win_rate": 45.9,
+    "drawdown_max": 25.92,
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      -0.44,
+      -12.69,
+      0.0,
+      -2.36
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "UNIUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 856.68,
+    "retour_pct": -14.33,
+    "trades": 21,
+    "gagnes": 9,
+    "perdus": 12,
+    "win_rate": 42.9,
+    "drawdown_max": 24.99,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -4.04,
+      -8.03,
+      0.0,
+      2.33
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "PENDLEUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 909.59,
+    "retour_pct": -9.04,
+    "trades": 25,
+    "gagnes": 11,
+    "perdus": 14,
+    "win_rate": 44.0,
+    "drawdown_max": 24.45,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -12.2,
+      -1.22,
+      1.78,
+      3.15
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-20 00:44",
+    "marche": "crypto",
+    "actif": "ARBUSDT",
+    "strategie": "RSI Mean Reversion",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1025.04,
+    "retour_pct": 2.5,
+    "trades": 30,
+    "gagnes": 16,
+    "perdus": 14,
+    "win_rate": 53.3,
+    "drawdown_max": 13.21,
+    "verdict": "GAGNANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -2.29,
+      1.97,
+      -2.7,
+      0.0
+    ],
     "robuste": false
   }
 ]
