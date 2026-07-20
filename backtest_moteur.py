@@ -148,14 +148,32 @@ def strat_sma_crossover(i, d):
         return "VENTE"
     return None
 
+# --- Auto-tunable params (auto_sweep.py met a jour strat_params.json) ---
+import json as _sp_json, os as _sp_os, time as _sp_time
+_SP_CACHE = {"vals": None, "mtime": 0.0}
+def _strat_params():
+    """Lit strat_params.json avec cache (recharge si mtime change). Fallback safe."""
+    try:
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "strat_params.json")
+        mt = os.path.getmtime(p)
+        if _SP_CACHE["vals"] is None or mt != _SP_CACHE["mtime"]:
+            _SP_CACHE["vals"] = _sp_json.load(open(p, encoding="utf-8"))
+            _SP_CACHE["mtime"] = mt
+    except Exception:
+        _SP_CACHE["vals"] = {}
+    v = _SP_CACHE["vals"] or {}
+    return v.get("rsi_achat", 35), v.get("rsi_vente", 70)
+
 def strat_rsi_reversion(i, d):
-    """Achat quand RSI<35 (survente); vente quand RSI>70 (surachat)."""
+    """Achat quand RSI < seuil (survente); vente quand RSI > seuil_haut.
+    Seuil auto-ajuste par auto_sweep.py via strat_params.json."""
     r = d["rsi"][i]
     if r is None:
         return None
-    if r < 35:
+    achat, vente = _strat_params()
+    if r < achat:
         return "ACHAT"
-    if r > 70:
+    if r > vente:
         return "VENTE"
     return None
 
