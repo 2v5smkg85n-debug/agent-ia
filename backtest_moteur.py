@@ -149,11 +149,11 @@ def strat_sma_crossover(i, d):
     return None
 
 def strat_rsi_reversion(i, d):
-    """Achat quand RSI<30 (survente); vente quand RSI>70 (surachat)."""
+    """Achat quand RSI<35 (survente); vente quand RSI>70 (surachat)."""
     r = d["rsi"][i]
     if r is None:
         return None
-    if r < 30:
+    if r < 35:
         return "ACHAT"
     if r > 70:
         return "VENTE"
