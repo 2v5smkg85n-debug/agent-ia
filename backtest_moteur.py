@@ -130,6 +130,41 @@ def bollinger_series(clotures, periode=20, ecart=2):
         bas[i] = moyenne - ecart * e
     return hauts, bas
 
+def donchian_series(clotures, periode=20):
+    """Retourne (haut, bas) rolling max/min sur periode, decales d'une bougie (breakout)."""
+    hauts = [None] * len(clotures)
+    bas = [None] * len(clotures)
+    for i in range(periode, len(clotures)):
+        fen = clotures[i-periode:i]  # exclut la bougie courante
+        hauts[i] = max(fen)
+        bas[i] = min(fen)
+    return hauts, bas
+
+def stochastic_series(clotures, periode=14, smooth=3):
+    """Retourne (k, d). %K = position dans le range; %D = SMA de %K."""
+    k = [None] * len(clotures)
+    for i in range(periode - 1, len(clotures)):
+        fen = clotures[i-periode+1:i+1]
+        hh = max(fen); ll = min(fen)
+        k[i] = 100.0 * (clotures[i] - ll) / (hh - ll) if hh != ll else 50.0
+    d = [None] * len(clotures)
+    for i in range(periode - 1 + smooth - 1, len(clotures)):
+        fen = [x for x in k[i-smooth+1:i+1] if x is not None]
+        if len(fen) == smooth:
+            d[i] = sum(fen) / smooth
+    return k, d
+
+def ema_simple_series(clotures, periode):
+    """EMA simple sur la serie complete."""
+    out = [None] * len(clotures)
+    if len(clotures) < periode:
+        return out
+    mult = 2 / (periode + 1)
+    out[periode-1] = sum(clotures[:periode]) / periode
+    for i in range(periode, len(clotures)):
+        out[i] = (clotures[i] - out[i-1]) * mult + out[i-1]
+    return out
+
 # ============================================
 # STRATEGIES DETERMINISTES
 # Chaque strategie est une fonction: (index, donnees) -> "ACHAT"/"VENTE"/None
@@ -163,6 +198,14 @@ def _strat_params():
         _SP_CACHE["vals"] = {}
     v = _SP_CACHE["vals"] or {}
     return v.get("rsi_achat", 35), v.get("rsi_vente", 70)
+
+def _bb_ecart():
+    """Lit bb_ecart de strat_params.json (cache partage). Fallback 2.0.
+    Permet a genetic_optimizer.py d'optimiser l'ecart Bollinger."""
+    if _SP_CACHE["vals"] is None:
+        _strat_params()
+    v = _SP_CACHE["vals"] or {}
+    return v.get("bb_ecart", 2.0)
 
 def strat_rsi_reversion(i, d):
     """Achat quand RSI < seuil (survente); vente quand RSI > seuil_haut.
@@ -201,6 +244,43 @@ def strat_macd_momentum(i, d):
         return "VENTE"
     return None
 
+def strat_donchian_breakout(i, d):
+    """Achat quand prix casse au-dessus du plus haut 20 (breakout); vente sous le plus bas."""
+    if d["donchian_haut"][i] is None or d["donchian_bas"][i] is None:
+        return None
+    prix = d["clotures"][i]
+    if prix > d["donchian_haut"][i]:
+        return "ACHAT"
+    if prix < d["donchian_bas"][i]:
+        return "VENTE"
+    return None
+
+def strat_stochastic(i, d):
+    """Achat quand %K croise au-dessus %D en zone oversold (<20); vente inverse en overbought (>80)."""
+    if i < 1:
+        return None
+    k, kd = d["stoch_k"], d["stoch_d"]
+    if k[i] is None or kd[i] is None or k[i-1] is None or kd[i-1] is None:
+        return None
+    if k[i-1] <= kd[i-1] and k[i] > kd[i] and k[i] < 20:
+        return "ACHAT"
+    if k[i-1] >= kd[i-1] and k[i] < kd[i] and k[i] > 80:
+        return "VENTE"
+    return None
+
+def strat_ema_crossover(i, d):
+    """Achat quand EMA12 croise au-dessus EMA26; vente inverse."""
+    if i < 1:
+        return None
+    e12, e26 = d["ema12"], d["ema26"]
+    if e12[i] is None or e26[i] is None or e12[i-1] is None or e26[i-1] is None:
+        return None
+    if e12[i-1] <= e26[i-1] and e12[i] > e26[i]:
+        return "ACHAT"
+    if e12[i-1] >= e26[i-1] and e12[i] < e26[i]:
+        return "VENTE"
+    return None
+
 def _macd_full(clotures, courte=12, longue=26, signal=9):
     """Calcule les series MACD completes."""
     def ema_series(valeurs, periode):
@@ -229,6 +309,9 @@ STRATEGIES = {
     "RSI Mean Reversion": strat_rsi_reversion,
     "Bollinger Breakout": strat_bollinger_breakout,
     "MACD Momentum":      strat_macd_momentum,
+    "Donchian Breakout":  strat_donchian_breakout,
+    "Stochastic":         strat_stochastic,
+    "EMA Crossover":      strat_ema_crossover,
 }
 
 # ============================================
@@ -251,8 +334,12 @@ def simuler(bougies, fonction_strat, capital=CAPITAL_DEPART):
         "macd_line": None,
         "macd_signal": None,
     }
-    donnees["bb_haut"], donnees["bb_bas"] = bollinger_series(clotures, 20, 2)
+    donnees["bb_haut"], donnees["bb_bas"] = bollinger_series(clotures, 20, _bb_ecart())
     donnees["macd_line"], donnees["macd_signal"] = _macd_full(clotures)
+    donnees["donchian_haut"], donnees["donchian_bas"] = donchian_series(clotures, 20)
+    donnees["stoch_k"], donnees["stoch_d"] = stochastic_series(clotures, 14, 3)
+    donnees["ema12"] = ema_simple_series(clotures, 12)
+    donnees["ema26"] = ema_simple_series(clotures, 26)
 
     capital_dispo = capital
     quantite = 0.0
