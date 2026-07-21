@@ -78,6 +78,43 @@ def varied_dummy(n=220):
     return out
 
 
+def exploration_seed():
+    """Seed aleatoire pour forcer la DIVERSITE: chaque run explore un angle different.
+    Evite que le LLM regenere la meme strategie (cache Perplexity / determinisme)."""
+    focus = random.choice([
+        "RSI (survente <35 / surachat >70)",
+        "Bollinger (prix touche bb_bas / bb_haut)",
+        "MACD (croisement ligne/signal)",
+        "Stochastique (k/d cross, survente <20)",
+        "Donchian (breakout de canal haut/bas)",
+        "EMA (crossover 12/26)",
+        "combinaison RSI + Bollinger (acheter quand RSI<35 ET prix<=bb_bas)",
+        "combinaison Stochastique + RSI (double confirmation survente)",
+        "combinaison MACD + EMA (momentum + trend)",
+        "combinaison Donchian + RSI (breakout confirme)",
+    ])
+    trader = random.choice([
+        "Buffett (contrarian, acheter sous-evalue)",
+        "Rogers (acheter quand il y a du sang dans les rues)",
+        "Soros (retournement apres extension extreme)",
+        "Paul Tudor Jones (point de retournement, R:R eleve)",
+        "Simons (pattern data-driven, frequent)",
+        "Yass (expected value positive)",
+        "Dalio (conditionnel au regime)",
+    ])
+    approche = random.choice([
+        "mean-reversion (acheter apres une baisse, vendre apres une hausse)",
+        "momentum (acheter sur acceleration haussiere)",
+        "breakout (acheter sur cassure d'un niveau)",
+        "divergence (prix fait un nouveau bas mais l'indicateur remonte)",
+    ])
+    return (f"EXPLORATION DE CE RUN (genere une strategie DIFFERENTE, ne recopie pas une strategie deja faite):\n"
+            f"- Focus indicateur: {focus}\n"
+            f"- Inspiration trader: {trader}\n"
+            f"- Approche: {approche}\n"
+            f"IMPORTANT: construis ta strategie autour de CETTE combinaison specifique.")
+
+
 def log(msg):
     line = f"[{datetime.utcnow():%Y-%m-%d %H:%M:%S} UTC] {msg}"
     print(line, flush=True)
@@ -492,6 +529,8 @@ def main():
     # 1. GENERATION
     log(f"Generation strategie {name} via LLM...")
     prompt = PROMPT.format(num=num)
+    # SEED ALEATOIRE en tete: force la diversite (chaque run explore un angle different)
+    prompt = exploration_seed() + "\n\n" + prompt
     # INJECTE LA SAGESSE DES 10 MAITRES TRADERS (principes + lecons backtestees)
     if sagesse_prompt:
         prompt += "\n\n" + sagesse_prompt()
