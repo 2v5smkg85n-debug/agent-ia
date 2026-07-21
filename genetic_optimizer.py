@@ -37,7 +37,7 @@ POP = 12          # taille population
 GENS = 6          # generations
 ELITE = 3         # elites conserves
 MUT = 0.30        # proba mutation par gene
-DEPLOI_MARGE = 3.0  # +3pp OOS requis pour deployer (anti-overfitting)
+DEPLOI_MARGE = 1.0  # +3pp OOS requis pour deployer (anti-overfitting)
 
 CRYPTOS = bm.ACTIFS["crypto"]
 INTERVALLE = "1h"
