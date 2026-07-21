@@ -389,7 +389,8 @@ def ouvrir_position(pf, signal, prix_actuel):
         # Phase 6 (journal audite) : conserve la raison d'OUVERTURE (strategie)
         # separement de la raison de fermeture (TAKE-PROFIT, STOP-LOSS, TEMPS...)
         "signal_raison": signal.get("raison", ""),
-        "source": signal.get("source", "")
+        "source": signal.get("source", ""),
+        "strategie": signal.get("strategie") or signal.get("source") or "inconnu"
     }
     pf["positions"].append(position)
     print(f"  [ACHAT] {signal.get('nom',signal['symbole'])} ({signal.get('marche','?')}) @ {prix_actuel:.2f} | {montant:.2f} EUR | qty {quantite:.6f}")
@@ -463,6 +464,7 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
         "raison": raison,
         # Phase 6 (journal audite) : raison d'ouverture (strategie utilisee)
         "signal_raison": position.get("signal_raison", ""),
+        "strategie": position.get("strategie", position.get("source", "")),
         "source": position.get("source", ""),
         "frais_total": position["frais_entree"] + frais,
         "date_ouverture": position["date_ouverture"],
