@@ -54,6 +54,26 @@ WIN_MIN = 50.0     # win_rate moyen >= 50%
 TRADES_MIN = 5     # au moins 5 trades total (robuste, pas chance)
 
 
+def varied_dummy(n=220):
+    """Donnees factices MULTI-REGIMES (hausse, crash, range, recovery)
+    pour que tout type de strategie (mean-reversion, trend, breakout) puisse
+    emettre au moins un signal lors du sanity/causal test."""
+    out = []
+    p = 100.0
+    for i in range(n):
+        if i < n // 4:            # hausse (RSI haut, EMA croise up)
+            p *= (1 + 0.004)
+        elif i < n // 2:          # crash (RSI oversold, Bollinger bas touche)
+            p *= (1 - 0.006)
+        elif i < 3 * n // 4:      # range (Stochastic, oscillation)
+            p *= (1 + 0.0015 * ((-1) ** i))
+        else:                      # recovery
+            p *= (1 + 0.0035)
+        p += 0.4 * (i % 5 - 2)    # bruit
+        out.append({"cloture": round(max(p, 1.0), 4)})
+    return out
+
+
 def log(msg):
     line = f"[{datetime.utcnow():%Y-%m-%d %H:%M:%S} UTC] {msg}"
     print(line, flush=True)
@@ -468,7 +488,7 @@ def main():
         log(f"GATE 2 REJET (statique): {raison}")
         record_lecon(name, code, "REJETEE", f"static: {raison}", None, llm_source)
         return
-    dummy = [{"cloture": 100 + 0.5 * i + (3 if i % 7 == 0 else 0)} for i in range(120)]
+    dummy = varied_dummy(220)
     ok, raison = causal_test(func, dummy)
     if not ok:
         log(f"GATE 2 REJET (causal): {raison}")
