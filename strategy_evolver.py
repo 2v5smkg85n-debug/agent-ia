@@ -165,7 +165,26 @@ REGLES STRICTES (toute violation = rejet):
   - INTERDIT: d[key][i+1] ou index futur, indexation negative (d[key][-1])
   - INTERDIT: max(), min(), sum(), len() sur les series (agregation = look-ahead)
   - INTERDIT: import, open(), os, subprocess, eval, exec, __, getattr
-  - Utilise None comme garde si indicateur indispo
+  - Utilise None comme garde si indicateur indispo (voir CRITIQUE ci-dessous)
+
+CRITIQUE - GESTION OBLIGATOIRE DES None:
+  TOUS les indicateurs (rsi, bb_haut, bb_bas, ema, macd, donchian, stoch) contiennent
+  None au debut (periode de chauffe: RSI=14 bars, Bollinger=20, EMA26=26). Une
+  comparaison float < None fait CRASHER la strategie = REJET AUTOMATIQUE.
+  REGLE ABSOLUE: avant TOUTE comparaison, extrais la valeur et verifie `is None`.
+
+  MAUVAIS (crash):                   BON (correct):
+    r = d["rsi"][i]                    r = d["rsi"][i]
+    if r < 30: return "ACHAT"         if r is None: return None
+                                      if r < 30: return "ACHAT"
+
+  Pour les comparaisons entre 2 indicateurs, verifie TOUS les None:
+    bb = d["bb_bas"][i]
+    if bb is None: return None
+    prix = d["clotures"][i]
+    if prix <= bb: return "ACHAT"
+
+  Si tu utilises [i-1], verifie aussi [i-1] is None (et i >= 1).
   - Logique saine: achète sur signal de retournement/momentum, vends sur signal oppose
 
 EXEMPLES (style attendu):
