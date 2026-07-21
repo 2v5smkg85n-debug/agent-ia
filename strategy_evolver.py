@@ -23,6 +23,10 @@ from datetime import datetime
 import backtest_moteur as bm
 from indicateurs import historique_ohlcv
 from dotenv import load_dotenv
+try:
+    from sagesse_traders import sagesse_prompt
+except Exception:
+    sagesse_prompt = None
 load_dotenv()
 
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
@@ -469,6 +473,14 @@ def main():
     # 1. GENERATION
     log(f"Generation strategie {name} via LLM...")
     prompt = PROMPT.format(num=num)
+    # INJECTE LA SAGESSE DES 10 MAITRES TRADERS (principes + lecons backtestees)
+    if sagesse_prompt:
+        prompt += "\n\n" + sagesse_prompt()
+        prompt += ("\n\nINSTRUCTION CLE: sois INSPIRE par ces principes et les lecons ci-dessus. "
+                  "Ne repropose PAS les approches deja rejetees (deep contrarian RSI<20, "
+                  "cut-losers-fast, trend-following en regime quiet). Cherche un edge aligne "
+                  "avec le systeme mean-reversion: contrarian modere (RSI 20-35), patience, "
+                  "cassure de canal, momentum sur retournement. Max 2 conditions, declencheable souvent.")
     texte, llm_source = call_llm(prompt)
     if not texte:
         log("LLM indispo - abandon")
