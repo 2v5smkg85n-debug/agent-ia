@@ -314,6 +314,13 @@ STRATEGIES = {
     "EMA Crossover":      strat_ema_crossover,
 }
 
+# Phase 7b: charge les stratégies générées par strategy_evolver.py (auto-déploiement)
+try:
+    from strategies_evolved import EVOLVED_STRATEGIES
+    STRATEGIES.update(EVOLVED_STRATEGIES)
+except Exception:
+    pass
+
 # ============================================
 # MOTEUR DE SIMULATION
 # ============================================
