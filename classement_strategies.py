@@ -55,6 +55,10 @@ SAGESSE_STRAT = {
     "MACD Momentum":       {"trader": "Dennis/PTJ",            "verdict": "NUANCE",  "mult": 0.95},
     "SMA Crossover":       {"trader": "Dennis (Turtle)",        "verdict": "NUANCE",  "mult": 0.95},
     "Bollinger Breakout":  {"trader": "Dennis/Bollinger",      "verdict": "NUANCE",  "mult": 0.95},
+    # Phase 7 - nouvelles strategies (coherence sagesse)
+    "EMA Crossover":       {"trader": "Dennis (Turtle)",        "verdict": "NUANCE",  "mult": 0.95},
+    "Donchian Breakout":   {"trader": "Dennis/Bollinger",      "verdict": "NUANCE",  "mult": 0.95},
+    "Stochastic":          {"trader": "Buffett/Livermore",      "verdict": "VALIDE",  "mult": 1.00},
 }
 
 
