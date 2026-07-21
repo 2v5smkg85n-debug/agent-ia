@@ -14,14 +14,14 @@
     "win_rate": 50.0,
     "drawdown_max": 4.07,
     "verdict": "GAGNANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 0.0,
     "wf_folds": [
-      -1.88,
-      1.37,
-      0.01,
-      0.83
+      0.0,
+      0.0,
+      0.0,
+      -0.39
     ],
-    "robuste": true
+    "robuste": false
   },
   {
     "date": "2026-07-10 13:55",
@@ -38,12 +38,12 @@
     "win_rate": 61.5,
     "drawdown_max": 8.85,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 100.0,
     "wf_folds": [
-      2.7,
-      0.0,
-      -1.92,
-      0.92
+      0.76,
+      0.44,
+      0.47,
+      1.16
     ],
     "robuste": true
   },
@@ -62,12 +62,12 @@
     "win_rate": 33.3,
     "drawdown_max": 17.28,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      -1.5,
-      0.34,
-      1.13,
-      -1.06
+      -2.49,
+      0.12,
+      0.86,
+      1.32
     ],
     "robuste": false
   },
@@ -86,14 +86,14 @@
     "win_rate": 62.5,
     "drawdown_max": 4.87,
     "verdict": "GAGNANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 0.0,
     "wf_folds": [
       -2.2,
-      1.43,
-      2.56,
-      0.53
+      0.0,
+      0.0,
+      0.0
     ],
-    "robuste": true
+    "robuste": false
   },
   {
     "date": "2026-07-10 13:55",
@@ -110,14 +110,14 @@
     "win_rate": 58.8,
     "drawdown_max": 10.73,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      1.5,
+      -0.61,
       0.0,
-      -1.71,
-      0.05
+      -1.2,
+      1.83
     ],
-    "robuste": true
+    "robuste": false
   },
   {
     "date": "2026-07-10 13:55",
@@ -134,14 +134,14 @@
     "win_rate": 42.3,
     "drawdown_max": 6.01,
     "verdict": "GAGNANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      0.01,
-      0.32,
-      4.12,
-      -0.51
+      -1.8,
+      -1.88,
+      4.14,
+      -1.06
     ],
-    "robuste": true
+    "robuste": false
   },
   {
     "date": "2026-07-10 13:55",
@@ -158,14 +158,14 @@
     "win_rate": 83.3,
     "drawdown_max": 2.78,
     "verdict": "GAGNANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 0.0,
     "wf_folds": [
-      0.01,
-      1.31,
-      -0.06,
-      1.84
+      -1.86,
+      0.0,
+      0.0,
+      0.0
     ],
-    "robuste": true
+    "robuste": false
   },
   {
     "date": "2026-07-10 13:55",
@@ -182,12 +182,12 @@
     "win_rate": 75.0,
     "drawdown_max": 6.26,
     "verdict": "GAGNANTE",
-    "wf_precision": 100.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      3.37,
-      0.97,
-      0.91,
-      1.37
+      -1.84,
+      1.94,
+      0.21,
+      0.63
     ],
     "robuste": true
   },
@@ -206,12 +206,12 @@
     "win_rate": 50.0,
     "drawdown_max": 7.12,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      1.66,
-      -0.51,
-      0.19,
-      -2.83
+      -0.7,
+      -3.83,
+      1.67,
+      -2.09
     ],
     "robuste": false
   },
@@ -230,12 +230,12 @@
     "win_rate": 60.0,
     "drawdown_max": 4.18,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 0.0,
     "wf_folds": [
       0.0,
-      1.43,
-      -0.39,
-      -0.63
+      0.0,
+      0.0,
+      -0.03
     ],
     "robuste": false
   },
@@ -254,12 +254,12 @@
     "win_rate": 61.1,
     "drawdown_max": 8.57,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      1.89,
-      0.0,
-      1.78,
-      -1.61
+      -0.79,
+      0.7,
+      1.35,
+      1.45
     ],
     "robuste": true
   },
@@ -280,10 +280,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      0.1,
-      -0.4,
-      -1.08,
-      -1.18
+      -0.78,
+      -0.53,
+      -0.32,
+      0.17
     ],
     "robuste": false
   },
@@ -302,14 +302,14 @@
     "win_rate": 50.0,
     "drawdown_max": 5.82,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 0.0,
     "wf_folds": [
       0.0,
-      1.46,
-      -0.1,
-      0.38
+      0.0,
+      0.0,
+      0.0
     ],
-    "robuste": true
+    "robuste": false
   },
   {
     "date": "2026-07-10 13:55",
@@ -328,10 +328,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 75.0,
     "wf_folds": [
-      2.42,
-      0.0,
-      0.78,
-      0.39
+      -1.25,
+      0.14,
+      0.47,
+      1.95
     ],
     "robuste": true
   },
@@ -350,12 +350,12 @@
     "win_rate": 41.4,
     "drawdown_max": 10.09,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      2.65,
-      0.63,
-      -2.28,
-      -3.24
+      -0.08,
+      -3.42,
+      0.62,
+      -1.02
     ],
     "robuste": false
   },
@@ -378,7 +378,7 @@
     "wf_folds": [
       0.0,
       -0.28,
-      0.0,
+      -0.19,
       0.0
     ],
     "robuste": false
@@ -400,10 +400,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -0.31,
-      -0.34,
-      -0.32,
-      -0.26
+      -0.15,
+      -0.24,
+      -0.17,
+      -0.52
     ],
     "robuste": false
   },
@@ -424,10 +424,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -0.96,
-      -0.25,
-      -1.32,
-      -1.02
+      -0.79,
+      -1.12,
+      -1.05,
+      -1.07
     ],
     "robuste": false
   },
@@ -450,7 +450,7 @@
     "wf_folds": [
       0.0,
       -0.48,
-      0.0,
+      -0.17,
       0.0
     ],
     "robuste": false
@@ -470,12 +470,12 @@
     "win_rate": 71.4,
     "drawdown_max": 2.08,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      0.0,
-      -0.32,
-      -0.36,
-      -0.53
+      0.22,
+      -0.18,
+      -0.25,
+      -0.64
     ],
     "robuste": false
   },
@@ -494,12 +494,12 @@
     "win_rate": 30.0,
     "drawdown_max": 4.02,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 0.0,
     "wf_folds": [
-      -0.85,
-      0.27,
-      -0.96,
-      0.09
+      -0.03,
+      -0.8,
+      -0.94,
+      -0.49
     ],
     "robuste": false
   },
@@ -521,9 +521,9 @@
     "wf_precision": 0.0,
     "wf_folds": [
       0.0,
-      -0.29,
-      -0.16,
-      -0.26
+      -0.05,
+      -0.27,
+      0.0
     ],
     "robuste": false
   },
@@ -542,12 +542,12 @@
     "win_rate": 66.7,
     "drawdown_max": 1.52,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      -0.13,
-      -0.07,
-      -0.37,
-      -0.01
+      -0.84,
+      0.36,
+      -0.34,
+      0.0
     ],
     "robuste": false
   },
@@ -568,10 +568,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -0.56,
-      0.12,
-      -1.11,
-      -1.07
+      -0.27,
+      0.15,
+      -1.42,
+      -1.26
     ],
     "robuste": false
   },
@@ -590,12 +590,12 @@
     "win_rate": 25.0,
     "drawdown_max": 3.7,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 25.0,
     "wf_folds": [
+      -0.53,
       0.0,
-      0.0,
-      0.0,
-      -0.2
+      -0.2,
+      0.29
     ],
     "robuste": false
   },
@@ -616,9 +616,9 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      2.17,
-      -1.24,
-      -2.25,
+      1.79,
+      -1.63,
+      -0.95,
       0.49
     ],
     "robuste": false
@@ -640,10 +640,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      2.02,
-      -2.26,
-      -1.45,
-      1.11
+      1.04,
+      -2.64,
+      0.82,
+      -0.68
     ],
     "robuste": false
   },
@@ -892,7 +892,7 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -1.07,
+      0.0,
       0.0,
       -2.27,
       4.39
@@ -914,12 +914,12 @@
     "win_rate": 47.1,
     "drawdown_max": 11.96,
     "verdict": "PERDANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -0.98,
+      -1.2,
       1.32,
-      5.58,
-      1.6
+      4.69,
+      0.0
     ],
     "robuste": false
   },
@@ -938,12 +938,12 @@
     "win_rate": 36.4,
     "drawdown_max": 13.04,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
       -1.45,
-      2.36,
-      -3.97,
-      -3.26
+      1.17,
+      1.88,
+      -4.61
     ],
     "robuste": false
   },
@@ -964,10 +964,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -1.27,
+      -1.76,
       0.0,
       0.0,
-      -0.2
+      -0.86
     ],
     "robuste": false
   },
@@ -986,12 +986,12 @@
     "win_rate": 40.0,
     "drawdown_max": 11.33,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -1.56,
-      0.0,
-      -8.36,
-      3.29
+      -2.04,
+      1.28,
+      -0.72,
+      1.32
     ],
     "robuste": false
   },
@@ -1012,10 +1012,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      2.51,
-      -3.16,
-      -7.87,
-      -5.03
+      2.93,
+      -5.52,
+      -7.38,
+      -3.78
     ],
     "robuste": false
   },
@@ -1034,12 +1034,12 @@
     "win_rate": 0.0,
     "drawdown_max": 6.56,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
       0.0,
       0.0,
       1.39,
-      0.0
+      0.84
     ],
     "robuste": false
   },
@@ -1060,10 +1060,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      1.69,
-      -1.35,
-      1.21,
-      -1.0
+      1.48,
+      -1.61,
+      0.92,
+      -0.66
     ],
     "robuste": false
   },
@@ -1084,10 +1084,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      0.83,
-      -3.15,
-      0.71,
-      -1.71
+      1.31,
+      -3.53,
+      2.06,
+      -1.38
     ],
     "robuste": false
   },
@@ -1108,10 +1108,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      0.01,
+      1.43,
       0.0,
       0.0,
-      -0.2
+      -1.41
     ],
     "robuste": false
   },
@@ -1132,10 +1132,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      0.61,
-      0.0,
-      0.0,
-      0.0
+      -0.2,
+      -1.3,
+      1.62,
+      -0.61
     ],
     "robuste": false
   },
@@ -1154,12 +1154,12 @@
     "win_rate": 35.0,
     "drawdown_max": 7.4,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      -2.55,
-      2.14,
-      3.33,
-      -0.05
+      -1.74,
+      -0.43,
+      4.12,
+      -1.32
     ],
     "robuste": false
   },
@@ -1406,11 +1406,11 @@
     "win_rate": 100.0,
     "drawdown_max": 1.15,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 75.0,
     "wf_folds": [
       0.19,
       3.13,
-      -0.2,
+      0.54,
       0.0
     ],
     "robuste": true
@@ -1430,11 +1430,11 @@
     "win_rate": 50.0,
     "drawdown_max": 14.36,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      -2.84,
+      -3.66,
       1.89,
-      -0.56,
+      0.86,
       4.83
     ],
     "robuste": false
@@ -1456,10 +1456,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 75.0,
     "wf_folds": [
-      -3.01,
-      1.94,
-      0.55,
-      0.19
+      1.19,
+      2.54,
+      1.24,
+      -2.54
     ],
     "robuste": false
   },
@@ -1502,12 +1502,12 @@
     "win_rate": 50.0,
     "drawdown_max": 18.5,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 0.0,
     "wf_folds": [
-      -4.2,
-      -4.76,
-      -4.19,
-      1.56
+      -3.89,
+      -1.74,
+      -5.9,
+      -0.31
     ],
     "robuste": false
   },
@@ -1526,12 +1526,12 @@
     "win_rate": 45.5,
     "drawdown_max": 16.52,
     "verdict": "PERDANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -5.98,
-      4.1,
-      3.06,
-      5.72
+      -8.44,
+      -1.61,
+      3.76,
+      3.06
     ],
     "robuste": false
   },
@@ -1576,9 +1576,9 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      1.33,
-      0.0,
-      -1.54,
+      -0.51,
+      2.87,
+      -3.49,
       -0.7
     ],
     "robuste": false
@@ -1598,12 +1598,12 @@
     "win_rate": 52.0,
     "drawdown_max": 10.38,
     "verdict": "PERDANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      0.03,
-      1.07,
-      0.32,
-      -9.47
+      -4.61,
+      -1.56,
+      1.09,
+      -6.9
     ],
     "robuste": false
   },
@@ -1622,14 +1622,14 @@
     "win_rate": 83.3,
     "drawdown_max": 3.09,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      1.11,
+      -2.94,
       1.78,
-      0.0,
+      -0.26,
       -2.02
     ],
-    "robuste": true
+    "robuste": false
   },
   {
     "date": "2026-07-10 13:56",
@@ -1650,8 +1650,8 @@
     "wf_folds": [
       2.53,
       0.0,
-      1.18,
-      1.98
+      1.51,
+      5.12
     ],
     "robuste": true
   },
@@ -1670,12 +1670,12 @@
     "win_rate": 50.0,
     "drawdown_max": 10.59,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      3.01,
-      0.1,
-      -3.05,
-      -0.36
+      3.51,
+      -1.96,
+      -1.56,
+      -4.04
     ],
     "robuste": false
   },
@@ -1698,8 +1698,8 @@
     "wf_folds": [
       0.0,
       -2.07,
-      1.28,
-      -0.41
+      2.2,
+      -0.14
     ],
     "robuste": false
   },
@@ -1721,9 +1721,9 @@
     "wf_precision": 50.0,
     "wf_folds": [
       -0.96,
-      0.04,
+      1.37,
       4.74,
-      -4.3
+      -1.16
     ],
     "robuste": false
   },
@@ -1744,10 +1744,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 75.0,
     "wf_folds": [
-      -3.89,
-      3.62,
-      0.94,
-      2.23
+      -1.22,
+      4.7,
+      0.83,
+      3.02
     ],
     "robuste": false
   },
@@ -1768,10 +1768,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
+      -0.13,
       0.0,
-      0.0,
-      0.0,
-      -0.22
+      -0.23,
+      -0.48
     ],
     "robuste": false
   },
@@ -1790,12 +1790,12 @@
     "win_rate": 71.4,
     "drawdown_max": 2.34,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      -0.83,
-      0.01,
-      -1.31,
-      0.77
+      -0.8,
+      -0.34,
+      -0.6,
+      0.52
     ],
     "robuste": false
   },
@@ -1816,10 +1816,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -1.26,
-      -1.77,
-      -0.39,
-      -1.08
+      -0.68,
+      -1.14,
+      -1.23,
+      -1.07
     ],
     "robuste": false
   },
@@ -1838,11 +1838,11 @@
     "win_rate": 16.7,
     "drawdown_max": 4.45,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      -0.27,
+      -0.45,
       0.0,
-      -0.42,
+      0.06,
       0.0
     ],
     "robuste": false
@@ -1862,11 +1862,11 @@
     "win_rate": 50.0,
     "drawdown_max": 3.78,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -1.7,
+      0.33,
       -0.14,
-      -1.28,
+      -0.39,
       0.79
     ],
     "robuste": false
@@ -1888,10 +1888,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -1.48,
-      -1.85,
-      -1.05,
-      -0.25
+      -0.73,
+      -1.6,
+      -0.55,
+      -1.01
     ],
     "robuste": false
   },
@@ -1937,9 +1937,9 @@
     "wf_precision": 25.0,
     "wf_folds": [
       0.0,
-      -0.01,
+      -0.13,
       0.0,
-      0.37
+      0.44
     ],
     "robuste": false
   },
@@ -1960,10 +1960,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      0.87,
-      -0.58,
-      0.39,
-      -1.36
+      0.78,
+      -1.06,
+      0.73,
+      -0.17
     ],
     "robuste": false
   },
@@ -2008,10 +2008,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -2.14,
+      -2.74,
       -1.87,
-      -2.76,
-      1.34
+      -2.67,
+      1.65
     ],
     "robuste": false
   },
@@ -2030,12 +2030,12 @@
     "win_rate": 35.3,
     "drawdown_max": 11.3,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -5.07,
-      -2.73,
-      1.7,
-      -0.16
+      -5.04,
+      -1.06,
+      1.44,
+      0.02
     ],
     "robuste": false
   },
@@ -2308,9 +2308,9 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -1.94,
-      3.07,
-      0.0,
+      -3.0,
+      0.72,
+      -0.26,
       0.0
     ],
     "robuste": false
@@ -2330,12 +2330,12 @@
     "win_rate": 31.2,
     "drawdown_max": 26.2,
     "verdict": "PERDANTE",
-    "wf_precision": 100.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      0.63,
-      1.45,
-      1.5,
-      10.34
+      4.54,
+      -2.04,
+      -4.02,
+      9.58
     ],
     "robuste": false
   },
@@ -2378,14 +2378,14 @@
     "win_rate": 75.0,
     "drawdown_max": 1.78,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
       0.0,
-      -0.07,
+      0.64,
       2.12,
-      -0.4
+      -5.09
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 13:56",
@@ -2402,12 +2402,12 @@
     "win_rate": 61.1,
     "drawdown_max": 3.77,
     "verdict": "GAGNANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      2.88,
-      6.5,
-      -0.62,
-      1.93
+      -0.86,
+      3.11,
+      -0.21,
+      2.04
     ],
     "robuste": true
   },
@@ -2428,9 +2428,9 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
+      -0.2,
       0.0,
-      0.0,
-      0.0,
+      -0.01,
       0.0
     ],
     "robuste": false
@@ -2455,7 +2455,7 @@
       -3.53,
       4.2,
       -3.35,
-      2.86
+      3.42
     ],
     "robuste": true
   },
@@ -2476,10 +2476,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 75.0,
     "wf_folds": [
-      1.74,
-      0.05,
-      -5.94,
-      0.77
+      3.31,
+      1.51,
+      -6.87,
+      1.07
     ],
     "robuste": false
   },
@@ -2522,11 +2522,11 @@
     "win_rate": 37.5,
     "drawdown_max": 9.55,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      -0.01,
+      -1.78,
       -5.22,
-      -2.36,
+      0.71,
       0.0
     ],
     "robuste": false
@@ -2548,10 +2548,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 75.0,
     "wf_folds": [
-      -1.45,
-      1.52,
-      0.71,
-      2.61
+      -0.08,
+      0.7,
+      0.91,
+      8.82
     ],
     "robuste": true
   },
@@ -2798,12 +2798,12 @@
     "win_rate": 66.7,
     "drawdown_max": 2.69,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 75.0,
     "wf_folds": [
       1.83,
       1.57,
       0.0,
-      0.0
+      1.59
     ],
     "robuste": true
   },
@@ -2822,14 +2822,14 @@
     "win_rate": 68.4,
     "drawdown_max": 4.42,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      9.46,
+      5.78,
       -1.37,
-      3.08,
-      -2.56
+      0.0,
+      -3.15
     ],
-    "robuste": true
+    "robuste": false
   },
   {
     "date": "2026-07-19 23:46",
@@ -2846,12 +2846,12 @@
     "win_rate": 48.4,
     "drawdown_max": 7.42,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 100.0,
     "wf_folds": [
-      6.34,
-      0.73,
-      -0.31,
-      -1.39
+      7.55,
+      0.95,
+      1.16,
+      0.69
     ],
     "robuste": true
   },
@@ -2872,10 +2872,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      1.48,
       0.0,
-      -2.1,
-      -1.81
+      0.0,
+      0.0,
+      0.53
     ],
     "robuste": false
   },
@@ -2896,10 +2896,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
+      -3.64,
       0.0,
-      0.0,
-      0.55,
-      -0.62
+      -4.71,
+      0.65
     ],
     "robuste": false
   },
@@ -2918,12 +2918,12 @@
     "win_rate": 55.0,
     "drawdown_max": 3.44,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      2.3,
-      2.94,
-      -3.43,
-      -1.8
+      4.39,
+      3.91,
+      -2.22,
+      0.49
     ],
     "robuste": true
   },
@@ -2946,8 +2946,8 @@
     "wf_folds": [
       1.32,
       0.0,
-      -2.56,
-      -1.86
+      -1.73,
+      -0.51
     ],
     "robuste": false
   },
@@ -2966,12 +2966,12 @@
     "win_rate": 60.0,
     "drawdown_max": 5.58,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      1.75,
+      3.91,
       0.0,
-      1.62,
-      -2.31
+      1.35,
+      0.31
     ],
     "robuste": true
   },
@@ -2992,10 +2992,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      0.07,
-      -3.94,
-      1.91,
-      -1.66
+      -10.13,
+      0.5,
+      -3.72,
+      2.08
     ],
     "robuste": false
   },
@@ -3017,8 +3017,8 @@
     "wf_precision": 25.0,
     "wf_folds": [
       -2.13,
-      -0.45,
-      -1.79,
+      -2.34,
+      0.0,
       1.94
     ],
     "robuste": false
@@ -3038,12 +3038,12 @@
     "win_rate": 61.9,
     "drawdown_max": 6.81,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 100.0,
     "wf_folds": [
-      0.34,
-      2.0,
-      -1.33,
-      -0.58
+      3.07,
+      2.97,
+      2.99,
+      1.18
     ],
     "robuste": true
   },
@@ -3062,12 +3062,12 @@
     "win_rate": 48.3,
     "drawdown_max": 10.93,
     "verdict": "PERDANTE",
-    "wf_precision": 100.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      4.52,
-      0.1,
-      3.04,
-      3.42
+      -1.52,
+      0.28,
+      -1.18,
+      -1.55
     ],
     "robuste": false
   },
@@ -3091,7 +3091,7 @@
       0.18,
       0.0,
       -1.95,
-      0.0
+      -0.2
     ],
     "robuste": false
   },
@@ -3112,10 +3112,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 75.0,
     "wf_folds": [
-      2.24,
+      2.09,
       0.0,
-      6.8,
-      1.26
+      6.19,
+      1.67
     ],
     "robuste": true
   },
@@ -3136,10 +3136,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -0.26,
-      1.11,
-      -3.44,
-      0.0
+      -3.95,
+      3.59,
+      -0.98,
+      -0.34
     ],
     "robuste": false
   },
@@ -3182,11 +3182,11 @@
     "win_rate": 47.1,
     "drawdown_max": 12.4,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 50.0,
     "wf_folds": [
       -3.55,
-      -1.84,
-      -3.73,
+      8.84,
+      1.14,
       0.0
     ],
     "robuste": false
@@ -3206,12 +3206,12 @@
     "win_rate": 42.9,
     "drawdown_max": 13.1,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -4.61,
-      2.78,
-      -10.06,
-      -4.94
+      -5.13,
+      7.5,
+      -21.22,
+      1.82
     ],
     "robuste": false
   },
@@ -3257,9 +3257,9 @@
     "wf_precision": 25.0,
     "wf_folds": [
       -3.83,
-      -6.46,
+      -4.59,
       6.98,
-      -2.09
+      -5.24
     ],
     "robuste": false
   },
@@ -3278,12 +3278,12 @@
     "win_rate": 35.0,
     "drawdown_max": 16.46,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -5.84,
-      -1.02,
-      5.18,
-      -1.52
+      -0.37,
+      -3.42,
+      12.13,
+      7.57
     ],
     "robuste": false
   },
@@ -3306,7 +3306,7 @@
     "wf_folds": [
       0.0,
       -1.79,
-      -3.37,
+      -4.92,
       0.0
     ],
     "robuste": false
@@ -3328,10 +3328,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 75.0,
     "wf_folds": [
-      -1.81,
-      5.41,
+      -8.37,
+      3.44,
       4.69,
-      3.32
+      5.42
     ],
     "robuste": true
   },
@@ -3350,12 +3350,12 @@
     "win_rate": 50.0,
     "drawdown_max": 19.4,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      -11.75,
-      3.68,
-      6.43,
-      -7.11
+      -10.62,
+      -0.75,
+      3.52,
+      -3.09
     ],
     "robuste": false
   },
@@ -3374,9 +3374,9 @@
     "win_rate": 57.1,
     "drawdown_max": 4.48,
     "verdict": "GAGNANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      4.84,
+      0.0,
       2.28,
       3.46,
       -2.65
@@ -3398,11 +3398,11 @@
     "win_rate": 44.4,
     "drawdown_max": 17.41,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -11.14,
-      -1.16,
-      -2.79,
+      -12.33,
+      1.56,
+      -1.75,
       3.28
     ],
     "robuste": false
@@ -3422,12 +3422,12 @@
     "win_rate": 42.3,
     "drawdown_max": 19.12,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      9.55,
-      -7.17,
-      4.3,
-      -11.72
+      5.61,
+      -1.8,
+      -3.46,
+      -10.26
     ],
     "robuste": false
   },
@@ -3470,12 +3470,12 @@
     "win_rate": 56.7,
     "drawdown_max": 9.88,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      4.15,
-      -3.84,
+      6.51,
+      -0.45,
       1.44,
-      -0.53
+      1.1
     ],
     "robuste": true
   },
@@ -3496,10 +3496,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -5.55,
-      -0.19,
-      -7.97,
-      -4.45
+      -11.73,
+      -6.0,
+      -2.76,
+      -5.74
     ],
     "robuste": false
   },
@@ -3518,12 +3518,12 @@
     "win_rate": 64.3,
     "drawdown_max": 6.96,
     "verdict": "GAGNANTE",
-    "wf_precision": 100.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      2.7,
-      0.08,
-      0.46,
-      1.27
+      -1.04,
+      0.44,
+      -1.27,
+      3.64
     ],
     "robuste": true
   },
@@ -3542,14 +3542,14 @@
     "win_rate": 64.7,
     "drawdown_max": 7.18,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 100.0,
     "wf_folds": [
-      2.54,
-      -0.54,
-      -0.09,
-      -2.22
+      0.56,
+      1.57,
+      2.99,
+      3.34
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-20 00:44",
@@ -3566,14 +3566,14 @@
     "win_rate": 60.0,
     "drawdown_max": 6.93,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      1.48,
-      -0.18,
-      -0.2,
-      0.98
+      -2.01,
+      -0.86,
+      -2.17,
+      3.11
     ],
-    "robuste": true
+    "robuste": false
   },
   {
     "date": "2026-07-20 00:44",
@@ -3590,12 +3590,12 @@
     "win_rate": 60.0,
     "drawdown_max": 6.18,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      2.03,
-      1.36,
-      -0.96,
-      -0.34
+      -0.12,
+      0.7,
+      0.43,
+      2.31
     ],
     "robuste": true
   },
@@ -3616,10 +3616,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      2.42,
-      -0.42,
-      -0.91,
-      0.42
+      -3.15,
+      0.14,
+      -1.3,
+      2.99
     ],
     "robuste": true
   },
@@ -3638,14 +3638,14 @@
     "win_rate": 75.0,
     "drawdown_max": 3.11,
     "verdict": "GAGNANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      4.24,
-      2.95,
-      4.48,
-      0.0
+      2.32,
+      -2.22,
+      0.0,
+      -2.17
     ],
-    "robuste": true
+    "robuste": false
   },
   {
     "date": "2026-07-20 00:44",
@@ -3664,10 +3664,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 25.0,
     "wf_folds": [
+      -5.08,
       0.0,
-      -0.61,
-      0.82,
-      -4.67
+      -4.99,
+      2.93
     ],
     "robuste": false
   },
@@ -3686,14 +3686,14 @@
     "win_rate": 75.0,
     "drawdown_max": 3.55,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      1.49,
+      3.9,
       0.0,
-      -0.58,
-      -0.14
+      7.46,
+      3.27
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-20 00:44",
@@ -3710,12 +3710,12 @@
     "win_rate": 52.9,
     "drawdown_max": 13.8,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 100.0,
     "wf_folds": [
-      1.68,
-      0.0,
-      0.28,
-      0.0
+      0.81,
+      7.39,
+      1.24,
+      4.29
     ],
     "robuste": false
   },
@@ -3736,10 +3736,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      3.98,
-      2.16,
-      -1.34,
-      0.0
+      2.39,
+      -0.2,
+      1.58,
+      -0.62
     ],
     "robuste": true
   },
@@ -3760,10 +3760,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -2.33,
-      -9.96,
-      4.36,
-      0.0
+      -4.52,
+      -3.08,
+      -3.6,
+      6.23
     ],
     "robuste": false
   },
@@ -3782,12 +3782,12 @@
     "win_rate": 40.0,
     "drawdown_max": 26.08,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -7.13,
-      -16.72,
-      0.94,
-      0.0
+      -5.28,
+      -7.95,
+      1.78,
+      2.77
     ],
     "robuste": false
   },
@@ -3806,12 +3806,12 @@
     "win_rate": 48.3,
     "drawdown_max": 23.84,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      3.68,
-      -14.04,
-      -0.6,
-      3.83
+      -0.23,
+      -7.41,
+      1.33,
+      -5.86
     ],
     "robuste": false
   },
@@ -3830,12 +3830,12 @@
     "win_rate": 63.2,
     "drawdown_max": 12.0,
     "verdict": "GAGNANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      3.88,
-      -13.01,
-      4.67,
-      0.58
+      2.02,
+      -3.56,
+      -3.14,
+      3.72
     ],
     "robuste": true
   },
@@ -3854,12 +3854,12 @@
     "win_rate": 43.5,
     "drawdown_max": 18.9,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 0.0,
     "wf_folds": [
-      -3.28,
-      -9.92,
-      -3.15,
-      4.53
+      -6.61,
+      -4.76,
+      -4.53,
+      -2.02
     ],
     "robuste": false
   },
@@ -3878,11 +3878,11 @@
     "win_rate": 46.2,
     "drawdown_max": 16.62,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      3.43,
-      -8.52,
-      3.26,
+      5.86,
+      -8.44,
+      -1.43,
       0.0
     ],
     "robuste": false
@@ -3902,12 +3902,12 @@
     "win_rate": 45.9,
     "drawdown_max": 25.92,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -0.44,
-      -12.69,
-      0.0,
-      -2.36
+      -0.18,
+      -15.61,
+      11.7,
+      2.0
     ],
     "robuste": false
   },
@@ -3926,12 +3926,12 @@
     "win_rate": 42.9,
     "drawdown_max": 24.99,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -4.04,
-      -8.03,
-      0.0,
-      2.33
+      -9.23,
+      -6.62,
+      8.83,
+      9.72
     ],
     "robuste": false
   },
@@ -3952,10 +3952,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      -12.2,
-      -1.22,
-      1.78,
-      3.15
+      -26.61,
+      6.01,
+      -3.6,
+      5.02
     ],
     "robuste": false
   },
@@ -3976,10 +3976,1930 @@
     "verdict": "GAGNANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -2.29,
-      1.97,
-      -2.7,
+      -6.09,
+      -14.93,
+      -8.57,
+      11.32
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "BTCUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 982.16,
+    "retour_pct": -1.78,
+    "trades": 19,
+    "gagnes": 10,
+    "perdus": 9,
+    "win_rate": 52.6,
+    "drawdown_max": 5.9,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -2.55,
+      0.65,
+      1.68,
+      -0.79
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "BTCUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 986.23,
+    "retour_pct": -1.38,
+    "trades": 17,
+    "gagnes": 10,
+    "perdus": 7,
+    "win_rate": 58.8,
+    "drawdown_max": 5.77,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -1.24,
+      0.44,
+      -0.83,
+      1.53
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "BTCUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 951.55,
+    "retour_pct": -4.85,
+    "trades": 13,
+    "gagnes": 3,
+    "perdus": 10,
+    "win_rate": 23.1,
+    "drawdown_max": 7.86,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -3.97,
+      -0.12,
+      1.49,
+      -0.41
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "ETHUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 998.73,
+    "retour_pct": -0.13,
+    "trades": 29,
+    "gagnes": 15,
+    "perdus": 14,
+    "win_rate": 51.7,
+    "drawdown_max": 7.6,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -3.64,
+      0.53,
+      4.7,
+      -0.86
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "ETHUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 929.64,
+    "retour_pct": -7.04,
+    "trades": 14,
+    "gagnes": 6,
+    "perdus": 8,
+    "win_rate": 42.9,
+    "drawdown_max": 10.36,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -1.34,
+      0.0,
+      -1.46,
+      1.45
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "ETHUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 994.2,
+    "retour_pct": -0.58,
+    "trades": 17,
+    "gagnes": 6,
+    "perdus": 11,
+    "win_rate": 35.3,
+    "drawdown_max": 6.47,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -4.0,
+      0.59,
+      3.29,
+      -1.81
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "SOLUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 920.21,
+    "retour_pct": -7.98,
+    "trades": 26,
+    "gagnes": 11,
+    "perdus": 15,
+    "win_rate": 42.3,
+    "drawdown_max": 12.58,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -3.82,
+      -3.77,
+      0.02,
+      0.01
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "SOLUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 914.57,
+    "retour_pct": -8.54,
+    "trades": 18,
+    "gagnes": 8,
+    "perdus": 10,
+    "win_rate": 44.4,
+    "drawdown_max": 10.86,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -3.82,
+      0.76,
+      -0.72,
+      1.49
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "SOLUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 968.16,
+    "retour_pct": -3.18,
+    "trades": 16,
+    "gagnes": 6,
+    "perdus": 10,
+    "win_rate": 37.5,
+    "drawdown_max": 7.17,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -4.98,
+      -1.11,
+      1.51,
       0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "BNBUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 925.43,
+    "retour_pct": -7.46,
+    "trades": 17,
+    "gagnes": 4,
+    "perdus": 13,
+    "win_rate": 23.5,
+    "drawdown_max": 8.88,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -2.66,
+      -0.87,
+      0.62,
+      -1.29
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "BNBUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 994.85,
+    "retour_pct": -0.52,
+    "trades": 16,
+    "gagnes": 11,
+    "perdus": 5,
+    "win_rate": 68.8,
+    "drawdown_max": 6.6,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -2.87,
+      0.0,
+      -0.52,
+      0.34
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "BNBUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 916.74,
+    "retour_pct": -8.33,
+    "trades": 13,
+    "gagnes": 2,
+    "perdus": 11,
+    "win_rate": 15.4,
+    "drawdown_max": 8.67,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -2.81,
+      -0.62,
+      1.64,
+      -1.31
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "XRPUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 985.36,
+    "retour_pct": -1.46,
+    "trades": 22,
+    "gagnes": 11,
+    "perdus": 11,
+    "win_rate": 50.0,
+    "drawdown_max": 8.76,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -4.06,
+      -0.94,
+      1.15,
+      -0.6
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "XRPUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 918.4,
+    "retour_pct": -8.16,
+    "trades": 13,
+    "gagnes": 7,
+    "perdus": 6,
+    "win_rate": 53.8,
+    "drawdown_max": 9.14,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -0.97,
+      0.54,
+      1.26,
+      0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "XRPUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 975.3,
+    "retour_pct": -2.47,
+    "trades": 14,
+    "gagnes": 6,
+    "perdus": 8,
+    "win_rate": 42.9,
+    "drawdown_max": 5.23,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -2.18,
+      0.0,
+      1.07,
+      -0.64
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "LDOUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1040.16,
+    "retour_pct": 4.02,
+    "trades": 48,
+    "gagnes": 26,
+    "perdus": 22,
+    "win_rate": 54.2,
+    "drawdown_max": 11.98,
+    "verdict": "GAGNANTE",
+    "wf_precision": 100.0,
+    "wf_folds": [
+      6.34,
+      0.8,
+      1.14,
+      10.7
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "LDOUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1052.73,
+    "retour_pct": 5.27,
+    "trades": 19,
+    "gagnes": 11,
+    "perdus": 8,
+    "win_rate": 57.9,
+    "drawdown_max": 6.06,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -2.43,
+      2.88,
+      0.0,
+      1.98
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "LDOUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 942.04,
+    "retour_pct": -5.8,
+    "trades": 12,
+    "gagnes": 5,
+    "perdus": 7,
+    "win_rate": 41.7,
+    "drawdown_max": 9.8,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      0.03,
+      -1.78,
+      0.0,
+      1.68
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "AAVEUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 971.33,
+    "retour_pct": -2.87,
+    "trades": 37,
+    "gagnes": 17,
+    "perdus": 20,
+    "win_rate": 45.9,
+    "drawdown_max": 13.27,
+    "verdict": "PERDANTE",
+    "wf_precision": 75.0,
+    "wf_folds": [
+      1.9,
+      7.95,
+      1.31,
+      -3.12
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "AAVEUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 989.81,
+    "retour_pct": -1.02,
+    "trades": 23,
+    "gagnes": 13,
+    "perdus": 10,
+    "win_rate": 56.5,
+    "drawdown_max": 11.51,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -2.17,
+      1.31,
+      -5.68,
+      0.14
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "AAVEUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 920.41,
+    "retour_pct": -7.96,
+    "trades": 13,
+    "gagnes": 5,
+    "perdus": 8,
+    "win_rate": 38.5,
+    "drawdown_max": 9.53,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -0.17,
+      0.0,
+      1.8,
+      -2.1
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "UNIUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 838.21,
+    "retour_pct": -16.18,
+    "trades": 37,
+    "gagnes": 15,
+    "perdus": 22,
+    "win_rate": 40.5,
+    "drawdown_max": 20.94,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -7.9,
+      2.51,
+      -1.54,
+      2.29
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "UNIUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1104.68,
+    "retour_pct": 10.47,
+    "trades": 19,
+    "gagnes": 13,
+    "perdus": 6,
+    "win_rate": 68.4,
+    "drawdown_max": 3.56,
+    "verdict": "GAGNANTE",
+    "wf_precision": 75.0,
+    "wf_folds": [
+      3.11,
+      3.29,
+      2.01,
+      -1.7
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "UNIUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 958.65,
+    "retour_pct": -4.14,
+    "trades": 17,
+    "gagnes": 7,
+    "perdus": 10,
+    "win_rate": 41.2,
+    "drawdown_max": 10.44,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -1.41,
+      -0.2,
+      -1.03,
+      1.07
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "PENDLEUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 757.58,
+    "retour_pct": -24.24,
+    "trades": 35,
+    "gagnes": 12,
+    "perdus": 23,
+    "win_rate": 34.3,
+    "drawdown_max": 25.59,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -5.64,
+      -2.37,
+      1.02,
+      -4.67
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "PENDLEUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 975.24,
+    "retour_pct": -2.48,
+    "trades": 22,
+    "gagnes": 11,
+    "perdus": 11,
+    "win_rate": 50.0,
+    "drawdown_max": 11.68,
+    "verdict": "PERDANTE",
+    "wf_precision": 100.0,
+    "wf_folds": [
+      3.17,
+      5.18,
+      1.37,
+      2.37
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "PENDLEUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 929.96,
+    "retour_pct": -7.0,
+    "trades": 13,
+    "gagnes": 6,
+    "perdus": 7,
+    "win_rate": 46.2,
+    "drawdown_max": 11.85,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      3.96,
+      -2.37,
+      3.35,
+      -1.6
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "ARBUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 834.8,
+    "retour_pct": -16.52,
+    "trades": 36,
+    "gagnes": 15,
+    "perdus": 21,
+    "win_rate": 41.7,
+    "drawdown_max": 17.18,
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      -4.19,
+      -4.57,
+      -0.15,
+      -2.6
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "ARBUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 999.96,
+    "retour_pct": -0.0,
+    "trades": 24,
+    "gagnes": 12,
+    "perdus": 12,
+    "win_rate": 50.0,
+    "drawdown_max": 6.82,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -1.55,
+      1.99,
+      0.41,
+      -2.45
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "ARBUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1091.42,
+    "retour_pct": 9.14,
+    "trades": 13,
+    "gagnes": 8,
+    "perdus": 5,
+    "win_rate": 61.5,
+    "drawdown_max": 5.06,
+    "verdict": "GAGNANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -3.84,
+      0.0,
+      0.32,
+      -2.37
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "BTCUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 861.93,
+    "retour_pct": -13.81,
+    "trades": 22,
+    "gagnes": 9,
+    "perdus": 13,
+    "win_rate": 40.9,
+    "drawdown_max": 17.67,
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      -2.23,
+      -0.87,
+      -1.07,
+      -4.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "BTCUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 917.81,
+    "retour_pct": -8.22,
+    "trades": 20,
+    "gagnes": 11,
+    "perdus": 9,
+    "win_rate": 55.0,
+    "drawdown_max": 17.35,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -0.16,
+      -3.07,
+      -2.67,
+      4.41
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "BTCUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1016.81,
+    "retour_pct": 1.68,
+    "trades": 9,
+    "gagnes": 5,
+    "perdus": 4,
+    "win_rate": 55.6,
+    "drawdown_max": 4.98,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -1.88,
+      3.13,
+      1.79,
+      -2.01
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "ETHUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 918.16,
+    "retour_pct": -8.18,
+    "trades": 26,
+    "gagnes": 11,
+    "perdus": 15,
+    "win_rate": 42.3,
+    "drawdown_max": 13.38,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      0.0,
+      2.26,
+      -0.09,
+      0.37
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "ETHUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 933.74,
+    "retour_pct": -6.63,
+    "trades": 20,
+    "gagnes": 10,
+    "perdus": 10,
+    "win_rate": 50.0,
+    "drawdown_max": 20.18,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -3.45,
+      -5.3,
+      -0.73,
+      6.73
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "ETHUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 977.52,
+    "retour_pct": -2.25,
+    "trades": 9,
+    "gagnes": 4,
+    "perdus": 5,
+    "win_rate": 44.4,
+    "drawdown_max": 6.86,
+    "verdict": "PERDANTE",
+    "wf_precision": 75.0,
+    "wf_folds": [
+      0.0,
+      3.42,
+      1.79,
+      7.47
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "SOLUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 888.96,
+    "retour_pct": -11.1,
+    "trades": 31,
+    "gagnes": 12,
+    "perdus": 19,
+    "win_rate": 38.7,
+    "drawdown_max": 15.95,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -2.84,
+      1.03,
+      -2.18,
+      -0.86
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "SOLUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 886.08,
+    "retour_pct": -11.39,
+    "trades": 19,
+    "gagnes": 8,
+    "perdus": 11,
+    "win_rate": 42.1,
+    "drawdown_max": 16.0,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -2.16,
+      -3.54,
+      -3.61,
+      3.69
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "SOLUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 920.9,
+    "retour_pct": -7.91,
+    "trades": 10,
+    "gagnes": 3,
+    "perdus": 7,
+    "win_rate": 30.0,
+    "drawdown_max": 11.57,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -5.45,
+      1.38,
+      -1.72,
+      1.7
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "BNBUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 901.79,
+    "retour_pct": -9.82,
+    "trades": 29,
+    "gagnes": 12,
+    "perdus": 17,
+    "win_rate": 41.4,
+    "drawdown_max": 14.9,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      3.14,
+      -0.74,
+      -0.82,
+      -3.67
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "BNBUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 973.16,
+    "retour_pct": -2.68,
+    "trades": 19,
+    "gagnes": 10,
+    "perdus": 9,
+    "win_rate": 52.6,
+    "drawdown_max": 11.85,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      2.2,
+      -2.13,
+      -1.08,
+      3.37
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "BNBUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 966.3,
+    "retour_pct": -3.37,
+    "trades": 10,
+    "gagnes": 5,
+    "perdus": 5,
+    "win_rate": 50.0,
+    "drawdown_max": 4.96,
+    "verdict": "PERDANTE",
+    "wf_precision": 75.0,
+    "wf_folds": [
+      0.8,
+      1.62,
+      1.72,
+      -5.32
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "XRPUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 978.99,
+    "retour_pct": -2.1,
+    "trades": 28,
+    "gagnes": 14,
+    "perdus": 14,
+    "win_rate": 50.0,
+    "drawdown_max": 12.46,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -1.96,
+      6.25,
+      2.54,
+      -2.57
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "XRPUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 837.26,
+    "retour_pct": -16.27,
+    "trades": 20,
+    "gagnes": 8,
+    "perdus": 12,
+    "win_rate": 40.0,
+    "drawdown_max": 19.15,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -1.83,
+      -4.54,
+      -6.24,
+      0.27
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "XRPUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1031.95,
+    "retour_pct": 3.19,
+    "trades": 12,
+    "gagnes": 7,
+    "perdus": 5,
+    "win_rate": 58.3,
+    "drawdown_max": 8.5,
+    "verdict": "GAGNANTE",
+    "wf_precision": 75.0,
+    "wf_folds": [
+      -0.91,
+      3.07,
+      1.49,
+      1.58
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "LDOUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 892.69,
+    "retour_pct": -10.73,
+    "trades": 47,
+    "gagnes": 23,
+    "perdus": 24,
+    "win_rate": 48.9,
+    "drawdown_max": 33.43,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -2.36,
+      -3.74,
+      0.2,
+      -13.85
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "LDOUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 817.33,
+    "retour_pct": -18.27,
+    "trades": 25,
+    "gagnes": 11,
+    "perdus": 14,
+    "win_rate": 44.0,
+    "drawdown_max": 19.61,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -1.13,
+      1.16,
+      -1.93,
+      -2.66
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "LDOUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1080.8,
+    "retour_pct": 8.08,
+    "trades": 5,
+    "gagnes": 4,
+    "perdus": 1,
+    "win_rate": 80.0,
+    "drawdown_max": 4.01,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -2.49,
+      2.38,
+      1.88,
+      0.0
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "AAVEUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1035.73,
+    "retour_pct": 3.57,
+    "trades": 36,
+    "gagnes": 16,
+    "perdus": 20,
+    "win_rate": 44.4,
+    "drawdown_max": 14.52,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      0.0,
+      13.87,
+      3.88,
+      -1.95
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "AAVEUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 822.66,
+    "retour_pct": -17.73,
+    "trades": 25,
+    "gagnes": 10,
+    "perdus": 15,
+    "win_rate": 40.0,
+    "drawdown_max": 29.16,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -10.27,
+      -9.22,
+      0.63,
+      5.04
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "AAVEUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1202.66,
+    "retour_pct": 20.27,
+    "trades": 8,
+    "gagnes": 7,
+    "perdus": 1,
+    "win_rate": 87.5,
+    "drawdown_max": 2.75,
+    "verdict": "GAGNANTE",
+    "wf_precision": 75.0,
+    "wf_folds": [
+      0.0,
+      2.14,
+      6.47,
+      2.71
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "UNIUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1029.09,
+    "retour_pct": 2.91,
+    "trades": 41,
+    "gagnes": 19,
+    "perdus": 22,
+    "win_rate": 46.3,
+    "drawdown_max": 18.26,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -1.01,
+      10.12,
+      -0.25,
+      4.87
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "UNIUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1032.57,
+    "retour_pct": 3.26,
+    "trades": 22,
+    "gagnes": 13,
+    "perdus": 9,
+    "win_rate": 59.1,
+    "drawdown_max": 12.37,
+    "verdict": "GAGNANTE",
+    "wf_precision": 75.0,
+    "wf_folds": [
+      0.0,
+      1.32,
+      0.33,
+      1.25
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "UNIUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 880.36,
+    "retour_pct": -11.96,
+    "trades": 11,
+    "gagnes": 3,
+    "perdus": 8,
+    "win_rate": 27.3,
+    "drawdown_max": 13.93,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -1.96,
+      0.98,
+      -2.58,
+      -0.2
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "PENDLEUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1015.24,
+    "retour_pct": 1.52,
+    "trades": 54,
+    "gagnes": 28,
+    "perdus": 26,
+    "win_rate": 51.9,
+    "drawdown_max": 25.76,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      0.09,
+      1.58,
+      -3.52,
+      -8.08
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "PENDLEUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1020.25,
+    "retour_pct": 2.03,
+    "trades": 17,
+    "gagnes": 9,
+    "perdus": 8,
+    "win_rate": 52.9,
+    "drawdown_max": 11.82,
+    "verdict": "GAGNANTE",
+    "wf_precision": 75.0,
+    "wf_folds": [
+      -9.26,
+      1.7,
+      0.24,
+      5.41
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "PENDLEUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 970.13,
+    "retour_pct": -2.99,
+    "trades": 12,
+    "gagnes": 6,
+    "perdus": 6,
+    "win_rate": 50.0,
+    "drawdown_max": 10.81,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      2.13,
+      2.16,
+      -3.02,
+      -1.54
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "ARBUSDT",
+    "strategie": "Donchian Breakout",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 951.63,
+    "retour_pct": -4.84,
+    "trades": 37,
+    "gagnes": 16,
+    "perdus": 21,
+    "win_rate": 43.2,
+    "drawdown_max": 17.28,
+    "verdict": "PERDANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      -2.97,
+      -0.99,
+      -0.17,
+      -1.37
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "ARBUSDT",
+    "strategie": "Stochastic",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 926.38,
+    "retour_pct": -7.36,
+    "trades": 22,
+    "gagnes": 11,
+    "perdus": 11,
+    "win_rate": 50.0,
+    "drawdown_max": 16.52,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -1.75,
+      0.81,
+      -5.99,
+      7.75
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 01:19",
+    "marche": "crypto",
+    "actif": "ARBUSDT",
+    "strategie": "EMA Crossover",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1055.97,
+    "retour_pct": 5.6,
+    "trades": 6,
+    "gagnes": 5,
+    "perdus": 1,
+    "win_rate": 83.3,
+    "drawdown_max": 2.25,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      0.0,
+      1.34,
+      -2.36,
+      3.97
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "BTCUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1060.87,
+    "retour_pct": 6.09,
+    "trades": 14,
+    "gagnes": 9,
+    "perdus": 5,
+    "win_rate": 64.3,
+    "drawdown_max": 6.96,
+    "verdict": "GAGNANTE",
+    "wf_precision": 75.0,
+    "wf_folds": [
+      1.97,
+      0.0,
+      2.5,
+      1.49
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "ETHUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1055.62,
+    "retour_pct": 5.56,
+    "trades": 15,
+    "gagnes": 10,
+    "perdus": 5,
+    "win_rate": 66.7,
+    "drawdown_max": 7.18,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      1.6,
+      0.0,
+      1.02,
+      0.0
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "SOLUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 985.58,
+    "retour_pct": -1.44,
+    "trades": 14,
+    "gagnes": 8,
+    "perdus": 6,
+    "win_rate": 57.1,
+    "drawdown_max": 6.93,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -1.92,
+      0.96,
+      0.73,
+      0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "BNBUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1064.47,
+    "retour_pct": 6.45,
+    "trades": 17,
+    "gagnes": 11,
+    "perdus": 6,
+    "win_rate": 64.7,
+    "drawdown_max": 6.18,
+    "verdict": "GAGNANTE",
+    "wf_precision": 100.0,
+    "wf_folds": [
+      0.06,
+      1.35,
+      1.6,
+      1.47
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "XRPUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1038.24,
+    "retour_pct": 3.82,
+    "trades": 15,
+    "gagnes": 9,
+    "perdus": 6,
+    "win_rate": 60.0,
+    "drawdown_max": 6.58,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -0.34,
+      0.14,
+      1.52,
+      0.0
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "LDOUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1164.86,
+    "retour_pct": 16.49,
+    "trades": 11,
+    "gagnes": 9,
+    "perdus": 2,
+    "win_rate": 81.8,
+    "drawdown_max": 3.09,
+    "verdict": "GAGNANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      4.24,
+      -1.37,
+      0.0,
+      0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "AAVEUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1035.15,
+    "retour_pct": 3.51,
+    "trades": 12,
+    "gagnes": 7,
+    "perdus": 5,
+    "win_rate": 58.3,
+    "drawdown_max": 7.97,
+    "verdict": "GAGNANTE",
+    "wf_precision": 0.0,
+    "wf_folds": [
+      -1.93,
+      0.0,
+      -2.09,
+      -0.58
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "UNIUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1047.11,
+    "retour_pct": 4.71,
+    "trades": 12,
+    "gagnes": 8,
+    "perdus": 4,
+    "win_rate": 66.7,
+    "drawdown_max": 4.46,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      3.18,
+      0.0,
+      0.0,
+      0.66
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "PENDLEUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1016.15,
+    "retour_pct": 1.62,
+    "trades": 15,
+    "gagnes": 9,
+    "perdus": 6,
+    "win_rate": 60.0,
+    "drawdown_max": 12.02,
+    "verdict": "GAGNANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      2.93,
+      0.0,
+      1.65,
+      0.0
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "ARBUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "1h",
+    "bougies": 720,
+    "capital_final": 1131.04,
+    "retour_pct": 13.1,
+    "trades": 16,
+    "gagnes": 12,
+    "perdus": 4,
+    "win_rate": 75.0,
+    "drawdown_max": 9.31,
+    "verdict": "GAGNANTE",
+    "wf_precision": 75.0,
+    "wf_folds": [
+      3.91,
+      0.0,
+      3.01,
+      1.87
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "BTCUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 907.82,
+    "retour_pct": -9.22,
+    "trades": 21,
+    "gagnes": 10,
+    "perdus": 11,
+    "win_rate": 47.6,
+    "drawdown_max": 18.29,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -2.35,
+      -0.82,
+      2.88,
+      3.73
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "ETHUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 809.38,
+    "retour_pct": -19.06,
+    "trades": 22,
+    "gagnes": 9,
+    "perdus": 13,
+    "win_rate": 40.9,
+    "drawdown_max": 24.21,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -1.55,
+      -8.52,
+      -2.68,
+      1.56
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "SOLUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 920.68,
+    "retour_pct": -7.93,
+    "trades": 25,
+    "gagnes": 12,
+    "perdus": 13,
+    "win_rate": 48.0,
+    "drawdown_max": 21.03,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      5.75,
+      -5.79,
+      -2.35,
+      2.34
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "BNBUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 1019.4,
+    "retour_pct": 1.94,
+    "trades": 18,
+    "gagnes": 11,
+    "perdus": 7,
+    "win_rate": 61.1,
+    "drawdown_max": 13.41,
+    "verdict": "GAGNANTE",
+    "wf_precision": 75.0,
+    "wf_folds": [
+      4.52,
+      -2.98,
+      2.61,
+      1.41
+    ],
+    "robuste": true
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "XRPUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 945.97,
+    "retour_pct": -5.4,
+    "trades": 21,
+    "gagnes": 10,
+    "perdus": 11,
+    "win_rate": 47.6,
+    "drawdown_max": 14.58,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      -3.26,
+      -2.02,
+      0.97,
+      0.29
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "LDOUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 949.72,
+    "retour_pct": -5.03,
+    "trades": 20,
+    "gagnes": 9,
+    "perdus": 11,
+    "win_rate": 45.0,
+    "drawdown_max": 12.33,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      1.48,
+      -4.24,
+      3.1,
+      0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "AAVEUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 915.06,
+    "retour_pct": -8.49,
+    "trades": 25,
+    "gagnes": 13,
+    "perdus": 12,
+    "win_rate": 52.0,
+    "drawdown_max": 14.41,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      0.6,
+      -7.25,
+      0.0,
+      -2.36
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "UNIUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 899.83,
+    "retour_pct": -10.02,
+    "trades": 18,
+    "gagnes": 8,
+    "perdus": 10,
+    "win_rate": 44.4,
+    "drawdown_max": 20.54,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -7.18,
+      -2.84,
+      6.0,
+      0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "PENDLEUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 880.88,
+    "retour_pct": -11.91,
+    "trades": 21,
+    "gagnes": 8,
+    "perdus": 13,
+    "win_rate": 38.1,
+    "drawdown_max": 26.28,
+    "verdict": "PERDANTE",
+    "wf_precision": 25.0,
+    "wf_folds": [
+      -17.74,
+      2.0,
+      -1.06,
+      0.0
+    ],
+    "robuste": false
+  },
+  {
+    "date": "2026-07-21 02:30",
+    "marche": "crypto",
+    "actif": "ARBUSDT",
+    "strategie": "Evolved 00955",
+    "intervalle": "4h",
+    "bougies": 600,
+    "capital_final": 974.11,
+    "retour_pct": -2.59,
+    "trades": 26,
+    "gagnes": 13,
+    "perdus": 13,
+    "win_rate": 50.0,
+    "drawdown_max": 13.58,
+    "verdict": "PERDANTE",
+    "wf_precision": 50.0,
+    "wf_folds": [
+      5.85,
+      -8.02,
+      -0.68,
+      1.63
     ],
     "robuste": false
   }

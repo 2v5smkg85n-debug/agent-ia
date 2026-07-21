@@ -1,7 +1,7 @@
 {
   "params": {
     "BTCUSDT": {
-      "tp": 1.0,
+      "tp": 3.0,
       "sl": 2.5,
       "historique": [
         {
@@ -17,10 +17,17 @@
           "sl": 2.5,
           "raison": "Biais baissier court terme=-0.35, réduire TP de 20% pour capturer gains rapides avant retournement",
           "source": "reflection"
+        },
+        {
+          "ts": "2026-07-20 08:15:01",
+          "tp": 3.0,
+          "sl": 2.5,
+          "raison": "EXTEND_TP démontre un edge réel sur BTC (+4,88%), augmentation de 4,0% à 4,5% maximise l'asymetrie sans perte de win rate",
+          "source": "reflection"
         }
       ],
-      "ajuste_le": "2026-07-18 08:15:01",
-      "raison": "[reflection] Biais baissier court terme=-0.35, réduire TP de 20% pour capturer gains rapides avant retournement",
+      "ajuste_le": "2026-07-20 08:15:01",
+      "raison": "[reflection] EXTEND_TP démontre un edge réel sur BTC (+4,88%), augmentation de 4,0% à 4,5% maximise l'asymetrie sans perte de win rate",
       "source": "reflection"
     },
     "SOLUSDT": {
@@ -100,7 +107,7 @@
       "source": "reflection"
     },
     "XRPUSDT": {
-      "tp": 2.0,
+      "tp": 3.0,
       "sl": 2.5,
       "historique": [
         {
@@ -109,11 +116,18 @@
           "sl": 2.5,
           "raison": "grid search optimal (avant 1.5/1.5)",
           "source": "backtest_tp_optim"
+        },
+        {
+          "ts": "2026-07-20 08:15:01",
+          "tp": 3.0,
+          "sl": 2.5,
+          "raison": "XRP montre le meilleur gain EXTEND_TP (+6,21%), augmentation du TP à 4,5% capte mieux l'asymetrie positive",
+          "source": "reflection"
         }
       ],
-      "ajuste_le": "2026-07-14 01:17:47",
-      "raison": "[backtest grid search] optimal TP/SL: +7.36% PnL, win 69%->77% (500h x 5 cryptos)",
-      "source": "backtest_tp_optim"
+      "ajuste_le": "2026-07-20 08:15:01",
+      "raison": "[reflection] XRP montre le meilleur gain EXTEND_TP (+6,21%), augmentation du TP à 4,5% capte mieux l'asymetrie positive",
+      "source": "reflection"
     },
     "NG=F": {
       "tp": 1.5,
@@ -132,5 +146,5 @@
       "source": "reflection"
     }
   },
-  "dernier_cycle": "2026-07-19 08:10:01"
+  "dernier_cycle": "2026-07-20 08:15:01"
 }

@@ -1,0 +1,13 @@
+[
+  {
+    "name": "Evolved 00955",
+    "func_name": "strat_evolved_00955",
+    "code": "def strat_evolved_00955(i, d):\n    # RSI: survente <35 (achat) / surachat >70 (vente)\n    rsi = d[\"rsi\"][i]\n    if rsi is None:\n        return None\n\n    # Donchian breakout: cassure du haut (vente) / cassure du bas (achat)\n    donch_haut = d[\"donchian_haut\"][i]\n    donch_bas = d[\"donchian_bas\"][i]\n    prix = d[\"clotures\"][i]\n\n    if donch_haut is None or donch_bas is None:\n        return None\n\n    # ACHAT: RSI survente (<35) + cassure du bas Donchian (prix < donch_bas)\n    # -> \"sang dans les rues\" (Rogers) + confirmation breakout baissier manqué = retournement\n    if rsi < 35 and prix < donch_bas:\n        return \"ACHAT\"\n\n    # VENTE: RSI surachat (>70) + cassure du haut Donchian (prix > donch_haut)\n    # -> euphorie extrême + breakout haussier = épuisement du momentum\n    if rsi > 70 and prix > donch_haut:\n        return \"VENTE\"\n\n    return None",
+    "date": "2026-07-21 02:30",
+    "oos_avg": 2.05,
+    "is_avg": 4.94,
+    "win_rate": 69.8,
+    "trades": 35,
+    "llm_source": "perplexity"
+  }
+]
