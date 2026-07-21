@@ -47,7 +47,7 @@ PPLX_MODEL = os.getenv("PPLX_MODEL", "sonar")
 
 CRYPTOS = bm.ACTIFS["crypto"]
 INTERVALLE = "1h"
-N_BOUGIES = 500
+N_BOUGIES = 800   # fenetre plus large: OOS = 240 bougies (~10j) au lieu de 150 (~6j)
 SPLIT = 0.70
 NUM_RUN = datetime.utcnow().strftime("%H%M")
 
