@@ -93,7 +93,7 @@ def call_gemini(prompt):
     if not GEMINI_KEY:
         return None
     payload = {"contents": [{"parts": [{"text": prompt}]}],
-               "generationConfig": {"temperature": 0.9, "maxOutputTokens": 1200}}
+               "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1000}}
     for delay in [10, 30, None]:
         try:
             r = requests.post(GEMINI_URL, json=payload, timeout=90)
@@ -187,7 +187,12 @@ def strat_ema_crossover(i, d):
         return "VENTE"
     return None
 
-Sois CREATIVE et ORIGINAL: combine 2-3 indicateurs d'une façon nouvelle (ex: RSI + Bollinger, MACD + Donchian, Stochastic + EMA). Cherche un edge que les strategies existantes n'ont pas.
+SIMPLICITE OBLIGATOIRE:
+  - Max 2 conditions combinees (pas 3-4). Une strategie qui ne se declenche jamais ne sert a rien.
+  - Les conditions doivent etre ASSEZ FREQUENTES: un signal d'achat doit apparaitre regulierement sur des donnees reelles (pas un evenement rare).
+  - Prends exemple sur les strategies existantes: 1-2 conditions, declenchement frequent.
+
+Sois CREATIVE mais PRAGMATIQUE: combine au plus 2 indicateurs d'une facon nouvelle (ex: RSI + Bollinger, MACD + Donchian, Stochastic + EMA). Cherche un edge simple et declencheable.
 
 Réponds UNIQUEMENT avec la fonction Python dans un bloc ```python ... ```. Pas d'explication."""
 
@@ -304,6 +309,7 @@ def sanity_test(func, bougies):
     d["ema26"] = bm.ema_simple_series(clotures, 26)
     d["macd_line"], d["macd_signal"] = bm._macd_full(clotures)
     sigs = set()
+    nb_signaux = 0
     for i in range(len(clotures)):
         try:
             s = func(i, d)
@@ -311,11 +317,13 @@ def sanity_test(func, bougies):
                 return False, f"signal invalide {s!r}"
             if s:
                 sigs.add(s)
+                nb_signaux += 1
         except Exception as e:
             return False, f"crash i={i}: {e}"
-    if not sigs:
-        return False, "jamais de signal (strategie inactive)"
-    return True, f"signaux emis: {sigs}"
+    # pas de rejection sur "inactive" ici: le walk-forward sur donnees reelles
+    # jugera si la strategie se declenche assez (gate 4). Le dummy peut manquer
+    # le regime specifique de la strategie.
+    return True, f"OK ({nb_signaux} signaux sur dummy)"
 
 
 # ============================================
@@ -397,6 +405,16 @@ def deploy(name, func_name, code, wf, llm_source):
 
 
 def record_lecon(name, code, verdict, raison, wf=None, llm_source=None):
+    # log debug complet (code entier) pour analyse
+    try:
+        with open(os.path.join(DOSSIER, "strategies_generated.jsonl"), "a") as fh:
+            fh.write(json.dumps({
+                "date": datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
+                "name": name, "verdict": verdict, "raison": raison,
+                "llm_source": llm_source, "code": code,
+            }, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
     entry = {
         "date": datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
         "source": "strategy_evolver",
@@ -405,7 +423,7 @@ def record_lecon(name, code, verdict, raison, wf=None, llm_source=None):
         "llm_source": llm_source,
         "verdict": verdict,
         "raison": raison,
-        "code": code[:500] if code else "",
+        "code": code[:2000] if code else "",
     }
     if wf:
         oos_avg, is_avg, win_avg, trades = wf
