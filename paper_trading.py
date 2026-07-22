@@ -357,6 +357,20 @@ def analyser_signaux_ia(prix_actuels):
 def ouvrir_position(pf, signal, prix_actuel):
     if len(pf["positions"]) >= MAX_POSITIONS:
         return False
+    # CIRCUIT BREAKER (protection capital): suspend les entrées en cas de drawdown
+    # profond (>=12%) ou de pertes consecutives (>=5). Leçon #1: "survis aux bears".
+    # Toggle: PROTECTION_CAPITAL=0 pour désactiver (en paper par défaut actif).
+    if os.getenv("PROTECTION_CAPITAL", "1") != "0":
+        try:
+            from protection_capital import verifier_pause
+            _pause, _raison = verifier_pause(pf)
+            if _pause:
+                print(f"  [CIRCUIT BREAKER] entrées suspendues — {_raison}")
+                return False
+        except ImportError:
+            pass  # module absent -> pas de protection (paper)
+        except Exception:
+            pass
     # SIZING DYNAMIQUE (Phase 2): remplace le 20% fixe par Kelly fractionnaire
     # + vol targeting + correlation + drawdown + caps durs
     try:
