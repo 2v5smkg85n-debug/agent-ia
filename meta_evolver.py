@@ -159,10 +159,15 @@ CONTRAINTES DE SÉCURITÉ (CRITIQUES — le non-respect = rejet automatique):
 - Imports AUTORISÉS uniquement: os, sys, json, re, math, statistics, datetime, time, collections, requests, functools, itertools, decimal, indicateurs, backtest_moteur, memoire_marche, live_lessons, sagesse_traders.
 - INTERDIT ABSOLUMENT: os.system, subprocess, os.popen, eval(), exec(), __import__, shutil, os.remove, os.unlink, os.rmdir, os.rename, os.chmod, socket, pickle, marshal, ctypes, importlib, __builtins__, __subclasses__, globals(), open() en mode écriture ('w','a','x').
 - Le module NE doit PAS modifier paper_trading.json, strategies_evolved.json, ou supprimer des fichiers.
-- Il DOIT définir une fonction `self_test()` qui s'exécute sans crash, retourne True, et ne fait aucun appel réseau lent (mock les données si besoin).
-- Il DOIT définir une fonction utilitaire claire et réutilisable (ex: analyser_volatilite(), detecter_regime(), calculer_correlation(), prompt_xxx()).
+- Il DOIT définir une fonction `self_test()` qui s'exécute sans crash, retourne True, et ne fait aucun appel réseau (mock les données en dur).
+- Il DOIT définir AU MOINS UN de ces hooks (le module sera auto-chargé par paper_trading via le système de plugins):
+    hook_entree(pf, signal) -> (allow_bool, raison_str)   # veto: (False, "raison") bloque l'entrée
+    hook_sizing(pf, signal, montant, prix_actuel) -> float  # ajuste la taille (sera clampée 0..liquidités)
+  Les hooks reçoivent pf (portefeuille dict: liquidites, positions, trades_fermes, capital_initial),
+  signal (dict: symbole, nom, marche, strategie, raison, score), montant (EUR float), prix_actuel (float).
+  Un hook peut n'en définir qu'un. Les hooks sont wrappés try/except par le système (safe).
 
-OBJECTIF: propose UNE amélioration qui augmente la rentabilité ou la robustesse du système. Idées: analyse de corrélation entre actifs, détecteur de regime avancé, module de volatilité réalisé, filtre anti-bear, score de conviction multi-signal, etc. Évite de dupliquer les propositions récentes.
+OBJECTIF: propose UNE amélioration qui augmente la rentabilité ou la robustesse. Idées: filtre anti-bear (veto en régime de crash), score de conviction multi-signal qui ajuste la taille, veto quand la corrélation BTC/ETH explose, réduction de taille en volatilité extrême, veto après N pertes sur un actif, etc. Le module sera AUTO-APPLIQUÉ dans plugins/ s'il passe les 3 gates. Évite de dupliquer les propositions récentes.
 
 FORMAT DE RÉPONSE STRICT:
 DESCRIPTION: <une phrase décrivant l'amélioration>
@@ -327,16 +332,22 @@ def _enregistrer(desc, module, code, statut, detail, source, fname=""):
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
 
-def _notifier_telegram(desc, module, fname):
+def _notifier_telegram(desc, module, fname, auto_applied=False):
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:
         log("(pas de Telegram configuré)"); return
     try:
         import requests
-        msg = (f"🧬 Méta-évolution — proposition VALIDÉE\n\n"
-               f"Module: {module}\n{desc}\n\n"
-               f"Fichier: propositions_meta/{fname}\n"
-               f"Relis le code puis applique-le manuellement si OK.\n"
-               f"(version sûre: rien n'est appliqué auto)")
+        if auto_applied:
+            msg = (f"🧬 Méta-évolution — proposition VALIDÉE + AUTO-APPLIQUÉE\n\n"
+                   f"Module: {module}\n{desc}\n\n"
+                   f"Déployé dans plugins/ — actif au prochain trade.\n"
+                   f"Hooks: sera chargé automatiquement par paper_trading.\n"
+                   f"Pour retirer: rm plugins/{fname} (ou PLUGINS_ACTIVE=0)")
+        else:
+            msg = (f"🧬 Méta-évolution — proposition VALIDÉE\n\n"
+                   f"Module: {module}\n{desc}\n\n"
+                   f"Fichier: propositions_meta/{fname}\n"
+                   f"Relis le code puis applique-le manuellement si OK.")
         requests.post(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
                       json={"chat_id": TELEGRAM_CHAT, "text": msg}, timeout=10)
         log("Notification Telegram envoyée")
@@ -386,9 +397,20 @@ def main():
     with open(fpath, "w") as f:
         f.write(code)
     log(f"Module sauvé: propositions_meta/{fname}")
-    _enregistrer(desc, module, code, "VALIDEE", f"propositions_meta/{fname}", source, fname)
-    _notifier_telegram(desc, module, fname)
-    log("=== MÉTA-ÉVOLUTION TERMINÉE ===")
+    auto_applied = False
+    if os.getenv("META_AUTO_APPLY", "1") != "0":
+        try:
+            plugins_dir = os.path.join(DOSSIER, "plugins")
+            os.makedirs(plugins_dir, exist_ok=True)
+            import shutil
+            shutil.copy(fpath, os.path.join(plugins_dir, fname))
+            auto_applied = True
+            log(f"AUTO-APPLIQUE: plugins/{fname} (actif au prochain trade)")
+        except Exception as _e:
+            log(f"Auto-apply echoue: {_e}")
+    _enregistrer(desc, module, code, "VALIDEE", f"propositions_meta/{fname}" + (" + plugins/" if auto_applied else ""), source, fname)
+    _notifier_telegram(desc, module, fname, auto_applied)
+    log("=== META-EVOLUTION TERMINEE ===")
 
 
 if __name__ == "__main__":

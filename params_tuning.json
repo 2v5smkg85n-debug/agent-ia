@@ -144,7 +144,23 @@
       "ajuste_le": "2026-07-14 08:15:01",
       "raison": "[reflection] Position ouverte de 27.49 EUR sur MACD Momentum déficient, besoin de protection accrue face à l'inefficacité de la stratégie",
       "source": "reflection"
+    },
+    "EURUSD=X": {
+      "tp": 3.0,
+      "sl": 1.5,
+      "historique": [
+        {
+          "ts": "2026-07-21 08:15:01",
+          "tp": 3.0,
+          "sl": 1.5,
+          "raison": "Biais baissier court-terme confirmé (-0.30, conf=0.65), réduire TP de 4% à 3.5% pour s'aligner avec la pression vendeuse et limiter le risque",
+          "source": "reflection"
+        }
+      ],
+      "ajuste_le": "2026-07-21 08:15:01",
+      "raison": "[reflection] Biais baissier court-terme confirmé (-0.30, conf=0.65), réduire TP de 4% à 3.5% pour s'aligner avec la pression vendeuse et limiter le risque",
+      "source": "reflection"
     }
   },
-  "dernier_cycle": "2026-07-20 08:15:01"
+  "dernier_cycle": "2026-07-21 08:15:01"
 }

@@ -354,6 +354,39 @@ def analyser_signaux_ia(prix_actuels):
 # ============================================
 # EXECUTION DES TRADES
 # ============================================
+# ============================================
+# PLUGINS (méta-évolution autonome): modules auto-chargés depuis plugins/
+# L'agent dépose des modules validés -> intégration automatique sans toucher
+# au code core. Hooks: hook_entree (veto) + hook_sizing (ajuste taille).
+# Toggle: PLUGINS_ACTIVE=0. Hooks wrappés try/except (safe).
+_plugins_charges = []
+def _charger_plugins():
+    """Charge une fois les modules de plugins/ (idempotent)."""
+    global _plugins_charges
+    if _plugins_charges:
+        return
+    if os.getenv("PLUGINS_ACTIVE", "1") == "0":  # désactivé
+        return
+    pdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plugins")
+    if not os.path.isdir(pdir):
+        return
+    import importlib.util
+    _parent = os.path.dirname(pdir)
+    if _parent not in sys.path:
+        sys.path.insert(0, _parent)
+    for fn in sorted(os.listdir(pdir)):
+        if not fn.endswith(".py") or fn.startswith("_"):
+            continue
+        try:
+            spec = importlib.util.spec_from_file_location("plugin_" + fn[:-3],
+                                                          os.path.join(pdir, fn))
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            _plugins_charges.append((fn, mod))
+        except Exception as _e:
+            print(f"  [PLUGIN] {fn} erreur chargement: {_e}")
+
+
 def ouvrir_position(pf, signal, prix_actuel):
     if len(pf["positions"]) >= MAX_POSITIONS:
         return False
@@ -369,6 +402,21 @@ def ouvrir_position(pf, signal, prix_actuel):
                 return False
         except ImportError:
             pass  # module absent -> pas de protection (paper)
+        except Exception:
+            pass
+    # PLUGINS (méta-évolution): hooks d'entrée (veto). Toggle: PLUGINS_ACTIVE=0.
+    if os.getenv("PLUGINS_ACTIVE", "1") != "0":
+        try:
+            _charger_plugins()
+            for _fn, _mod in _plugins_charges:
+                if hasattr(_mod, "hook_entree"):
+                    try:
+                        _allow, _raison = _mod.hook_entree(pf, signal)
+                        if not _allow:
+                            print(f"  [PLUGIN {_fn}] entrée bloquée: {_raison}")
+                            return False
+                    except Exception as _e:
+                        print(f"  [PLUGIN {_fn}] hook_entree erreur: {_e}")
         except Exception:
             pass
     # SIZING DYNAMIQUE (Phase 2): remplace le 20% fixe par Kelly fractionnaire
@@ -426,6 +474,22 @@ def ouvrir_position(pf, signal, prix_actuel):
             pass  # module sentiment absent -> sizing inchangé
         except Exception as _e:
             print(f"  [SENTIMENT erreur {_e}] taille inchangée")
+    # PLUGINS (méta-évolution): hooks de sizing (ajustent la taille).
+    if os.getenv("PLUGINS_ACTIVE", "1") != "0":
+        try:
+            for _fn, _mod in _plugins_charges:
+                if hasattr(_mod, "hook_sizing"):
+                    try:
+                        _avant = montant
+                        montant = _mod.hook_sizing(pf, signal, montant, prix_actuel)
+                        if montant != _avant:
+                            print(f"  [PLUGIN {_fn}] sizing {_avant:.0f}->{montant:.0f}EUR")
+                    except Exception as _e:
+                        print(f"  [PLUGIN {_fn}] hook_sizing erreur: {_e}")
+        except Exception:
+            pass
+    # Clamp de sécurité: un plugin bugué ne peut pas dépasser le liquide ni aller négatif
+    montant = max(0, min(montant, pf["liquidites"]))
     if montant < 5:
         return False
     frais = montant * FRAIS_TRANSACTION

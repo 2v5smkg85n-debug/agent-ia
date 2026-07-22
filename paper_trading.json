@@ -1,6 +1,6 @@
 {
   "capital_initial": 1000.0,
-  "liquidites": 806.2090784284053,
+  "liquidites": 889.4224929820737,
   "positions": [
     {
       "symbole": "EURUSD=X",
@@ -11,18 +11,6 @@
       "montant_eur": 110.32559584630874,
       "frais_entree": 0.11032559584630874,
       "date_ouverture": "2026-07-10 03:00"
-    },
-    {
-      "symbole": "NG=F",
-      "nom": "Gaz naturel",
-      "marche": "matieres",
-      "prix_entree": 2.846,
-      "quantite": 29.145105411103305,
-      "montant_eur": 83.03,
-      "frais_entree": 0.08303,
-      "date_ouverture": "2026-07-21 00:18",
-      "signal_raison": "strategie gagnante backtest (MACD Momentum [4h], retour +15.1%, win rate 61.1%)",
-      "source": "backtest-gagnant"
     }
   ],
   "historique": [
@@ -672,11 +660,29 @@
       "frais_total": 0.2616946845654693,
       "date_ouverture": "2026-07-20 05:27",
       "date_fermeture": "2026-07-20 13:35"
+    },
+    {
+      "symbole": "NG=F",
+      "nom": "Gaz naturel",
+      "marche": "matieres",
+      "prix_entree": 2.846,
+      "prix_sortie": 2.858,
+      "quantite": 29.145105411103305,
+      "montant_eur": 83.03,
+      "gain_eur": 0.18341455366831383,
+      "variation_pct": 0.42164441321152535,
+      "raison": "TEMPS+benefice (+0.42%)",
+      "signal_raison": "strategie gagnante backtest (MACD Momentum [4h], retour +15.1%, win rate 61.1%)",
+      "strategie": "backtest-gagnant",
+      "source": "backtest-gagnant",
+      "frais_total": 0.16632671126493326,
+      "date_ouverture": "2026-07-21 00:18",
+      "date_fermeture": "2026-07-21 05:09"
     }
   ],
   "date_creation": "2026-07-09 13:22",
-  "dernier_tick": "2026-07-21 04:39",
-  "total_frais": 8.424069394040542,
+  "dernier_tick": "2026-07-22 02:20",
+  "total_frais": 8.507366105305476,
   "pic_capital": 1000.0,
   "trades_fermes": [
     {
@@ -1040,6 +1046,24 @@
       "frais_total": 0.2616946845654693,
       "date_ouverture": "2026-07-20 05:27",
       "date_fermeture": "2026-07-20 13:35"
+    },
+    {
+      "symbole": "NG=F",
+      "nom": "Gaz naturel",
+      "marche": "matieres",
+      "prix_entree": 2.846,
+      "prix_sortie": 2.858,
+      "quantite": 29.145105411103305,
+      "montant_eur": 83.03,
+      "gain_eur": 0.18341455366831383,
+      "variation_pct": 0.42164441321152535,
+      "raison": "TEMPS+benefice (+0.42%)",
+      "signal_raison": "strategie gagnante backtest (MACD Momentum [4h], retour +15.1%, win rate 61.1%)",
+      "strategie": "backtest-gagnant",
+      "source": "backtest-gagnant",
+      "frais_total": 0.16632671126493326,
+      "date_ouverture": "2026-07-21 00:18",
+      "date_fermeture": "2026-07-21 05:09"
     }
   ]
 }
