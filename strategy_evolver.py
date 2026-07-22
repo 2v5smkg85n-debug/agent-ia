@@ -118,10 +118,10 @@ def exploration_seed():
 MUTATION_TYPES = [
     "changer un seuil numerique (ex: RSI 35->28, ou 70->75, ou ecart Bollinger 2.0->1.8)",
     "remplacer un indicateur par un autre equivalent (ex: Donchian -> Bollinger, RSI -> Stochastique)",
-    "ajouter UNE condition de confirmation (ex: momentum MACD positif, pente EMA haussiere)",
-    "modifier la condition de sortie/vente (ex: RSI>60 au lieu de >70, sortie sur EMA cross)",
+    "ajouter UNE condition de confirmation (ex: momentum MACD positif, pente EMA12 haussiere)",
+    "modifier la condition de sortie/vente (ex: RSI>60 au lieu de >70, sortie sur EMA12<EMA26)",
     "retarder le signal d'un bar (confirmation sur i-1) pour reduire les faux signaux",
-    "ajouter un filtre de regime (ex: ne trader que si volatilite moderee, ATR dans la moyenne)",
+    "ajouter un filtre de volatilite via l'ecart Bollinger (bb_haut - bb_bas) pour ne trader qu'en regime modere",
     "resserrer les bornes d'entree (ex: RSI<30 au lieu de <35, exiger 2 confirmations)",
 ]
 
@@ -147,6 +147,13 @@ CONTRAINTES:
 - Gestion None OBLIGATOIRE: verifie `if x is None: return None` avant TOUTE comparaison d'indicateur.
 - Pas de look-ahead: uniquement d[key][i], d[key][i-1], d[key][i-2].
 - Nom de fonction: strat_evolved_{num}
+
+INDICATEURS DISPONIBLES dans d (utilise UNIQUEMENT ces cles, rien d'autre):
+  d["clotures"], d["sma20"], d["sma50"], d["rsi"],
+  d["bb_haut"], d["bb_bas"], d["macd_line"], d["macd_signal"],
+  d["donchian_haut"], d["donchian_bas"], d["stoch_k"], d["stoch_d"],
+  d["ema12"], d["ema26"]
+  INTERDIT: d["atr"], d["volume"], d["bb_moyenne"] ou tout autre cle non listee (crash KeyError = rejet).
 
 Reponds UNIQUEMENT avec la fonction Python dans un bloc ```python ... ```. Pas d'explication."""
 
