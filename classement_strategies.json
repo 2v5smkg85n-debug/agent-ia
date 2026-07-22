@@ -101,9 +101,9 @@
         "strategie": "Bollinger Breakout",
         "actif": "SOLUSDT",
         "rang": 1,
-        "score": 10.256,
+        "score": 10.989,
         "backtest": 15.27,
-        "regime_fit": 0.7,
+        "regime_fit": 0.75,
         "live_n": 1,
         "live_wr": 66.7,
         "live_mult": 1.01,
@@ -255,9 +255,9 @@
         "strategie": "Bollinger Breakout",
         "actif": "XRPUSDT",
         "rang": 2,
-        "score": 3.502,
+        "score": 3.686,
         "backtest": 3.88,
-        "regime_fit": 0.95,
+        "regime_fit": 1.0,
         "live_n": 0,
         "live_wr": 50.0,
         "live_mult": 1.0,
@@ -267,7 +267,7 @@
         "live_pnl": 0,
         "disabled": false,
         "regime": "TRENDING_UP",
-        "score_norm": 0.917
+        "score_norm": 0.965
       },
       {
         "strategie": "EMA Crossover",
