@@ -115,6 +115,42 @@ def exploration_seed():
             f"IMPORTANT: construis ta strategie autour de CETTE combinaison specifique.")
 
 
+MUTATION_TYPES = [
+    "changer un seuil numerique (ex: RSI 35->28, ou 70->75, ou ecart Bollinger 2.0->1.8)",
+    "remplacer un indicateur par un autre equivalent (ex: Donchian -> Bollinger, RSI -> Stochastique)",
+    "ajouter UNE condition de confirmation (ex: momentum MACD positif, pente EMA haussiere)",
+    "modifier la condition de sortie/vente (ex: RSI>60 au lieu de >70, sortie sur EMA cross)",
+    "retarder le signal d'un bar (confirmation sur i-1) pour reduire les faux signaux",
+    "ajouter un filtre de regime (ex: ne trader que si volatilite moderee, ATR dans la moyenne)",
+    "resserrer les bornes d'entree (ex: RSI<30 au lieu de <35, exiger 2 confirmations)",
+]
+
+
+def mutation_type():
+    return random.choice(MUTATION_TYPES)
+
+
+MUTATION_PROMPT = """Tu es un quant trader expert. Voici une strategie QUI MARCHE (strategie parent):
+
+```python
+{parent_code}
+```
+
+Performances du parent: OOS {parent_oos}% | win {parent_win}% | {parent_trades} trades.
+
+Cree une VARIANTE de cette strategie en MUTANT UN SEUL element:
+- Mutation demandee: {mutation}
+
+CONTRAINTES:
+- Garde la structure generale du parent, change UN seul composant.
+- La strategie mutee doit rester SIMPLE (max 2-3 conditions).
+- Gestion None OBLIGATOIRE: verifie `if x is None: return None` avant TOUTE comparaison d'indicateur.
+- Pas de look-ahead: uniquement d[key][i], d[key][i-1], d[key][i-2].
+- Nom de fonction: strat_evolved_{num}
+
+Reponds UNIQUEMENT avec la fonction Python dans un bloc ```python ... ```. Pas d'explication."""
+
+
 def log(msg):
     line = f"[{datetime.utcnow():%Y-%m-%d %H:%M:%S} UTC] {msg}"
     print(line, flush=True)
@@ -423,6 +459,22 @@ def load_evolved():
         return []
 
 
+def load_parent():
+    """Charge la meilleure strategie deployee comme parent pour mutation.
+    Retourne dict(name, code, oos, win, trades) ou None."""
+    strats = load_evolved()
+    if not strats:
+        return None
+    best = max(strats, key=lambda s: s.get("oos_avg", 0))
+    return {
+        "name": best.get("name", "?"),
+        "code": best.get("code", ""),
+        "oos": best.get("oos_avg", 0),
+        "win": best.get("win_rate", 0),
+        "trades": best.get("trades", 0),
+    }
+
+
 def regen_evolved_module(strats):
     """Regenere strategies_evolved.py depuis le JSON (code + nom)."""
     lines = ['#!/usr/bin/env python3',
@@ -442,7 +494,10 @@ def regen_evolved_module(strats):
     open(EVOLVED_PY, "w", encoding="utf-8").write("\n".join(lines))
 
 
-def deploy(name, func_name, code, wf, llm_source):
+CURRENT_PARENT = None  # lineage: nom du parent si mutation
+
+
+def deploy(name, func_name, code, wf, llm_source, parent=None):
     oos_avg, is_avg, win_avg, trades = wf
     strats = load_evolved()
     strats.append({
@@ -451,6 +506,7 @@ def deploy(name, func_name, code, wf, llm_source):
         "oos_avg": round(oos_avg, 2), "is_avg": round(is_avg, 2),
         "win_rate": round(win_avg, 1), "trades": trades,
         "llm_source": llm_source,
+        "parent": parent,
     })
     json.dump(strats, open(EVOLVED_JSON, "w"), indent=2, ensure_ascii=False)
     regen_evolved_module(strats)
@@ -484,6 +540,7 @@ def record_lecon(name, code, verdict, raison, wf=None, llm_source=None):
         "verdict": verdict,
         "raison": raison,
         "code": code[:2000] if code else "",
+        "parent": CURRENT_PARENT,
     }
     if wf:
         oos_avg, is_avg, win_avg, trades = wf
@@ -526,19 +583,35 @@ def main():
     n = min(len(b) for b in bougies_map.values())
     split_idx = int(n * SPLIT)
 
-    # 1. GENERATION
-    log(f"Generation strategie {name} via LLM...")
-    prompt = PROMPT.format(num=num)
-    # SEED ALEATOIRE en tete: force la diversite (chaque run explore un angle different)
-    prompt = exploration_seed() + "\n\n" + prompt
-    # INJECTE LA SAGESSE DES 10 MAITRES TRADERS (principes + lecons backtestees)
-    if sagesse_prompt:
-        prompt += "\n\n" + sagesse_prompt()
-        prompt += ("\n\nINSTRUCTION CLE: sois INSPIRE par ces principes et les lecons ci-dessus. "
-                  "Ne repropose PAS les approches deja rejetees (deep contrarian RSI<20, "
-                  "cut-losers-fast, trend-following en regime quiet). Cherche un edge aligne "
-                  "avec le systeme mean-reversion: contrarian modere (RSI 20-35), patience, "
-                  "cassure de canal, momentum sur retournement. Max 2 conditions, declencheable souvent.")
+    # 1. GENERATION (mode mutation 60% si parent dispo, sinon fresh)
+    global CURRENT_PARENT
+    CURRENT_PARENT = None
+    parent = load_parent()
+    use_mutation = parent is not None and random.random() < 0.60
+    if use_mutation:
+        CURRENT_PARENT = parent["name"]
+        log(f"Generation strategie {name} via LLM [MUTATION de {parent['name']} OOS {parent['oos']:+.2f}% win {parent['win']:.0f}%]...")
+        prompt = MUTATION_PROMPT.format(
+            parent_code=parent["code"],
+            parent_oos=f"{parent['oos']:+.2f}",
+            parent_win=int(parent["win"]),
+            parent_trades=parent["trades"],
+            mutation=mutation_type(), num=num)
+        if sagesse_prompt:
+            prompt += "\n\n" + sagesse_prompt()
+    else:
+        log(f"Generation strategie {name} via LLM [FRESH]...")
+        prompt = PROMPT.format(num=num)
+        # SEED ALEATOIRE en tete: force la diversite (chaque run explore un angle different)
+        prompt = exploration_seed() + "\n\n" + prompt
+        # INJECTE LA SAGESSE DES 10 MAITRES TRADERS (principes + lecons backtestees)
+        if sagesse_prompt:
+            prompt += "\n\n" + sagesse_prompt()
+            prompt += ("\n\nINSTRUCTION CLE: sois INSPIRE par ces principes et les lecons ci-dessus. "
+                      "Ne repropose PAS les approches deja rejetees (deep contrarian RSI<20, "
+                      "cut-losers-fast, trend-following en regime quiet). Cherche un edge aligne "
+                      "avec le systeme mean-reversion: contrarian modere (RSI 20-35), patience, "
+                      "cassure de canal, momentum sur retournement. Max 2 conditions, declencheable souvent.")
     texte, llm_source = call_llm(prompt)
     if not texte:
         log("LLM indispo - abandon")
@@ -619,7 +692,11 @@ def main():
 
     # TOUS LES GATES PASSENT -> DEPLOIEMENT
     log(f"TOUS GATES PASSANTS -> DEPLOIEMENT de {name}")
-    deploy(name, func_name, code, wf, llm_source)
+    if use_mutation:
+        delta = oos_avg - parent["oos"]
+        tag = "AMELIORATION" if delta > 0.1 else ("EQUIVALENT" if abs(delta) <= 0.5 else "DEGRADE")
+        log(f"  vs parent {parent['name']}: OOS {oos_avg:+.2f}% vs {parent['oos']:+.2f}% ({tag} {delta:+.2f}pp)")
+    deploy(name, func_name, code, wf, llm_source, parent=CURRENT_PARENT)
     record_lecon(name, code, "DEPLOYED", f"OOS {oos_avg:.2f}% win {win_avg:.0f}% trades {trades}", wf, llm_source)
     log(f"STRATEGIE {name} DEPLOYEE: OOS {oos_avg:+.2f}% | win {win_avg:.0f}% | {trades} trades")
     log("STRATEGY EVOLVER END")
