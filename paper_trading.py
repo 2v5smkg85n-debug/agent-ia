@@ -265,6 +265,7 @@ def analyser_signaux_techniques(prix_actuels):
                     "nom": config["nom"],
                     "marche": config["marche"],
                     "source": "indicateurs",
+                    "strategie": "technique",
                     "score": score,
                     "raison": "; ".join(analyse["signaux"][:2])
                 })
@@ -335,6 +336,7 @@ def analyser_signaux_ia(prix_actuels):
                 "nom": MARCHES_PAPER[symbole_trouve]["nom"],
                 "marche": MARCHES_PAPER[symbole_trouve]["marche"],
                 "source": "ia",
+                "strategie": "ia",
                 "score": 0,
                 "raison": "signal IA"
             })
