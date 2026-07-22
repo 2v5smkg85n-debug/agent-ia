@@ -143,7 +143,47 @@ def _etat_systeme():
             infos.append("Propositions recentes (NE PAS repeter): " + " | ".join(recents))
     except Exception:
         pass
+    infos.append(_diagnostic_profit())
     return "\n".join(infos)
+
+
+def _diagnostic_profit(trades=None):
+    """Diagnostic de rentabilité: où le système gagne/perd de l'argent.
+    P&L par raison de sortie + par stratégie + plus grosse fuite (cible prioritaire).
+    L'objectif: orienter l'auto-codage du méta-évolveur vers les VRAIES pertes."""
+    try:
+        if trades is None:
+            pt = json.load(open(os.path.join(DOSSIER, "paper_trading.json")))
+            trades = pt.get("trades_fermes", [])
+        if not trades:
+            return "(pas encore de trades fermés — diagnostic non disponible)"
+        from collections import defaultdict
+        par_raison = defaultdict(lambda: [0, 0.0])
+        par_strat = defaultdict(lambda: [0, 0.0])
+        for t in trades:
+            r = (t.get("raison") or "?").split(" (")[0]
+            g = t.get("gain_eur", 0) or 0
+            par_raison[r][0] += 1; par_raison[r][1] += g
+            s = t.get("strategie") or t.get("source") or "?"; s = s.replace("_PARTIAL", "")
+            par_strat[s][0] += 1; par_strat[s][1] += g
+        lignes = ["DIAGNOSTIC RENTABILITÉ (où l'argent est gagné/perdu):"]
+        lignes.append("  Par raison de sortie (trié du pire au meilleur):")
+        for r, (n, p) in sorted(par_raison.items(), key=lambda x: x[1][1]):
+            lignes.append(f"    {r:20s}: {n:2d} trades, {p:+.2f}EUR (avg {p/n:+.3f})")
+        lignes.append("  Par stratégie (3 pires + 3 meilleures):")
+        strats = sorted(par_strat.items(), key=lambda x: x[1][1])
+        for s, (n, p) in strats[:3] + strats[-3:]:
+            lignes.append(f"    {s[:24]:24s}: {n:2d}t, {p:+.2f}EUR")
+        pires = sorted(par_raison.items(), key=lambda x: x[1][1])
+        if pires and pires[0][1][1] < 0:
+            lignes.append(f"  >>> CIBLE PRIORITAIRE (plus grosse fuite): {pires[0][0]} "
+                          f"= {pires[0][1][1]:+.2f}EUR sur {pires[0][1][0]} trades -> "
+                          f"code un plugin qui réduit CETTE fuite en priorité")
+        return "\n".join(lignes)
+    except FileNotFoundError:
+        return "(paper_trading.json absent — diagnostic non disponible)"
+    except Exception as e:
+        return f"(diagnostic indispo: {e})"
 
 
 # ============================================
@@ -167,7 +207,7 @@ CONTRAINTES DE SÉCURITÉ (CRITIQUES — le non-respect = rejet automatique):
   signal (dict: symbole, nom, marche, strategie, raison, score), montant (EUR float), prix_actuel (float).
   Un hook peut n'en définir qu'un. Les hooks sont wrappés try/except par le système (safe).
 
-OBJECTIF: propose UNE amélioration qui augmente la rentabilité ou la robustesse. Idées: filtre anti-bear (veto en régime de crash), score de conviction multi-signal qui ajuste la taille, veto quand la corrélation BTC/ETH explose, réduction de taille en volatilité extrême, veto après N pertes sur un actif, etc. Le module sera AUTO-APPLIQUÉ dans plugins/ s'il passe les 3 gates. Évite de dupliquer les propositions récentes.
+OBJECTIF: AUGMENTE LES BÉNÉFICES en ciblant CONCRÈTEMENT la CIBLE PRIORITAIRE du diagnostic ci-dessus (la plus grosse fuite de P&L). Si STOP-LOSS est la fuite principale, code un filtre qui réduit les entrées risquées (veto en forte volatilité, après N pertes consécutives sur un actif, en régime de crash, corrélation BTC/ETH explosive, etc.). Si une stratégie perd, code un veto ou sizing réduit pour cette stratégie. Si les sorties par temps sont trop petites, code un sizing plus gros sur les bons setups. CIBLE LA FUITE RÉELLE, ne propose pas du générique. Le module sera AUTO-APPLIQUÉ dans plugins/ s'il passe les 3 gates (puis auto-rollback par plugin_sante si il nuit). Évite de dupliquer les propositions récentes.
 
 FORMAT DE RÉPONSE STRICT:
 DESCRIPTION: <une phrase décrivant l'amélioration>
