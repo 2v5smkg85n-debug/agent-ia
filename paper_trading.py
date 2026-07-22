@@ -374,6 +374,28 @@ def ouvrir_position(pf, signal, prix_actuel):
         montant = pf["liquidites"] * RISK_PAR_TRADE
     # Plafonne au liquide dispo
     montant = min(montant, pf["liquidites"])
+    # FILTRE RÉGIME (méta-évolution): ajuste la taille selon le régime de marché.
+    # En contagion baissière (crash), réduit la taille (floor ×0.10). Désactivable: REGIME_FILTER=0.
+    if os.getenv("REGIME_FILTER", "1") != "0":
+        try:
+            from filtre_regime_vol_corr import ajuster_exposition
+            from indicateurs import historique_ohlcv
+            _sym = signal["symbole"]
+            _is_crypto = signal.get("marche") == "crypto"
+            _peer = "BTCUSDT" if _is_crypto and _sym != "BTCUSDT" else None
+            _prices = [b["cloture"] for b in historique_ohlcv(_sym, "1h", 30) if b.get("cloture")]
+            _peer_prices = None
+            if _peer:
+                _peer_prices = [b["cloture"] for b in historique_ohlcv(_peer, "1h", 30) if b.get("cloture")]
+            if len(_prices) >= 5:
+                _avant = montant
+                montant, _meta = ajuster_exposition(montant, _prices, prices_peer=_peer_prices, window=20)
+                if montant < _avant:
+                    print(f"  [RÉGIME] {signal.get('nom', _sym)}: {_meta['regime']} risk={_meta['risk_score']:.2f} -> x{_meta['multiplier']:.2f} ({_avant:.0f}->{montant:.0f}EUR)")
+        except ImportError:
+            pass  # module filtre_regime absent -> sizing inchangé
+        except Exception as _e:
+            print(f"  [RÉGIME erreur {_e}] taille inchangée")
     if montant < 5:
         return False
     frais = montant * FRAIS_TRANSACTION
