@@ -25,8 +25,8 @@ from datetime import datetime
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 
 
-def _fetch_btc_daily(nb_jours=2555):
-    """~7 ans de BTC en daily (2555 jours). Pagination Binance."""
+def _fetch_btc_daily(nb_jours=3300):
+    """~9 ans de BTC en daily (3300 jours) -> remonte à 2017 (bull ICO + crash 2018)."""
     try:
         from indicateurs import historique_ohlcv_long
         return historique_ohlcv_long("BTCUSDT", "1d", nb_jours)
@@ -74,7 +74,7 @@ def _count_drawdowns(closes, thresh=0.30):
 def memoire_marche_prompt():
     """Retourne un bloc mémoire du marché injecté dans le prompt evolver.
     Vide si données indisponibles (graceful)."""
-    bougies = _fetch_btc_daily(2555)
+    bougies = _fetch_btc_daily(3300)
     if len(bougies) < 365:
         return ""
     closes = [b["cloture"] for b in bougies if b.get("cloture")]
