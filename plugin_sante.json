@@ -1,13 +1,13 @@
 {
   "filtre_multitemporel.py": {
-    "seen": 11,
-    "vetoed": 3,
+    "seen": 17,
+    "vetoed": 5,
     "errors": 0,
     "disabled": false,
     "raison": ""
   },
   "meta_20260722_022111_filtre_stress_volatilite.py": {
-    "seen": 8,
+    "seen": 12,
     "vetoed": 0,
     "errors": 0,
     "disabled": false,

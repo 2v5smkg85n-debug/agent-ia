@@ -65,6 +65,8 @@ SEUIL_BENEFICE_MIN = 0.30       # 0.30% : couvre les 0.2% de frais + 0.1% de mar
 BREAKEVEN_SEUIL = 0.60     # +0.60% -> SL monte au breakeven (un gagnant reste un gagnant)
 TRAIL_ACTIF = 1.0          # +1.0% -> trailing stop derrière le pic
 TRAIL_PCT = 1.0            # trail 1.0% sous le pic (lock profit, laisse respirer)
+PARTIAL_TP_SEUIL = 1.0     # +1.0% -> encaisse une fraction du gain, garde le reste
+PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 
 # ============================================
 # TOUS LES MARCHES (symboles pour Yahoo Finance / Binance)
@@ -608,6 +610,47 @@ def verifier_sorties(pf, prix_actuels):
     for pos, prix, raison, var in positions_a_fermer:
         fermer_position(pf, pos, prix, raison, var)
     return len(positions_a_fermer) > 0
+
+def fermer_position_partielle(pf, position, prix_actuel, fraction, raison, variation):
+    """Clôture une FRACTION de la position (partial take-profit).
+    Réalise le gain sur la partie vendue, réduit quantité + cost-basis,
+    garde la position OUVERTE (le reste ride le trailing stop)."""
+    if fraction <= 0 or fraction >= 1.0:
+        return
+    quantite_vendue = position["quantite"] * fraction
+    if quantite_vendue <= 0:
+        return
+    montant_recu = quantite_vendue * prix_actuel
+    frais = montant_recu * FRAIS_TRANSACTION
+    pf["liquidites"] += montant_recu - frais
+    pf["total_frais"] += frais
+    cout_partie = position["montant_eur"] * fraction   # cost-basis de la partie vendue
+    gain = (montant_recu - frais) - cout_partie
+    # réduit la position (le reste reste ouvert)
+    position["quantite"] -= quantite_vendue
+    position["montant_eur"] -= cout_partie
+    position["partiellement_clote"] = True
+    trade = {
+        "symbole": position["symbole"],
+        "nom": position.get("nom", position["symbole"]),
+        "marche": position.get("marche", "?"),
+        "prix_entree": position["prix_entree"],
+        "prix_sortie": prix_actuel,
+        "quantite": quantite_vendue,
+        "montant_eur": cout_partie,
+        "gain_eur": gain,
+        "variation_pct": variation,
+        "raison": raison,
+        "signal_raison": position.get("signal_raison", ""),
+        "strategie": position.get("strategie", position.get("source", "")),
+        "source": position.get("source", "") + "_PARTIAL",
+        "frais_total": position["frais_entree"] * fraction + frais,
+        "date_ouverture": position["date_ouverture"],
+        "date_fermeture": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+    pf["trades_fermes"].append(trade)
+    print(f"  [PARTIAL-TP] {position['symbole']}: {fraction*100:.0f}% @ {variation:+.2f}% (gain {gain:+.2f}€) | reste {position['quantite']:.6f} en position")
+
 
 def fermer_position(pf, position, prix_actuel, raison, variation):
     montant_recu = position["quantite"] * prix_actuel

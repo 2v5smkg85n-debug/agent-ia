@@ -17,10 +17,11 @@ def decision(prix_actuel, prix_peak):
     pic = pos.get("prix_peak", prix_entree)
     if prix_actuel > pic:
         pic = prix_actuel
-    if variation >= TRAIL_ACTIF:
+    var_pic = (pic - prix_entree) / prix_entree * 100   # variation au pic (sticky)
+    if var_pic >= TRAIL_ACTIF:
         sl_price = pic * (1 - TRAIL_PCT / 100.0)
         _sl_regle = "trailing"
-    elif variation >= BREAKEVEN_SEUIL:
+    elif var_pic >= BREAKEVEN_SEUIL:
         sl_price = prix_entree * 1.001
         _sl_regle = "breakeven"
     else:
