@@ -401,6 +401,23 @@ def _charger_plugins():
             print(f"  [PLUGIN] {fn} erreur chargement: {_e}")
 
 
+def _niveau_performance(pf):
+    """Niveau de confiance global basé sur la performance RÉALISÉE du portefeuille.
+    Chaque palier de +5% de PnL ajoute +0.5 aux multiplicateurs de conviction.
+    Auto-protectif: si le PnL redescend sous un palier, le bonus est retiré."""
+    try:
+        cap = pf.get("capital_initial", 1000)
+        liq = pf.get("liquidites", 0)
+        pos = pf.get("positions", [])
+        val = liq + sum(p.get("quantite", 0) * p.get("prix_actuel", p.get("prix_entree", 0)) for p in pos)
+        pnl_pct = (val / cap - 1) * 100 if cap else 0
+        niveau = max(0, int(round(pnl_pct, 4) // 5))   # 0-4.99%->0, 5-9.99%->1, 10-14.99%->2...
+        bonus = niveau * 0.5
+        return niveau, bonus, pnl_pct
+    except Exception:
+        return 0, 0.0, 0.0
+
+
 def _conviction_mult(signal, cs):
     """Multiplicateur de conviction basé sur la performance LIVE de la stratégie.
     x1.5 éprouvé (>=5t, >=70% win, pnl>0) | x1.25 solide (>=3t, >=60%, pnl>0)
@@ -526,6 +543,11 @@ def ouvrir_position(pf, signal, prix_actuel):
         try:
             _cs = json.load(open("classement_strategies.json"))
             _mult, _craison = _conviction_mult(signal, _cs)
+            # PALIER PROGRESSIF: +0.5 par palier de +5% de PnL (auto-protectif, seulement sur gagnants prouvés)
+            _niv, _bonus, _pnl_pct = _niveau_performance(pf)
+            if _mult > 1.0 and _bonus > 0:
+                _mult = _mult + _bonus
+                _craison += f" +palier{_niv}(PnL {_pnl_pct:+.1f}%)"
             if _mult != 1.0:
                 _avant = montant
                 montant = montant * _mult
