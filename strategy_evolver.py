@@ -638,6 +638,15 @@ def main():
             log("Memoire du marché injectee dans le prompt")
     except Exception:
         pass
+    # SENTIMENT DU MARCHÉ: Fear & Greed Index (dimension comportementale)
+    try:
+        from sentiment_marche import sentiment_prompt as _spt
+        _sp = _spt()
+        if _sp:
+            prompt += _sp
+            log("Sentiment du marché injecte dans le prompt")
+    except Exception:
+        pass
     texte, llm_source = call_llm(prompt)
     if not texte:
         log("LLM indispo - abandon")
