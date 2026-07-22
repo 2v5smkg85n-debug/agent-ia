@@ -401,6 +401,26 @@ def _charger_plugins():
             print(f"  [PLUGIN] {fn} erreur chargement: {_e}")
 
 
+def _conviction_mult(signal, cs):
+    """Multiplicateur de conviction basé sur la performance LIVE de la stratégie.
+    x1.5 éprouvé (>=5t, >=70% win, pnl>0) | x1.25 solide (>=3t, >=60%, pnl>0)
+    x0.5 faible (>=3t, pnl<0) | x1.0 neuf/neutre."""
+    _sym = signal.get("symbole", "")
+    _nom = signal.get("nom", signal.get("strategie", ""))
+    _entry = cs.get(_sym) or cs.get(_sym.upper()) or cs.get(_sym.lower()) or {}
+    for _s in _entry.get("strategies", []):
+        if _s.get("strategie", "") == _nom:
+            _n = _s.get("live_n", 0); _wr = _s.get("live_wr", 0); _pnl = _s.get("live_pnl", 0)
+            if _n >= 5 and _wr >= 70 and _pnl > 0:
+                return 1.5, f"éprouvé ({_n}t {_wr:.0f}% +{_pnl:.2f}€)"
+            if _n >= 3 and _wr >= 60 and _pnl > 0:
+                return 1.25, f"solide ({_n}t {_wr:.0f}% +{_pnl:.2f}€)"
+            if _n >= 3 and _pnl < 0:
+                return 0.5, f"faible ({_n}t {_wr:.0f}% {_pnl:+.2f}€)"
+            return 1.0, f"neutre (n={_n})"
+    return 1.0, "nouveau"
+
+
 def ouvrir_position(pf, signal, prix_actuel):
     if len(pf["positions"]) >= MAX_POSITIONS:
         return False
@@ -498,6 +518,20 @@ def ouvrir_position(pf, signal, prix_actuel):
             pass  # module sentiment absent -> sizing inchangé
         except Exception as _e:
             print(f"  [SENTIMENT erreur {_e}] taille inchangée")
+    # CONVICTION SIZING: amplifie les stratégies gagnantes éprouvées en live
+    # (plus de bénéfices/trade sur ce qui marche déjà). Désactivable: CONVICTION_SIZING=0.
+    if os.getenv("CONVICTION_SIZING", "1") != "0":
+        try:
+            _cs = json.load(open("classement_strategies.json"))
+            _mult, _craison = _conviction_mult(signal, _cs)
+            if _mult != 1.0:
+                _avant = montant
+                montant = montant * _mult
+                print(f"  [CONVICTION] {signal.get('nom', signal['symbole'])}: x{_mult:.2f} {_craison} ({_avant:.0f}->{montant:.0f}EUR)")
+        except FileNotFoundError:
+            pass  # classement pas encore créé -> sizing par défaut
+        except Exception as _e:
+            print(f"  [CONVICTION erreur {_e}] taille inchangée")
     # PLUGINS (méta-évolution): hooks de sizing (ajustent la taille).
     if os.getenv("PLUGINS_ACTIVE", "1") != "0":
         try:
