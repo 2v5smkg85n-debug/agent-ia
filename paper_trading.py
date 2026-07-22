@@ -396,6 +396,22 @@ def ouvrir_position(pf, signal, prix_actuel):
             pass  # module filtre_regime absent -> sizing inchangé
         except Exception as _e:
             print(f"  [RÉGIME erreur {_e}] taille inchangée")
+    # FILTRE SENTIMENT (Fear & Greed): sizing contrarian, crypto uniquement.
+    # Achète plein en Extreme Fear (zone achat), réduit en Greed (euphorie = risque).
+    # Compose avec le filtre régime: montant = base × régime × sentiment.
+    # Désactivable: SENTIMENT_FILTER=0.
+    if os.getenv("SENTIMENT_FILTER", "1") != "0" and signal.get("marche") == "crypto":
+        try:
+            from sentiment_marche import sentiment_multiplier
+            _smult, _sclass = sentiment_multiplier()
+            if _smult < 1.0:
+                _avant = montant
+                montant = montant * _smult
+                print(f"  [SENTIMENT] {_sclass} -> x{_smult:.2f} ({_avant:.0f}->{montant:.0f}EUR)")
+        except ImportError:
+            pass  # module sentiment absent -> sizing inchangé
+        except Exception as _e:
+            print(f"  [SENTIMENT erreur {_e}] taille inchangée")
     if montant < 5:
         return False
     frais = montant * FRAIS_TRANSACTION
