@@ -62,6 +62,8 @@ SORTIE_DUREE_MIN = 90           # ferme apres 90 min si en gain suffisant (avant
 # Seuil de gain minimum pour fermer par duree : doit couvrir les frais (0.2% AR) + une marge.
 # Fermer a +0.05% = perte nette (frais 0.2%). Donc on n'accepte que gain >= 0.30%.
 SEUIL_BENEFICE_MIN = 0.30       # 0.30% : couvre les 0.2% de frais + 0.1% de marge nette
+DUREE_GAGNANT_MAX = 240         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
+STALE_DUREE_MAX = 180           # position sous seuil depuis 3h -> time-stop, libère le capital
 BREAKEVEN_SEUIL = 0.60     # +0.60% -> SL monte au breakeven (un gagnant reste un gagnant)
 TRAIL_ACTIF = 1.0          # +1.0% -> trailing stop derrière le pic
 TRAIL_PCT = 1.0            # trail 1.0% sous le pic (lock profit, laisse respirer)
@@ -603,7 +605,15 @@ def verifier_sorties(pf, prix_actuels):
                 # EXTEND: cap duree plus long (8h) pour laisser le TP etendu se realiser
                 duree_min = EXTEND_DUREE_MAX if extend_actif else SORTIE_DUREE_MIN
                 seuil_min = EXTEND_SEUIL if extend_actif else SEUIL_BENEFICE_MIN
-                if age_min >= duree_min and variation >= seuil_min:
+                # Gagnant protégé (breakeven armé): respire jusqu à DUREE_GAGNANT_MAX
+                # pour atteindre partial TP / TP / trailing. Le SL est au breakeven -> pas de risque.
+                if os.getenv("EXIT_AVANCE", "1") != "0" and variation >= BREAKEVEN_SEUIL:
+                    duree_min = max(duree_min, DUREE_GAGNANT_MAX)
+                # TIME-STOP STALE: position sous seuil depuis trop longtemps -> libère le capital
+                # (fixe les positions bloquées plates, ex EURUSD à 0% qui n atteint jamais +0.30%)
+                if age_min >= STALE_DUREE_MAX and variation < seuil_min:
+                    positions_a_fermer.append((pos, prix_actuel, f"TEMPS-stale ({variation:+.2f}%)", variation))
+                elif age_min >= duree_min and variation >= seuil_min:
                     positions_a_fermer.append((pos, prix_actuel, f"TEMPS+benefice ({variation:+.2f}%)", variation))
             except Exception:
                 pass

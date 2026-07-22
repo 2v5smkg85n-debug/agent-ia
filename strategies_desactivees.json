@@ -3,7 +3,7 @@
     "MACD Momentum|SOLUSDT": {
       "strategie": "MACD Momentum",
       "actif": "SOLUSDT",
-      "disabled": true,
+      "disabled": false,
       "raison": "[reflection] PnL négatif (-0,17 EUR) sur 3 trades avec win_rate insuffisant (66,7%) pour couvrir la perte moyenne (pnl -0.29€ sur 1 trades)",
       "since": "2026-07-15 08:15:01",
       "source": "reflection",
@@ -11,8 +11,9 @@
         "n": 1,
         "win_rate": 0.0,
         "pnl_total": -0.29
-      }
+      },
+      "reactivee": "2026-07-22 08:30:01"
     }
   },
-  "dernier_cycle": "2026-07-22 04:30:01"
+  "dernier_cycle": "2026-07-22 23:00:01"
 }
