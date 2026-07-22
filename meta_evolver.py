@@ -271,12 +271,58 @@ def _run_self_test(code, module_name):
 
 
 # ============================================
+# PIPELINE DE VALIDATION + AUTO-RÉPARATION
+# ============================================
+def _pipeline(code, module, desc, source):
+    """Gates 1-3. Retourne un dict {ok, code, module, desc, raison, statut}."""
+    try:
+        ast.parse(code)
+    except SyntaxError as e:
+        return {"ok": False, "code": code, "module": module, "desc": desc, "raison": str(e), "statut": "REJET_SYNTAXE"}
+    log("GATE 1 syntaxe OK")
+    ok, raisons = _scan_securite(code)
+    if not ok:
+        return {"ok": False, "code": code, "module": module, "desc": desc, "raison": "; ".join(raisons), "statut": "REJET_SECURITE"}
+    log("GATE 2 sécurité OK")
+    ok, raison = _run_self_test(code, module)
+    if not ok:
+        return {"ok": False, "code": code, "module": module, "desc": desc, "raison": raison, "statut": "REJET_SELFTEST"}
+    return {"ok": True, "code": code, "module": module, "desc": desc, "raison": "OK", "statut": "VALIDEE"}
+
+
+def _repair_prompt(desc, module, code, erreur):
+    return f"""Ton module Python a échoué son auto-test. Corrige-le.
+
+DESCRIPTION: {desc}
+MODULE: {module}
+
+CODE ACTUEL:
+```python
+{code}
+```
+
+ERREUR DU self_test():
+{erreur[:800]}
+
+Corrige le module pour que self_test() s'exécute sans crash et retourne True.
+IMPORTANT: self_test() NE doit faire AUCUN appel réseau (utilise des données mock codées en dur). Teste la logique pure.
+Respecte les contraintes de sécurité (pas de os.system, subprocess, eval, open écriture, imports restreints aux stdlib + indicateurs/backtest_moteur/memoire_marche).
+
+FORMAT STRICT:
+DESCRIPTION: {desc}
+MODULE: {module}
+```python
+<code corrigé complet avec self_test()>
+```"""
+
+
+# ============================================
 # ENREGISTREMENT + NOTIFICATION
 # ============================================
 def _enregistrer(desc, module, code, statut, detail, source, fname=""):
     rec = {"date": datetime.utcnow().isoformat(), "description": desc, "module": module,
            "statut": statut, "detail": detail, "source": source, "fichier": fname,
-           "code": code if statut == "VALIDEE" else None}
+           "code": code}
     with open(os.path.join(DOSSIER, "meta_propositions.jsonl"), "a") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
@@ -315,25 +361,23 @@ def main():
         log("Pas de code extrait — abandon")
         _enregistrer(desc or "(extraction échouée)", module, rep[:500], "REJET_EXTRACTION", "pas de bloc code", source)
         return
-    # GATE 1: syntaxe
-    try:
-        ast.parse(code)
-    except SyntaxError as e:
-        log(f"GATE 1 REJET (syntaxe): {e}")
-        _enregistrer(desc, module, code, "REJET_SYNTAXE", str(e), source); return
-    log("GATE 1 syntaxe OK")
-    # GATE 2: sécurité
-    ok, raisons = _scan_securite(code)
-    if not ok:
-        log(f"GATE 2 REJET (sécurité): {raisons}")
-        _enregistrer(desc, module, code, "REJET_SECURITE", "; ".join(raisons), source); return
-    log("GATE 2 sécurité OK")
-    # GATE 3: self_test
-    ok, raison = _run_self_test(code, module)
-    if not ok:
-        log(f"GATE 3 REJET (self_test): {raison[:200]}")
-        _enregistrer(desc, module, code, "REJET_SELFTEST", raison, source); return
+    # Pipeline de validation (gates 1-3) avec auto-réparation sur échec self_test
+    res = _pipeline(code, module, desc, source)
+    if not res["ok"] and res["statut"] == "REJET_SELFTEST":
+        log(f"GATE 3 REJET (self_test) — tentative de réparation...")
+        rep2, _ = call_llm(_repair_prompt(res["desc"], res["module"], res["code"], res["raison"]))
+        if rep2:
+            d2, mod2, code2 = _extraire(rep2)
+            if code2:
+                res = _pipeline(code2, mod2 or module, d2 or desc, source)
+        else:
+            log("Réparation: LLM indispo")
+    if not res["ok"]:
+        log(f"REJET FINAL ({res['statut']}): {res['raison'][:200]}")
+        _enregistrer(res["desc"], res["module"], res["code"], res["statut"], res["raison"], source)
+        return
     log("GATE 3 self_test OK — PROPOSITION VALIDÉE")
+    code, module, desc = res["code"], res["module"], res["desc"]
     # Sauvegarde
     slug = re.sub(r"[^a-z0-9]+", "_", module.lower()).strip("_")[:30]
     ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
