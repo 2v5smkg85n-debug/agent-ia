@@ -33,7 +33,8 @@ from indicateurs import historique_ohlcv
 from backtest_moteur import (
     STRATEGIES, sma_series, rsi_series, bollinger_series, _macd_full,
     strat_sma_crossover, strat_rsi_reversion, strat_bollinger_breakout,
-    strat_macd_momentum, simuler
+    strat_macd_momentum, simuler,
+    donchian_series, stochastic_series, ema_simple_series
 )
 
 # Phase 4: importe les nouvelles strategies non-correlees
@@ -139,9 +140,12 @@ def strategies_gagnantes_par_actif():
 # CALCUL DES SIGNAUX EN LIVE
 # ============================================
 def calculer_donnees(clotures):
-    """Pre-calcule tous les indicateurs sur une serie de clotures."""
+    """Pre-calcule TOUS les indicateurs sur une serie de clotures.
+    Doit matcher le dict d du backtest (sinon KeyError live sur strat evolved/Phase7)."""
     bb_haut, bb_bas = bollinger_series(clotures, 20, 2)
     macd_line, macd_signal = _macd_full(clotures)
+    donch_haut, donch_bas = donchian_series(clotures, 20)
+    stoch_k, stoch_d = stochastic_series(clotures, 14, 3)
     return {
         "clotures": clotures,
         "sma20": sma_series(clotures, 20),
@@ -151,6 +155,12 @@ def calculer_donnees(clotures):
         "bb_bas": bb_bas,
         "macd_line": macd_line,
         "macd_signal": macd_signal,
+        "donchian_haut": donch_haut,
+        "donchian_bas": donch_bas,
+        "stoch_k": stoch_k,
+        "stoch_d": stoch_d,
+        "ema12": ema_simple_series(clotures, 12),
+        "ema26": ema_simple_series(clotures, 26),
     }
 
 def signal_strategie(nom_strat, donnees):
@@ -159,7 +169,16 @@ def signal_strategie(nom_strat, donnees):
     if not fonc:
         return None
     i = len(donnees["clotures"]) - 1
-    return fonc(i, donnees)
+    try:
+        return fonc(i, donnees)
+    except Exception as e:
+        # une strategie qui crash (ex: indicateur absent) ne doit pas casser
+        # la generation de signaux -> on log et on ignore cette strat
+        try:
+            print(f"    [signal_strategie] {nom_strat} crash: {e}", flush=True)
+        except Exception:
+            pass
+        return None
 
 # ============================================
 # GENERATION DES SIGNAUX POUR LE PAPER TRADING
