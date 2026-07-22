@@ -1,41 +1,70 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""memoire_marche.py — Mémoire du marché: apprend l'évolution du marché crypto
-sur ~7 ans et l'injecte dans la génération de l'evolver.
+"""memoire_marche.py — Mémoire du marché multi-actifs: apprend l'évolution de
+plusieurs classes d'actifs sur plusieurs années et l'injecte dans l'evolver.
 
-AVANT: l'evolver générait des stratégies sans comprendre comment les marchés
-évoluent sur le long terme (cycles bull/bear, crashes, rallies). Il n'avait
-aucune mémoire des montagnes russes historiques.
-
-MAINTENANT: memoire_marche_prompt() fetch ~7 ans de BTC en daily, extrait:
-  - rendements par année calendaire (la photo de l'évolution année par année)
-  - drawdown max (pire crash jamais vu)
-  - nombre de crashes >30%
-  - volatilité annuelle
-  - return total
-et l'injecte dans le prompt de génération. L'IA comprend désormais les cycles.
-
-La couche backtest (2 ans) valide les stratégies; la mémoire (7 ans) éduque la
-génération. Complémentaire."""
+AVANT: l'evolver ne comprenait que le BTC, et seulement via le backtest.
+MAINTENANT: memoire_marche_prompt() fetch:
+  - BTC + ETH (~9 ans, Binance daily) -> crypto
+  - S&P 500, Apple, Nvidia, Microsoft (Yahoo range=max) -> actions
+extrait par actif: rendements annuels, drawdown max, crashes, volatilité,
+return total; puis compare crypto vs actions. L'IA comprend les différences
+de régime entre classes d'actifs (crypto = volatil & cyclique, actions =
+trend haussier régulier, etc.)."""
 import os
 import math
 import statistics
 from datetime import datetime
 
+import requests
+
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 
+# (nom affiché, symbole, source)
+ACTIFS = [
+    ("BTC", "BTCUSDT", "binance"),
+    ("ETH", "ETHUSDT", "binance"),
+    ("S&P 500", "^GSPC", "yahoo"),
+    ("Apple", "AAPL", "yahoo"),
+    ("Nvidia", "NVDA", "yahoo"),
+    ("Microsoft", "MSFT", "yahoo"),
+]
 
-def _fetch_btc_daily(nb_jours=3300):
-    """~9 ans de BTC en daily (3300 jours) -> remonte à 2017 (bull ICO + crash 2018)."""
+
+def _fetch_binance_daily(symbole, nb_jours=3300):
     try:
         from indicateurs import historique_ohlcv_long
-        return historique_ohlcv_long("BTCUSDT", "1d", nb_jours)
+        return historique_ohlcv_long(symbole, "1d", nb_jours)
+    except Exception:
+        return []
+
+
+def _fetch_yahoo_daily(symbole):
+    """Yahoo Finance range=max -> toute l'histoire disponible (depuis 1927 pour le S&P)."""
+    from urllib.parse import quote
+    try:
+        sym_enc = quote(symbole, safe="")
+        url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{sym_enc}"
+               f"?interval=1d&range=max")
+        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=12)
+        if r.status_code != 200:
+            return []
+        data = r.json()
+        res = data["chart"]["result"][0]
+        timestamps = res.get("timestamp", [])
+        q = res["indicators"]["quote"][0]
+        bougies = []
+        for i in range(len(timestamps)):
+            c = q["close"][i]
+            if c is None:
+                continue
+            bougies.append({"temps": timestamps[i] * 1000, "cloture": float(c)})
+        return bougies
     except Exception:
         return []
 
 
 def _max_drawdown(closes):
-    """Pire drawdown peak-to-trough sur la serie (en %)."""
     if not closes:
         return 0.0
     peak = closes[0]
@@ -51,7 +80,6 @@ def _max_drawdown(closes):
 
 
 def _count_drawdowns(closes, thresh=0.30):
-    """Nombre d'épisodes distincts de drawdown >= thresh (crashes)."""
     if not closes:
         return 0
     peak = closes[0]
@@ -67,21 +95,18 @@ def _count_drawdowns(closes, thresh=0.30):
             count += 1
             in_dd = True
         elif dd < thresh * 0.4:
-            in_dd = False  # récupéré
+            in_dd = False
     return count
 
 
-def memoire_marche_prompt():
-    """Retourne un bloc mémoire du marché injecté dans le prompt evolver.
-    Vide si données indisponibles (graceful)."""
-    bougies = _fetch_btc_daily(3300)
+def _analyser_actif(bougies):
+    """Retourne un dict de stats ou None si données insuffisantes."""
     if len(bougies) < 365:
-        return ""
+        return None
     closes = [b["cloture"] for b in bougies if b.get("cloture")]
     if len(closes) < 365:
-        return ""
+        return None
 
-    # Rendements par année calendaire (la photo de l'évolution)
     by_year = {}
     for b in bougies:
         try:
@@ -102,7 +127,10 @@ def memoire_marche_prompt():
         except Exception:
             continue
 
-    # Stats globales
+    # Affiche les 12 dernieres annees max (sinon trop long pour le S&P sur 100 ans)
+    if len(yearly) > 12:
+        yearly = yearly[-12:]
+
     max_dd = _max_drawdown(closes)
     crashes = _count_drawdowns(closes, 0.30)
     try:
@@ -110,33 +138,62 @@ def memoire_marche_prompt():
     except Exception:
         total_ret = 0.0
     span_years = len(closes) / 365.25
-    # Volatilité annuelle approx (ecart-type rendements daily * sqrt(365))
     rets = [(closes[i] / closes[i - 1] - 1) for i in range(1, len(closes)) if closes[i - 1] > 0]
     vol_an = (statistics.pstdev(rets) * math.sqrt(365) * 100) if len(rets) > 10 else 0.0
 
-    lines = []
-    lines.append(f"Marché BTC analysé sur {span_years:.1f} ans ({len(closes)} jours).")
-    lines.append(f"Return total: {total_ret:+.0f}% | Volatilité annuelle: {vol_an:.0f}% "
-                 f"| Drawdown max: -{max_dd:.0f}% | Crashes >30%: {crashes}")
-    if yearly:
-        lines.append("Rendements annuels (montagnes russes): "
-                     + " | ".join(f"{y}: {r:+.0f}%" for y, r in yearly))
-    lines.append("LECON: le crypto alterne bulls spectaculaires et bears brutaux "
-                 "(-50% à -80%). Une stratégie robuste doit survivre aux bears "
-                 "(stop-loss serré, peu de trades en tendance baissière) et "
-                 "profiter des reversions dans les ranges. Évite le trend-following "
-                 "naïf qui se fait détruire aux retournements. Le mean-reversion "
-                 "modéré (RSI 20-35) historiquement bien dans les phases de range "
-                 "qui suivent les crashes.")
+    return {
+        "span": span_years,
+        "total": total_ret,
+        "vol": vol_an,
+        "max_dd": max_dd,
+        "crashes": crashes,
+        "yearly": yearly,
+    }
 
-    return ("\n\n## MEMOIRE DU MARCHÉ (évolution sur plusieurs années)\n"
-            "Voici comment le marché crypto a évolué historiquement. "
+
+def memoire_marche_prompt():
+    """Retourne un bloc mémoire multi-actifs injecté dans le prompt evolver.
+    Vide si aucune donnée (graceful)."""
+    blocs = []
+    for nom, sym, source in ACTIFS:
+        if source == "binance":
+            bougies = _fetch_binance_daily(sym)
+        else:
+            bougies = _fetch_yahoo_daily(sym)
+        st = _analyser_actif(bougies)
+        if not st:
+            continue
+        ligne0 = (f"- {nom} ({st['span']:.1f} ans): return total {st['total']:+.0f}% | "
+                  f"volatilité {st['vol']:.0f}% | drawdown max -{st['max_dd']:.0f}% | "
+                  f"crashes >30%: {st['crashes']}")
+        ligne1 = ""
+        if st["yearly"]:
+            ligne1 = "      rendements annuels: " + " | ".join(
+                f"{y}: {r:+.0f}%" for y, r in st["yearly"])
+        blocs.append(ligne0 + ("\n" + ligne1 if ligne1 else ""))
+
+    if not blocs:
+        return ""
+
+    # Leçon comparative crypto vs actions
+    lecon = (
+        "LECON: le crypto (BTC/ETH) est ~3-5x plus volatil que les actions et alterne "
+        "bulls spectaculaires (+150-300%) et bears brutaux (-65-83%). Les actions "
+        "(S&P 500/tech) trendent plus regulièrement haussier avec des drawdowns moins "
+        "profonds (-30-50%) et une volatilité ~2-3x plus faible. Les strategies "
+        "mean-reversion (RSI survente) performent en crypto dans les ranges post-crash; "
+        "le trend-following modéré marche mieux sur actions. Adapte le stop-loss et la "
+        "taille de position a la volatilité de la classe d'actif."
+    )
+
+    return ("\n\n## MEMOIRE DU MARCHÉ (évolution multi-actifs sur plusieurs années)\n"
+            "Voici comment chaque classe d'actifs a évolué. "
             "Une stratégie robuste doit survivre à ces cycles.\n"
-            + "\n".join(lines))
+            + "\n".join(blocs) + "\n" + lecon)
 
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("MÉMOIRE DU MARCHÉ (apprentissage multi-années)")
+    print("MÉMOIRE DU MARCHÉ (multi-actifs, plusieurs années)")
     print("=" * 60)
     print(memoire_marche_prompt() or "(données indisponibles)")
