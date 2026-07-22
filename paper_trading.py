@@ -360,11 +360,10 @@ def analyser_signaux_ia(prix_actuels):
 # au code core. Hooks: hook_entree (veto) + hook_sizing (ajuste taille).
 # Toggle: PLUGINS_ACTIVE=0. Hooks wrappés try/except (safe).
 _plugins_charges = []
+_plugins_sig = None
 def _charger_plugins():
-    """Charge une fois les modules de plugins/ (idempotent)."""
-    global _plugins_charges
-    if _plugins_charges:
-        return
+    """Charge les modules de plugins/. Recharge si le set change (actif SANS restart)."""
+    global _plugins_charges, _plugins_sig
     if os.getenv("PLUGINS_ACTIVE", "1") == "0":  # désactivé
         return
     pdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plugins")
@@ -374,15 +373,23 @@ def _charger_plugins():
     _parent = os.path.dirname(pdir)
     if _parent not in sys.path:
         sys.path.insert(0, _parent)
-    for fn in sorted(os.listdir(pdir)):
-        if not fn.endswith(".py") or fn.startswith("_"):
-            continue
+    try:
+        fichiers = sorted(f for f in os.listdir(pdir) if f.endswith(".py") and not f.startswith("_"))
+        sig = tuple((f, os.path.getmtime(os.path.join(pdir, f))) for f in fichiers)
+    except Exception:
+        return
+    if _plugins_sig == sig and _plugins_charges:
+        return  # inchangé
+    _plugins_sig = sig
+    _plugins_charges = []
+    for fn in fichiers:
         try:
             spec = importlib.util.spec_from_file_location("plugin_" + fn[:-3],
                                                           os.path.join(pdir, fn))
             mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)
             _plugins_charges.append((fn, mod))
+            print(f"  [PLUGIN] {fn} chargé")
         except Exception as _e:
             print(f"  [PLUGIN] {fn} erreur chargement: {_e}")
 
