@@ -121,6 +121,46 @@ def _historique_binance(symbole, intervalle, limite):
     except Exception as e:
         return []
 
+def historique_ohlcv_long(symbole="BTCUSDT", intervalle="1h", nb_bougies=17520):
+    """Fetch >1000 bougies via PAGINATION Binance (startTime).
+    Permet des backtests long terme (1-3 ans). Yahoo/coingecko: limite a 1000 (pas de pagination).
+    Deduplique par temps, trie, trim au nb_bougies demande."""
+    if _est_symbole_yahoo(symbole):
+        return historique_ohlcv(symbole, intervalle, min(nb_bougies, 1000))
+    import time as _t
+    interval_ms = {"15m": 900000, "30m": 1800000, "1h": 3600000,
+                   "4h": 14400000, "1d": 86400000}.get(intervalle, 3600000)
+    now_ms = int(_t.time() * 1000)
+    start_ms = now_ms - nb_bougies * interval_ms
+    bougies = []
+    calls = 0
+    while start_ms < now_ms and len(bougies) < nb_bougies and calls < 40:
+        calls += 1
+        try:
+            url = (f"https://api.binance.com/api/v3/klines?symbol={symbole}"
+                   f"&interval={intervalle}&startTime={start_ms}&limit=1000")
+            r = requests.get(url, timeout=15)
+            if r.status_code != 200:
+                break
+            data = r.json()
+            if not isinstance(data, list) or not data:
+                break
+            chunk = [{"temps": x[0], "ouverture": float(x[1]), "haut": float(x[2]),
+                      "bas": float(x[3]), "cloture": float(x[4]), "volume": float(x[5])} for x in data]
+            bougies.extend(chunk)
+            start_ms = chunk[-1]["temps"] + interval_ms  # avance apres la derniere
+            if len(chunk) < 1000:
+                break  # plus de donnees dispo (coin recent)
+            _t.sleep(0.1)  # rate-limit friendly
+        except Exception:
+            break
+    # dedup par temps + tri + trim
+    seen = {}
+    for x in bougies:
+        seen[x["temps"]] = x
+    bougies = sorted(seen.values(), key=lambda x: x["temps"])
+    return bougies[-nb_bougies:] if len(bougies) > nb_bougies else bougies
+
 def _historique_coingecko(symbole, intervalle, limite):
     """Fallback via CoinGecko (API publique gratuite)."""
     mapping = {

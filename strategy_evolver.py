@@ -21,7 +21,7 @@ Cron 2x/semaine (dim/mer 04:00 UTC).
 import os, sys, json, re, time, random, importlib.util, subprocess, ast
 from datetime import datetime
 import backtest_moteur as bm
-from indicateurs import historique_ohlcv
+from indicateurs import historique_ohlcv, historique_ohlcv_long
 from dotenv import load_dotenv
 try:
     from sagesse_traders import sagesse_prompt
@@ -47,7 +47,7 @@ PPLX_MODEL = os.getenv("PPLX_MODEL", "sonar")
 
 CRYPTOS = bm.ACTIFS["crypto"]
 INTERVALLE = "1h"
-N_BOUGIES = 800   # fenetre plus large: OOS = 240 bougies (~10j) au lieu de 150 (~6j)
+N_BOUGIES = 17520  # BACKTEST LONG TERME: ~2 ans en 1h. OOS = ~730j (au lieu de 10j). Fetch pagine.
 SPLIT = 0.70
 NUM_RUN = datetime.utcnow().strftime("%H%M")
 
@@ -577,7 +577,7 @@ def main():
     bougies_map = {}
     for sym in CRYPTOS:
         try:
-            b = historique_ohlcv(sym, INTERVALLE, N_BOUGIES)
+            b = historique_ohlcv_long(sym, INTERVALLE, N_BOUGIES)
             if b and len(b) >= 60:
                 bougies_map[sym] = b
         except Exception:
