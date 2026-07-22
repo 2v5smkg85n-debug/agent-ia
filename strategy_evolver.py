@@ -619,6 +619,16 @@ def main():
                       "cut-losers-fast, trend-following en regime quiet). Cherche un edge aligne "
                       "avec le systeme mean-reversion: contrarian modere (RSI 20-35), patience, "
                       "cassure de canal, momentum sur retournement. Max 2 conditions, declencheable souvent.")
+    # LIVE FEEDBACK LOOP: injecte les lecons de perf live (auto-apprentissage)
+    # Avant l'evolver n'apprenait pas de ses trades live. Maintenant si.
+    try:
+        from live_lessons import live_lessons_prompt as _llp
+        _ll = _llp()
+        if _ll:
+            prompt += _ll
+            log("Lecons live injectees dans le prompt")
+    except Exception as _e:
+        pass
     texte, llm_source = call_llm(prompt)
     if not texte:
         log("LLM indispo - abandon")
