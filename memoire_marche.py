@@ -40,12 +40,12 @@ def _fetch_binance_daily(symbole, nb_jours=3300):
 
 
 def _fetch_yahoo_daily(symbole):
-    """Yahoo Finance range=max -> toute l'histoire disponible (depuis 1927 pour le S&P)."""
+    """Yahoo Finance range=10y -> 10 ans de daily (range=max est casse: 168 barres)."""
     from urllib.parse import quote
     try:
         sym_enc = quote(symbole, safe="")
         url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{sym_enc}"
-               f"?interval=1d&range=max")
+               f"?interval=1d&range=10y")
         r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=12)
         if r.status_code != 200:
             return []
