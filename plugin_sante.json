@@ -1,0 +1,16 @@
+{
+  "filtre_multitemporel.py": {
+    "seen": 5,
+    "vetoed": 1,
+    "errors": 0,
+    "disabled": false,
+    "raison": ""
+  },
+  "meta_20260722_022111_filtre_stress_volatilite.py": {
+    "seen": 4,
+    "vetoed": 0,
+    "errors": 0,
+    "disabled": false,
+    "raison": ""
+  }
+}
