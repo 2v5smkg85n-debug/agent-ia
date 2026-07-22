@@ -419,11 +419,21 @@ def ouvrir_position(pf, signal, prix_actuel):
                 if hasattr(_mod, "hook_entree"):
                     try:
                         _allow, _raison = _mod.hook_entree(pf, signal)
+                        try:
+                            from plugin_sante import record as _ps_rec
+                            _ps_rec(_fn, "veto" if not _allow else "allow")
+                        except Exception:
+                            pass
                         if not _allow:
                             print(f"  [PLUGIN {_fn}] entrée bloquée: {_raison}")
                             return False
                     except Exception as _e:
                         print(f"  [PLUGIN {_fn}] hook_entree erreur: {_e}")
+                        try:
+                            from plugin_sante import record as _ps_rec
+                            _ps_rec(_fn, "error")
+                        except Exception:
+                            pass
         except Exception:
             pass
     # SIZING DYNAMIQUE (Phase 2): remplace le 20% fixe par Kelly fractionnaire
@@ -493,6 +503,11 @@ def ouvrir_position(pf, signal, prix_actuel):
                             print(f"  [PLUGIN {_fn}] sizing {_avant:.0f}->{montant:.0f}EUR")
                     except Exception as _e:
                         print(f"  [PLUGIN {_fn}] hook_sizing erreur: {_e}")
+                        try:
+                            from plugin_sante import record as _ps_rec
+                            _ps_rec(_fn, "error")
+                        except Exception:
+                            pass
         except Exception:
             pass
     # Clamp de sécurité: un plugin bugué ne peut pas dépasser le liquide ni aller négatif
