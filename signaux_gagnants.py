@@ -46,6 +46,9 @@ except Exception:
     NOUVELLES_STRATEGIES = {}
     STRATEGIES_TOUTES = STRATEGIES
 
+# MULTI-STRAT: nb max de signaux ACHAT retournes par actif (top-N par score)
+MAX_SIGNAUX_PAR_ACTIF = 2
+
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 FICHIER_BACKTESTS_REELS = os.path.join(DOSSIER, "backtests_reels.json")
 FICHIER_BACKTESTS_PRO = os.path.join(DOSSIER, "backtests_pro.json")
@@ -244,6 +247,7 @@ def generer_signaux_gagnants(prix_actuels, marches_paper):
         meilleure_strat = None
         meilleur_retour = -999
         meilleur_score = -999  # REGIME-FIT-INSTALLE
+        candidats_achat = []  # MULTI-STRAT: collecte tous les ACHAT (score, retour, strat)
 
         # Pour chaque intervalle, fetch l'historique une fois et teste les strategies
         for interv, strats in par_intervalle.items():
@@ -297,39 +301,44 @@ def generer_signaux_gagnants(prix_actuels, marches_paper):
                     except Exception:
                         pass
                     _score = strat.get("retour_pct", 0) * _fit_avg * _live_mult
+                    _strat_full = {**strat, "intervalle_live": interv_live,
+                                   "regime_1h": _r1h.get("regime"),
+                                   "regime_4h": _r4h.get("regime"),
+                                   "regime_fit": round(_fit_avg, 3),
+                                   "live_mult": round(_live_mult, 3),
+                                   "biais_bougies": round(_biais_bougies, 2)}
+                    candidats_achat.append((_score, strat.get("retour_pct", 0), _strat_full))
                     if _score > meilleur_score:
                         meilleur_score = _score
                         meilleur_retour = strat.get("retour_pct", 0)
                         meilleur_signal = sig
-                        meilleure_strat = {**strat, "intervalle_live": interv_live,
-                                           "regime_1h": _r1h.get("regime"),
-                                           "regime_4h": _r4h.get("regime"),
-                                           "regime_fit": round(_fit_avg, 3),
-                                           "live_mult": round(_live_mult, 3),
-                                           "biais_bougies": round(_biais_bougies, 2)}
+                        meilleure_strat = _strat_full
 
-        if meilleur_signal == "ACHAT":
-            interv_aff = meilleure_strat.get("intervalle", "?")
-            _lm = meilleure_strat.get("live_mult", 1.0)
-            _lm_str = f", live x{_lm:.2f}" if abs(_lm - 1.0) > 0.01 else ""
-            _bb_s = meilleure_strat.get("biais_bougies", 0.0)
-            _bb_str = f", dip {_bb_s:+.2f}" if _bb_s != 0 else ""
-            print(f"ACHAT ({meilleure_strat['strategie']} [{interv_aff}], "
-                  f"backtest {meilleur_retour:+.1f}%{_lm_str}{_bb_str})")
-            signaux.append({
-                "symbole": symbole,
-                "prix_entree": prix_actuels[symbole],
-                "nom": config["nom"],
-                "marche": config["marche"],
-                "source": "backtest-gagnant",
-                "score": 2,
-                "strategie": meilleure_strat.get("strategie", ""),
-                "backtest_stats": meilleure_strat,
-                "raison": (f"strategie gagnante backtest "
-                           f"({meilleure_strat['strategie']} [{interv_aff}], "
-                           f"retour {meilleur_retour:+.1f}%, "
-                           f"win rate {meilleure_strat.get('win_rate',0)}%)"),
-            })
+        if meilleur_signal == "ACHAT" and candidats_achat:
+            # MULTI-STRAT: top-N strategies ACHAT par score (pas juste la meilleure)
+            candidats_achat.sort(key=lambda c: c[0], reverse=True)
+            for _sc, _retour, _strat in candidats_achat[:MAX_SIGNAUX_PAR_ACTIF]:
+                interv_aff = _strat.get("intervalle", "?")
+                _lm = _strat.get("live_mult", 1.0)
+                _lm_str = f", live x{_lm:.2f}" if abs(_lm - 1.0) > 0.01 else ""
+                _bb_s = _strat.get("biais_bougies", 0.0)
+                _bb_str = f", dip {_bb_s:+.2f}" if _bb_s != 0 else ""
+                print(f"ACHAT ({_strat['strategie']} [{interv_aff}], "
+                      f"backtest {_retour:+.1f}%{_lm_str}{_bb_str})")
+                signaux.append({
+                    "symbole": symbole,
+                    "prix_entree": prix_actuels[symbole],
+                    "nom": config["nom"],
+                    "marche": config["marche"],
+                    "source": "backtest-gagnant",
+                    "score": 2,
+                    "strategie": _strat.get("strategie", ""),
+                    "backtest_stats": _strat,
+                    "raison": (f"strategie gagnante backtest "
+                               f"({_strat['strategie']} [{interv_aff}], "
+                               f"retour {_retour:+.1f}%, "
+                               f"win rate {_strat.get('win_rate',0)}%)"),
+                })
         else:
             print("neutre")
         time.sleep(0.3)

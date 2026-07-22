@@ -44,7 +44,8 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 # ============================================
 CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
-MAX_POSITIONS = 5               # 5 positions (plus de diversification)
+MAX_POSITIONS = 8              # positions concurrentes (multi-strat)
+MAX_POS_PAR_ACTIF = 2           # max positions par actif (differentes strategies)
 RISK_PAR_TRADE = 0.20           # 20% du capital par trade (200 EUR) [fallback]
 INTERVALLE_BOUCLE = 1800       # 30 min (anti-churn : avant 15 min = trop de trades -> frais)
 # Seuilles serres pour trading actif (prise de benefice frequente)
@@ -511,7 +512,8 @@ def tick():
     verifier_sorties(pf, prix)
 
     if len(pf["positions"]) < MAX_POSITIONS:
-        symboles_ouverts = {p["symbole"] for p in pf["positions"]}
+        from collections import Counter
+        nb_par_actif = Counter(pos["symbole"] for pos in pf["positions"])
         print("\nAnalyse strategies gagnantes (backtest reel)...")
         signaux_gagnants = []
         try:
@@ -543,9 +545,11 @@ def tick():
             except Exception as e:
                 print(f"  (filtre ML indisponible: {e})")
             for signal in tous_signaux:
-                if signal["symbole"] not in symboles_ouverts:
-                    ouvrir_position(pf, signal, prix[signal["symbole"]])
-                    symboles_ouverts.add(signal["symbole"])
+                if len(pf["positions"]) >= MAX_POSITIONS:
+                    break  # plus de slots disponibles
+                if nb_par_actif[signal["symbole"]] < MAX_POS_PAR_ACTIF:
+                    if ouvrir_position(pf, signal, prix[signal["symbole"]]):
+                        nb_par_actif[signal["symbole"]] += 1
         else:
             print("\nAucun signal d'achat.")
     pf["dernier_tick"] = datetime.now().strftime("%Y-%m-%d %H:%M")
