@@ -51,19 +51,29 @@ def _sec_portefeuille():
 
 def _sec_strategies():
     cs = _charger("classement_strategies.json")
-    if not cs:
+    if not cs or not isinstance(cs, dict):
         return "🏆 Stratégies: (indisponible)"
-    entries = cs if isinstance(cs, list) else list(cs.values())
-    entries = [e for e in entries if isinstance(e, dict)]
-    if not entries:
+    toutes = []
+    for actif, bloc in cs.items():
+        if not isinstance(bloc, dict):
+            continue
+        for s in bloc.get("strategies", []):
+            if isinstance(s, dict):
+                s2 = dict(s)
+                s2["_actif"] = actif
+                s2["_regime"] = bloc.get("regime", "?")
+                toutes.append(s2)
+    if not toutes:
         return "🏆 Stratégies: 0"
-    top = sorted(entries, key=lambda e: e.get("trades", 0) or 0, reverse=True)[:3]
-    lignes = [f"🏆 Stratégies: {len(entries)} entrées"]
+    top = sorted(toutes, key=lambda e: e.get("live_n", 0) or 0, reverse=True)[:3]
+    lignes = [f"🏆 Stratégies: {len(toutes)} stratégies sur {len(cs)} actifs"]
     for e in top:
-        nom = e.get("strategie") or e.get("nom") or "?"
-        tr = e.get("trades", 0)
-        wr = e.get("winrate", 0) or 0
-        lignes.append(f"   • {nom}: {tr} trades, {wr:.0f}% win")
+        nom = e.get("strategie", "?")
+        actif = e.get("_actif", "?")
+        n = e.get("live_n", 0)
+        wr = e.get("live_wr", 0) or 0
+        pnl = e.get("live_pnl", 0) or 0
+        lignes.append(f"   • {nom} ({actif}): {n} trades, {wr:.0f}% win, {pnl:+.2f}€")
     return "\n".join(lignes)
 
 
@@ -104,24 +114,28 @@ def _sec_plugins():
 
 
 def _sec_lecons():
+    """Affiche l'activité récente (lecons_apprises.jsonl = log d'évolution)."""
     try:
         path = os.path.join(DOSSIER, "lecons_apprises.jsonl")
         if not os.path.isfile(path):
-            return "📚 Leçons: (pas encore assez de trades)"
+            return "📚 Activité: (fichier absent)"
         with open(path) as f:
             lignes = [l.strip() for l in f if l.strip()]
         if not lignes:
-            return "📚 Leçons: (pas encore assez de trades)"
-        out = ["📚 Leçons live récentes:"]
+            return "📚 Activité: (vide)"
+        out = ["📚 Activité récente:"]
         for l in lignes[-3:]:
             try:
                 d = json.loads(l)
-                out.append(f"   • {d.get('lecon', d.get('texte', l[:80]))}")
+                date = d.get("date", "?")
+                src = d.get("source", "?")
+                typ = d.get("type", "?")
+                out.append(f"   • {date} | {src} | {typ}")
             except Exception:
-                out.append(f"   • {l[:80]}")
+                out.append(f"   • {l[:90]}")
         return "\n".join(out)
     except Exception:
-        return "📚 Leçons: (indisponible)"
+        return "📚 Activité: (indisponible)"
 
 
 def composer():
