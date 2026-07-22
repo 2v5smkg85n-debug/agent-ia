@@ -411,10 +411,12 @@ def _conviction_mult(signal, cs):
     for _s in _entry.get("strategies", []):
         if _s.get("strategie", "") == _nom:
             _n = _s.get("live_n", 0); _wr = _s.get("live_wr", 0); _pnl = _s.get("live_pnl", 0)
+            if _n >= 8 and _wr >= 75 and _pnl > 0:
+                return 2.5, f"élite ({_n}t {_wr:.0f}% +{_pnl:.2f}€)"
             if _n >= 5 and _wr >= 70 and _pnl > 0:
-                return 1.5, f"éprouvé ({_n}t {_wr:.0f}% +{_pnl:.2f}€)"
+                return 2.0, f"éprouvé ({_n}t {_wr:.0f}% +{_pnl:.2f}€)"
             if _n >= 3 and _wr >= 60 and _pnl > 0:
-                return 1.25, f"solide ({_n}t {_wr:.0f}% +{_pnl:.2f}€)"
+                return 1.5, f"solide ({_n}t {_wr:.0f}% +{_pnl:.2f}€)"
             if _n >= 3 and _pnl < 0:
                 return 0.5, f"faible ({_n}t {_wr:.0f}% {_pnl:+.2f}€)"
             return 1.0, f"neutre (n={_n})"
