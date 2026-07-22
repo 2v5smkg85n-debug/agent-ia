@@ -629,6 +629,15 @@ def main():
             log("Lecons live injectees dans le prompt")
     except Exception as _e:
         pass
+    # MEMOIRE DU MARCHÉ: apprentissage de l'évolution multi-années (~7 ans BTC)
+    try:
+        from memoire_marche import memoire_marche_prompt as _mmp
+        _mm = _mmp()
+        if _mm:
+            prompt += _mm
+            log("Memoire du marché injectee dans le prompt")
+    except Exception:
+        pass
     texte, llm_source = call_llm(prompt)
     if not texte:
         log("LLM indispo - abandon")
