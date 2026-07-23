@@ -757,30 +757,12 @@
     ]
   },
   "ARBUSDT": {
-    "regime": "RANGING",
+    "regime": "QUIET",
     "strategies": [
-      {
-        "strategie": "Bollinger Breakout",
-        "actif": "ARBUSDT",
-        "rang": 1,
-        "score": 13.372,
-        "backtest": 17.42,
-        "regime_fit": 0.8,
-        "live_n": 1,
-        "live_wr": 66.7,
-        "live_mult": 1.01,
-        "sagesse_mult": 0.95,
-        "sagesse_trader": "Dennis/Bollinger",
-        "sagesse_verdict": "NUANCE",
-        "live_pnl": 0.1,
-        "disabled": false,
-        "regime": "RANGING",
-        "score_norm": 1.0
-      },
       {
         "strategie": "Evolved 00955",
         "actif": "ARBUSDT",
-        "rang": 2,
+        "rang": 1,
         "score": 13.1,
         "backtest": 13.1,
         "regime_fit": 1.0,
@@ -792,8 +774,26 @@
         "sagesse_verdict": "",
         "live_pnl": 0,
         "disabled": false,
-        "regime": "RANGING",
-        "score_norm": 0.98
+        "regime": "QUIET",
+        "score_norm": 1.0
+      },
+      {
+        "strategie": "Bollinger Breakout",
+        "actif": "ARBUSDT",
+        "rang": 2,
+        "score": 12.536,
+        "backtest": 17.42,
+        "regime_fit": 0.75,
+        "live_n": 1,
+        "live_wr": 66.7,
+        "live_mult": 1.01,
+        "sagesse_mult": 0.95,
+        "sagesse_trader": "Dennis/Bollinger",
+        "sagesse_verdict": "NUANCE",
+        "live_pnl": 0.1,
+        "disabled": false,
+        "regime": "QUIET",
+        "score_norm": 0.957
       },
       {
         "strategie": "RSI Mean Reversion",
@@ -810,8 +810,8 @@
         "sagesse_verdict": "VALIDE",
         "live_pnl": 0,
         "disabled": false,
-        "regime": "RANGING",
-        "score_norm": 0.887
+        "regime": "QUIET",
+        "score_norm": 0.905
       },
       {
         "strategie": "EMA Crossover",
@@ -828,16 +828,16 @@
         "sagesse_verdict": "",
         "live_pnl": 0,
         "disabled": false,
-        "regime": "RANGING",
-        "score_norm": 0.684
+        "regime": "QUIET",
+        "score_norm": 0.698
       },
       {
         "strategie": "Bollinger Breakout",
         "actif": "ARBUSDT",
         "rang": 5,
-        "score": 6.463,
+        "score": 6.059,
         "backtest": 8.42,
-        "regime_fit": 0.8,
+        "regime_fit": 0.75,
         "live_n": 1,
         "live_wr": 66.7,
         "live_mult": 1.01,
@@ -846,8 +846,8 @@
         "sagesse_verdict": "NUANCE",
         "live_pnl": 0.1,
         "disabled": false,
-        "regime": "RANGING",
-        "score_norm": 0.483
+        "regime": "QUIET",
+        "score_norm": 0.463
       },
       {
         "strategie": "RSI Mean Reversion",
@@ -864,16 +864,16 @@
         "sagesse_verdict": "VALIDE",
         "live_pnl": 0,
         "disabled": false,
-        "regime": "RANGING",
-        "score_norm": 0.243
+        "regime": "QUIET",
+        "score_norm": 0.248
       },
       {
         "strategie": "SMA Crossover",
         "actif": "ARBUSDT",
         "rang": 7,
-        "score": 2.217,
+        "score": 2.587,
         "backtest": 3.89,
-        "regime_fit": 0.6,
+        "regime_fit": 0.7,
         "live_n": 0,
         "live_wr": 50.0,
         "live_mult": 1.0,
@@ -882,8 +882,8 @@
         "sagesse_verdict": "NUANCE",
         "live_pnl": 0,
         "disabled": false,
-        "regime": "RANGING",
-        "score_norm": 0.166
+        "regime": "QUIET",
+        "score_norm": 0.197
       }
     ]
   },
