@@ -1,7 +1,13 @@
 {
-  "rsi_achat": 35,
-  "rsi_vente": 70,
+  "rsi_achat": 36.7809,
+  "rsi_vente": 80.0275,
   "dernier_sweep": null,
   "dernier_pnl_total": null,
-  "bb_ecart": 2.0
+  "bb_ecart": 1.5529,
+  "dernier_genetic": {
+    "date": "2026-07-23 03:30",
+    "oos": 4.22,
+    "baseline_oos": 2.78,
+    "gens": 6
+  }
 }
