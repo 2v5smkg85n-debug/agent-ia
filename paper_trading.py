@@ -50,12 +50,12 @@ MAX_POS_PAR_ACTIF = 2           # max positions par actif (differentes strategie
 RISK_PAR_TRADE = 0.20           # 20% du capital par trade (200 EUR) [fallback]
 INTERVALLE_BOUCLE = 1800       # 30 min (anti-churn : avant 15 min = trop de trades -> frais)
 # Seuilles serres pour trading actif (prise de benefice frequente)
-TAKE_PROFIT_PCT = 1.5           # +1.5% -> encaisse le benefice
+TAKE_PROFIT_PCT = 2.0  # PROFIT_BOOST_V1           # +1.5% -> encaisse le benefice
 STOP_LOSS_PCT = 1.5             # -1.5% -> coupe la perte
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
 # est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
 # Idee utilisateur + valide par backtest elargi (9 marches, 30 trades, plateau a tp_ext=4).
-EXTEND_CRYPTOS = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "LDOUSDT", "AAVEUSDT", "UNIUSDT", "PENDLEUSDT", "ARBUSDT"}
+EXTEND_CRYPTOS = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "LDOUSDT", "AAVEUSDT", "UNIUSDT", "PENDLEUSDT", "ARBUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "OPUSDT", "INJUSDT", "NEARUSDT"}
 EXTEND_SEUIL = 0.5        # active l'extension a partir de +0.5% de gain
 EXTEND_TP_PCT = 4.0       # TP monte (2.0% -> 4.0%) une fois en profit
 EXTEND_DUREE_MAX = 480    # cap duree des positions extended (8h, vs 90min normal)
@@ -63,15 +63,15 @@ SORTIE_DUREE_MIN = 90           # ferme apres 90 min si en gain suffisant (avant
 # Seuil de gain minimum pour fermer par duree : doit couvrir les frais (0.2% AR) + une marge.
 # Fermer a +0.05% = perte nette (frais 0.2%). Donc on n'accepte que gain >= 0.30%.
 SEUIL_BENEFICE_MIN = 0.30       # 0.30% : couvre les 0.2% de frais + 0.1% de marge nette
-DUREE_PETIT_GAIN = 120        # gain 0.30-0.45%: respire 2h (était 90min) pour viser partial TP
-DUREE_GAIN_PROGRESS = 180    # gain 0.45-0.60%: respire 3h
-DUREE_GAGNANT_MAX = 240         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
+DUREE_PETIT_GAIN = 180        # gain 0.30-0.45%: respire 2h (était 90min) pour viser partial TP
+DUREE_GAIN_PROGRESS = 240    # gain 0.45-0.60%: respire 3h
+DUREE_GAGNANT_MAX = 360         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
 DUREE_BONUS_STRATEGIE = 60    # stratégie prouvée (live_n>=3, wr>=60%, pnl>0): +1h de respiration
 STALE_DUREE_MAX = 180           # position sous seuil depuis 3h -> time-stop, libère le capital
 BREAKEVEN_SEUIL = 0.60     # +0.60% -> SL monte au breakeven (un gagnant reste un gagnant)
 TRAIL_ACTIF = 1.0          # +1.0% -> trailing stop derrière le pic
 TRAIL_PCT = 1.0            # trail 1.0% sous le pic (lock profit, laisse respirer)
-PARTIAL_TP_SEUIL = 1.0     # +1.0% -> encaisse une fraction du gain, garde le reste
+PARTIAL_TP_SEUIL = 0.8     # +1.0% -> encaisse une fraction du gain, garde le reste
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 
 # ============================================
@@ -89,6 +89,12 @@ MARCHES_PAPER = {
     "UNIUSDT": {"nom": "Uniswap", "marche": "crypto", "source": "binance"},
     "PENDLEUSDT": {"nom": "Pendle", "marche": "crypto", "source": "binance"},
     "ARBUSDT": {"nom": "Arbitrum", "marche": "crypto", "source": "binance"},
+    "DOGEUSDT": {"nom": "Dogecoin", "marche": "crypto", "source": "binance"},
+    "AVAXUSDT": {"nom": "Avalanche", "marche": "crypto", "source": "binance"},
+    "LINKUSDT": {"nom": "Chainlink", "marche": "crypto", "source": "binance"},
+    "OPUSDT": {"nom": "Optimism", "marche": "crypto", "source": "binance"},
+    "INJUSDT": {"nom": "Injective", "marche": "crypto", "source": "binance"},
+    "NEARUSDT": {"nom": "NEAR Protocol", "marche": "crypto", "source": "binance"},
     # Forex (Yahoo)
     "EURUSD=X": {"nom": "EUR/USD", "marche": "forex", "source": "yahoo"},
     "GBPUSD=X": {"nom": "GBP/USD", "marche": "forex", "source": "yahoo"},
@@ -433,11 +439,11 @@ def _conviction_mult(signal, cs):
         if _s.get("strategie", "") == _nom:
             _n = _s.get("live_n", 0); _wr = _s.get("live_wr", 0); _pnl = _s.get("live_pnl", 0)
             if _n >= 8 and _wr >= 75 and _pnl > 0:
-                return 2.5, f"élite ({_n}t {_wr:.0f}% +{_pnl:.2f}€)"
+                return 3.0, f"élite ({_n}t {_wr:.0f}% +{_pnl:.2f}€)"
             if _n >= 5 and _wr >= 70 and _pnl > 0:
-                return 2.0, f"éprouvé ({_n}t {_wr:.0f}% +{_pnl:.2f}€)"
+                return 2.5, f"éprouvé ({_n}t {_wr:.0f}% +{_pnl:.2f}€)"
             if _n >= 3 and _wr >= 60 and _pnl > 0:
-                return 1.5, f"solide ({_n}t {_wr:.0f}% +{_pnl:.2f}€)"
+                return 1.75, f"solide ({_n}t {_wr:.0f}% +{_pnl:.2f}€)"
             if _n >= 3 and _pnl < 0:
                 return 0.5, f"faible ({_n}t {_wr:.0f}% {_pnl:+.2f}€)"
             return 1.0, f"neutre (n={_n})"
