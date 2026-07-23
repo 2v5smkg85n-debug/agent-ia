@@ -600,6 +600,22 @@ def ouvrir_position(pf, signal, prix_actuel):
     }
     pf["positions"].append(position)
     print(f"  [ACHAT] {signal.get('nom',signal['symbole'])} ({signal.get('marche','?')}) @ {prix_actuel:.2f} | {montant:.2f} EUR | qty {quantite:.6f}")
+    # Notif Telegram: prévient qu'une stratégie a ouvert une position
+    try:
+        from telegram_alerte import envoyer as _tg_envoyer
+        _conv = ""
+        try:
+            if _mult and _mult != 1.0:
+                _conv = f" (conviction x{_mult:.2f})"
+        except Exception:
+            pass
+        _tg_envoyer(f"📈 Position ouverte{_conv}\n"
+                    f"Stratégie: {position.get('strategie', '?')}\n"
+                    f"Actif: {position['nom']} ({position.get('marche','?')})\n"
+                    f"Prix: {prix_actuel:.2f} | Montant: {montant:.2f} EUR\n"
+                    f"Raison: {signal.get('raison', '')}")
+    except Exception:
+        pass
     notify_ifft("Paper Trade ACHAT", f"Achat {signal.get('nom','?')} @ {prix_actuel:.2f} EUR")
     return True
 
