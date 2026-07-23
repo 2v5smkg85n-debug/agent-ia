@@ -468,15 +468,19 @@ def ouvrir_position(pf, signal, prix_actuel):
     if os.getenv("ANTI_CORR", "1") != "0":
         try:
             _sym = signal["symbole"]
+            _sig_strat = signal.get("strategie") or signal.get("source") or ""
             _maint = datetime.now()
+            _FEN_MEME_STRAT = 120  # meme strategie sur meme actif: bloque 2h (anti-pyramiding correle)
             for _p in pf["positions"]:
                 if _p["symbole"] != _sym:
                     continue
                 try:
                     _dt = datetime.strptime(_p.get("date_ouverture",""), "%Y-%m-%d %H:%M")
                     _age = (_maint - _dt).total_seconds() / 60
-                    if _age < FENETRE_CORRELATION_MIN:
-                        print(f"  [ANTI-CORR] {signal.get('nom',_sym)}: actif déjà ouvert ({_age:.0f}min<{FENETRE_CORRELATION_MIN}min) -> entrée bloquée (évite double-exposition corrélée)")
+                    _meme_strat = bool(_sig_strat) and _p.get("strategie","") == _sig_strat
+                    _fen = _FEN_MEME_STRAT if _meme_strat else FENETRE_CORRELATION_MIN
+                    if _age <= _fen:
+                        print("  [ANTI-CORR] " + str(signal.get("nom",_sym)) + ": actif deja ouvert (" + str(int(_age)) + "min<=" + str(_fen) + "min) -> entree bloquee (evite double-exposition)")
                         return False
                 except Exception:
                     pass
