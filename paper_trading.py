@@ -536,6 +536,18 @@ def ouvrir_position(pf, signal, prix_actuel):
                             pass
         except Exception:
             pass
+    # FILTRE CONFLUENCE MULTI-TF: bloque les entrees contre-tendance (HTF opposee).
+    # Ameliore le win rate en n acceptant que les trades alignes avec la tendance
+    # de la timeframe superieure. Fail-open sur erreur API. Toggle: CONF_MULTI_TF=0.
+    if os.getenv("CONF_MULTI_TF", "1") != "0":
+        try:
+            from filtre_confluence_htf import _entree_bloquee_confluence
+            _blk_conf, _raison_conf = _entree_bloquee_confluence(signal)
+            if _blk_conf:
+                print("  [CONFLUENCE] " + str(signal.get("nom", signal.get("strategie", signal.get("symbole", "?")))) + ": entree bloquee (" + str(_raison_conf) + ")")
+                return False
+        except Exception:
+            pass
     # SIZING DYNAMIQUE (Phase 2): remplace le 20% fixe par Kelly fractionnaire
     # + vol targeting + correlation + drawdown + caps durs
     try:
