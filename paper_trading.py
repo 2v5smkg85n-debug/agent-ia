@@ -62,7 +62,10 @@ SORTIE_DUREE_MIN = 90           # ferme apres 90 min si en gain suffisant (avant
 # Seuil de gain minimum pour fermer par duree : doit couvrir les frais (0.2% AR) + une marge.
 # Fermer a +0.05% = perte nette (frais 0.2%). Donc on n'accepte que gain >= 0.30%.
 SEUIL_BENEFICE_MIN = 0.30       # 0.30% : couvre les 0.2% de frais + 0.1% de marge nette
+DUREE_PETIT_GAIN = 120        # gain 0.30-0.45%: respire 2h (était 90min) pour viser partial TP
+DUREE_GAIN_PROGRESS = 180    # gain 0.45-0.60%: respire 3h
 DUREE_GAGNANT_MAX = 240         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
+DUREE_BONUS_STRATEGIE = 60    # stratégie prouvée (live_n>=3, wr>=60%, pnl>0): +1h de respiration
 STALE_DUREE_MAX = 180           # position sous seuil depuis 3h -> time-stop, libère le capital
 BREAKEVEN_SEUIL = 0.60     # +0.60% -> SL monte au breakeven (un gagnant reste un gagnant)
 TRAIL_ACTIF = 1.0          # +1.0% -> trailing stop derrière le pic
@@ -622,6 +625,16 @@ def ouvrir_position(pf, signal, prix_actuel):
 def verifier_sorties(pf, prix_actuels):
     positions_a_fermer = []
     maintenant = datetime.now()
+    # Stratégies prouvées (pour bonus de durée): chargé une fois par cycle
+    _strats_prouvees = set()
+    try:
+        _cs = json.load(open("classement_strategies.json"))
+        for _symc, _datac in _cs.items():
+            for _sc in _datac.get("strategies", []):
+                if _sc.get("live_n", 0) >= 3 and _sc.get("live_wr", 0) >= 60 and _sc.get("live_pnl", 0) > 0:
+                    _strats_prouvees.add((_symc, _sc.get("strategie", "")))
+    except Exception:
+        pass
     for pos in pf["positions"]:
         sym = pos["symbole"]
         if sym not in prix_actuels:
@@ -679,10 +692,18 @@ def verifier_sorties(pf, prix_actuels):
                 # EXTEND: cap duree plus long (8h) pour laisser le TP etendu se realiser
                 duree_min = EXTEND_DUREE_MAX if extend_actif else SORTIE_DUREE_MIN
                 seuil_min = EXTEND_SEUIL if extend_actif else SEUIL_BENEFICE_MIN
-                # Gagnant protégé (breakeven armé): respire jusqu à DUREE_GAGNANT_MAX
-                # pour atteindre partial TP / TP / trailing. Le SL est au breakeven -> pas de risque.
-                if os.getenv("EXIT_AVANCE", "1") != "0" and variation >= BREAKEVEN_SEUIL:
-                    duree_min = max(duree_min, DUREE_GAGNANT_MAX)
+                # RESPIRATION ADAPTATIVE: plus c'est gagnant, plus ça respire
+                # (pour laisser le temps d'atteindre partial TP +1% / trailing / TP)
+                if os.getenv("EXIT_AVANCE", "1") != "0":
+                    if variation >= BREAKEVEN_SEUIL:        # >= 0.60% : protégé, respire 4h
+                        duree_min = max(duree_min, DUREE_GAGNANT_MAX)
+                    elif variation >= 0.45:                 # bon gain non protégé: respire 3h
+                        duree_min = max(duree_min, DUREE_GAIN_PROGRESS)
+                    elif variation >= SEUIL_BENEFICE_MIN:   # petit gain: respire 2h
+                        duree_min = max(duree_min, DUREE_PETIT_GAIN)
+                    # Bonus stratégie prouvée: +1h (laisse plus de temps aux stratégies qui gagnent)
+                    if (sym, pos.get("strategie", "")) in _strats_prouvees:
+                        duree_min += DUREE_BONUS_STRATEGIE
                 # TIME-STOP STALE: position sous seuil depuis trop longtemps -> libère le capital
                 # (fixe les positions bloquées plates, ex EURUSD à 0% qui n atteint jamais +0.30%)
                 if age_min >= STALE_DUREE_MAX and variation < seuil_min:
