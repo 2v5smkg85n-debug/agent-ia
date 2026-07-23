@@ -37,6 +37,7 @@ DRY_RUN = os.getenv("PONT_REVOLUT_LIVE", "0") != "1"
 QUOTE = "EUR"  # paires EUR (compte approvisionne en EUR)
 CAP_PAR_TRADE_EUR = float(os.getenv("PONT_CAP_TRADE", "5.0"))
 CAP_TOTAL_EUR = float(os.getenv("PONT_CAP_TOTAL", "30.0"))
+MAX_ACHATS_JOUR = int(os.getenv("PONT_MAX_TRADES_JOUR", "8"))  # anti-bug runaway
 BOUCLE_INTERVAL = 60
 
 # Mapping symbole Binance -> paire Revolut X (ordre, format tiret)
@@ -120,6 +121,14 @@ def exposition_totale(mirror):
     return total
 
 
+def _nb_achats_aujourdhui(mirror):
+    _auj = datetime.now().strftime("%Y-%m-%d")
+    _n = 0
+    for _v in mirror.get("achats", {}).values():
+        if str(_v.get("date_miroir", "")).startswith(_auj):
+            _n += 1
+    return _n
+
 def miroirer_achat(client, position, mirror):
     """Miroire une ouverture de position crypto -> achat Revolut X."""
     symbole = position.get("symbole", "")
@@ -143,6 +152,10 @@ def miroirer_achat(client, position, mirror):
             log.warning("[CAP] exposition totale %.2f€ >= cap %.2f€ — achat skip",
                         expo, CAP_TOTAL_EUR)
             return
+    _naj = _nb_achats_aujourdhui(mirror)
+    if _naj >= MAX_ACHATS_JOUR:
+        log.warning("[GARDE] %d achats miroires aujourd hui (max %d) -> skip", _naj, MAX_ACHATS_JOUR)
+        return
     prix = _prix_revolut(client, paire)
     qty_crypto = montant / prix if prix else None
     mode = "DRY-RUN" if DRY_RUN else "LIVE"
@@ -212,6 +225,9 @@ def miroirer_vente(client, trade, mirror):
 
 def cycle():
     """Un cycle de miroirage. Cree le client seulement si necessaire."""
+    if os.getenv("PONT_KILL", "0") == "1":
+        log.warning("[KILL] pont Revolut X desactive (PONT_KILL=1) -> cycle skip")
+        return
     pt = _load(PT_FILE, {})
     positions = pt.get("positions", [])
     trades = pt.get("trades_fermes", [])

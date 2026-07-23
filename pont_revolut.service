@@ -1,0 +1,19 @@
+[Unit]
+Description=Pont paper_trading -> Revolut X (miroir crypto, DRY-RUN par defaut)
+After=network.target paper_trading.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/agent-ia
+Environment=PONT_REVOLUT_LIVE=0
+Environment=PONT_CAP_TOTAL=50
+Environment=PONT_CAP_TRADE=10
+Environment=PONT_MAX_TRADES_JOUR=8
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/ubuntu/agent-ia/venv/bin/python -u pont_revolut.py boucle
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
