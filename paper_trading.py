@@ -45,6 +45,7 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
 MAX_POSITIONS = 8              # positions concurrentes (multi-strat)
+FENETRE_CORRELATION_MIN = 60     # anti-double-exposition: bloque 2e entree sur actif ouvert <60min
 MAX_POS_PAR_ACTIF = 2           # max positions par actif (differentes strategies)
 RISK_PAR_TRADE = 0.20           # 20% du capital par trade (200 EUR) [fallback]
 INTERVALLE_BOUCLE = 1800       # 30 min (anti-churn : avant 15 min = trop de trades -> frais)
@@ -446,6 +447,25 @@ def _conviction_mult(signal, cs):
 def ouvrir_position(pf, signal, prix_actuel):
     if len(pf["positions"]) >= MAX_POSITIONS:
         return False
+    # ANTI-DOUBLE-EXPOSITION: bloque une 2e entrée sur un actif déjà ouvert récemment
+    # (2 stratégies sur le même actif au même moment = perte corrélée doublée quand ça chute)
+    if os.getenv("ANTI_CORR", "1") != "0":
+        try:
+            _sym = signal["symbole"]
+            _maint = datetime.now()
+            for _p in pf["positions"]:
+                if _p["symbole"] != _sym:
+                    continue
+                try:
+                    _dt = datetime.strptime(_p.get("date_ouverture",""), "%Y-%m-%d %H:%M")
+                    _age = (_maint - _dt).total_seconds() / 60
+                    if _age < FENETRE_CORRELATION_MIN:
+                        print(f"  [ANTI-CORR] {signal.get('nom',_sym)}: actif déjà ouvert ({_age:.0f}min<{FENETRE_CORRELATION_MIN}min) -> entrée bloquée (évite double-exposition corrélée)")
+                        return False
+                except Exception:
+                    pass
+        except Exception:
+            pass
     # CIRCUIT BREAKER (protection capital): suspend les entrées en cas de drawdown
     # profond (>=12%) ou de pertes consecutives (>=5). Leçon #1: "survis aux bears".
     # Toggle: PROTECTION_CAPITAL=0 pour désactiver (en paper par défaut actif).
@@ -955,6 +975,35 @@ def _timeout_handler(signum, frame):
 
 TEMPS_MAX_TICK = 120
 
+def _check_crypto_sl_rapide():
+    """Check crypto mi-boucle (15 min): rattrape les SL crypto 2x plus vite.
+    Evite overshoot du SL sur mouvements rapides crypto (cf ETH -3.19% vs -1.5%).
+    Ne fetch QUE les prix des positions crypto ouvertes -> pas de churn entree."""
+    pf = charger_portefeuille()
+    if not pf or not pf.get("positions"):
+        return
+    _crypto_syms = []
+    _seen = set()
+    for _p in pf["positions"]:
+        _s = _p["symbole"]
+        if _s in _seen:
+            continue
+        if MARCHES_PAPER.get(_s, {}).get("source") == "binance":
+            _crypto_syms.append(_s)
+            _seen.add(_s)
+    if not _crypto_syms:
+        return
+    prix = {}
+    for _s in _crypto_syms:
+        _p = prix_binance(_s)
+        if _p:
+            prix[_s] = _p
+    if not prix:
+        return
+    verifier_sorties(pf, prix)
+    sauver_portefeuille(pf)
+    print(f"[crypto-check] {len(prix)} actif(s) crypto verifie(s) (mi-boucle SL rapide)")
+
 def boucle():
     pf = charger_portefeuille()
     if not pf:
@@ -984,8 +1033,14 @@ def boucle():
         finally:
             signal.alarm(0)
         prochaine = datetime.now() + timedelta(seconds=INTERVALLE_BOUCLE)
-        print(f"\nProchaine verification: {prochaine.strftime('%H:%M')}")
-        time.sleep(INTERVALLE_BOUCLE)
+        print(f"\nProchaine verification: {prochaine.strftime('%H:%M')} (crypto SL check a +{INTERVALLE_BOUCLE//2//60}min)")
+        _demi = INTERVALLE_BOUCLE // 2
+        time.sleep(_demi)
+        try:
+            _check_crypto_sl_rapide()
+        except Exception as _e:
+            print(f"[crypto-check] erreur: {_e}")
+        time.sleep(_demi)
     signal.signal(signal.SIGALRM, ancien_handler)
 
 def acheter_manuel(symbole_requete):
