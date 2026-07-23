@@ -10,3 +10,5 @@ backups/
 revolut_mirror.json
 logs/
 sentiment_cache.json
+classement_strategies.json
+paper_trading.json
