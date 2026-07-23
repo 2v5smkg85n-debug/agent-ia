@@ -444,6 +444,16 @@ def _conviction_mult(signal, cs):
     return 1.0, "nouveau"
 
 
+def _entree_bloquee_weekend(signal, maintenant=None):
+    """True si lentree est bloquee pour eviter le gap week-end (non-crypto, ven->week-end).
+    Le forex/indices/matieres ferment le week-end -> gap possible a la reouverture
+    qui peut overshooter le SL (cf. Or tenu 68h, -1.92EUR). Crypto 24/7 = non concerne."""
+    if signal.get("marche") == "crypto":
+        return False
+    maintenant = maintenant or datetime.now()
+    _jour = maintenant.weekday()  # 0=lun ... 4=ven, 5=sam, 6=dim
+    return _jour == 4 or _jour >= 5
+
 def ouvrir_position(pf, signal, prix_actuel):
     if len(pf["positions"]) >= MAX_POSITIONS:
         return False
@@ -464,6 +474,17 @@ def ouvrir_position(pf, signal, prix_actuel):
                         return False
                 except Exception:
                     pass
+        except Exception:
+            pass
+    # ANTI-GAP WEEK-END: bloque les entrees non-crypto le vendredi + week-end.
+    # Ces marches ferment le week-end -> un gap a la reouverture peut overshooter
+    # le SL (cf. Or tenu 68h, -1.92EUR). L exit stack (stale 3h) ferme les positions
+    # lun-jeudi avant le week-end, mais une entree vendredi n a pas le temps.
+    if os.getenv("ANTI_GAP_WEEKEND", "1") != "0":
+        try:
+            if _entree_bloquee_weekend(signal):
+                print(f"  [ANTI-GAP] {signal.get('nom',signal.get('symbole','?'))} ({signal.get('marche','?')}): entree bloquee (week-end, risque de gap)")
+                return False
         except Exception:
             pass
     # CIRCUIT BREAKER (protection capital): suspend les entrées en cas de drawdown
