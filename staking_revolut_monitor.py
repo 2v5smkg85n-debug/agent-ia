@@ -86,10 +86,10 @@ def lire_staking(client):
 
 
 def _val_eur(client, currency, amount):
-    """Valeur EUR d'une quantité de crypto via get_price (fallback USD)."""
-    for quote in ("EUR", "USD"):
+    """Valeur EUR d'une quantité de crypto via get_price (slash puis tiret, EUR puis USD)."""
+    for sym in (f"{currency}/EUR", f"{currency}-EUR", f"{currency}/USD", f"{currency}-USD"):
         try:
-            p = client.get_price(f"{currency}-{quote}")
+            p = client.get_price(sym)
             if p and p > 0:
                 return amount * p
         except Exception:
