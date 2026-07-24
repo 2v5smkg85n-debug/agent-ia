@@ -18,11 +18,12 @@ def check(nom, cond, detail=""):
     else: FAIL += 1; print(f"  ❌ {nom}  {detail}")
 
 class FakeClient:
-    def __init__(self, balances, prices=None):
+    def __init__(self, balances, tickers=None):
         self._balances = balances
-        self._prices = prices or {"ETH-EUR": 2000.0, "SOL-EUR": 150.0}
+        self._tickers = tickers or {"data": [{"symbol": "ETH/EUR", "last_price": "2000"},
+                                          {"symbol": "SOL/EUR", "last_price": "150"}]}
     def get_balances(self): return self._balances
-    def get_price(self, pair): return self._prices.get(pair, 0.0)
+    def get_ticker(self, symbol=None): return self._tickers
 
 BAL_AUCUN = [{"currency": "EUR", "available": "50.00", "total": "50.00"},
              {"currency": "BTC", "available": "0.001", "total": "0.001"}]
@@ -137,10 +138,20 @@ c = FakeClient([{"currency": "EUR", "available": "5", "total": "5"}])
 srm.conseil(client=c)
 check("pas d'alerte (5<20)", _NOTIF["n"] == 0, str(_NOTIF["n"]))
 
-print("\nTEST 17: rapport — valeur EUR estimée du staking")
-c = FakeClient(BAL_ETH, prices={"ETH-EUR": 2000.0})
+print("\nTEST 17: rapport — valeur EUR estimée du staking (paire EUR)")
+c = FakeClient(BAL_ETH)  # tickers defaut: ETH/EUR=2000
 stk = srm.rapport(client=c)
 check("ETH présent dans rapport", "ETH" in stk, str(stk))
+
+print("\nTEST 18: _val_eur — fallback USD si pas de paire EUR")
+pmap = {"ETH": {"USD": 2160.0}}  # 2160 USD / 1.08 = 2000 EUR
+c = FakeClient(BAL_ETH)
+val = srm._val_eur(c, "ETH", 1.0, pmap=pmap)
+check("val EUR = 2160/1.08 = 2000", abs(val - 2000.0) < 1e-6, str(val))
+
+print("\nTEST 19: _val_eur — actif absent de la map → 0")
+val = srm._val_eur(c, "XYZ", 100.0, pmap=pmap)
+check("val = 0 (actif inconnu)", val == 0.0, str(val))
 
 print("\n" + "=" * 60)
 print(f"RÉSULTAT: {PASS} pass, {FAIL} fail")

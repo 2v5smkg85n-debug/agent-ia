@@ -85,15 +85,46 @@ def lire_staking(client):
     return out, eur_libre
 
 
-def _val_eur(client, currency, amount):
-    """Valeur EUR d'une quantité de crypto via get_price (slash puis tiret, EUR puis USD)."""
-    for sym in (f"{currency}/EUR", f"{currency}-EUR", f"{currency}/USD", f"{currency}-USD"):
-        try:
-            p = client.get_price(sym)
-            if p and p > 0:
-                return amount * p
-        except Exception:
+EUR_USD = float(os.getenv("EUR_USD_RATE", "1.08"))  # 1 EUR = 1.08 USD (fallback si pas de paire EUR)
+
+
+def _ticker_map(client):
+    """{base_currency: {quote: last_price}} depuis GET /tickers (toutes les paires)."""
+    try:
+        data = client.get_ticker()
+    except Exception as e:
+        log.debug("ticker map échouée: %s", e)
+        return {}
+    rows = data.get("data", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+    m = {}
+    for t in rows:
+        if not isinstance(t, dict):
             continue
+        sym = t.get("symbol", "")
+        if "/" not in sym:
+            continue
+        base, quote = sym.split("/", 1)
+        try:
+            p = float(t.get("last_price") or t.get("mid") or 0)
+        except (TypeError, ValueError):
+            continue
+        if p > 0:
+            m.setdefault(base, {})[quote] = p
+    return m
+
+
+def _val_eur(client, currency, amount, pmap=None):
+    """Valeur EUR d'une quantité de crypto. Préfère la paire EUR, fallback USD/USDC/USDT."""
+    if pmap is None:
+        pmap = _ticker_map(client)
+    quotes = pmap.get(currency, {})
+    if not quotes:
+        return 0.0
+    if "EUR" in quotes:
+        return amount * quotes["EUR"]
+    for q in ("USD", "USDC", "USDT"):
+        if q in quotes:
+            return amount * quotes[q] / EUR_USD
     return 0.0
 
 
@@ -211,9 +242,10 @@ def rapport(client=None):
         return {}
     print("=" * 50)
     print("STAKING REVOLUT (lecture /balances)")
+    pmap = _ticker_map(client)
     total_eur = 0.0
     for cur, d in staking.items():
-        val = _val_eur(client, cur, d["staked"])
+        val = _val_eur(client, cur, d["staked"], pmap)
         total_eur += val
         marque = " ✓ stakable" if cur in STAKABLES_REVOLUT else ""
         print(f"  {cur}: {d['staked']:.6f} staké (total {d['total']:.6f}) ~{val:.2f} €{marque}")
