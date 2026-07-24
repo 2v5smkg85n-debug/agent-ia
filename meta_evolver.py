@@ -446,6 +446,11 @@ def main():
             shutil.copy(fpath, os.path.join(plugins_dir, fname))
             auto_applied = True
             log(f"AUTO-APPLIQUE: plugins/{fname} (actif au prochain trade)")
+            try:
+                import evolutia_profit
+                evolutia_profit.enregistrer_application(fname, desc)
+            except Exception as _ee:
+                log(f"evolutia baseline KO: {_ee}")
         except Exception as _e:
             log(f"Auto-apply echoue: {_e}")
     _enregistrer(desc, module, code, "VALIDEE", f"propositions_meta/{fname}" + (" + plugins/" if auto_applied else ""), source, fname)
