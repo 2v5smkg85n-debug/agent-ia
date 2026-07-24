@@ -54,10 +54,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -6.5,
-      -16.36,
+      -2.98,
+      -15.98,
       0.0,
-      -15.33
+      -13.47
     ],
     "robuste": false
   },
@@ -85,10 +85,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      2.42,
-      -4.31,
-      0.0,
-      -13.91
+      -11.64,
+      -14.79,
+      2.62,
+      -12.03
     ],
     "robuste": false
   },
@@ -114,12 +114,12 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
     "verdict": "PERDANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -4.78,
+      -4.9,
       1.14,
-      13.59,
-      1.16
+      8.69,
+      -1.5
     ],
     "robuste": false
   },
@@ -178,10 +178,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -6.18,
-      -18.92,
+      -20.86,
+      -25.84,
       0.0,
-      -17.29
+      -13.09
     ],
     "robuste": false
   },
@@ -209,10 +209,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -5.42,
-      6.69,
+      0.8,
+      -25.39,
       0.0,
-      -9.83
+      -7.41
     ],
     "robuste": false
   },
@@ -238,14 +238,14 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 4.0,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      1.53,
+      7.13,
       -12.43,
       -3.23,
-      1.03
+      -1.76
     ],
-    "robuste": true
+    "robuste": false
   },
   {
     "date": "2026-07-10 00:26",
@@ -302,10 +302,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      2.52,
-      -0.37,
-      0.0,
-      -19.45
+      -20.11,
+      -24.63,
+      1.65,
+      -10.38
     ],
     "robuste": false
   },
@@ -331,10 +331,10 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 8.0,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      -3.35,
-      -0.01,
+      1.07,
+      17.8,
       0.0,
       -11.31
     ],
@@ -362,12 +362,12 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 8.0,
     "verdict": "GAGNANTE",
-    "wf_precision": 75.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      0.45,
-      -7.81,
-      4.5,
-      3.19
+      6.32,
+      -5.92,
+      11.3,
+      -0.27
     ],
     "robuste": true
   },
@@ -424,12 +424,12 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 5.0,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      0.0,
-      -9.06,
-      0.0,
-      0.0
+      -18.64,
+      -30.59,
+      11.48,
+      1.49
     ],
     "robuste": false
   },
@@ -455,12 +455,12 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 5.0,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      0.53,
-      -10.55,
-      1.48,
-      -2.31
+      -3.83,
+      6.37,
+      0.0,
+      0.0
     ],
     "robuste": false
   },
@@ -488,10 +488,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -9.51,
+      -18.81,
       -3.29,
-      -0.04,
-      -7.99
+      -0.08,
+      -10.92
     ],
     "robuste": false
   },
@@ -550,10 +550,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      16.33,
+      3.14,
       -14.36,
       0.0,
-      -12.6
+      -10.98
     ],
     "robuste": false
   },
@@ -579,14 +579,14 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 10.0,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 50.0,
     "wf_folds": [
-      9.8,
-      -10.16,
+      9.58,
+      12.06,
       0.0,
       -1.35
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 00:26",
@@ -612,9 +612,9 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      -9.3,
-      -4.84,
-      2.61,
+      -4.78,
+      -0.68,
+      7.83,
       4.49
     ],
     "robuste": false

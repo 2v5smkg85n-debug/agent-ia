@@ -1,1 +1,2 @@
 {"ts": "2026-07-22 08:30:01", "action": "REACTIVE", "strategie": "MACD Momentum", "actif": "SOLUSDT", "raison": "cooldown expire"}
+{"ts": "2026-07-23 23:00:01", "action": "DESACTIVE", "strategie": "RSI Mean Reversion", "actif": "ARBUSDT", "raison": "win_rate 33.3% < 40.0% ET pnl -0.61€ < 0 sur 3 trades"}

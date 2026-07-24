@@ -1,7 +1,7 @@
 {
-  "peak": 999.7480888283824,
+  "peak": 1050.0,
   "paused": false,
   "raison": "",
-  "last_alert": 0,
-  "consecutive_losses": 1
+  "last_alert": 1784829349.9638479,
+  "consecutive_losses": 0
 }

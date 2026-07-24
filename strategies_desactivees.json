@@ -13,7 +13,19 @@
         "pnl_total": -0.29
       },
       "reactivee": "2026-07-22 08:30:01"
+    },
+    "RSI Mean Reversion|ARBUSDT": {
+      "strategie": "RSI Mean Reversion",
+      "actif": "ARBUSDT",
+      "disabled": true,
+      "raison": "win_rate 33.3% < 40.0% ET pnl -0.61€ < 0 sur 3 trades",
+      "since": "2026-07-23 23:00:01",
+      "stats": {
+        "n": 3,
+        "win_rate": 33.3,
+        "pnl_total": -0.61
+      }
     }
   },
-  "dernier_cycle": "2026-07-23 04:30:01"
+  "dernier_cycle": "2026-07-24 04:30:01"
 }
