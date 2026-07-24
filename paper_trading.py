@@ -551,6 +551,21 @@ def ouvrir_position(pf, signal, prix_actuel):
             pass  # module absent -> pas de protection (paper)
         except Exception:
             pass
+    # FILTRE SENTIMENT (gate d'entrée — Feature 2): bloque les achats en euphorie
+    # (Extreme Greed F&G >= 80) ou quand l'actu crypto est fortement baissière.
+    # Crypto uniquement (le F&G est le Crypto Fear & Greed Index). Complète le sizing
+    # contrarian (plus bas dans cette fonction) par un VETO d'entrée. Off par défaut.
+    if os.getenv("SENTIMENT_GATE", "0") == "1" and signal.get("marche") == "crypto":
+        try:
+            from sentiment_gate import gate_achat
+            _allow, _raison = gate_achat(signal["symbole"])
+            if not _allow:
+                print(f"  [SENTIMENT GATE] {signal.get('nom', signal['symbole'])}: entrée bloquée — {_raison}")
+                return False
+        except ImportError:
+            pass  # module absent -> pas de gate
+        except Exception as _e:
+            print(f"  [SENTIMENT GATE erreur {_e}] entrée autorisée (fail-open)")
     # PLUGINS (méta-évolution): hooks d'entrée (veto). Toggle: PLUGINS_ACTIVE=0.
     if os.getenv("PLUGINS_ACTIVE", "1") != "0":
         try:
