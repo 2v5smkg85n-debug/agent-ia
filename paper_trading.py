@@ -314,28 +314,54 @@ def analyser_signaux_ia(prix_actuels):
         f"Si aucun signal: AUCUN SIGNAL\n"
         f"Sois precis, ne force pas un trade."
     )
-    ia = "claude" if disponible("claude") else ("gemini" if disponible("gemini") else None)
-    if not ia:
-        return []
-    try:
+    # mots-cles communs aux 2 chemins (mono-modele et consensus)
+    mots_cles = {}
+    for sym, config in MARCHES_PAPER.items():
+        mots = [config["nom"].lower()]
+        if "Apple" in config["nom"]: mots += ["aapl", "apple"]
+        if "Tesla" in config["nom"]: mots += ["tsla", "tesla"]
+        if "Nvidia" in config["nom"]: mots += ["nvda", "nvidia"]
+        if "Microsoft" in config["nom"]: mots += ["msft", "microsoft"]
+        if "Or" in config["nom"]: mots += ["or", "gold", "xau"]
+        if "Petrole" in config["nom"]: mots += ["petrole", "brent", "oil"]
+        if "S&P" in config["nom"]: mots += ["s&p", "sp500"]
+        if "Nasdaq" in config["nom"]: mots += ["nasdaq"]
+        if "DAX" in config["nom"]: mots += ["dax"]
+        if "CAC" in config["nom"]: mots += ["cac 40", "cac40"]
+        mots_cles[sym] = mots
+
+    def _vers_signaux(achat_names, raison="signal IA (consensus)"):
+        signaux = []
+        for nom in achat_names:
+            nom_lower = (nom or "").lower()
+            symbole_trouve = None
+            for sym, mots in mots_cles.items():
+                if any(mot in nom_lower for mot in mots):
+                    symbole_trouve = sym
+                    break
+            if not symbole_trouve or symbole_trouve not in prix_actuels:
+                continue
+            signaux.append({
+                "symbole": symbole_trouve,
+                "prix_entree": prix_actuels[symbole_trouve],
+                "nom": MARCHES_PAPER[symbole_trouve]["nom"],
+                "marche": MARCHES_PAPER[symbole_trouve]["marche"],
+                "source": "ia",
+                "strategie": "ia",
+                "score": 0,
+                "raison": raison
+            })
+        return signaux
+
+    def _mono():
+        # Chemin mono-modele d'origine (CONSENSUS_IA=0) — inchangé
+        ia = "claude" if disponible("claude") else ("gemini" if disponible("gemini") else None)
+        if not ia:
+            return []
         rep, _ = appeler_ia(ia, prompt)
         if rep.startswith("[Erreur") or "AUCUN SIGNAL" in rep.upper()[:30]:
             return []
         signaux = []
-        mots_cles = {}
-        for sym, config in MARCHES_PAPER.items():
-            mots = [config["nom"].lower()]
-            if "Apple" in config["nom"]: mots += ["aapl", "apple"]
-            if "Tesla" in config["nom"]: mots += ["tsla", "tesla"]
-            if "Nvidia" in config["nom"]: mots += ["nvda", "nvidia"]
-            if "Microsoft" in config["nom"]: mots += ["msft", "microsoft"]
-            if "Or" in config["nom"]: mots += ["or", "gold", "xau"]
-            if "Petrole" in config["nom"]: mots += ["petrole", "brent", "oil"]
-            if "S&P" in config["nom"]: mots += ["s&p", "sp500"]
-            if "Nasdaq" in config["nom"]: mots += ["nasdaq"]
-            if "DAX" in config["nom"]: mots += ["dax"]
-            if "CAC" in config["nom"]: mots += ["cac 40", "cac40"]
-            mots_cles[sym] = mots
         for ligne in rep.split("\n"):
             if "ACHAT" not in ligne.upper():
                 continue
@@ -357,6 +383,20 @@ def analyser_signaux_ia(prix_actuels):
                 "score": 0,
                 "raison": "signal IA"
             })
+        return signaux
+
+    try:
+        if os.getenv("CONSENSUS_IA", "0") == "1":
+            # Consensus multi-modeles: actif retenu si >= quorum modeles l'ont flague ACHAT.
+            # Fail-open: si < quorum modeles repondent (achats is None) -> chemin mono.
+            try:
+                from consensus_ia import consensus_achats
+                achats, _meta = consensus_achats(prompt)
+                signaux = _vers_signaux(achats) if achats is not None else _mono()
+            except Exception:
+                signaux = _mono()
+        else:
+            signaux = _mono()
         # Dedoublonne
         vus = set()
         uniques = []
