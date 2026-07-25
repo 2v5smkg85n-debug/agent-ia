@@ -25,7 +25,20 @@
         "win_rate": 33.3,
         "pnl_total": -0.61
       }
+    },
+    "Evolved 00955|ARBUSDT": {
+      "strategie": "Evolved 00955",
+      "actif": "ARBUSDT",
+      "disabled": true,
+      "raison": "[reflection] Stratégie négative sur les trades fermés: -1.85 EUR de PnL, 40.0% de win rate sur 5 trades, c’est la seule poche clairement destructrice du capital. (pnl -1.4€ sur 2 trades)",
+      "since": "2026-07-24 08:15:01",
+      "source": "reflection",
+      "stats": {
+        "n": 2,
+        "win_rate": 50.0,
+        "pnl_total": -1.4
+      }
     }
   },
-  "dernier_cycle": "2026-07-24 04:30:01"
+  "dernier_cycle": "2026-07-25 04:30:01"
 }

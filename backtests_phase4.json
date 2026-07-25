@@ -26,7 +26,7 @@
       -3.05,
       0.0,
       7.41,
-      -4.37
+      -4.56
     ],
     "robuste": false
   },
@@ -54,10 +54,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -9.74,
+      -10.5,
       -14.79,
       2.62,
-      -5.72
+      -1.67
     ],
     "robuste": false
   },
@@ -83,11 +83,11 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 3.0,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 0.0,
     "wf_folds": [
       0.0,
       0.0,
-      2.06,
+      -0.97,
       0.0
     ],
     "robuste": false
@@ -149,8 +149,8 @@
     "wf_folds": [
       2.41,
       -6.39,
-      -3.16,
-      -5.75
+      -3.17,
+      -4.71
     ],
     "robuste": false
   },
@@ -178,10 +178,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -3.85,
+      -4.02,
       -19.56,
-      0.0,
-      -10.39
+      -0.2,
+      -7.89
     ],
     "robuste": false
   },
@@ -211,8 +211,8 @@
     "wf_folds": [
       0.0,
       0.0,
-      -5.34,
-      -0.2
+      -7.15,
+      -0.34
     ],
     "robuste": false
   },
@@ -272,9 +272,9 @@
     "wf_precision": 25.0,
     "wf_folds": [
       -8.53,
-      -7.61,
+      -8.43,
       -2.22,
-      4.63
+      5.94
     ],
     "robuste": false
   },
@@ -302,10 +302,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      9.37,
+      5.91,
       -23.38,
       -1.64,
-      -13.53
+      -10.05
     ],
     "robuste": false
   },
@@ -335,7 +335,7 @@
     "wf_folds": [
       0.0,
       0.0,
-      -2.66,
+      -6.06,
       0.0
     ],
     "robuste": false
@@ -362,12 +362,12 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 8.0,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 25.0,
     "wf_folds": [
       0.0,
       0.0,
       0.0,
-      0.0
+      0.15
     ],
     "robuste": false
   },
@@ -396,9 +396,9 @@
     "wf_precision": 25.0,
     "wf_folds": [
       -7.27,
-      -2.83,
+      -2.71,
       2.2,
-      -2.11
+      -2.96
     ],
     "robuste": false
   },
@@ -426,7 +426,7 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      3.92,
+      2.12,
       -20.61,
       -3.74,
       -2.48
@@ -459,7 +459,7 @@
     "wf_folds": [
       0.0,
       0.0,
-      0.01,
+      1.02,
       0.0
     ],
     "robuste": false
@@ -522,7 +522,7 @@
       -6.2,
       -2.37,
       2.13,
-      -5.24
+      -5.05
     ],
     "robuste": false
   },
@@ -550,10 +550,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      2.11,
+      -1.11,
       -14.8,
       1.46,
-      -0.51
+      0.36
     ],
     "robuste": true
   },
@@ -583,7 +583,7 @@
     "wf_folds": [
       0.0,
       0.0,
-      -4.9,
+      -6.0,
       0.0
     ],
     "robuste": false

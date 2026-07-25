@@ -54,10 +54,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -2.98,
-      -15.98,
+      -5.82,
+      -16.36,
       0.0,
-      -13.47
+      -12.49
     ],
     "robuste": false
   },
@@ -85,10 +85,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -11.64,
+      -12.38,
       -14.79,
       2.62,
-      -12.03
+      -5.72
     ],
     "robuste": false
   },
@@ -116,10 +116,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      -4.9,
-      1.14,
-      8.69,
-      -1.5
+      -10.53,
+      -1.54,
+      6.96,
+      1.16
     ],
     "robuste": false
   },
@@ -176,12 +176,12 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 4.0,
     "verdict": "PERDANTE",
-    "wf_precision": 0.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      -20.86,
-      -25.84,
-      0.0,
-      -13.09
+      -22.55,
+      -31.57,
+      1.49,
+      -18.71
     ],
     "robuste": false
   },
@@ -207,12 +207,12 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 4.0,
     "verdict": "PERDANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 0.0,
     "wf_folds": [
-      0.8,
-      -25.39,
+      -5.36,
+      -4.66,
       0.0,
-      -7.41
+      -9.83
     ],
     "robuste": false
   },
@@ -238,14 +238,14 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 4.0,
     "verdict": "GAGNANTE",
-    "wf_precision": 25.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      7.13,
-      -12.43,
-      -3.23,
-      -1.76
+      3.2,
+      -7.41,
+      4.98,
+      1.03
     ],
-    "robuste": false
+    "robuste": true
   },
   {
     "date": "2026-07-10 00:26",
@@ -302,10 +302,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      -20.11,
-      -24.63,
-      1.65,
-      -10.38
+      6.78,
+      -15.59,
+      0.0,
+      -19.94
     ],
     "robuste": false
   },
@@ -331,12 +331,12 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 8.0,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      1.07,
-      17.8,
+      -2.61,
+      11.4,
       0.0,
-      -11.31
+      -16.87
     ],
     "robuste": false
   },
@@ -362,12 +362,12 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 8.0,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      6.32,
-      -5.92,
-      11.3,
-      -0.27
+      2.36,
+      -3.96,
+      8.38,
+      3.19
     ],
     "robuste": true
   },
@@ -424,12 +424,12 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 5.0,
     "verdict": "PERDANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 75.0,
     "wf_folds": [
-      -18.64,
-      -30.59,
-      11.48,
-      1.49
+      6.25,
+      -22.76,
+      1.48,
+      12.75
     ],
     "robuste": false
   },
@@ -458,9 +458,9 @@
     "wf_precision": 25.0,
     "wf_folds": [
       -3.83,
-      6.37,
+      -7.39,
       0.0,
-      0.0
+      5.42
     ],
     "robuste": false
   },
@@ -488,10 +488,10 @@
     "verdict": "GAGNANTE",
     "wf_precision": 0.0,
     "wf_folds": [
-      -18.81,
-      -3.29,
-      -0.08,
-      -10.92
+      -8.11,
+      -2.13,
+      -2.44,
+      -7.74
     ],
     "robuste": false
   },
@@ -550,10 +550,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 25.0,
     "wf_folds": [
-      3.14,
-      -14.36,
+      10.22,
+      -13.66,
       0.0,
-      -10.98
+      -16.8
     ],
     "robuste": false
   },
@@ -579,14 +579,14 @@
     "frais_effectif_pct": 0.09,
     "slippage_bps": 10.0,
     "verdict": "GAGNANTE",
-    "wf_precision": 50.0,
+    "wf_precision": 25.0,
     "wf_folds": [
-      9.58,
-      12.06,
+      4.83,
+      -14.8,
       0.0,
-      -1.35
+      -4.3
     ],
-    "robuste": true
+    "robuste": false
   },
   {
     "date": "2026-07-10 00:26",
@@ -612,10 +612,10 @@
     "verdict": "PERDANTE",
     "wf_precision": 50.0,
     "wf_folds": [
-      -4.78,
-      -0.68,
-      7.83,
-      4.49
+      -6.21,
+      -0.31,
+      7.09,
+      7.07
     ],
     "robuste": false
   },

@@ -61,7 +61,7 @@
       "source": "reflection"
     },
     "ETHUSDT": {
-      "tp": 1.0,
+      "tp": 1.25,
       "sl": 2.5,
       "historique": [
         {
@@ -77,10 +77,21 @@
           "sl": 2.5,
           "raison": "Améliorer le ratio gain/risque >= 2x SL (prince Paul Tudor Jones : ratio minimum 5:1, TP >= 2x SL)",
           "source": "reflection"
+        },
+        {
+          "ts": "2026-07-24 08:10:01",
+          "tp": 1.25,
+          "sl": 2.5,
+          "raison": "wr 60.0%>= 60.0% et gain moyen 0.238%< TP-0.3: elargir TP",
+          "stats": {
+            "n": 5,
+            "wr": 60.0,
+            "avg_win": 0.238
+          }
         }
       ],
-      "ajuste_le": "2026-07-17 08:15:01",
-      "raison": "[reflection] Améliorer le ratio gain/risque >= 2x SL (prince Paul Tudor Jones : ratio minimum 5:1, TP >= 2x SL)",
+      "ajuste_le": "2026-07-24 08:10:01",
+      "raison": "wr 60.0%>= 60.0% et gain moyen 0.238%< TP-0.3: elargir TP",
       "source": "reflection"
     },
     "BNBUSDT": {
@@ -160,7 +171,26 @@
       "ajuste_le": "2026-07-21 08:15:01",
       "raison": "[reflection] Biais baissier court-terme confirmé (-0.30, conf=0.65), réduire TP de 4% à 3.5% pour s'aligner avec la pression vendeuse et limiter le risque",
       "source": "reflection"
+    },
+    "ARBUSDT": {
+      "tp": 1.75,
+      "sl": 1.5,
+      "historique": [
+        {
+          "ts": "2026-07-24 08:10:01",
+          "tp": 1.75,
+          "sl": 1.5,
+          "raison": "wr 62.5%>= 60.0% et gain moyen 0.348%< TP-0.3: elargir TP",
+          "stats": {
+            "n": 8,
+            "wr": 62.5,
+            "avg_win": 0.348
+          }
+        }
+      ],
+      "ajuste_le": "2026-07-24 08:10:01",
+      "raison": "wr 62.5%>= 60.0% et gain moyen 0.348%< TP-0.3: elargir TP"
     }
   },
-  "dernier_cycle": "2026-07-23 08:10:01"
+  "dernier_cycle": "2026-07-24 08:10:01"
 }
