@@ -11,18 +11,15 @@ consensus social par actif, utilisable comme:
     traders est franchement baissier sur l'actif visé).
   - Résumé texte pour le digest Telegram.
 
-Sources (zéro coût API côté lecture des posts):
-  - Nitter (miroir Twitter/X sans authentification) — plusieurs instances en
-    fallback (nitter.net, nitter.privacydev.net, nitter.poast.org).
-  - Perplexity API (1 seul appel batché par trader, PAS un par post) pour
-    l'extraction structurée des signaux -> JSON.
+Source: Perplexity API (web search intégré) — 1 seul appel par trader qui
+cherche ET extrait les signaux en une seule requête. Pas besoin de Nitter
+(ni d'API X payante).
 
 Cache fichier /tmp/social_cache.json (TTL 30 min par handle) pour éviter de
-marteler Nitter à chaque cycle.
+marteler l'API à chaque cycle.
 
-Off par défaut (SOCIAL_GATE=0). Fail-open: toute erreur, indispo Nitter,
-indispo Perplexity, ou < 3 signaux -> autorise l'entrée (pas de blocage
-intempestif d'un module encore jeune / dépendant de miroirs tiers instables).
+Off par défaut (SOCIAL_GATE=0). Fail-open: toute erreur, indispo Perplexity,
+ou < 3 signaux -> autorise l'entrée (pas de blocage intempestif).
 
 CLI (iPhone-friendly, une seule commande par usage):
   python social_consensus.py                  — run complet, affiche tout
@@ -33,8 +30,6 @@ import os
 import re
 import time
 import json
-import html as _htmlmod
-from html.parser import HTMLParser
 
 try:
     import requests
@@ -57,12 +52,6 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 PPLX_URL = "https://api.perplexity.ai/chat/completions"
 PPLX_MODEL = "llama-3.1-sonar-small-128k-online"
-
-NITTER_INSTANCES = [
-    "https://nitter.net",
-    "https://nitter.privacydev.net",
-    "https://nitter.poast.org",
-]
 
 # Les 8 traders surveillés (handle -> description courte, pour audit/logs)
 TRADERS = {
@@ -145,194 +134,36 @@ def symbole_depuis_actif(actif):
     return None
 
 
-# ---------------------------------------------------------------- NITTER PARSING
+# ---------------------------------------------------------------- PERPLEXITY WEB SEARCH
 
-class _NitterTweetParser(HTMLParser):
-    """Parseur HTML minimal (stdlib, pas de dépendance externe) pour extraire
-    le texte des tweets + timestamp + lien depuis une page Nitter (.timeline-item).
-    Nitter rend chaque tweet dans un bloc <div class="timeline-item">, avec le
-    texte dans <div class="tweet-content ..."> et le lien/heure dans
-    <span class="tweet-date"><a title="..." href="...">, cette dernière balise
-    apparaissant APRES le bloc tweet-content dans le même timeline-item. On
-    accumule donc les infos par timeline-item et on flush au bon moment.
-    """
-
-    def __init__(self):
-        super().__init__(convert_charrefs=True)
-        self.posts = []
-        self._item_depth = 0        # profondeur dans un timeline-item courant
-        self._in_item = False
-        self._in_content = False
-        self._content_depth = 0
-        self._current_text = []
-        self._current_url = None
-        self._current_ts = None
-        self._pending_href_for_date = False
-        self._have_content = False
-
-    def _flush_item(self):
-        texte = "".join(self._current_text).strip()
-        texte = re.sub(r"\s+", " ", texte)
-        if texte:
-            self.posts.append({
-                "text": texte,
-                "timestamp": self._current_ts,
-                "url": self._current_url,
-            })
-        self._current_text = []
-        self._current_url = None
-        self._current_ts = None
-        self._have_content = False
-
-    def handle_starttag(self, tag, attrs):
-        d = dict(attrs)
-        classes = d.get("class", "") or ""
-        if tag == "div" and "timeline-item" in classes:
-            if self._in_item and self._have_content:
-                self._flush_item()
-            self._in_item = True
-            self._item_depth = 1
-            return
-        if self._in_item and tag == "div":
-            self._item_depth += 1
-        if tag == "div" and "tweet-content" in classes:
-            self._in_content = True
-            self._content_depth = 1
-            self._current_text = []
-            return
-        if self._in_content and tag == "div":
-            self._content_depth += 1
-        if tag == "a" and "tweet-date" not in classes and self._have_content:
-            href = d.get("href", "")
-            if "/status/" in href and self._current_url is None:
-                self._current_url = href
-        if tag == "span" and "tweet-date" in classes:
-            self._pending_href_for_date = True
-        if self._pending_href_for_date and tag == "a":
-            self._current_url = d.get("href") or self._current_url
-            self._current_ts = d.get("title") or self._current_ts
-            self._pending_href_for_date = False
-
-    def handle_endtag(self, tag):
-        if self._in_content and tag == "div":
-            self._content_depth -= 1
-            if self._content_depth <= 0:
-                self._in_content = False
-                self._have_content = True
-        if self._in_item and tag == "div":
-            self._item_depth -= 1
-            if self._item_depth <= 0:
-                self._in_item = False
-                if self._have_content:
-                    self._flush_item()
-
-    def handle_data(self, data):
-        if self._in_content:
-            self._current_text.append(data)
-
-    def close(self):
-        super().close()
-        if self._have_content:
-            self._flush_item()
-
-
-def _parse_nitter_html(html_text):
-    """Extrait la liste de posts depuis le HTML d'une page Nitter.
-    Fallback regex si le parser structuré ne trouve rien (mise en page variable
-    selon l'instance Nitter)."""
-    try:
-        parser = _NitterTweetParser()
-        parser.feed(html_text)
-        parser.close()
-        if parser.posts:
-            return parser.posts
-    except Exception:
-        pass
-    # fallback regex brut: on cherche les blocs tweet-content
-    try:
-        blocs = re.findall(
-            r'tweet-content[^>]*>(.*?)</div>', html_text, re.S)
-        posts = []
-        for b in blocs:
-            texte = re.sub(r"<[^>]+>", " ", b)
-            texte = _htmlmod.unescape(texte)
-            texte = re.sub(r"\s+", " ", texte).strip()
-            if texte:
-                posts.append({"text": texte, "timestamp": None, "url": None})
-        return posts
-    except Exception:
-        return []
-
-
-def _fetch_posts(handle, n=5):
-    """Récupère les n posts récents d'un trader depuis Nitter.
-    Essaie plusieurs instances Nitter en repli. Cache 30 min par handle.
-    Retourne une liste de {text, timestamp, url} (vide si tout échoue)."""
+def _chercher_signaux_trader(handle):
+    """Utilise Perplexity API (web search integre) pour chercher les derniers
+    posts crypto du trader sur X/Twitter et en extraire des signaux structures.
+    Un seul appel API par trader. Cache 30 min. Retourne liste de signaux."""
     cache = _load_cache()
     entry = cache.get(handle)
     now = time.time()
     if entry and now - entry.get("t", 0) < CACHE_TTL:
-        return entry.get("posts", [])[:n]
+        return entry.get("signaux", [])
 
-    posts = []
-    if requests is not None:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (compatible; SocialConsensusBot/1.0)"
-        }
-        for base in NITTER_INSTANCES:
-            try:
-                r = requests.get(f"{base}/{handle}", headers=headers, timeout=12)
-                if r.status_code != 200 or not r.text:
-                    continue
-                parsed = _parse_nitter_html(r.text)
-                if parsed:
-                    posts = parsed[:n]
-                    break
-            except Exception:
-                continue
-
-    # on met à jour le cache même si vide (évite de re-frapper Nitter en boucle
-    # quand toutes les instances sont down) mais avec une TTL plus courte pour
-    # les résultats vides afin de retenter plus tôt
-    cache[handle] = {"t": now, "posts": posts}
-    _save_cache(cache)
-    return posts
-
-
-# ---------------------------------------------------------------- PERPLEXITY EXTRACTION
-
-def _extraire_signaux(posts, handle):
-    """Utilise l'API Perplexity pour extraire les signaux de trading structurés
-    depuis TOUS les posts d'un trader en UN SEUL appel (batché, économique).
-    Retourne une liste de dicts: asset, direction, confidence, price_target,
-    timeframe, reasoning. Liste vide si pas de posts, pas de clé API, ou erreur."""
-    if not posts:
-        return []
     if not PPLX_API_KEY or requests is None:
         return []
 
-    posts_txt = "\n".join(
-        f"Post {i+1}: {p.get('text', '')}" for i, p in enumerate(posts) if p.get("text")
-    )
-    if not posts_txt.strip():
-        return []
-
+    desc = TRADERS.get(handle, "")
     system_prompt = (
-        "Tu es un analyste de trading. Analyse ces posts Twitter d'un trader "
-        "crypto et extrais les signaux trading structurés. Réponds en JSON."
+        "Tu es un analyste de trading crypto. Cherche sur le web les derniers "
+        "posts et analyses de ce trader sur X/Twitter et extrais ses signaux "
+        "de trading crypto. Reponds en JSON uniquement."
     )
     user_prompt = (
-        f"Voici {len(posts)} posts récents du trader @{handle}:\n\n{posts_txt}\n\n"
-        "Pour CHAQUE post contenant un signal de trading exploitable, extrais un "
-        "objet JSON avec les champs: asset (ex: BTC, ETH, SOL — symbole court), "
-        "direction (bullish, bearish, ou neutral), confidence (nombre 0.0-1.0), "
-        "price_target (nombre ou null si non mentionné), timeframe (short, medium, "
-        "ou long), reasoning (1 phrase courte résumant le raisonnement). "
-        "Ignore les posts sans contenu trading (memes, réponses hors sujet, etc.). "
-        "Réponds UNIQUEMENT avec un JSON de la forme "
-        '{"signaux": [{"asset": "...", "direction": "...", "confidence": 0.0, '
-        '"price_target": null, "timeframe": "...", "reasoning": "..."}]}'
-        " sans aucun texte avant ou après."
+        f"Trader: @{handle} ({desc})\n\n"
+        "Cherche ses derniers posts sur X/Twitter (48 dernieres heures) concernant "
+        "le crypto. Pour chaque signal trading trouve, extrais: asset (symbole court: "
+        "BTC, ETH, SOL, etc.), direction (bullish/bearish/neutral), confidence (0.0-1.0), "
+        "price_target (nombre ou null), timeframe (short/medium/long), reasoning (1 phrase). "
+        'Reponds UNIQUEMENT avec un JSON: {"signaux": [{"asset": "...", "direction": "...", '
+        '"confidence": 0.0, "price_target": null, "timeframe": "...", "reasoning": "..."}]}. '
+        'Si aucun signal trouve, retourne {"signaux": []}.'
     )
 
     try:
@@ -355,7 +186,6 @@ def _extraire_signaux(posts, handle):
         r.raise_for_status()
         data = r.json()
         contenu = data["choices"][0]["message"]["content"]
-        # extraction robuste du JSON (au cas où le modèle ajoute du texte autour)
         m = re.search(r"\{.*\}", contenu, re.S)
         bloc = m.group(0) if m else contenu
         parsed = json.loads(bloc)
@@ -373,6 +203,8 @@ def _extraire_signaux(posts, handle):
                 "reasoning": str(s.get("reasoning", "")).strip(),
                 "trader": handle,
             })
+        cache[handle] = {"t": now, "signaux": out}
+        _save_cache(cache)
         return out
     except Exception:
         return []
@@ -380,17 +212,13 @@ def _extraire_signaux(posts, handle):
 
 # ---------------------------------------------------------------- COLLECTE / AGREGATION
 
-def collecter_signaux(n_posts=5):
-    """Fonction principale: pour chacun des 8 traders, récupère les posts via
-    Nitter puis extrait les signaux via Perplexity. Retourne la liste agrégée
-    de tous les signaux (avec la clé 'trader' déjà renseignée par _extraire_signaux)."""
+def collecter_signaux():
+    """Fonction principale: pour chacun des 8 traders, utilise Perplexity web
+    search pour recuperer et extraire les signaux. Retourne la liste agrégée."""
     tous_signaux = []
     for handle in TRADERS:
         try:
-            posts = _fetch_posts(handle, n=n_posts)
-            if not posts:
-                continue
-            signaux = _extraire_signaux(posts, handle)
+            signaux = _chercher_signaux_trader(handle)
             tous_signaux.extend(signaux)
         except Exception:
             continue
