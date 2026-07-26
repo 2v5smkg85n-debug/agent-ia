@@ -279,6 +279,20 @@ def bandes_bollinger(clotures, periode=20, ecart_type=2):
 # ============================================
 # GENERATION DE SIGNAUX (basee sur indicateurs reels)
 # ============================================
+_SP_CACHE = {"vals": None, "mtime": 0}
+
+def _strat_params():
+    """Lit strat_params.json (cache en memoire). Permet a l'auto-tuning de fonctionner."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "strat_params.json")
+    try:
+        mtime = os.path.getmtime(path)
+        if _SP_CACHE["mtime"] != mtime:
+            _SP_CACHE["vals"] = json.load(open(path))
+            _SP_CACHE["mtime"] = mtime
+        return _SP_CACHE["vals"] or {}
+    except Exception:
+        return {}
+
 def analyser_actif(symbole, intervalle="1h"):
     """Analyse complete d'un actif avec tous les indicateurs."""
     bougies = historique_ohlcv(symbole, intervalle, 200)
@@ -287,11 +301,17 @@ def analyser_actif(symbole, intervalle="1h"):
     clotures = [b["cloture"] for b in bougies]
     prix = clotures[-1]
 
+    # Seuils dynamiques depuis strat_params.json (auto-tuning compatible)
+    sp = _strat_params()
+    _rsi_achat = float(sp.get("rsi_achat", 35))
+    _rsi_surachat = float(sp.get("rsi_vente", 70))
+    _bb_ecart = float(sp.get("bb_ecart", 2.0))
+
     # Calcule tous les indicateurs
     sma_courte, sma_longue = moyennes_mobiles(clotures, 20, 50)
     rsi_val = rsi(clotures, 14)
     macd_line, signal_line, histo = macd(clotures)
-    bb_milieu, bb_haut, bb_bas = bandes_bollinger(clotures, 20, 2)
+    bb_milieu, bb_haut, bb_bas = bandes_bollinger(clotures, 20, _bb_ecart)
 
     # Determine le signal
     signaux = []
@@ -306,14 +326,17 @@ def analyser_actif(symbole, intervalle="1h"):
             signaux.append("SMA: tendance baissiere (SMA20 < SMA50)")
             score -= 1
 
-    # 2. RSI (survente/surachat)
+    # 2. RSI (survente/surachat) — seuils dynamiques
     if rsi_val is not None:
-        if rsi_val < 30:
+        if rsi_val < _rsi_achat:
             signaux.append(f"RSI: survente ({rsi_val:.1f}) - opportunite d'achat")
             score += 2
-        elif rsi_val > 70:
+        elif rsi_val > _rsi_surachat:
             signaux.append(f"RSI: surachat ({rsi_val:.1f}) - risque de correction")
             score -= 2
+        elif rsi_val < 50:
+            signaux.append(f"RSI: legerement bas ({rsi_val:.1f}) - zone d'achat faible")
+            score += 1
         else:
             signaux.append(f"RSI: neutre ({rsi_val:.1f})")
 
@@ -328,10 +351,15 @@ def analyser_actif(symbole, intervalle="1h"):
         else:
             signaux.append("MACD: neutre")
 
-    # 4. Bandes de Bollinger
-    if bb_haut and bb_bas:
+    # 4. Bandes de Bollinger — signal etendu pour marche QUIET
+    if bb_haut and bb_bas and bb_milieu:
+        _demi_bas = bb_milieu - bb_bas  # distance milieu -> bande basse
         if prix <= bb_bas:
             signaux.append("Bollinger: prix sous bande basse (survente)")
+            score += 1
+        elif _demi_bas > 0 and prix <= bb_bas + 0.25 * _demi_bas:
+            # Prix proche de la bande basse (dans le quart inferieur) — signal range
+            signaux.append(f"Bollinger: proche bande basse (zone d'achat range)")
             score += 1
         elif prix >= bb_haut:
             signaux.append("Bollinger: prix sur bande haute (surachat)")

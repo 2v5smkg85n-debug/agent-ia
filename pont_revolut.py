@@ -59,6 +59,12 @@ BINANCE_TO_REVOLUTX = {
     "UNIUSDT": "UNI-EUR",
     "PENDLEUSDT": "PENDLE-EUR",
     "ARBUSDT": "ARB-EUR",
+    "DOGEUSDT": "DOGE-EUR",
+    "AVAXUSDT": "AVAX-EUR",
+    "LINKUSDT": "LINK-EUR",
+    "OPUSDT": "OP-EUR",
+    "INJUSDT": "INJ-EUR",
+    "NEARUSDT": "NEAR-EUR",
 }
 
 logging.basicConfig(
