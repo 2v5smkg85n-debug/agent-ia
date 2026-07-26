@@ -9,6 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 import performance
 import ia_render  # IA-ROUTE-INSTALLE
+import revolut_live_render  # LIVE-ROUTE-INSTALLE
 
 
 def load_env():
@@ -288,7 +289,7 @@ th{{color:var(--muted);font-weight:600;font-size:11px}}
 .lnk{{color:#58a6ff;text-decoration:none}}
 </style></head><body>
 <h1>Agent IA — Paper Trading</h1>
-<div class="meta">Dernier tick : {esc(str(tick))} · actualisation auto 60s · <a class="lnk" href="/perf?token={TOKEN}">📈 Performance</a> · <a class="lnk" href="/ia?token={TOKEN}">🧠 IA</a></div>
+<div class="meta">Dernier tick : {esc(str(tick))} · actualisation auto 60s · <a class="lnk" href="/perf?token={TOKEN}">📈 Performance</a> · <a class="lnk" href="/ia?token={TOKEN}">🧠 IA</a> · <a class="lnk" href="/live?token={TOKEN}">💎 Live</a></div>
 {cards}
 {chart}
 {open_t}
@@ -317,6 +318,19 @@ class Handler(BaseHTTPRequestHandler):
                 out = f"<html><body style='background:#0d1117;color:#e6edf3;font-family:sans-serif;padding:20px'><h2>Erreur rapport perf</h2><pre>{html.escape(str(e))}</pre></body></html>"
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(out.encode())
+            return
+        # Route /live : Revolut X live trading (bridge, staking, P&L reel)
+        if parsed.path in ('/live', '/revolut'):
+            try:
+                out = revolut_live_render.render_live(token)
+            except Exception as e:
+                out = ("<html><body style='background:#0d1117;color:#e6edf3;"
+                       "font-family:sans-serif;padding:20px'><h2>Erreur page Live</h2>"
+                       "<pre>" + html.escape(str(e)) + "</pre></body></html>")
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
             self.wfile.write(out.encode())
             return

@@ -15,11 +15,18 @@ Principe (non invasif — poll paper_trading.json comme telegram_monitor):
   - Etat persiste dans revolut_mirror.json (idempotent, re-executable).
   - Caps de securite: CAP_PAR_TRADE_EUR, CAP_TOTAL_EUR.
   - Telegram alerte a chaque action (reel ou dry-run).
+  - backfill: miroire les positions crypto DEJA ouvertes (avant debut_live)
+    et jamais rattrapees, pour utiliser le capital Revolut X reste inactif.
+    Respecte toujours les caps de securite (CAP_PAR_TRADE_EUR, CAP_TOTAL_EUR,
+    MAX_ACHATS_JOUR) — seul le filtre debut_live est court-circuite.
 
 Lancement:
-  python pont_revolut.py            # un cycle (dry-run)
-  python pont_revolut.py boucle     # boucle (60s)
-  python pont_revolut.py etat       # voir l'etat du miroir
+  python pont_revolut.py                # un cycle (dry-run)
+  python pont_revolut.py boucle          # boucle (60s)
+  python pont_revolut.py etat            # voir l'etat du miroir
+  python pont_revolut.py live            # passage en live (debut_live=now)
+  python pont_revolut.py backfill        # rattrape les positions ouvertes avant debut_live
+  python pont_revolut.py backfill-preview  # previsualise le backfill (aucun ordre)
 """
 import os
 import sys
@@ -36,7 +43,7 @@ MIRROR_FILE = os.path.join(DOSSIER, "revolut_mirror.json")
 DRY_RUN = os.getenv("PONT_REVOLUT_LIVE", "0") != "1"
 QUOTE = "EUR"  # paires EUR (compte approvisionne en EUR)
 CAP_PAR_TRADE_EUR = float(os.getenv("PONT_CAP_TRADE", "5.0"))
-CAP_TOTAL_EUR = float(os.getenv("PONT_CAP_TOTAL", "30.0"))
+CAP_TOTAL_EUR = float(os.getenv("PONT_CAP_TOTAL", "50.0"))
 MAX_ACHATS_JOUR = int(os.getenv("PONT_MAX_TRADES_JOUR", "8"))  # anti-bug runaway
 BOUCLE_INTERVAL = 60
 
@@ -129,8 +136,14 @@ def _nb_achats_aujourdhui(mirror):
             _n += 1
     return _n
 
-def miroirer_achat(client, position, mirror):
-    """Miroire une ouverture de position crypto -> achat Revolut X."""
+def miroirer_achat(client, position, mirror, force=False):
+    """Miroire une ouverture de position crypto -> achat Revolut X.
+
+    force=True: bypass le filtre debut_live (utilise par cmd_backfill pour
+    miroirer les positions ouvertes AVANT le passage en live). Les caps de
+    securite (CAP_PAR_TRADE_EUR, CAP_TOTAL_EUR, MAX_ACHATS_JOUR) restent
+    toujours actifs, meme en mode force.
+    """
     symbole = position.get("symbole", "")
     paire = BINANCE_TO_REVOLUTX.get(symbole)
     if not paire:
@@ -140,8 +153,9 @@ def miroirer_achat(client, position, mirror):
     if cle in mirror.get("achats", {}):
         return  # deja miroire
     # ne pas racheter les positions ouvertes avant le passage en live
+    # (sauf si force=True, utilise explicitement par le backfill)
     debut = mirror.get("debut_live")
-    if debut and position.get("date_ouverture", "") < debut:
+    if not force and debut and position.get("date_ouverture", "") < debut:
         return  # position historique (avant live) — skip
     montant = min(CAP_PAR_TRADE_EUR, CAP_PAR_TRADE_EUR)
     # cap total
@@ -289,12 +303,117 @@ def cmd_live():
     print("=" * 50)
 
 
+def cmd_backfill():
+    """Backfill: miroire les positions crypto DEJA ouvertes (avant debut_live)
+    qui n'ont jamais ete miroirees. Sert a utiliser le capital Revolut X
+    (CAP_TOTAL_EUR) reste inactif depuis le passage en live, en rattrapant
+    les positions ouvertes historiquement. Les caps de securite restent
+    actifs (CAP_PAR_TRADE_EUR, CAP_TOTAL_EUR, MAX_ACHATS_JOUR)."""
+    if os.getenv("PONT_KILL", "0") == "1":
+        log.warning("[KILL] pont Revolut X desactive (PONT_KILL=1) -> backfill skip")
+        return
+    pt = _load(PT_FILE, {})
+    positions = pt.get("positions", [])
+    mirror = init_mirror()
+    a_traiter = []
+    for p in positions:
+        symbole = p.get("symbole", "")
+        if symbole not in BINANCE_TO_REVOLUTX:
+            continue
+        cle = f"{symbole}_{p.get('date_ouverture','')}"
+        if cle in mirror.get("achats", {}):
+            continue  # deja miroire
+        a_traiter.append(p)
+    print("=" * 50)
+    print("PONT REVOLUT X — BACKFILL")
+    print(f"Positions ouvertes non miroirees detectees: {len(a_traiter)}")
+    print("=" * 50)
+    if not a_traiter:
+        print("Rien a rattraper.")
+        return
+    client = None
+    try:
+        from revolut_x import RevolutX
+        client = RevolutX()
+    except Exception as e:
+        log.error("Client Revolut X indispo: %s", e)
+        return
+    avant = set(mirror.get("achats", {}).keys())
+    for p in a_traiter:
+        miroirer_achat(client, p, mirror, force=True)
+    apres = mirror.get("achats", {})
+    nouveaux = [k for k in apres.keys() if k not in avant]
+    print("-" * 50)
+    print(f"Backfill termine: {len(nouveaux)} position(s) miroiree(s)")
+    total = 0.0
+    for k in nouveaux:
+        v = apres[k]
+        total += float(v.get("montant_eur", 0))
+        print(f"  {v['symbole']:<10} {v['montant_eur']:.2f}€ ({v.get('paire')})")
+    print(f"Montant total miroire: {total:.2f}€")
+    print(f"Exposition totale apres backfill: {exposition_totale(mirror):.2f}€ / {CAP_TOTAL_EUR}€")
+    print("=" * 50)
+    _tel(f"🔄 Backfill Revolut X: {len(nouveaux)} position(s) rattrapee(s), {total:.2f}€ miroires")
+
+
+def cmd_backfill_dry():
+    """Previsualise le backfill (aucun ordre, aucune ecriture d'etat)."""
+    pt = _load(PT_FILE, {})
+    positions = pt.get("positions", [])
+    mirror = init_mirror()
+    a_traiter = []
+    for p in positions:
+        symbole = p.get("symbole", "")
+        if symbole not in BINANCE_TO_REVOLUTX:
+            continue
+        cle = f"{symbole}_{p.get('date_ouverture','')}"
+        if cle in mirror.get("achats", {}):
+            continue  # deja miroire
+        a_traiter.append(p)
+    print("=" * 50)
+    print("PONT REVOLUT X — BACKFILL (PREVIEW, aucun ordre passe)")
+    print(f"Cap par trade: {CAP_PAR_TRADE_EUR}€ | Cap total: {CAP_TOTAL_EUR}€")
+    print(f"Exposition actuelle: {exposition_totale(mirror):.2f}€")
+    print(f"Positions ouvertes non miroirees detectees: {len(a_traiter)}")
+    print("=" * 50)
+    if not a_traiter:
+        print("Rien a rattraper.")
+        return
+    expo_simulee = exposition_totale(mirror)
+    n_simule = _nb_achats_aujourdhui(mirror)
+    for p in a_traiter:
+        symbole = p.get("symbole", "")
+        paire = BINANCE_TO_REVOLUTX.get(symbole)
+        montant = CAP_PAR_TRADE_EUR
+        statut = "OK"
+        if expo_simulee + montant > CAP_TOTAL_EUR:
+            montant = max(0.0, CAP_TOTAL_EUR - expo_simulee)
+            if montant < 1.0:
+                statut = "SKIP (cap total atteint)"
+        if n_simule >= MAX_ACHATS_JOUR:
+            statut = "SKIP (max achats/jour atteint)"
+        print(f"  {symbole:<10} -> {paire:<10} {montant:.2f}€  [{statut}] "
+              f"(ouverte le {p.get('date_ouverture','?')})")
+        if statut == "OK":
+            expo_simulee += montant
+            n_simule += 1
+    print("-" * 50)
+    print(f"Exposition projetee apres backfill: {expo_simulee:.2f}€ / {CAP_TOTAL_EUR}€")
+    print("=" * 50)
+
+
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "etat":
         cmd_etat()
         return
     if len(sys.argv) > 1 and sys.argv[1] == "live":
         cmd_live()
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == "backfill":
+        cmd_backfill()
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == "backfill-preview":
+        cmd_backfill_dry()
         return
     if len(sys.argv) > 1 and sys.argv[1] == "boucle":
         log.info("Pont Revolut X demarré (mode %s, intervalle %ss)",
