@@ -517,6 +517,12 @@ def deploy(name, func_name, code, wf, llm_source, parent=None):
     })
     json.dump(strats, open(EVOLVED_JSON, "w"), indent=2, ensure_ascii=False)
     regen_evolved_module(strats)
+    # Auto-mesure evolutia: enregistre la stratégie pour suivi P&L
+    try:
+        import evolutia_profit
+        evolutia_profit.enregistrer_strategie(name, oos_avg, win_avg, trades)
+    except Exception:
+        pass
     # regen backtests pour la nouvelle strategie
     log("Regen backtests pour la nouvelle strategie...")
     try:
