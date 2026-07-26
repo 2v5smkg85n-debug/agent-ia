@@ -593,6 +593,19 @@ def ouvrir_position(pf, signal, prix_actuel):
             pass  # module absent -> pas de gate
         except Exception as _e:
             print(f"  [MACRO GATE erreur {_e}] entrée autorisée (fail-open)")
+    # FILTRE SOCIAL CONSENSUS (gate d'entrée): bloque les achats si les 8 traders
+    # X/Twitter sont majoritairement bearish sur l'actif. Off par défaut.
+    if os.getenv("SOCIAL_GATE", "0") == "1":
+        try:
+            from social_consensus import gate_achat as _social_gate
+            _allow, _raison = _social_gate(signal["symbole"])
+            if not _allow:
+                print(f"  [SOCIAL GATE] {signal.get('nom', signal['symbole'])}: entrée bloquée — {_raison}")
+                return False
+        except ImportError:
+            pass  # module absent -> pas de gate
+        except Exception as _e:
+            print(f"  [SOCIAL GATE erreur {_e}] entrée autorisée (fail-open)")
     # PLUGINS (méta-évolution): hooks d'entrée (veto). Toggle: PLUGINS_ACTIVE=0.
     if os.getenv("PLUGINS_ACTIVE", "1") != "0":
         try:
