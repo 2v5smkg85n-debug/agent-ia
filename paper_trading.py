@@ -566,6 +566,19 @@ def ouvrir_position(pf, signal, prix_actuel):
             pass  # module absent -> pas de gate
         except Exception as _e:
             print(f"  [SENTIMENT GATE erreur {_e}] entrée autorisée (fail-open)")
+    # FILTRE MACRO CALENDAR (gate d'entrée): bloque les achats avant un event High impact
+    # (CPI, NFP, FOMC, ECB...) dans les 2 prochaines heures. Off par défaut.
+    if os.getenv("MACRO_GATE", "0") == "1":
+        try:
+            from macro_calendar import gate_achat as _macro_gate
+            _allow, _raison = _macro_gate(signal["symbole"])
+            if not _allow:
+                print(f"  [MACRO GATE] {signal.get('nom', signal['symbole'])}: entrée bloquée — {_raison}")
+                return False
+        except ImportError:
+            pass  # module absent -> pas de gate
+        except Exception as _e:
+            print(f"  [MACRO GATE erreur {_e}] entrée autorisée (fail-open)")
     # PLUGINS (méta-évolution): hooks d'entrée (veto). Toggle: PLUGINS_ACTIVE=0.
     if os.getenv("PLUGINS_ACTIVE", "1") != "0":
         try:
