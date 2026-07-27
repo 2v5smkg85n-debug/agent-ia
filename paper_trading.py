@@ -799,13 +799,20 @@ def verifier_sorties(pf, prix_actuels):
             continue
         prix_actuel = prix_actuels[sym]
         prix_entree = pos["prix_entree"]
+        # Sanity check: si prix invalide (0 ou negative), skip pour éviter fermeture erronee
+        if not prix_actuel or prix_actuel <= 0 or prix_actuel < prix_entree * 0.5:
+            print(f"  [PRIX INVALIDE] {sym}: prix={prix_actuel} entree={prix_entree} — position preservee")
+            continue
         variation = (prix_actuel - prix_entree) / prix_entree * 100
-        # META-TUNING-INSTALLE : TP/SL par actif (fallback constantes globales)
-        try:
-            from meta_tuning import tp_sl_actif
-            _tp, _sl = tp_sl_actif(sym)
-        except Exception:
+        # TP/SL: en mode scalping, les constantes globales priment sur meta_tuning
+        if os.getenv('SCALPING', '0') == '1':
             _tp, _sl = TAKE_PROFIT_PCT, STOP_LOSS_PCT
+        else:
+            try:
+                from meta_tuning import tp_sl_actif
+                _tp, _sl = tp_sl_actif(sym)
+            except Exception:
+                _tp, _sl = TAKE_PROFIT_PCT, STOP_LOSS_PCT
         # EXTEND_TP (valide backtest +13.35% crypto): si position crypto en profit
         # >= +0.5%, on monte le TP a 4.0% pour laisser courir les gagnants.
         # SL fixe (pas de breakeven). Forex/or/matieres: TP fixe (non valide).
