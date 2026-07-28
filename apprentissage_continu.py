@@ -702,7 +702,7 @@ def classer_cryptos(top_n=10):
     except Exception:
         data = {}
     if not data:
-        log.warning("pattern_learning.json vide — pas de classement possible")
+        print("  pattern_learning.json vide — pas de classement possible")
         return []
     # Calculer le score global par crypto
     scores = []
@@ -743,7 +743,7 @@ def classer_cryptos(top_n=10):
         "total_evalue": len(scores)
     })
     if top:
-        log.info("Top %d cryptos: %s", top_n, ", ".join(s["symbole"] for s in top))
+        print(f"  Top {top_n} cryptos: {', '.join(s['symbole'] for s in top)}")
     return top
 
 
