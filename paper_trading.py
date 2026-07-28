@@ -47,7 +47,7 @@ FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 
 MAX_POSITIONS = 10             # positions concurrentes (multi-strat)
 FENETRE_CORRELATION_MIN = 30     # anti-double-exposition: bloque 2e entree sur actif ouvert <30min
 MAX_POS_PAR_ACTIF = 2           # max positions par actif (differentes strategies)
-RISK_PAR_TRADE = 0.10           # 10% du capital par trade (10 positions simultanees)
+RISK_PAR_TRADE = 0.07           # 7% du capital par trade (10 positions, 70% capital investi)
 INTERVALLE_BOUCLE = 1800       # 30 min (anti-churn : avant 15 min = trop de trades -> frais)
 # Seuilles serres pour trading actif (prise de benefice frequente)
 TAKE_PROFIT_PCT = 2.0  # PROFIT_BOOST_V1           # +1.5% -> encaisse le benefice
