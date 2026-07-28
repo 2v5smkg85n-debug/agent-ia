@@ -698,7 +698,8 @@ def classer_cryptos(top_n=10):
     le top N. Ecrit top_cryptos.json lu par paper_trading.py a chaque cycle.
     Critere de tri: gain moyen combine de tous les patterns sur cet actif."""
     try:
-        data = _load(os.path.join(DOSSIER, "pattern_learning.json"), {})
+        with open(os.path.join(DOSSIER, "pattern_learning.json"), "r", encoding="utf-8") as f:
+            data = json.load(f)
     except Exception:
         data = {}
     if not data:
@@ -736,12 +737,16 @@ def classer_cryptos(top_n=10):
     scores.sort(key=lambda x: x["score"], reverse=True)
     top = scores[:top_n]
     # Ecrire top_cryptos.json
-    _save(os.path.join(DOSSIER, "top_cryptos.json"), {
-        "top": [s["symbole"] for s in top],
-        "classement": top,
-        "mis_a_jour": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "total_evalue": len(scores)
-    })
+    try:
+        with open(os.path.join(DOSSIER, "top_cryptos.json"), "w", encoding="utf-8") as f:
+            json.dump({
+            "top": [s["symbole"] for s in top],
+            "classement": top,
+            "mis_a_jour": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "total_evalue": len(scores)
+        }, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
     if top:
         print(f"  Top {top_n} cryptos: {', '.join(s['symbole'] for s in top)}")
     return top
