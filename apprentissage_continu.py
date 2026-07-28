@@ -682,6 +682,61 @@ Cron recommande (toutes les 30 min):
 """)
 
 
+# ---------------------------------------------------------------- CLASSEMENT
+def classer_cryptos(top_n=10):
+    """Classe toutes les cryptos par performance des patterns et selectionne
+    le top N. Ecrit top_cryptos.json lu par paper_trading.py a chaque cycle.
+    Critere de tri: gain moyen combine de tous les patterns sur cet actif."""
+    try:
+        data = _load(os.path.join(DOSSIER, "pattern_learning.json"), {})
+    except Exception:
+        data = {}
+    if not data:
+        log.warning("pattern_learning.json vide — pas de classement possible")
+        return []
+    # Calculer le score global par crypto
+    scores = []
+    for symbole, patterns in data.items():
+        if not isinstance(patterns, dict) or not patterns:
+            continue
+        total_trades = 0
+        total_wins = 0
+        total_gain = 0.0
+        for pname, stats in patterns.items():
+            if not isinstance(stats, dict):
+                continue
+            t = stats.get("total", 0)
+            w = stats.get("wins", 0)
+            g = stats.get("avg_gain", 0.0)
+            total_trades += t
+            total_wins += w
+            total_gain += g * t  # gain pondere
+        if total_trades < 5:
+            continue  # pas assez de donnees
+        win_rate = total_wins / total_trades if total_trades > 0 else 0
+        gain_moyen = total_gain / total_trades if total_trades > 0 else 0
+        scores.append({
+            "symbole": symbole,
+            "win_rate": round(win_rate, 4),
+            "gain_moyen": round(gain_moyen, 4),
+            "total_patterns": total_trades,
+            "score": round(win_rate * 0.4 + gain_moyen * 0.6, 4)  # mix win_rate + gain
+        })
+    # Trier par score decroissant
+    scores.sort(key=lambda x: x["score"], reverse=True)
+    top = scores[:top_n]
+    # Ecrire top_cryptos.json
+    _save(os.path.join(DOSSIER, "top_cryptos.json"), {
+        "top": [s["symbole"] for s in top],
+        "classement": top,
+        "mis_a_jour": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "total_evalue": len(scores)
+    })
+    if top:
+        log.info("Top %d cryptos: %s", top_n, ", ".join(s["symbole"] for s in top))
+    return top
+
+
 def main():
     try:
         args = sys.argv[1:]

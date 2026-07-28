@@ -275,9 +275,19 @@ def analyser_signaux_techniques(prix_actuels):
     if not INDICATEURS_DISPONIBLES:
         return []
     signaux = []
+    # Top cryptos: ne trader que les 10 meilleurs selon l'apprentissage
+    _top_cryptos = None
+    try:
+        _tc = json.load(open(os.path.join(DOSSIER, "top_cryptos.json")))
+        _top_cryptos = set(_tc.get("top", []))
+    except Exception:
+        pass  # pas de fichier -> trade tous les actifs
     # Analyse tous les marches disposes dans MARCHES_PAPER (crypto ET non-crypto)
     for sym, config in MARCHES_PAPER.items():
         if sym not in prix_actuels:
+            continue
+        # Filtre top cryptos: skip les cryptos hors top 10
+        if _top_cryptos and config.get("marche") == "crypto" and sym not in _top_cryptos:
             continue
         print(f"    Indicateurs {config['nom']}...", end=" ", flush=True)
         try:
