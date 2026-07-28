@@ -606,6 +606,26 @@ def ouvrir_position(pf, signal, prix_actuel):
             pass  # module absent -> pas de gate
         except Exception as _e:
             print(f"  [SOCIAL GATE erreur {_e}] entrée autorisée (fail-open)")
+    # FILTRE BOUGIES (apprentissage): détecte les patterns de bougies japonaises
+    # et bloque l'entrée si le pattern a un win rate < 40% sur cet actif (après 5+ trades).
+    # L'agent apprend quels patterns marchent sur quelles cryptos. Toggle: BOUGIE_GATE=1.
+    _pattern_info = None
+    if os.getenv("BOUGIE_GATE", "1") == "1" and signal.get("marche") == "crypto":
+        try:
+            from candlestick_learning import analyser_avec_apprentissage
+            _pa = analyser_avec_apprentissage(signal["symbole"])
+            _pattern_info = _pa
+            if _pa["score_apprentissage"] <= -0.5:
+                _pats = ", ".join(p["pattern"] for p in _pa.get("patterns", [])) or "aucun"
+                print(f"  [BOUGIES] {signal.get('nom', signal['symbole'])}: {_pats} score={_pa['score_apprentissage']:.2f} — entrée bloquée (pattern perdant)")
+                return False
+            if _pa["patterns"]:
+                _pats = ", ".join(p["pattern"] for p in _pa["patterns"])
+                print(f"  [BOUGIES] {signal.get('nom', signal['symbole'])}: {_pats} score={_pa['score_apprentissage']:.2f}")
+        except ImportError:
+            pass
+        except Exception as _e:
+            print(f"  [BOUGIES erreur {_e}] entrée autorisée (fail-open)")
     # PLUGINS (méta-évolution): hooks d'entrée (veto). Toggle: PLUGINS_ACTIVE=0.
     if os.getenv("PLUGINS_ACTIVE", "1") != "0":
         try:
@@ -757,7 +777,8 @@ def ouvrir_position(pf, signal, prix_actuel):
         # separement de la raison de fermeture (TAKE-PROFIT, STOP-LOSS, TEMPS...)
         "signal_raison": signal.get("raison", ""),
         "source": signal.get("source", ""),
-        "strategie": signal.get("strategie") or signal.get("source") or "inconnu"
+        "strategie": signal.get("strategie") or signal.get("source") or "inconnu",
+        "pattern_bougie": _pattern_info
     }
     pf["positions"].append(position)
     print(f"  [ACHAT] {signal.get('nom',signal['symbole'])} ({signal.get('marche','?')}) @ {prix_actuel:.2f} | {montant:.2f} EUR | qty {quantite:.6f}")
@@ -956,6 +977,16 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
     pf["pic_capital"] = max(pf.get("pic_capital", pf.get("capital_initial", 1000.0)), _cap_total)
     print(f"  [{raison}] {position.get('nom',position['symbole'])} @ {prix_actuel:.2f} | var {variation:+.2f}% | gain {gain:+.2f} EUR")
     notify_ifft("Paper Trade fermeture", f"{raison} {position.get('nom','?')} var {variation:+.2f}%")
+    # Apprentissage bougies: enregistre le résultat du pattern pour apprendre
+    try:
+        _pi = position.get("pattern_bougie")
+        if _pi and _pi.get("patterns"):
+            from candlestick_learning import enregistrer_resultat
+            for _pat in _pi["patterns"]:
+                enregistrer_resultat(_pat["pattern"], position["symbole"], variation, _pat["direction"])
+            print(f"  [BOUGIES] Apprentissage enregistré pour {position['symbole']}")
+    except Exception:
+        pass
 
 # ============================================
 # CYCLE PRINCIPAL
