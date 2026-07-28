@@ -34,7 +34,7 @@ except Exception:
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 
 # Fichier d'apprentissage (chemin absolu /tmp comme demande, avec repli DOSSIER)
-FICHIER_APPRENTISSAGE = "/tmp/pattern_learning.json"
+FICHIER_APPRENTISSAGE = os.path.join(DOSSIER, "pattern_learning.json")
 FICHIER_APPRENTISSAGE_REPLI = os.path.join(DOSSIER, "pattern_learning.json")
 
 # Import de historique_ohlcv / analyser_actif depuis indicateurs.py (meme dossier)
