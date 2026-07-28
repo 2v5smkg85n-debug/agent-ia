@@ -323,8 +323,8 @@ def analyser_actif(symbole, intervalle="1h"):
             signaux.append("SMA: tendance haussiere (SMA20 > SMA50)")
             score += 1
         else:
-            signaux.append("SMA: tendance baissiere (SMA20 < SMA50)")
-            score -= 1
+            signaux.append("SMA: tendance baissiere (SMA20 < SMA50) — FILTRE")
+            score -= 2  # penalite renforcee: ne pas acheter dans un downtrend
 
     # 2. RSI (survente/surachat) — seuils dynamiques
     if rsi_val is not None:

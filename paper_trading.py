@@ -78,8 +78,8 @@ PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% r
 # MODE SCALPING (SCALPING=1): boucle 2 min, TP 0.5%, SL 0.3%
 if os.getenv('SCALPING', '0') == '1':
     INTERVALLE_BOUCLE = 120
-    TAKE_PROFIT_PCT = 0.5
-    STOP_LOSS_PCT = 0.3
+    TAKE_PROFIT_PCT = 1.0
+    STOP_LOSS_PCT = 0.5
     FENETRE_CORRELATION_MIN = 0
     EXTEND_SEUIL = 999
     TRAIL_ACTIF = 999
