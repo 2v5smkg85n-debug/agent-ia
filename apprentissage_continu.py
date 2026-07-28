@@ -654,6 +654,15 @@ def cycle_complet():
         except Exception:
             pass
 
+    print("\n[5/5] Classement dynamique des cryptos")
+    top = classer_cryptos(top_n=10)
+    if top:
+        print(f"  Top 10 cryptos sélectionnées:")
+        for i, c in enumerate(top):
+            print(f"    {i+1}. {c['symbole']} win={c['win_rate']*100:.0f}% gain={c['gain_moyen']*100:.3f}%")
+    else:
+        print("  Pas assez de données pour le classement")
+
     print("=" * 60)
     return {
         "patterns_tested": total_patterns,
@@ -661,6 +670,7 @@ def cycle_complet():
         "patterns_perdants": total_perdants,
         "changements": changements,
         "rapport_performance": rapport_perf,
+        "top_cryptos": top,
     }
 
 
