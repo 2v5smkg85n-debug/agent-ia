@@ -75,14 +75,16 @@ PARTIAL_TP_SEUIL = 0.8     # +1.0% -> encaisse une fraction du gain, garde le re
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 
 # ============================================
-# MODE SCALPING (SCALPING=1): boucle 2 min, TP 0.5%, SL 0.3%
+# MODE SCALPING (SCALPING=1): boucle 2 min, TP 2%, SL 0.8%
 if os.getenv('SCALPING', '0') == '1':
     INTERVALLE_BOUCLE = 120
-    TAKE_PROFIT_PCT = 5.0
-    STOP_LOSS_PCT = 2.0
-    FENETRE_CORRELATION_MIN = 0
+    TAKE_PROFIT_PCT = 2.0      # +2% — realiste en 15m, ~4€ par trade gagnant
+    STOP_LOSS_PCT = 0.8       # -0.8% — petite perte, coupe vite
+    FENETRE_CORRELATION_MIN = 30
     EXTEND_SEUIL = 999
-    TRAIL_ACTIF = 999
+    BREAKEVEN_SEUIL = 1.0      # +1% -> SL monte au breakeven
+    TRAIL_ACTIF = 1.5          # +1.5% -> trailing
+    TRAIL_PCT = 0.5            # trail 0.5% sous le pic
     PARTIAL_TP_SEUIL = 999
     SCALPING_TIMEFRAME = '15m'
 else:
@@ -137,26 +139,7 @@ MARCHES_PAPER = {
     "ATOMUSDT": {"nom": "Cosmos", "marche": "crypto", "source": "binance"},
     "DOTUSDT": {"nom": "Polkadot", "marche": "crypto", "source": "binance"},
     "MATICUSDT": {"nom": "Polygon", "marche": "crypto", "source": "binance"},
-    # Forex (Yahoo)
-    "EURUSD=X": {"nom": "EUR/USD", "marche": "forex", "source": "yahoo"},
-    "GBPUSD=X": {"nom": "GBP/USD", "marche": "forex", "source": "yahoo"},
-    "JPY=X": {"nom": "USD/JPY", "marche": "forex", "source": "yahoo"},
-    "GC=F": {"nom": "Or", "marche": "forex", "source": "yahoo"},
-    # Actions (Yahoo)
-    "AAPL": {"nom": "Apple", "marche": "actions", "source": "yahoo"},
-    "TSLA": {"nom": "Tesla", "marche": "actions", "source": "yahoo"},
-    "NVDA": {"nom": "Nvidia", "marche": "actions", "source": "yahoo"},
-    "MSFT": {"nom": "Microsoft", "marche": "actions", "source": "yahoo"},
-    # Matieres premieres (Yahoo)
-    "BZ=F": {"nom": "Petrole Brent", "marche": "matieres", "source": "yahoo"},
-    "NG=F": {"nom": "Gaz naturel", "marche": "matieres", "source": "yahoo"},
-    "HG=F": {"nom": "Cuivre", "marche": "matieres", "source": "yahoo"},
-    "ZW=F": {"nom": "Ble", "marche": "matieres", "source": "yahoo"},
-    # Indices (Yahoo)
-    "^GSPC": {"nom": "S&P 500", "marche": "indices", "source": "yahoo"},
-    "^IXIC": {"nom": "Nasdaq", "marche": "indices", "source": "yahoo"},
-    "^GDAXI": {"nom": "DAX", "marche": "indices", "source": "yahoo"},
-    "^FCHI": {"nom": "CAC 40", "marche": "indices", "source": "yahoo"},
+    # CRYPTO UNIQUEMENT — actions/forex/matieres/indices desactives
 }
 
 # ============================================
@@ -335,7 +318,7 @@ def analyser_signaux_techniques(prix_actuels):
                     "nom": config["nom"],
                     "marche": config["marche"],
                     "source": "indicateurs",
-                    "strategie": "technique",
+                    "strategie": "momentum" if any("MOMENTUM" in s for s in analyse.get("signaux", [])) else "technique",
                     "score": score,
                     "raison": "; ".join(analyse["signaux"][:2])
                 })
