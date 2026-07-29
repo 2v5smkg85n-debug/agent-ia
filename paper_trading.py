@@ -810,9 +810,10 @@ def ouvrir_position(pf, signal, prix_actuel):
                             pass
         except Exception:
             pass
-    # Clamp de sécurité: un plugin bugué ne peut pas dépasser le liquide ni aller négatif
-    montant = max(0, min(montant, pf["liquidites"]))
-    if montant < 5:
+    # Clamp de securite: un plugin bugue ne peut pas depasser le liquide ni aller negatif
+    # PLANCHER MINIMUM 80EUR applique APRES tous les filtres (regime, sentiment, plugins)
+    montant = max(80, min(montant, pf["liquidites"]))
+    if pf["liquidites"] < 80:
         return False
     frais = montant * FRAIS_TRANSACTION
     quantite = (montant - frais) / prix_actuel
@@ -922,7 +923,7 @@ def verifier_sorties(pf, prix_actuels):
         elif prix_actuel <= _sl_price:
             positions_a_fermer.append((pos, prix_actuel, f"STOP-{_sl_regle.upper()}", variation))
         # Sortie intelligente: fermer si pattern baissier detecte (en profit)
-        elif variation > 0 and os.getenv("SMART_EXIT", "1") == "1":
+        elif variation > 0 and os.getenv("SMART_EXIT", "0") == "1":
             try:
                 from candlestick_learning import analyser_avec_apprentissage
                 _se = analyser_avec_apprentissage(sym)
