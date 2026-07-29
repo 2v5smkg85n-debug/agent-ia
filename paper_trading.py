@@ -637,6 +637,30 @@ def ouvrir_position(pf, signal, prix_actuel):
             pass
         except Exception as _e:
             print(f"  [BOUGIES erreur {_e}] entrée autorisée (fail-open)")
+    # META-INTELLIGENCE: backtest instantane + correlation + confidence sizing
+    # L'agent verifie si ce signal a gagne historiquement avant d'ouvrir.
+    if os.getenv("META_IA", "1") == "1" and signal.get("marche") == "crypto":
+        try:
+            from meta_intelligence import meta_analyse, positions_correlees, taille_position_optimale
+            _ma = meta_analyse(signal["symbole"])
+            if _ma["recommendation"] == "SKIP":
+                print(f"  [META-IA] {signal.get('nom', signal['symbole'])}: SKIP (confiance {_ma['confiance']:.2f}, backtest win {_ma.get('backtest_win_rate',0)*100:.0f}%)")
+                return False
+            if _ma.get("correlation_bloquee"):
+                print(f"  [META-IA] {signal.get('nom', signal['symbole'])}: bloque (correlation avec position existante)")
+                return False
+            # Ajuster la taille de position selon la confiance
+            _tp = taille_position_optimale(_ma["confiance"], pf["liquidites"], risk_base=RISK_PAR_TRADE)
+            if _tp["montant"] < 10:
+                print(f"  [META-IA] {signal.get('nom', signal['symbole'])}: skip (confiance trop basse)")
+                return False
+            signal["meta_confiance"] = _ma["confiance"]
+            signal["meta_taille"] = _tp["taille"]
+            print(f"  [META-IA] {signal.get('nom', signal['symbole'])}: {_ma['recommendation']} confiance={_ma['confiance']:.2f} taille={_tp['taille']} ({_tp['montant']:.0f}€)")
+        except ImportError:
+            pass
+        except Exception as _e:
+            print(f"  [META-IA erreur {_e}] entree autorisee (fail-open)")
     # PLUGINS (méta-évolution): hooks d'entrée (veto). Toggle: PLUGINS_ACTIVE=0.
     if os.getenv("PLUGINS_ACTIVE", "1") != "0":
         try:
@@ -685,7 +709,15 @@ def ouvrir_position(pf, signal, prix_actuel):
         print(f"  [SIZING] {signal.get('nom',signal['symbole'])}: {raison}")
     except ImportError:
         # Fallback si gestion_risque.py absent: ancien comportement 20% fixe
-        montant = pf["liquidites"] * RISK_PAR_TRADE
+        # Montant ajuste par la meta-intelligence (confidence sizing)
+        _meta_taille = signal.get("meta_taille")
+        _meta_conf = signal.get("meta_confiance", 0.5)
+        if _meta_taille == "grande":
+            montant = pf["liquidites"] * min(RISK_PAR_TRADE * 1.5, 0.30)
+        elif _meta_taille == "petite":
+            montant = pf["liquidites"] * RISK_PAR_TRADE * 0.5
+        else:
+            montant = pf["liquidites"] * RISK_PAR_TRADE
     except Exception as e:
         print(f"  [SIZING erreur {e}] fallback 20% fixe")
         montant = pf["liquidites"] * RISK_PAR_TRADE
