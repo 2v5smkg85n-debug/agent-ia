@@ -367,6 +367,16 @@ def analyser_actif(symbole, intervalle="1h"):
         else:
             signaux.append("Bollinger: dans les bandes normales")
 
+    # 5b. MOMENTUM (strategie gagnante): achete quand la crypto MONTE
+    # SMA20 > SMA50 (uptrend) + RSI 50-65 (fort mais pas surachte) = momentum
+    if sma_courte is not None and sma_longue is not None and sma_courte > sma_longue:
+        if rsi_val is not None and 50 <= rsi_val <= 65:
+            score += 2
+            signaux.append("MOMENTUM: uptrend + RSI fort (50-65) — achete la force")
+        elif rsi_val is not None and 45 <= rsi_val <= 50:
+            score += 1
+            signaux.append("MOMENTUM faible: uptrend + RSI 45-50")
+
     # Verdict
     if score >= 2:
         verdict = "ACHAT"
