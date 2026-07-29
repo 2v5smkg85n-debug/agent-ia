@@ -496,7 +496,7 @@ def positions_correlees_avec_portefeuille(nouveau_symbole, symboles_ouverts, seu
 def taille_position_optimale(confiance, capital, risk_base=0.21):
     """
     Ajuste la taille de la position selon la confiance du backtest instantane:
-      confiance < 0.4        -> skip (0)
+      confiance < 0.2        -> skip (0)
       confiance 0.4 - 0.6    -> petite (risk_base * 0.5)
       confiance 0.6 - 0.8    -> normale (risk_base * 1.0)
       confiance > 0.8        -> grande (risk_base * 1.5, plafonnee a 30% du capital)
