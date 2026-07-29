@@ -75,18 +75,19 @@ PARTIAL_TP_SEUIL = 0.8     # +1.0% -> encaisse une fraction du gain, garde le re
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 
 # ============================================
-# MODE SCALPING (SCALPING=1): boucle 90s, TP 2.5%, SL 0.7%
+# MODE SCALPING (SCALPING=1): boucle 5 min, TP 3%, SL 1%, timeframe 1h
+# Utilise les strategies backtestees (72% WR) au lieu d'indicateurs generiques (12% WR)
 if os.getenv('SCALPING', '0') == '1':
-    INTERVALLE_BOUCLE = 90       # 90s au lieu de 120s — plus de cycles
+    INTERVALLE_BOUCLE = 300      # 5 min — les signaux 1h changent lentement
     TAKE_PROFIT_PCT = 3.0      # +3% — couvre les frais + benefice net
-    STOP_LOSS_PCT = 0.7       # -0.7% — petite perte, coupe vite
+    STOP_LOSS_PCT = 1.0        # -1.0% — perte limitee
     FENETRE_CORRELATION_MIN = 15
     EXTEND_SEUIL = 999
-    BREAKEVEN_SEUIL = 1.5      # +1.5% -> SL monte au breakeven (laisse respirer)
+    BREAKEVEN_SEUIL = 1.5      # +1.5% -> SL monte au breakeven
     TRAIL_ACTIF = 2.0          # +2.0% -> trailing
     TRAIL_PCT = 0.5            # trail 0.5% sous le pic
     PARTIAL_TP_SEUIL = 999
-    SCALPING_TIMEFRAME = '15m'
+    SCALPING_TIMEFRAME = '1h'  # 1h au lieu de 15m — matche les backtests
 else:
     SCALPING_TIMEFRAME = '1h'
 
@@ -1094,11 +1095,10 @@ def tick():
         except Exception as e:
             print(f"    Module signaux_gagnants indisponible: {e}")
         tous_signaux = list(signaux_gagnants)
-        # Fallback: si aucune strategie gagnante ne signale, on utilise les indicateurs generiques
+        # Fallback: si aucune strategie gagnante ne signale, ON ATTEND
+        # (ne pas utiliser les indicateurs generiques - trop de pertes)
         if not tous_signaux:
-            print("\nAucun signal gagnant -> indicateurs generiques...")
-            signaux_techniques = analyser_signaux_techniques(prix)
-            tous_signaux = signaux_techniques
+            print("\nAucun signal gagnant valide -> on attend (pas d'indicateurs generiques)")
         # En dernier recours: l'IA (rare)
         if not tous_signaux:
             print("\nAucun signal technique -> analyse IA (fallback)...")
