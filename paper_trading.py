@@ -44,7 +44,7 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 # ============================================
 CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
-MAX_POSITIONS = 4              # positions concurrentes (grosses positions)
+MAX_POSITIONS = 6              # positions concurrentes (diversifie)
 FENETRE_CORRELATION_MIN = 30     # anti-double-exposition: bloque 2e entree sur actif ouvert <30min
 MAX_POS_PAR_ACTIF = 2           # max positions par actif (differentes strategies)
 RISK_PAR_TRADE = 0.21           # 21% du capital par trade (4 positions, ~85% investi)
@@ -109,6 +109,34 @@ MARCHES_PAPER = {
     "OPUSDT": {"nom": "Optimism", "marche": "crypto", "source": "binance"},
     "INJUSDT": {"nom": "Injective", "marche": "crypto", "source": "binance"},
     "NEARUSDT": {"nom": "NEAR Protocol", "marche": "crypto", "source": "binance"},
+    # === Nouvelles cryptos haute volatilité (bénéfices énormes) ===
+    # AI tokens
+    "FETUSDT": {"nom": "Fetch.ai", "marche": "crypto", "source": "binance"},
+    "RNDRUSDT": {"nom": "Render", "marche": "crypto", "source": "binance"},
+    "OCEANUSDT": {"nom": "Ocean Protocol", "marche": "crypto", "source": "binance"},
+    # Layer 1 haute volatilité
+    "SUIUSDT": {"nom": "Sui", "marche": "crypto", "source": "binance"},
+    "APTUSDT": {"nom": "Aptos", "marche": "crypto", "source": "binance"},
+    "SEIUSDT": {"nom": "Sei", "marche": "crypto", "source": "binance"},
+    "TIAUSDT": {"nom": "Celestia", "marche": "crypto", "source": "binance"},
+    "SUIAUSDT": {"nom": "Sui Alpha", "marche": "crypto", "source": "binance"},
+    # Meme coins (gains énormes possibles)
+    "PEPEUSDT": {"nom": "Pepe", "marche": "crypto", "source": "binance"},
+    "WIFUSDT": {"nom": "dogwifhat", "marche": "crypto", "source": "binance"},
+    "FLOKIUSDT": {"nom": "Floki", "marche": "crypto", "source": "binance"},
+    # DeFi tokens
+    "CRVUSDT": {"nom": "Curve DAO", "marche": "crypto", "source": "binance"},
+    "COMPUSDT": {"nom": "Compound", "marche": "crypto", "source": "binance"},
+    "CAKEUSDT": {"nom": "PancakeSwap", "marche": "crypto", "source": "binance"},
+    # Gaming / Metaverse
+    "IMXUSDT": {"nom": "Immutable X", "marche": "crypto", "source": "binance"},
+    "SANDUSDT": {"nom": "The Sandbox", "marche": "crypto", "source": "binance"},
+    "AXSUSDT": {"nom": "Axie Infinity", "marche": "crypto", "source": "binance"},
+    # Autres haute volatilité
+    "FILUSDT": {"nom": "Filecoin", "marche": "crypto", "source": "binance"},
+    "ATOMUSDT": {"nom": "Cosmos", "marche": "crypto", "source": "binance"},
+    "DOTUSDT": {"nom": "Polkadot", "marche": "crypto", "source": "binance"},
+    "MATICUSDT": {"nom": "Polygon", "marche": "crypto", "source": "binance"},
     # Forex (Yahoo)
     "EURUSD=X": {"nom": "EUR/USD", "marche": "forex", "source": "yahoo"},
     "GBPUSD=X": {"nom": "GBP/USD", "marche": "forex", "source": "yahoo"},
