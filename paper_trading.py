@@ -68,8 +68,8 @@ DUREE_GAIN_PROGRESS = 240    # gain 0.45-0.60%: respire 3h
 DUREE_GAGNANT_MAX = 360         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
 DUREE_BONUS_STRATEGIE = 60    # stratégie prouvée (live_n>=3, wr>=60%, pnl>0): +1h de respiration
 STALE_DUREE_MAX = 180           # position sous seuil depuis 3h -> time-stop, libère le capital
-BREAKEVEN_SEUIL = 0.60     # +0.60% -> SL monte au breakeven (un gagnant reste un gagnant)
-TRAIL_ACTIF = 1.0          # +1.0% -> trailing stop derrière le pic
+BREAKEVEN_SEUIL = 2.0      # +2.0% -> SL monte au breakeven (un gagnant reste un gagnant)
+TRAIL_ACTIF = 3.0          # +3.0% -> trailing stop derrière le pic
 TRAIL_PCT = 1.0            # trail 1.0% sous le pic (lock profit, laisse respirer)
 PARTIAL_TP_SEUIL = 0.8     # +1.0% -> encaisse une fraction du gain, garde le reste
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
@@ -298,8 +298,9 @@ def analyser_signaux_techniques(prix_actuels):
             verdict = analyse["verdict"]
             score = analyse["score"]
             print(f"{verdict} (score {score:+d})")
-            # Signal d'achat si score >= 1 (ACHAT) ou score == 1 (ACHAT FAIBLE)
-            if score >= 1:
+            # Signal d'achat uniquement si score >= 2 (ACHAT fort)
+            # Les signaux faibles (score 1) sont ignores pour maximiser le win rate
+            if score >= 2:
                 signaux.append({
                     "symbole": sym,
                     "prix_entree": prix_actuels[sym],
@@ -877,6 +878,16 @@ def verifier_sorties(pf, prix_actuels):
         # Stop: trailing / breakeven / fixe
         elif prix_actuel <= _sl_price:
             positions_a_fermer.append((pos, prix_actuel, f"STOP-{_sl_regle.upper()}", variation))
+        # Sortie intelligente: fermer si pattern baissier detecte (en profit)
+        elif variation > 0 and os.getenv("SMART_EXIT", "1") == "1":
+            try:
+                from candlestick_learning import analyser_avec_apprentissage
+                _se = analyser_avec_apprentissage(sym)
+                if _se["direction"] == "bearish" and _se["score_apprentissage"] <= -0.3:
+                    _pats = ", ".join(p["pattern"] for p in _se.get("patterns", []))
+                    positions_a_fermer.append((pos, prix_actuel, f"SMART-EXIT ({_pats})", variation))
+            except Exception:
+                pass
         else:
             # Sortie par duree: UNIQUEMENT si la position est en gain SUFFISANT.
             # Anti-churn : on ne ferme pas a +0.05% car les frais (0.2% AR) =>
