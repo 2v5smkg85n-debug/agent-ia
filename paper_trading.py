@@ -78,13 +78,13 @@ PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% r
 # MODE SCALPING (SCALPING=1): boucle 90s, TP 2.5%, SL 0.7%
 if os.getenv('SCALPING', '0') == '1':
     INTERVALLE_BOUCLE = 90       # 90s au lieu de 120s — plus de cycles
-    TAKE_PROFIT_PCT = 2.5      # +2.5% — ~2.4EUR par trade gagnant
-    STOP_LOSS_PCT = 0.7       # -0.7% — ~0.67EUR par perte
+    TAKE_PROFIT_PCT = 3.0      # +3% — couvre les frais + benefice net
+    STOP_LOSS_PCT = 0.7       # -0.7% — petite perte, coupe vite
     FENETRE_CORRELATION_MIN = 15
     EXTEND_SEUIL = 999
-    BREAKEVEN_SEUIL = 0.8      # +0.8% -> SL monte au breakeven
-    TRAIL_ACTIF = 1.2          # +1.2% -> trailing
-    TRAIL_PCT = 0.4            # trail 0.4% sous le pic
+    BREAKEVEN_SEUIL = 1.5      # +1.5% -> SL monte au breakeven (laisse respirer)
+    TRAIL_ACTIF = 2.0          # +2.0% -> trailing
+    TRAIL_PCT = 0.5            # trail 0.5% sous le pic
     PARTIAL_TP_SEUIL = 999
     SCALPING_TIMEFRAME = '15m'
 else:
@@ -732,8 +732,8 @@ def ouvrir_position(pf, signal, prix_actuel):
     except Exception as e:
         print(f"  [SIZING erreur {e}] fallback 20% fixe")
         montant = pf["liquidites"] * RISK_PAR_TRADE
-    # Plafonne au liquide dispo
-    montant = min(montant, pf["liquidites"])
+    # Plafonne au liquide dispo + plancher minimum 80EUR (anti micro-positions)
+    montant = max(80, min(montant, pf["liquidites"]))
     # FILTRE RÉGIME (méta-évolution): ajuste la taille selon le régime de marché.
     # En contagion baissière (crash), réduit la taille (floor ×0.10). Désactivable: REGIME_FILTER=0.
     if os.getenv("REGIME_FILTER", "1") != "0":
