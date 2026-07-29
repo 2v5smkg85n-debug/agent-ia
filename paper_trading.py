@@ -44,10 +44,10 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 # ============================================
 CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
-MAX_POSITIONS = 6              # positions concurrentes (diversifie)
+MAX_POSITIONS = 8              # positions concurrentes (max de trades pour 100EUR/jour)
 FENETRE_CORRELATION_MIN = 30     # anti-double-exposition: bloque 2e entree sur actif ouvert <30min
 MAX_POS_PAR_ACTIF = 2           # max positions par actif (differentes strategies)
-RISK_PAR_TRADE = 0.21           # 21% du capital par trade (4 positions, ~85% investi)
+RISK_PAR_TRADE = 0.12          # 12% du capital par trade (8 positions, ~96EUR chacune)
 INTERVALLE_BOUCLE = 1800       # 30 min (anti-churn : avant 15 min = trop de trades -> frais)
 # Seuilles serres pour trading actif (prise de benefice frequente)
 TAKE_PROFIT_PCT = 2.0  # PROFIT_BOOST_V1           # +1.5% -> encaisse le benefice
@@ -75,16 +75,16 @@ PARTIAL_TP_SEUIL = 0.8     # +1.0% -> encaisse une fraction du gain, garde le re
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 
 # ============================================
-# MODE SCALPING (SCALPING=1): boucle 2 min, TP 2%, SL 0.8%
+# MODE SCALPING (SCALPING=1): boucle 90s, TP 2.5%, SL 0.7%
 if os.getenv('SCALPING', '0') == '1':
-    INTERVALLE_BOUCLE = 120
-    TAKE_PROFIT_PCT = 2.0      # +2% — realiste en 15m, ~4€ par trade gagnant
-    STOP_LOSS_PCT = 0.8       # -0.8% — petite perte, coupe vite
-    FENETRE_CORRELATION_MIN = 30
+    INTERVALLE_BOUCLE = 90       # 90s au lieu de 120s — plus de cycles
+    TAKE_PROFIT_PCT = 2.5      # +2.5% — ~2.4EUR par trade gagnant
+    STOP_LOSS_PCT = 0.7       # -0.7% — ~0.67EUR par perte
+    FENETRE_CORRELATION_MIN = 15
     EXTEND_SEUIL = 999
-    BREAKEVEN_SEUIL = 1.0      # +1% -> SL monte au breakeven
-    TRAIL_ACTIF = 1.5          # +1.5% -> trailing
-    TRAIL_PCT = 0.5            # trail 0.5% sous le pic
+    BREAKEVEN_SEUIL = 0.8      # +0.8% -> SL monte au breakeven
+    TRAIL_ACTIF = 1.2          # +1.2% -> trailing
+    TRAIL_PCT = 0.4            # trail 0.4% sous le pic
     PARTIAL_TP_SEUIL = 999
     SCALPING_TIMEFRAME = '15m'
 else:
@@ -318,7 +318,7 @@ def analyser_signaux_techniques(prix_actuels):
                     "nom": config["nom"],
                     "marche": config["marche"],
                     "source": "indicateurs",
-                    "strategie": "momentum" if any("MOMENTUM" in s for s in analyse.get("signaux", [])) else "technique",
+                    "strategie": "momentum" if any("MOMENTUM" in s for s in analyse.get("signaux", [])) else ("breakout" if any("BREAKOUT" in s for s in analyse.get("signaux", [])) else ("macd_cross" if any("MACD" in s for s in analyse.get("signaux", [])) else "technique")),
                     "score": score,
                     "raison": "; ".join(analyse["signaux"][:2])
                 })

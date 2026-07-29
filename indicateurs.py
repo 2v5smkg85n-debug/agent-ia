@@ -377,6 +377,21 @@ def analyser_actif(symbole, intervalle="1h"):
             score += 1
             signaux.append("MOMENTUM faible: uptrend + RSI 45-50")
 
+    # 5c. BREAKOUT BOLLINGER: prix casse la bande superieure = continuation haussiere
+    if prix is not None and bb_haut is not None and bb_bas is not None:
+        if prix > bb_haut:
+            score += 2
+            signaux.append("BREAKOUT: prix au-dessus BB haute — continuation haussiere")
+
+    # 5d. MACD CROSSOVER: MACD line croise au-dessus signal line = achat momentum
+    if macd_line is not None and signal_line is not None:
+        if macd_line > signal_line and macd_line > 0:
+            score += 2
+            signaux.append("MACD: croisement haussier + MACD positif — momentum confirme")
+        elif macd_line > signal_line:
+            score += 1
+            signaux.append("MACD: croisement haussier (MACD negatif — signal faible)")
+
     # Verdict
     if score >= 2:
         verdict = "ACHAT"
