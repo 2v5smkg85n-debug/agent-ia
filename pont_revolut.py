@@ -49,6 +49,7 @@ BOUCLE_INTERVAL = 60
 
 # Mapping symbole Binance -> paire Revolut X (ordre, format tiret)
 BINANCE_TO_REVOLUTX = {
+    # === Cryptos existantes ===
     "BTCUSDT": "BTC-EUR",
     "ETHUSDT": "ETH-EUR",
     "SOLUSDT": "SOL-EUR",
@@ -65,6 +66,24 @@ BINANCE_TO_REVOLUTX = {
     "OPUSDT": "OP-EUR",
     "INJUSDT": "INJ-EUR",
     "NEARUSDT": "NEAR-EUR",
+    # === Nouvelles cryptos (disponibles sur Revolut X) ===
+    "PEPEUSDT": "PEPE-EUR",       # meme coin — gros gains possibles
+    "WIFUSDT": "WIF-EUR",         # meme coin — gros gains possibles
+    "SUIUSDT": "SUI-EUR",         # Layer 1 — haute volatilite
+    "SEIUSDT": "SEI-EUR",         # Layer 1 — haute volatilite
+    "TIAUSDT": "TIA-EUR",         # Layer 1 — haute volatilite
+    "DOTUSDT": "DOT-EUR",         # Polkadot — staking disponible
+    "ATOMUSDT": "ATOM-EUR",       # Cosmos — staking disponible
+    "MATICUSDT": "MATIC-EUR",     # Polygon — staking disponible
+    "FILUSDT": "FIL-EUR",         # Filecoin
+    "SANDUSDT": "SAND-EUR",       # The Sandbox
+    "AXSUSDT": "AXS-EUR",         # Axie Infinity
+    "IMXUSDT": "IMX-EUR",         # Immutable X
+    "CRVUSDT": "CRV-EUR",         # Curve DAO
+    "COMPUSDT": "COMP-EUR",       # Compound
+    "CAKEUSDT": "CAKE-EUR",        # PancakeSwap
+    # Non disponibles sur Revolut X (paper trading seulement):
+    # FETUSDT, RNDRUSDT, OCEANUSDT, APTUSDT, FLOKIUSDT
 }
 
 logging.basicConfig(
