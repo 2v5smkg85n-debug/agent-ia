@@ -44,10 +44,10 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 # ============================================
 CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
-MAX_POSITIONS = 10             # positions concurrentes (multi-strat)
+MAX_POSITIONS = 4              # positions concurrentes (grosses positions)
 FENETRE_CORRELATION_MIN = 30     # anti-double-exposition: bloque 2e entree sur actif ouvert <30min
 MAX_POS_PAR_ACTIF = 2           # max positions par actif (differentes strategies)
-RISK_PAR_TRADE = 0.07           # 7% du capital par trade (10 positions, 70% capital investi)
+RISK_PAR_TRADE = 0.21           # 21% du capital par trade (4 positions, ~85% investi)
 INTERVALLE_BOUCLE = 1800       # 30 min (anti-churn : avant 15 min = trop de trades -> frais)
 # Seuilles serres pour trading actif (prise de benefice frequente)
 TAKE_PROFIT_PCT = 2.0  # PROFIT_BOOST_V1           # +1.5% -> encaisse le benefice
@@ -78,8 +78,8 @@ PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% r
 # MODE SCALPING (SCALPING=1): boucle 2 min, TP 0.5%, SL 0.3%
 if os.getenv('SCALPING', '0') == '1':
     INTERVALLE_BOUCLE = 120
-    TAKE_PROFIT_PCT = 1.5
-    STOP_LOSS_PCT = 0.5
+    TAKE_PROFIT_PCT = 5.0
+    STOP_LOSS_PCT = 2.0
     FENETRE_CORRELATION_MIN = 0
     EXTEND_SEUIL = 999
     TRAIL_ACTIF = 999
