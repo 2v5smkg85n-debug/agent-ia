@@ -63,7 +63,7 @@ LIMITE_LIVE = {"1h": 200, "4h": 200, "15m": 200, "1d": 365}
 
 # DIP-BUYING-GATE: bloque les entrees sur bougie haussiere confirmee
 # (achat dans la force = pire groupe backtest 50% win). Autorise creux+neutre.
-DIP_BUYING_GATE = True
+DIP_BUYING_GATE = os.getenv("DIP_BUYING_GATE", "0") == "1"  # desactive par defaut
 
 # ============================================
 # CHARGER LES STRATEGIES GAGNANTES
