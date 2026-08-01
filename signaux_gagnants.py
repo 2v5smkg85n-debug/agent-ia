@@ -107,24 +107,60 @@ def charger_strategies_gagnantes():
                 vus[cle] = r
     return list(vus.values())
 
+def _charger_perf_live():
+    """Analyse paper_trading.json pour calculer la performance live par strategie."""
+    try:
+        import os
+        pf_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "paper_trading.json")
+        pf = json.load(open(pf_path))
+        trades = pf.get("trades_fermes", [])
+        from collections import defaultdict
+        perf = defaultdict(lambda: {"wins": 0, "losses": 0, "pnl": 0})
+        for t in trades:
+            s = t.get("strategie", "")
+            g = t.get("gain_eur", 0)
+            if g > 0: perf[s]["wins"] += 1
+            else: perf[s]["losses"] += 1
+            perf[s]["pnl"] += g
+        result = {}
+        for s, d in perf.items():
+            total = d["wins"] + d["losses"]
+            result[s] = {
+                "trades": total,
+                "wr": 100 * d["wins"] / total if total > 0 else 0,
+                "pnl": d["pnl"]
+            }
+        return result
+    except:
+        return {}
+
 def strategies_gagnantes_par_actif():
     """Retourne {symbole: [strategies gagnantes triees par retour decroissant]}.
     Chaque entree contient son intervalle (1d, 1h ou 4h)."""
     toutes = charger_strategies_gagnantes()
     gagnantes = {}
+    # Charger la performance live pour bloquer les strategies perdantes
+    live_perf = _charger_perf_live()
     for r in toutes:
         if r.get("verdict") != "GAGNANTE":
             continue
         if r.get("drawdown_max", 99) > DRAWDOWN_MAX_ACCEPTABLE:
-            continue  # trop risque
-        # Walk-forward: filtre assoupli (wf_precision >= 0 au lieu de 50)
-        # Beaucoup de bonnes strategies ont wf_precision bas mais sont rentables
+            continue
         wf = r.get("wf_precision")
         if wf is not None and wf < 0.0:
-            continue  # uniquement les strategies vraiment negatives
+            continue
         sym = r.get("actif")
         if not sym:
             continue
+        # FILTRE WIN RATE BACKTEST: minimum 50% (sauf exception)
+        wr_bt = r.get("win_rate", 0)
+        if wr_bt < 50:
+            continue
+        # FILTRE PERFORMANCE LIVE: bloquer strategies perdantes en live
+        strat_name = r.get("strategie", "")
+        live = live_perf.get(strat_name)
+        if live and live.get("trades", 0) >= 10 and live.get("wr", 100) < 40:
+            continue  # strategie perdante en live -> bloquee
         # AUTO-PRUNING-INSTALLE : skip strategies desactivees en live (auto_pruning)
         try:
             from auto_pruning import est_desactivee
