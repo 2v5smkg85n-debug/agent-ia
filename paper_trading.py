@@ -44,10 +44,10 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 # ============================================
 CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
-MAX_POSITIONS = 8              # positions concurrentes (max de trades pour 100EUR/jour)
+MAX_POSITIONS = 15             # 15 positions pour maximiser le nombre de trades
 FENETRE_CORRELATION_MIN = 30     # anti-double-exposition: bloque 2e entree sur actif ouvert <30min
 MAX_POS_PAR_ACTIF = 2           # max positions par actif (differentes strategies)
-RISK_PAR_TRADE = 0.12          # 12% du capital par trade (8 positions, ~96EUR chacune)
+RISK_PAR_TRADE = 0.065         # 6.5% du capital par trade (15 positions, ~60EUR chacune)
 INTERVALLE_BOUCLE = 1800       # 30 min (anti-churn : avant 15 min = trop de trades -> frais)
 # Seuilles serres pour trading actif (prise de benefice frequente)
 TAKE_PROFIT_PCT = 2.0  # PROFIT_BOOST_V1           # +1.5% -> encaisse le benefice
@@ -78,13 +78,13 @@ PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% r
 # MODE SCALPING (SCALPING=1): boucle 5 min, TP 3%, SL 1%, timeframe 1h
 # Utilise les strategies backtestees (72% WR) au lieu d'indicateurs generiques (12% WR)
 if os.getenv('SCALPING', '0') == '1':
-    INTERVALLE_BOUCLE = 300      # 5 min — les signaux 1h changent lentement
-    TAKE_PROFIT_PCT = 3.0      # +3% — couvre les frais + benefice net
+    INTERVALLE_BOUCLE = 180      # 3 min — plus de cycles pour liberer le capital vite
+    TAKE_PROFIT_PCT = 4.0      # +4% — gains plus gros pour 100EUR/jour
     STOP_LOSS_PCT = 1.0        # -1.0% — perte limitee
-    FENETRE_CORRELATION_MIN = 15
+    FENETRE_CORRELATION_MIN = 10
     EXTEND_SEUIL = 999
-    BREAKEVEN_SEUIL = 1.5      # +1.5% -> SL monte au breakeven
-    TRAIL_ACTIF = 2.0          # +2.0% -> trailing
+    BREAKEVEN_SEUIL = 2.0      # +2.0% -> SL monte au breakeven
+    TRAIL_ACTIF = 3.0          # +3.0% -> trailing
     TRAIL_PCT = 0.5            # trail 0.5% sous le pic
     PARTIAL_TP_SEUIL = 999
     SCALPING_TIMEFRAME = '1h'  # 1h au lieu de 15m — matche les backtests
@@ -733,8 +733,8 @@ def ouvrir_position(pf, signal, prix_actuel):
     except Exception as e:
         print(f"  [SIZING erreur {e}] fallback 20% fixe")
         montant = pf["liquidites"] * RISK_PAR_TRADE
-    # Plafonne au liquide dispo + plancher minimum 80EUR (anti micro-positions)
-    montant = max(80, min(montant, pf["liquidites"]))
+    # Plafonne au liquide dispo + plancher minimum 55EUR (15 positions x 60EUR)
+    montant = max(55, min(montant, pf["liquidites"]))
     # FILTRE RÉGIME (méta-évolution): ajuste la taille selon le régime de marché.
     # En contagion baissière (crash), réduit la taille (floor ×0.10). Désactivable: REGIME_FILTER=0.
     if os.getenv("REGIME_FILTER", "1") != "0":
