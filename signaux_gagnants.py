@@ -152,9 +152,9 @@ def strategies_gagnantes_par_actif():
         sym = r.get("actif")
         if not sym:
             continue
-        # FILTRE WIN RATE BACKTEST: minimum 50% (sauf exception)
+        # FILTRE WIN RATE BACKTEST: minimum 35% (avec TP 3%/SL 1%, une strategie a 40% WR est rentable)
         wr_bt = r.get("win_rate", 0)
-        if wr_bt < 50:
+        if wr_bt < 35:
             continue
         # FILTRE PERFORMANCE LIVE: bloquer strategies perdantes en live
         strat_name = r.get("strategie", "")
