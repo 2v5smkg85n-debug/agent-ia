@@ -314,6 +314,12 @@ def generer_signaux_gagnants(prix_actuels, marches_paper):
 
             for strat in strats:
                 nom = strat.get("strategie")
+                # FILTRE TENDANCE: n'acheter qu'en tendance haussiere (prix > SMA50)
+                # Evite d'acheter dans une baisse de marche
+                sma50 = donnees.get("sma50", [None])[-1] if donnees.get("sma50") else None
+                prix_courant = clotures[-1] if clotures else None
+                if sma50 and prix_courant and prix_courant < sma50 * 0.98:
+                    continue  # prix > 2% sous SMA50 = baisse -> skip
                 sig = signal_strategie(nom, donnees)
                 if sig == "ACHAT":
                     if _mtf_ok:
