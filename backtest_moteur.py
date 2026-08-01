@@ -46,8 +46,8 @@ FICHIER_RESULTATS = os.path.join(DOSSIER, "backtests_reels.json")
 # ============================================
 CAPITAL_DEPART = 1000.0
 FRAIS_PCT = 0.001          # 0.1% par trade (aller + retour)
-TAKE_PROFIT_PCT = 0.015    # +1.5%
-STOP_LOSS_PCT = 0.015      # -1.5% (symetrique au paper trading)
+TAKE_PROFIT_PCT = 0.03     # +3% (matching live config)
+STOP_LOSS_PCT = 0.01       # -1.0% (matching live config)
 
 # Actifs a tester (symboles Yahoo/Binance)
 ACTIFS = {
