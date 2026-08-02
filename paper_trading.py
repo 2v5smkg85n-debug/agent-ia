@@ -83,10 +83,10 @@ if os.getenv('SCALPING', '0') == '1':
     STOP_LOSS_PCT = 1.0        # -1.0% — perte limitee
     FENETRE_CORRELATION_MIN = 10
     EXTEND_SEUIL = 999
-    BREAKEVEN_SEUIL = 2.0      # +2.0% -> SL monte au breakeven
-    TRAIL_ACTIF = 3.0          # +3.0% -> trailing
-    TRAIL_PCT = 0.5            # trail 0.5% sous le pic
-    PARTIAL_TP_SEUIL = 999
+    BREAKEVEN_SEUIL = 3.0      # +3.0% -> SL monte au breakeven (laisse les gagnants courir)
+    TRAIL_ACTIF = 3.5          # +3.5% -> trailing (plus tard = plus de gains)
+    TRAIL_PCT = 0.7            # trail 0.7% sous le pic (plus de marge)
+    PARTIAL_TP_SEUIL = 2.5     # +2.5% -> prend 50% du benefice, le reste court vers TP
     SCALPING_TIMEFRAME = '1h'  # 1h au lieu de 15m — matche les backtests
 else:
     SCALPING_TIMEFRAME = '1h'
@@ -916,6 +916,9 @@ def verifier_sorties(pf, prix_actuels):
                 _sl_price = prix_entree * (1 - _sl / 100.0)
         else:
             _sl_price = prix_entree * (1 - _sl / 100.0)
+        # Partial take-profit: encaisse 50% a +2.5%, laisse le reste courir vers TP
+        if variation >= PARTIAL_TP_SEUIL and not pos.get("partiellement_clote"):
+            fermer_position_partielle(pf, pos, prix_actuel, PARTIAL_FRACTION, "PARTIAL-TP", variation)
         # Take-profit: encaisse des que +_tp%
         if variation >= _tp:
             raison = "TAKE-PROFIT-EXTEND" if extend_actif else "TAKE-PROFIT"
