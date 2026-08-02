@@ -896,8 +896,8 @@ def verifier_sorties(pf, prix_actuels):
         extend_actif = sym in EXTEND_CRYPTOS and variation >= EXTEND_SEUIL
         if extend_actif:
             _tp = EXTEND_TP_PCT
-        # === STOP SUIVEUR: le SL suit toujours le prix a 1% sous le pic ===
-        # Un trade gagnant ne devient jamais perdant. Le SL monte avec le prix.
+        # === STOP SUIVEUR + TP DYNAMIQUE ===
+        # Le SL suit le prix a 1% sous le pic ET le TP monte quand le prix atteint le TP
         _sl_regle = "suiveur"
         _pic = pos.get("prix_peak", prix_entree)
         if prix_actuel > _pic:
@@ -906,16 +906,19 @@ def verifier_sorties(pf, prix_actuels):
         # SL toujours a STOP_LOSS_PCT (1%) sous le prix le plus haut atteint
         _sl_price = _pic * (1 - _sl / 100.0)
         _var_pic = (_pic - prix_entree) / prix_entree * 100
-        # Partial take-profit: encaisse 50% a +2.5%, laisse le reste courir vers TP
+        # TP DYNAMIQUE: quand le prix atteint le TP, on le monte de +1% au lieu de fermer
+        # Le trade court tant que la tendance haussiere continue
+        _tp_actuel = pos.get("tp_dynamique", _tp)
+        if variation >= _tp_actuel:
+            _tp_actuel = _tp_actuel + 1.0  # monte le TP de +1%
+            pos["tp_dynamique"] = _tp_actuel
+            print(f"  [TP-EXTEND] {sym}: TP monte a +{_tp_actuel:.1f}% (pic {_var_pic:+.1f}%)")
+        # Partial take-profit: encaisse 50% a +2.5%, le reste court indéfiniment
         if variation >= PARTIAL_TP_SEUIL and not pos.get("partiellement_clote"):
             fermer_position_partielle(pf, pos, prix_actuel, PARTIAL_FRACTION, "PARTIAL-TP", variation)
-        # Take-profit: encaisse des que +_tp%
-        if variation >= _tp:
-            raison = "TAKE-PROFIT-EXTEND" if extend_actif else "TAKE-PROFIT"
-            positions_a_fermer.append((pos, prix_actuel, raison, variation))
-        # Stop: trailing / breakeven / fixe
-        elif prix_actuel <= _sl_price:
-            positions_a_fermer.append((pos, prix_actuel, f"STOP-{_sl_regle.upper()}", variation))
+        # Fermeture au SL suiveur (1% sous le pic) — le seul point de sortie
+        if prix_actuel <= _sl_price:
+            positions_a_fermer.append((pos, prix_actuel, f"STOP-SUIVEUR (pic {_var_pic:+.1f}%, ferme a {variation:+.1f}%)", variation))
         # Sortie intelligente: fermer si pattern baissier detecte (en profit)
         elif variation > 0 and os.getenv("SMART_EXIT", "0") == "1":
             try:
