@@ -45,7 +45,7 @@ CIRCUIT_BREAKER_JOUR = 5.0   # perte journaliere > 5% -> stop trading
 CAP_ACTIF = 0.15             # max 15% du capital sur un seul actif
 CAP_SECTEUR = 0.40           # max 25% du capital sur un secteur (crypto, forex, etc.)
 CORRELATION_SEUIL = 0.60     # rho > 0.6 = positions correlees, groupees
-RISK_MIN_EUR = 5.0           # en dessous de 5 EUR, on n'ouvre pas
+RISK_MIN_EUR = 0.0           # minimum desactive (paper_trading.py a son propre plancher 55EUR)
 
 # Actifs correles (groupes) - bases sur la realite des marches
 GROUPES_CORRELES = [
