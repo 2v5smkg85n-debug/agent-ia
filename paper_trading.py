@@ -896,26 +896,16 @@ def verifier_sorties(pf, prix_actuels):
         extend_actif = sym in EXTEND_CRYPTOS and variation >= EXTEND_SEUIL
         if extend_actif:
             _tp = EXTEND_TP_PCT
-        # === EXIT AVANCÉ: break-even + trailing (toggle EXIT_AVANCE=0) ===
-        # Laisse courir les gagnants + protège les gains. Un gagnant ne devient
-        # jamais une perte. Rééquilibre le ratio gain/perte (cf. diagnostic).
-        _sl_regle = "fixe"
-        if os.getenv("EXIT_AVANCE", "1") != "0":
-            _pic = pos.get("prix_peak", prix_entree)
-            if prix_actuel > _pic:
-                _pic = prix_actuel
-                pos["prix_peak"] = _pic
-            _var_pic = (_pic - prix_entree) / prix_entree * 100   # variation au pic (sticky)
-            if _var_pic >= TRAIL_ACTIF:
-                _sl_price = _pic * (1 - TRAIL_PCT / 100.0)   # trail derrière le pic
-                _sl_regle = "trailing"
-            elif _var_pic >= BREAKEVEN_SEUIL:
-                _sl_price = prix_entree * 1.001              # breakeven + frais
-                _sl_regle = "breakeven"
-            else:
-                _sl_price = prix_entree * (1 - _sl / 100.0)
-        else:
-            _sl_price = prix_entree * (1 - _sl / 100.0)
+        # === STOP SUIVEUR: le SL suit toujours le prix a 1% sous le pic ===
+        # Un trade gagnant ne devient jamais perdant. Le SL monte avec le prix.
+        _sl_regle = "suiveur"
+        _pic = pos.get("prix_peak", prix_entree)
+        if prix_actuel > _pic:
+            _pic = prix_actuel
+            pos["prix_peak"] = _pic
+        # SL toujours a STOP_LOSS_PCT (1%) sous le prix le plus haut atteint
+        _sl_price = _pic * (1 - _sl / 100.0)
+        _var_pic = (_pic - prix_entree) / prix_entree * 100
         # Partial take-profit: encaisse 50% a +2.5%, laisse le reste courir vers TP
         if variation >= PARTIAL_TP_SEUIL and not pos.get("partiellement_clote"):
             fermer_position_partielle(pf, pos, prix_actuel, PARTIAL_FRACTION, "PARTIAL-TP", variation)
