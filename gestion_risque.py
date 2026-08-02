@@ -98,7 +98,10 @@ def charger_backtest_stats():
     stats = {}
     for r in data:
         cle = (r.get("strategie"), r.get("actif"))
-        stats[cle] = r
+        existant = stats.get(cle)
+        # Preferer GAGNANTE sur PERDANTE (meme strategie peut etre GAGNANTE en 4h et PERDANTE en 1h)
+        if not existant or (r.get("verdict") == "GAGNANTE" and existant.get("verdict") != "GAGNANTE"):
+            stats[cle] = r
     return stats
 
 # ============================================
@@ -331,6 +334,10 @@ def calculer_taille(pf, signal, prix_actuel, backtest_stats=None):
     # 8. Minimum
     if montant_final < RISK_MIN_EUR:
         return 0.0, "montant_trop_petit"
+    # 9. Fallback si Kelly = 0 mais la strategie est gagnante en backtest
+    if montant_final < 1.0:
+        montant_final = capital * 0.06  # 6% fixe si Kelly trop faible
+        raison += f" (fallback 6% fixe)"
 
     raison = (f"Kelly {kelly*100:.1f}% x vol {vol_scaler:.2f} x corr {corr_scaler:.2f} "
               f"x dd {dd_scaler:.2f} = {montant_base:.1f} EUR (cap {montant_final:.1f} EUR)")
