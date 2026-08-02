@@ -42,9 +42,9 @@ MIRROR_FILE = os.path.join(DOSSIER, "revolut_mirror.json")
 # --- Config ---
 DRY_RUN = os.getenv("PONT_REVOLUT_LIVE", "0") != "1"
 QUOTE = "EUR"  # paires EUR (compte approvisionne en EUR)
-CAP_PAR_TRADE_EUR = float(os.getenv("PONT_CAP_TRADE", "5.0"))
-CAP_TOTAL_EUR = float(os.getenv("PONT_CAP_TOTAL", "50.0"))
-MAX_ACHATS_JOUR = int(os.getenv("PONT_MAX_TRADES_JOUR", "8"))  # anti-bug runaway
+CAP_PAR_TRADE_EUR = float(os.getenv("PONT_CAP_TRADE", "15.0"))  # 15EUR par trade (3x plus)
+CAP_TOTAL_EUR = float(os.getenv("PONT_CAP_TOTAL", "100.0"))  # 100EUR max total
+MAX_ACHATS_JOUR = int(os.getenv("PONT_MAX_TRADES_JOUR", "5"))  # moins de trades mais plus gros
 BOUCLE_INTERVAL = 60
 
 # Mapping symbole Binance -> paire Revolut X (ordre, format tiret)
