@@ -335,12 +335,11 @@ def calculer_taille(pf, signal, prix_actuel, backtest_stats=None):
     if montant_final < RISK_MIN_EUR:
         return 0.0, "montant_trop_petit"
     # 9. Fallback si Kelly = 0 mais la strategie est gagnante en backtest
+    raison = (f"Kelly {kelly*100:.1f}% x vol {vol_scaler:.2f} x corr {corr_scaler:.2f} "
+              f"x dd {dd_scaler:.2f} = {montant_base:.1f} EUR (cap {montant_final:.1f} EUR)")
     if montant_final < 1.0:
         montant_final = capital * 0.06  # 6% fixe si Kelly trop faible
         raison += f" (fallback 6% fixe)"
-
-    raison = (f"Kelly {kelly*100:.1f}% x vol {vol_scaler:.2f} x corr {corr_scaler:.2f} "
-              f"x dd {dd_scaler:.2f} = {montant_base:.1f} EUR (cap {montant_final:.1f} EUR)")
     return round(montant_final, 2), raison
 
 # ============================================
