@@ -358,6 +358,9 @@ def generer_signaux_gagnants(prix_actuels, marches_paper):
         if meilleur_signal == "ACHAT" and candidats_achat:
             # MULTI-STRAT: top-N strategies ACHAT par score (pas juste la meilleure)
             candidats_achat.sort(key=lambda c: c[0], reverse=True)
+            # CONFLUENCE: si 2+ strategies signalent ACHAT, score plus eleve + position plus grosse
+            nb_confluence = len(candidats_achat)
+            score_confluence = min(2 + nb_confluence, 5)  # 2 strats=3, 3 strats=4, 4+=5
             for _sc, _retour, _strat in candidats_achat[:MAX_SIGNAUX_PAR_ACTIF]:
                 interv_aff = _strat.get("intervalle", "?")
                 _lm = _strat.get("live_mult", 1.0)
@@ -372,8 +375,9 @@ def generer_signaux_gagnants(prix_actuels, marches_paper):
                     "nom": config["nom"],
                     "marche": config["marche"],
                     "source": "backtest-gagnant",
-                    "score": 2,
+                    "score": score_confluence,
                     "strategie": _strat.get("strategie", ""),
+                    "confluence": nb_confluence,
                     "backtest_stats": _strat,
                     "raison": (f"strategie gagnante backtest "
                                f"({_strat['strategie']} [{interv_aff}], "

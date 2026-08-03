@@ -811,6 +811,22 @@ def ouvrir_position(pf, signal, prix_actuel):
                             pass
         except Exception:
             pass
+    # CONFLUENCE SIZING: si 2+ strategies signalent ACHAT, position plus grosse
+    nb_conf = signal.get("confluence", 1)
+    if nb_conf >= 2:
+        montant = montant * min(nb_conf, 3)  # 2 strats=x2, 3 strats=x3, 4+=x3
+        print(f"  [CONFLUENCE] {signal.get('nom',signal['symbole'])}: {nb_conf} strategies -> x{min(nb_conf,3)} sizing ({montant:.0f}EUR)")
+    # PYRAMIDING: si position deja ouverte ET en profit, on ajoute (acheter plus quand ca monte)
+    _pos_existante = None
+    for p in pf.get("positions", []):
+        if p["symbole"] == signal["symbole"]:
+            _pos_existante = p
+            break
+    if _pos_existante and prix_actuel > _pos_existante["prix_entree"]:
+        _var = (prix_actuel - _pos_existante["prix_entree"]) / _pos_existante["prix_entree"] * 100
+        if _var >= 1.0:  # position en profit de +1% minimum
+            montant = montant * 1.5  # pyramiding: 50% plus
+            print(f"  [PYRAMIDING] {signal.get('nom',signal['symbole'])}: ajout a position +{_var:.1f}% -> x1.5 ({montant:.0f}EUR)")
     # Clamp de securite: un plugin bugue ne peut pas depasser le liquide ni aller negatif
     # PLANCHER MINIMUM 80EUR applique APRES tous les filtres (regime, sentiment, plugins)
     montant = max(80, min(montant, pf["liquidites"]))
