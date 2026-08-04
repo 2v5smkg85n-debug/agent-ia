@@ -171,16 +171,30 @@ def ema_simple_series(clotures, periode):
 # Chaque strategie est une fonction: (index, donnees) -> "ACHAT"/"VENTE"/None
 # ============================================
 def strat_sma_crossover(i, d):
-    """Achat quand SMA20 croise au-dessus SMA50; vente quand croise en dessous."""
-    if i < 1 or d["sma20"][i] is None or d["sma50"][i] is None:
+    """Achat quand SMA20 croise au-dessus SMA50 + confirmations.
+    Filtres pour 80%+ WR:
+    - SMA20 croise au-dessus SMA50 (signal de base)
+    - SMA20 en pente montante (tendance forte, pas un faux signal)
+    - Prix au-dessus SMA20 (confirmation que le momentum suit)
+    - Ecart SMA20/SMA50 > 0.5% (crossover significatif, pas du bruit)
+    """
+    if i < 2 or d["sma20"][i] is None or d["sma50"][i] is None:
         return None
-    if d["sma20"][i-1] is None or d["sma50"][i-1] is None:
+    if d["sma20"][i-1] is None or d["sma50"][i-1] is None or d["sma20"][i-2] is None:
         return None
-    croise_hausse = d["sma20"][i-1] <= d["sma50"][i-1] and d["sma20"][i] > d["sma50"][i]
-    croise_baisse = d["sma20"][i-1] >= d["sma50"][i-1] and d["sma20"][i] < d["sma50"][i]
-    if croise_hausse:
+    prix = d["clotures"][i]
+    s20, s50 = d["sma20"], d["sma50"]
+    croise_hausse = s20[i-1] <= s50[i-1] and s20[i] > s50[i]
+    croise_baisse = s20[i-1] >= s50[i-1] and s20[i] < s50[i]
+    # Confirmation 1: SMA20 en pente montante (s20[i] > s20[i-1])
+    pente_montante = s20[i] > s20[i-1]
+    pente_descendante = s20[i] < s20[i-1]
+    # Confirmation 2: prix au-dessus SMA20 (pour achat) / sous (pour vente)
+    # Confirmation 3: ecart significatif > 0.5% du prix
+    ecart = abs(s20[i] - s50[i]) / prix if prix > 0 else 0
+    if croise_hausse and pente_montante and prix > s20[i] and ecart > 0.005:
         return "ACHAT"
-    if croise_baisse:
+    if croise_baisse and pente_descendante and prix < s20[i] and ecart > 0.005:
         return "VENTE"
     return None
 
@@ -209,15 +223,28 @@ def _bb_ecart():
     return v.get("bb_ecart", 2.0)
 
 def strat_rsi_reversion(i, d):
-    """Achat quand RSI < seuil (survente); vente quand RSI > seuil_haut.
-    Seuil auto-ajuste par auto_sweep.py via strat_params.json."""
-    r = d["rsi"][i]
-    if r is None:
+    """Achat quand RSI < seuil (survente) + confirmation forte.
+    Filtres pour 80%+ WR:
+    - RSI < seuil (survente extreme)
+    - RSI remonte (turning up) -> momentum positif
+    - Prix au-dessus SMA50 -> tendance generale haussiere
+    - Aucun signal si SMA50 n'existe pas (pas assez de data)
+    """
+    if i < 51:
+        return None
+    r = d["rsi"]
+    if r[i] is None or r[i-1] is None:
         return None
     achat, vente = _strat_params()
-    if r < achat:
+    sma50 = d["sma50"]
+    if sma50[i] is None:
+        return None
+    prix = d["clotures"][i]
+    # ACHAT: RSI en survente ET RSI remonte ET prix > SMA50 (tendance haussiere)
+    if r[i] < achat and r[i] > r[i-1] and prix > sma50[i]:
         return "ACHAT"
-    if r > vente:
+    # VENTE: RSI en surachat ET RSI descend ET prix < SMA50
+    if r[i] > vente and r[i] < r[i-1] and prix < sma50[i]:
         return "VENTE"
     return None
 
@@ -270,15 +297,29 @@ def strat_stochastic(i, d):
     return None
 
 def strat_ema_crossover(i, d):
-    """Achat quand EMA12 croise au-dessus EMA26; vente inverse."""
-    if i < 1:
+    """Achat quand EMA12 croise au-dessus EMA26 + confirmations.
+    Filtres pour 80%+ WR:
+    - EMA12 croise au-dessus EMA26 (signal de base)
+    - Prix au-dessus EMA12 (momentum confirme)
+    - Ecart EMA12/EMA26 > 0.3% du prix (crossover fort, pas du bruit)
+    - Prix au-dessus SMA50 (tendance long terme haussiere)
+    """
+    if i < 51:
         return None
     e12, e26 = d["ema12"], d["ema26"]
     if e12[i] is None or e26[i] is None or e12[i-1] is None or e26[i-1] is None:
         return None
-    if e12[i-1] <= e26[i-1] and e12[i] > e26[i]:
+    sma50 = d["sma50"]
+    if sma50[i] is None:
+        return None
+    prix = d["clotures"][i]
+    croise_hausse = e12[i-1] <= e26[i-1] and e12[i] > e26[i]
+    croise_baisse = e12[i-1] >= e26[i-1] and e12[i] < e26[i]
+    # Ecart significatif entre EMA12 et EMA26
+    ecart = abs(e12[i] - e26[i]) / prix if prix > 0 else 0
+    if croise_hausse and prix > e12[i] and ecart > 0.003 and prix > sma50[i]:
         return "ACHAT"
-    if e12[i-1] >= e26[i-1] and e12[i] < e26[i]:
+    if croise_baisse and prix < e12[i] and ecart > 0.003 and prix < sma50[i]:
         return "VENTE"
     return None
 
