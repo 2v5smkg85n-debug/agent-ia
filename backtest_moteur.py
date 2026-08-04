@@ -282,6 +282,38 @@ def strat_ema_crossover(i, d):
         return "VENTE"
     return None
 
+def strat_supertrend(i, d):
+    """Supertrend: ATR-based trend following. Achat quand le trend devient haussier."""
+    if i < 11:
+        return None
+    clotures = d["clotures"]
+    # Calcul ATR simplifie (10 periodes)
+    trs = []
+    for j in range(1, min(i+1, 11)):
+        tr = max(
+            clotures[j] - clotures[j-1],
+            abs(clotures[j] - clotures[j-1]),
+        )
+        trs.append(tr)
+    if not trs:
+        return None
+    atr = sum(trs) / len(trs)
+    # Ligne de base = mediane des 10 dernieres clotures
+    recent = clotures[max(0,i-10):i+1]
+    baseline = sorted(recent)[len(recent)//2]
+    # Bandes superieure et inferieure
+    upper = baseline + 3 * atr
+    lower = baseline - 3 * atr
+    prix = clotures[i]
+    prix_prec = clotures[i-1]
+    # Achat quand le prix casse au-dessus de la bande superieure (breakout haussier)
+    if prix_prec <= upper and prix > upper:
+        return "ACHAT"
+    # Vente quand le prix casse sous la bande inferieure (breakout baissier)
+    if prix_prec >= lower and prix < lower:
+        return "VENTE"
+    return None
+
 def _macd_full(clotures, courte=12, longue=26, signal=9):
     """Calcule les series MACD completes."""
     def ema_series(valeurs, periode):
@@ -313,6 +345,7 @@ STRATEGIES = {
     "Donchian Breakout":  strat_donchian_breakout,
     "Stochastic":         strat_stochastic,
     "EMA Crossover":      strat_ema_crossover,
+    "Supertrend":         strat_supertrend,
 }
 
 # Phase 7b: charge les stratégies générées par strategy_evolver.py (auto-déploiement)

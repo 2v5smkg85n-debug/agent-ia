@@ -1,0 +1,89 @@
+{"date": "2026-07-28 00:35:56", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:35:58", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 35.0, "nouveau": 36.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:35:58", "evenement": "fin_cycle", "details": {"patterns_tested": 573, "patterns_gagnants": 227, "patterns_perdants": 346, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:36:27", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:36:28", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 36.0, "nouveau": 37.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:36:28", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:36:34", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:36:35", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 37.0, "nouveau": 38.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:36:35", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:36:35", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:36:37", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 38.0, "nouveau": 39.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:36:37", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:36:37", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:36:38", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 39.0, "nouveau": 40.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:36:38", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:36:39", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:36:40", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 40.0, "nouveau": 41.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:36:40", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:36:40", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:36:42", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 41.0, "nouveau": 42.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:36:42", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:36:42", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:36:43", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 42.0, "nouveau": 43.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:36:43", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:36:43", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:36:45", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 43.0, "nouveau": 44.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:36:45", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:36:45", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:36:46", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 44.0, "nouveau": 45.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:36:46", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:36:47", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:36:48", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 45.0, "nouveau": 46.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:36:48", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:36:48", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:36:50", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 46.0, "nouveau": 47.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:36:50", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:36:50", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:36:56", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 47.0, "nouveau": 48.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:36:56", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:36:56", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:36:58", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 48.0, "nouveau": 49.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:36:58", "evenement": "fin_cycle", "details": {"patterns_tested": 573, "patterns_gagnants": 250, "patterns_perdants": 323, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:36:58", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:00", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 49.0, "nouveau": 50.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:37:00", "evenement": "fin_cycle", "details": {"patterns_tested": 382, "patterns_gagnants": 144, "patterns_perdants": 238, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:37:00", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:01", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 50.0, "nouveau": 51.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:37:01", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:37:02", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:03", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 51.0, "nouveau": 52.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:37:03", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:37:03", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:05", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 52.0, "nouveau": 53.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:37:05", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:37:05", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:06", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 53.0, "nouveau": 54.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:37:06", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:37:06", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:08", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 54.0, "nouveau": 55.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:37:08", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:37:08", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:09", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 55.0, "nouveau": 56.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:37:09", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:37:10", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:11", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 56.0, "nouveau": 57.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:37:11", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:37:11", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:13", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 57.0, "nouveau": 58.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:37:13", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:37:13", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:14", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 58.0, "nouveau": 59.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:37:14", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:37:14", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:16", "evenement": "changement_parametre", "details": {"param": "rsi_achat", "ancien": 59.0, "nouveau": 60.0, "raison": "win_rate global 61.11% (>60%) -> RSI plus permissif"}}
+{"date": "2026-07-28 00:37:16", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 1, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:37:16", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:17", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 0, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:37:17", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:24", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 0, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:37:24", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:25", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 0, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:37:26", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:27", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 0, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:37:27", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:39", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 0, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:37:39", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:40", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 0, "win_rate_global": 61.11}}
+{"date": "2026-07-28 00:37:40", "evenement": "debut_cycle", "details": {}}
+{"date": "2026-07-28 00:37:42", "evenement": "fin_cycle", "details": {"patterns_tested": 0, "patterns_gagnants": 0, "patterns_perdants": 0, "changements_parametres": 0, "win_rate_global": 61.11}}

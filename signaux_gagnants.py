@@ -156,10 +156,10 @@ def strategies_gagnantes_par_actif():
         wr_bt = r.get("win_rate", 0)
         if wr_bt < 35:
             continue
-        # FILTRE PERFORMANCE LIVE: bloquer strategies perdantes en live
+        # FILTRE PERFORMANCE LIVE: bloquer strategies perdantes en live (apres 5 trades seulement)
         strat_name = r.get("strategie", "")
         live = live_perf.get(strat_name)
-        if live and live.get("trades", 0) >= 10 and live.get("wr", 100) < 40:
+        if live and live.get("trades", 0) >= 5 and live.get("wr", 100) < 40:
             continue  # strategie perdante en live -> bloquee
         # AUTO-PRUNING-INSTALLE : skip strategies desactivees en live (auto_pruning)
         try:
