@@ -913,15 +913,22 @@ def verifier_sorties(pf, prix_actuels):
         if extend_actif:
             _tp = EXTEND_TP_PCT
         # === STOP SUIVEUR + TP DYNAMIQUE ===
-        # Le SL suit le prix a 1% sous le pic ET le TP monte quand le prix atteint le TP
-        _sl_regle = "suiveur"
+        # SL fixe au debut (-1%), trailing commence seulement apres +2%
+        # Avant +2%: SL fixe a -1% (laisse respirer)
+        # Apres +2%: SL suit a 2% sous le pic (plus de marge = moins de faux signaux)
+        _sl_regle = "fixe"
         _pic = pos.get("prix_peak", prix_entree)
         if prix_actuel > _pic:
             _pic = prix_actuel
             pos["prix_peak"] = _pic
-        # SL toujours a STOP_LOSS_PCT (1%) sous le prix le plus haut atteint
-        _sl_price = _pic * (1 - _sl / 100.0)
         _var_pic = (_pic - prix_entree) / prix_entree * 100
+        if _var_pic >= 2.0:
+            # Trailing actif a 2% sous le pic (apres +2% seulement)
+            _sl_price = _pic * (1 - 2.0 / 100.0)
+            _sl_regle = "suiveur"
+        else:
+            # SL fixe a -1% au debut (laisse le trade respirer)
+            _sl_price = prix_entree * (1 - _sl / 100.0)
         # TP DYNAMIQUE: quand le prix atteint le TP, on le monte de +1% au lieu de fermer
         # Le trade court tant que la tendance haussiere continue
         _tp_actuel = pos.get("tp_dynamique", _tp)
