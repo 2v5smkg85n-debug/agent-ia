@@ -59,7 +59,8 @@ EXTEND_CRYPTOS = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "LDOUSD
 EXTEND_SEUIL = 0.5        # active l'extension a partir de +0.5% de gain
 EXTEND_TP_PCT = 4.0       # TP monte (2.0% -> 4.0%) une fois en profit
 EXTEND_DUREE_MAX = 480    # cap duree des positions extended (8h, vs 90min normal)
-SORTIE_DUREE_MIN = 90           # ferme apres 90 min si en gain suffisant (avant 45 -> trop court)
+SORTIE_DUREE_MIN = 720          # ferme apres 12h si en gain (laisse le TP dynamique travailler)
+STALE_DUREE_MAX = 720           # position stale apres 12h (laisse le SL suiveur gerer)
 # Seuil de gain minimum pour fermer par duree : doit couvrir les frais (0.2% AR) + une marge.
 # Fermer a +0.05% = perte nette (frais 0.2%). Donc on n'accepte que gain >= 0.30%.
 SEUIL_BENEFICE_MIN = 0.30       # 0.30% : couvre les 0.2% de frais + 0.1% de marge nette
@@ -67,7 +68,7 @@ DUREE_PETIT_GAIN = 180        # gain 0.30-0.45%: respire 2h (était 90min) pour 
 DUREE_GAIN_PROGRESS = 240    # gain 0.45-0.60%: respire 3h
 DUREE_GAGNANT_MAX = 360         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
 DUREE_BONUS_STRATEGIE = 60    # stratégie prouvée (live_n>=3, wr>=60%, pnl>0): +1h de respiration
-STALE_DUREE_MAX = 180           # position sous seuil depuis 3h -> time-stop, libère le capital
+STALE_DUREE_MAX = 720           # position stale apres 12h (laisse le SL suiveur gerer)
 BREAKEVEN_SEUIL = 2.0      # +2.0% -> SL monte au breakeven (un gagnant reste un gagnant)
 TRAIL_ACTIF = 3.0          # +3.0% -> trailing stop derrière le pic
 TRAIL_PCT = 1.0            # trail 1.0% sous le pic (lock profit, laisse respirer)
