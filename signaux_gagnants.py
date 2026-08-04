@@ -161,6 +161,10 @@ def strategies_gagnantes_par_actif():
         live = live_perf.get(strat_name)
         if live and live.get("trades", 0) >= 5 and live.get("wr", 100) < 40:
             continue  # strategie perdante en live -> bloquee
+        # FILTRE TOP 3 STRATEGIES: uniquement les 3 meilleures par nombre de gagnantes
+        TOP_3_STRATEGIES = {"RSI Mean Reversion", "SMA Crossover", "EMA Crossover"}
+        if strat_name not in TOP_3_STRATEGIES:
+            continue
         # AUTO-PRUNING-INSTALLE : skip strategies desactivees en live (auto_pruning)
         try:
             from auto_pruning import est_desactivee
