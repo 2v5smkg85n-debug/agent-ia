@@ -223,31 +223,35 @@ def _bb_ecart():
     return v.get("bb_ecart", 2.0)
 
 def strat_rsi_reversion(i, d):
-    """Achat quand RSI < seuil (survente) + confirmation momentum.
+    """Achat quand RSI en survente extreme + rebond fort confirme.
     Filtres pour 80%+ WR:
-    - RSI < seuil (survente)
-    - RSI remonte (turning up) -> momentum positif confirme le rebond
-    - 3 bougies precedentes: au moins 1 rouge (baisse avant le rebond)
+    - RSI < 20 (survente extreme, avant c'etait 35)
+    - RSI remonte d'au moins 3 points (rebond fort, pas un faux signal)
+    - 3 bougies baissieres consecutives avant (vrai dip, pas un simple pullback)
+    - Bougie actuelle verte (cloture > ouverture = rebond confirme)
     """
-    if i < 3:
+    if i < 5:
         return None
     r = d["rsi"]
     if r[i] is None or r[i-1] is None or r[i-2] is None:
         return None
     achat, vente = _strat_params()
     c = d["clotures"]
-    prix = c[i]
-    # ACHAT: RSI en survente ET RSI remonte (depuis encore plus bas) ET il y a eu une baisse recente
-    rsi_remonte = r[i] > r[i-1]
-    rsi_tres_bas = r[i-1] < achat or r[i-2] < achat  # RSI etait vraiment en survente
-    baisse_recente = c[i-1] < c[i-2] or c[i-2] < c[i-3]  # au moins 1 bougie rouge avant
-    if r[i] < achat + 5 and rsi_remonte and rsi_tres_bas and baisse_recente:
+    # ACHAT: conditions tres strictes pour 80%+ WR
+    rsi_extreme_bas = r[i-1] < 20 or r[i-2] < 20  # RSI etait en survente extreme
+    rsi_rebond_fort = r[i] > r[i-1] + 3  # RSI remonte d'au moins 3 points
+    # 3 bougies baissieres consecutives avant le rebond
+    trois_baisses = c[i-3] > c[i-2] and c[i-2] > c[i-1]
+    # Bougie actuelle verte (rebond)
+    bougie_verte = c[i] > c[i-1]
+    if rsi_extreme_bas and rsi_rebond_fort and trois_baisses and bougie_verte:
         return "ACHAT"
-    # VENTE: RSI en surachat ET RSI descend ET il y a eu une hausse recente
-    rsi_descend = r[i] < r[i-1]
-    rsi_tres_haut = r[i-1] > vente or r[i-2] > vente
-    hausse_recente = c[i-1] > c[i-2] or c[i-2] > c[i-3]
-    if r[i] > vente - 5 and rsi_descend and rsi_tres_haut and hausse_recente:
+    # VENTE: conditions inverse
+    rsi_extreme_haut = r[i-1] > 80 or r[i-2] > 80
+    rsi_descente_forte = r[i] < r[i-1] - 3
+    trois_hausses = c[i-3] < c[i-2] and c[i-2] < c[i-1]
+    bougie_rouge = c[i] < c[i-1]
+    if rsi_extreme_haut and rsi_descente_forte and trois_hausses and bougie_rouge:
         return "VENTE"
     return None
 
