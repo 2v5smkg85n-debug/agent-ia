@@ -223,28 +223,31 @@ def _bb_ecart():
     return v.get("bb_ecart", 2.0)
 
 def strat_rsi_reversion(i, d):
-    """Achat quand RSI < seuil (survente) + confirmation forte.
+    """Achat quand RSI < seuil (survente) + confirmation momentum.
     Filtres pour 80%+ WR:
-    - RSI < seuil (survente extreme)
-    - RSI remonte (turning up) -> momentum positif
-    - Prix au-dessus SMA50 -> tendance generale haussiere
-    - Aucun signal si SMA50 n'existe pas (pas assez de data)
+    - RSI < seuil (survente)
+    - RSI remonte (turning up) -> momentum positif confirme le rebond
+    - 3 bougies precedentes: au moins 1 rouge (baisse avant le rebond)
     """
-    if i < 51:
+    if i < 3:
         return None
     r = d["rsi"]
-    if r[i] is None or r[i-1] is None:
+    if r[i] is None or r[i-1] is None or r[i-2] is None:
         return None
     achat, vente = _strat_params()
-    sma50 = d["sma50"]
-    if sma50[i] is None:
-        return None
-    prix = d["clotures"][i]
-    # ACHAT: RSI en survente ET RSI remonte ET prix > SMA50 (tendance haussiere)
-    if r[i] < achat and r[i] > r[i-1] and prix > sma50[i]:
+    c = d["clotures"]
+    prix = c[i]
+    # ACHAT: RSI en survente ET RSI remonte (depuis encore plus bas) ET il y a eu une baisse recente
+    rsi_remonte = r[i] > r[i-1]
+    rsi_tres_bas = r[i-1] < achat or r[i-2] < achat  # RSI etait vraiment en survente
+    baisse_recente = c[i-1] < c[i-2] or c[i-2] < c[i-3]  # au moins 1 bougie rouge avant
+    if r[i] < achat + 5 and rsi_remonte and rsi_tres_bas and baisse_recente:
         return "ACHAT"
-    # VENTE: RSI en surachat ET RSI descend ET prix < SMA50
-    if r[i] > vente and r[i] < r[i-1] and prix < sma50[i]:
+    # VENTE: RSI en surachat ET RSI descend ET il y a eu une hausse recente
+    rsi_descend = r[i] < r[i-1]
+    rsi_tres_haut = r[i-1] > vente or r[i-2] > vente
+    hausse_recente = c[i-1] > c[i-2] or c[i-2] > c[i-3]
+    if r[i] > vente - 5 and rsi_descend and rsi_tres_haut and hausse_recente:
         return "VENTE"
     return None
 
