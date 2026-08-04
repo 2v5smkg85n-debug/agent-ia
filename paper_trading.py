@@ -49,6 +49,13 @@ FENETRE_CORRELATION_MIN = 30     # anti-double-exposition: bloque 2e entree sur 
 MAX_POS_PAR_ACTIF = 2           # max positions par actif (differentes strategies)
 RISK_PAR_TRADE = 0.065         # 6.5% du capital par trade (15 positions, ~60EUR chacune)
 INTERVALLE_BOUCLE = 1800       # 30 min (anti-churn : avant 15 min = trop de trades -> frais)
+# RISK MANAGEMENT AVANCE
+MAX_TRADES_PAR_JOUR = 20       # limite anti-churn: max 20 trades par jour
+PERTE_JOUR_MAX_PCT = 3.0      # stop trading si -3% en une journee
+CIRCUIT_BREAKER_CONSECUTIF = 3 # pause apres 3 pertes consecutives
+DRAWDOWN_REDUCTION_SEUIL = 0.95 # si capital < 95% du initial, reduit positions de 50%
+COMPOUND_AUTOMATIQUE = True    # reinvestir automatiquement les gains dans le capital
+HEURES_FAIBLE_LIQUIDITE = [(3, 6)] # pas de trades entre 3h-6h UTC
 # Seuilles serres pour trading actif (prise de benefice frequente)
 TAKE_PROFIT_PCT = 2.0  # PROFIT_BOOST_V1           # +1.5% -> encaisse le benefice
 STOP_LOSS_PCT = 1.5             # -1.5% -> coupe la perte
@@ -827,6 +834,11 @@ def ouvrir_position(pf, signal, prix_actuel):
     elif _nb_correl == 1:
         montant = montant * 0.5  # reduit de 50% si 1 position correlee
         print(f"  [CORREL] {signal.get('nom',sym)}: 1 position correlee -> x0.5 ({montant:.0f}EUR)")
+    # DRAWDOWN REDUCTION: si capital < 95% du initial, reduit les positions de 50%
+    capital_actuel = pf["liquidites"] + sum(p.get("montant", 0) for p in pf.get("positions", []))
+    if capital_actuel < pf.get("capital_initial", 1000) * DRAWDOWN_REDUCTION_SEUIL:
+        montant = montant * 0.5
+        print(f"  [DRAWDOWN] Capital {capital_actuel:.0f}EUR < {DRAWDOWN_REDUCTION_SEUIL*100:.0f}% initial -> x0.5 ({montant:.0f}EUR)")
     # CONFLUENCE SIZING: si 2+ strategies signalent ACHAT, position plus grosse
     nb_conf = signal.get("confluence", 1)
     if nb_conf >= 2:
@@ -837,6 +849,21 @@ def ouvrir_position(pf, signal, prix_actuel):
     if strat_name == "EMA Crossover":
         montant = montant * 2.0
         print(f"  [BOOST] EMA Crossover: strategie gagnante -> x2 ({montant:.0f}EUR)")
+    # CONVICTION SIZING: score plus eleve = position plus grosse
+    score = signal.get("score", 2)
+    if score >= 4:
+        montant = montant * 1.5
+        print(f"  [CONVICTION] Score {score} -> x1.5 ({montant:.0f}EUR)")
+    # DETECTION REGIME: bull/bear/sideways
+    try:
+        sma50 = prix.get("sma50", None)
+        if sma50 and prix_actuel:
+            if prix_actuel > sma50 * 1.02:
+                montant = montant * 1.2  # bull market: +20%
+            elif prix_actuel < sma50 * 0.98:
+                montant = montant * 0.5  # bear market: -50%
+    except:
+        pass
     # PYRAMIDING: si position deja ouverte ET en profit, on ajoute (acheter plus quand ca monte)
     _pos_existante = None
     for p in pf.get("positions", []):
@@ -1103,6 +1130,30 @@ def tick():
         print("Portefeuille non initialise. Lance 'python paper_trading.py init' d'abord.")
         return
     print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Verification des prix...")
+    # === RISK MANAGEMENT AVANCE ===
+    # 1. Perte journaliere max
+    trades_aujourdhui = [t for t in pf.get("trades_fermes", []) if t.get("date", "").startswith(datetime.now().strftime("%Y-%m-%d"))]
+    pnl_jour = sum(t.get("gain_eur", 0) for t in trades_aujourdhui)
+    capital_actuel = pf["liquidites"] + sum(p.get("montant", 0) for p in pf.get("positions", []))
+    if capital_actuel > 0 and pnl_jour < -(capital_actuel * PERTE_JOUR_MAX_PCT / 100):
+        print(f"  [RISK] Perte journaliere {pnl_jour:.2f}EUR > -{PERTE_JOUR_MAX_PCT}% -> STOP TRADING")
+        return
+    # 2. Circuit breaker 3 pertes consecutives
+    pertes_consec = pf.get("circuit_breaker", {}).get("consecutive_losses", 0)
+    if pertes_consec >= CIRCUIT_BREAKER_CONSECUTIF:
+        print(f"  [RISK] Circuit breaker: {pertes_consec} pertes consecutives -> PAUSE")
+        return
+    # 3. Heures de faible liquidite
+    heure_utc = datetime.utcnow().hour
+    for h_debut, h_fin in HEURES_FAIBLE_LIQUIDITE:
+        if h_debut <= heure_utc < h_fin:
+            print(f"  [RISK] Heure de faible liquidite ({h_debut}h-{h_fin}h UTC) -> skip nouveaux trades")
+            break
+    else:
+        # 4. Limite trades par jour
+        if len(trades_aujourdhui) >= MAX_TRADES_PAR_JOUR:
+            print(f"  [RISK] Max {MAX_TRADES_PAR_JOUR} trades/jour atteint -> skip")
+            return
     prix = tous_les_prix()
     if not prix:
         print("Impossible de recuperer les prix.")

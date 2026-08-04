@@ -287,30 +287,113 @@ def strat_supertrend(i, d):
     if i < 11:
         return None
     clotures = d["clotures"]
-    # Calcul ATR simplifie (10 periodes)
     trs = []
     for j in range(1, min(i+1, 11)):
-        tr = max(
-            clotures[j] - clotures[j-1],
-            abs(clotures[j] - clotures[j-1]),
-        )
+        tr = max(clotures[j] - clotures[j-1], abs(clotures[j] - clotures[j-1]))
         trs.append(tr)
     if not trs:
         return None
     atr = sum(trs) / len(trs)
-    # Ligne de base = mediane des 10 dernieres clotures
     recent = clotures[max(0,i-10):i+1]
     baseline = sorted(recent)[len(recent)//2]
-    # Bandes superieure et inferieure
     upper = baseline + 3 * atr
     lower = baseline - 3 * atr
     prix = clotures[i]
     prix_prec = clotures[i-1]
-    # Achat quand le prix casse au-dessus de la bande superieure (breakout haussier)
     if prix_prec <= upper and prix > upper:
         return "ACHAT"
-    # Vente quand le prix casse sous la bande inferieure (breakout baissier)
     if prix_prec >= lower and prix < lower:
+        return "VENTE"
+    return None
+
+def strat_ichimoku(i, d):
+    """Ichimoku Cloud: Achat quand prix > nuage (Tenkan > Kijun + prix au-dessus du nuage)."""
+    if i < 52:
+        return None
+    c = d["clotures"]
+    # Tenkan-sen (9): moyenne du plus haut et plus bas sur 9 periodes
+    h9 = max(c[i-9:i+1])
+    l9 = min(c[i-9:i+1])
+    tenkan = (h9 + l9) / 2
+    # Kijun-sen (26)
+    h26 = max(c[i-26:i+1])
+    l26 = min(c[i-26:i+1])
+    kijun = (h26 + l26) / 2
+    # Senkou Span A (Tenkan+Kijun)/2 decale de 26
+    h52 = max(c[i-52:i+1])
+    l52 = min(c[i-52:i+1])
+    senkou_a = (tenkan + kijun) / 2
+    senkou_b = (h52 + l52) / 2
+    # Nuage: entre senkou_a et senkou_b
+    nuage_haut = max(senkou_a, senkou_b)
+    nuage_bas = min(senkou_a, senkou_b)
+    prix = c[i]
+    prix_prec = c[i-1]
+    h9p = max(c[i-10:i])
+    l9p = min(c[i-10:i])
+    tenkan_prec = (h9p + l9p) / 2
+    h26p = max(c[i-27:i])
+    l26p = min(c[i-27:i])
+    kijun_prec = (h26p + l26p) / 2
+    # Achat: Tenkan croise au-dessus de Kijun ET prix au-dessus du nuage
+    if tenkan_prec <= kijun_prec and tenkan > kijun and prix > nuage_haut:
+        return "ACHAT"
+    # Vente: Tenkan croise sous Kijun ET prix sous le nuage
+    if tenkan_prec >= kijun_prec and tenkan < kijun and prix < nuage_bas:
+        return "VENTE"
+    return None
+
+def strat_vwap(i, d):
+    """VWAP: Achat quand le prix casse au-dessus du VWAP (volume weighted average price)."""
+    if i < 20:
+        return None
+    c = d["clotures"]
+    # VWAP simplifie: moyenne ponderee par volume sur 20 dernieres bougies
+    # Comme on n'a pas le volume, on approxime avec la moyenne typique (H+L+C)/3
+    # en utilisant les clotures comme proxy
+    window = c[max(0,i-20):i+1]
+    vwap = sum(window) / len(window)
+    vwap_prec = sum(c[max(0,i-21):i]) / min(20, i)
+    prix = c[i]
+    prix_prec = c[i-1]
+    # Achat: prix casse au-dessus du VWAP
+    if prix_prec <= vwap_prec and prix > vwap:
+        return "ACHAT"
+    # Vente: prix casse sous le VWAP
+    if prix_prec >= vwap_prec and prix < vwap:
+        return "VENTE"
+    return None
+
+def strat_mfi(i, d):
+    """Money Flow Index: combine volume et prix. Achat en zone oversold (<20)."""
+    if i < 14:
+        return None
+    c = d["clotures"]
+    # MFI simplifie sans volume: utilise RSI + momentum du prix
+    # Proxy: RSI pondere par l'amplitude des mouvements
+    gains = []
+    pertes = []
+    for j in range(1, min(i+1, 15)):
+        diff = c[j] - c[j-1]
+        if diff > 0:
+            gains.append(diff)
+            pertes.append(0)
+        else:
+            gains.append(0)
+            pertes.append(abs(diff))
+    avg_gain = sum(gains) / 14 if gains else 0
+    avg_perte = sum(pertes) / 14 if pertes else 0.001
+    # MFI approxime (sans volume, proche du RSI mais avec amplitude)
+    if avg_perte == 0:
+        mfi = 100
+    else:
+        rs = avg_gain / avg_perte
+        mfi = 100 - (100 / (1 + rs))
+    # Achat quand MFI < 25 (oversold) et prix remonte
+    if mfi < 25 and c[i] > c[i-1]:
+        return "ACHAT"
+    # Vente quand MFI > 80 (overbought)
+    if mfi > 80 and c[i] < c[i-1]:
         return "VENTE"
     return None
 
@@ -346,6 +429,9 @@ STRATEGIES = {
     "Stochastic":         strat_stochastic,
     "EMA Crossover":      strat_ema_crossover,
     "Supertrend":         strat_supertrend,
+    "Ichimoku Cloud":     strat_ichimoku,
+    "VWAP":               strat_vwap,
+    "Money Flow Index":   strat_mfi,
 }
 
 # Phase 7b: charge les stratégies générées par strategy_evolver.py (auto-déploiement)

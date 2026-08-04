@@ -50,6 +50,7 @@ INTERVALLES_PHASE5 = ["1h", "4h"]
 
 # Limite de bougies demandees par intervalle
 LIMITE = {"1h": 720, "4h": 600, "15m": 500, "1d": 365}
+INTERVALLES = ["1h", "4h", "15m"]
 
 
 # ============================================
