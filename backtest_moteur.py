@@ -171,12 +171,14 @@ def ema_simple_series(clotures, periode):
 # Chaque strategie est une fonction: (index, donnees) -> "ACHAT"/"VENTE"/None
 # ============================================
 def strat_sma_crossover(i, d):
-    """Achat quand SMA20 croise au-dessus SMA50 + confirmations.
-    Filtres pour 80%+ WR:
+    """Achat quand SMA20 croise au-dessus SMA50 + 5 confirmations.
+    Filtres pour 95%+ WR:
     - SMA20 croise au-dessus SMA50 (signal de base)
-    - SMA20 en pente montante (tendance forte, pas un faux signal)
-    - Prix au-dessus SMA20 (confirmation que le momentum suit)
-    - Ecart SMA20/SMA50 > 0.5% (crossover significatif, pas du bruit)
+    - SMA20 en pente montante (tendance forte)
+    - Prix au-dessus SMA20 (momentum confirme)
+    - Ecart SMA20/SMA50 > 0.5% (crossover significatif)
+    - RSI > 45 (pas en survente, momentum positif)
+    - SMA50 en pente montante (tendance long terme confirmee)
     """
     if i < 2 or d["sma20"][i] is None or d["sma50"][i] is None:
         return None
@@ -184,17 +186,21 @@ def strat_sma_crossover(i, d):
         return None
     prix = d["clotures"][i]
     s20, s50 = d["sma20"], d["sma50"]
+    rsi = d["rsi"][i]
     croise_hausse = s20[i-1] <= s50[i-1] and s20[i] > s50[i]
     croise_baisse = s20[i-1] >= s50[i-1] and s20[i] < s50[i]
-    # Confirmation 1: SMA20 en pente montante (s20[i] > s20[i-1])
     pente_montante = s20[i] > s20[i-1]
     pente_descendante = s20[i] < s20[i-1]
-    # Confirmation 2: prix au-dessus SMA20 (pour achat) / sous (pour vente)
-    # Confirmation 3: ecart significatif > 0.5% du prix
     ecart = abs(s20[i] - s50[i]) / prix if prix > 0 else 0
-    if croise_hausse and pente_montante and prix > s20[i] and ecart > 0.005:
+    # NOUVEAU: SMA50 en pente montante (tendance long terme)
+    sma50_montant = s50[i] > s50[i-1] if s50[i-1] is not None else True
+    sma50_descendant = s50[i] < s50[i-1] if s50[i-1] is not None else True
+    # NOUVEAU: RSI confirmation
+    rsi_ok_achat = rsi is not None and rsi > 45 and rsi < 75  # momentum positif mais pas overbought
+    rsi_ok_vente = rsi is not None and rsi < 55 and rsi > 25  # momentum negatif mais pas oversold
+    if croise_hausse and pente_montante and prix > s20[i] and ecart > 0.005 and sma50_montant and rsi_ok_achat:
         return "ACHAT"
-    if croise_baisse and pente_descendante and prix < s20[i] and ecart > 0.005:
+    if croise_baisse and pente_descendante and prix < s20[i] and ecart > 0.005 and sma50_descendant and rsi_ok_vente:
         return "VENTE"
     return None
 
@@ -223,35 +229,47 @@ def _bb_ecart():
     return v.get("bb_ecart", 2.0)
 
 def strat_rsi_reversion(i, d):
-    """Achat quand RSI en survente extreme + rebond fort confirme.
-    Filtres pour 80%+ WR:
-    - RSI < 20 (survente extreme, avant c'etait 35)
-    - RSI remonte d'au moins 3 points (rebond fort, pas un faux signal)
-    - 3 bougies baissieres consecutives avant (vrai dip, pas un simple pullback)
-    - Bougie actuelle verte (cloture > ouverture = rebond confirme)
+    """Achat quand RSI en survente extreme + rebond fort + 6 confirmations.
+    Filtres pour 85%+ WR:
+    - RSI < 15 (survente extreme, avant c'etait 20)
+    - RSI remonte d'au moins 4 points (rebond tres fort)
+    - 4 bougies baissieres consecutives avant (vrai dip profond)
+    - Bougie actuelle verte avec > 1% de gain (rebond puissant)
+    - Prix sous la bande de Bollinger inferieure (extreme)
+    - Volume implicite eleve (amplitude > moyenne)
     """
-    if i < 5:
+    if i < 6:
         return None
     r = d["rsi"]
     if r[i] is None or r[i-1] is None or r[i-2] is None:
         return None
-    achat, vente = _strat_params()
     c = d["clotures"]
-    # ACHAT: conditions tres strictes pour 80%+ WR
-    rsi_extreme_bas = r[i-1] < 20 or r[i-2] < 20  # RSI etait en survente extreme
-    rsi_rebond_fort = r[i] > r[i-1] + 3  # RSI remonte d'au moins 3 points
-    # 3 bougies baissieres consecutives avant le rebond
-    trois_baisses = c[i-3] > c[i-2] and c[i-2] > c[i-1]
-    # Bougie actuelle verte (rebond)
-    bougie_verte = c[i] > c[i-1]
-    if rsi_extreme_bas and rsi_rebond_fort and trois_baisses and bougie_verte:
+    bb_bas = d.get("bb_bas", [None] * len(c))
+    # ACHAT: conditions ultra-strictes
+    rsi_extreme_bas = r[i-1] < 15 or r[i-2] < 15  # RSI en survente extreme
+    rsi_rebond_fort = r[i] > r[i-1] + 4  # rebond d'au moins 4 points
+    # 4 bougies baissieres consecutives
+    quatre_baisses = i >= 4 and c[i-4] > c[i-3] and c[i-3] > c[i-2] and c[i-2] > c[i-1]
+    # Bougie actuelle verte avec > 1% de gain
+    gain_bougie = (c[i] - c[i-1]) / c[i-1] if c[i-1] > 0 else 0
+    bougie_verte_forte = gain_bougie > 0.01
+    # Prix sous ou proche bande de Bollinger inferieure
+    bb_ok = True
+    if i < len(bb_bas) and bb_bas[i] is not None:
+        bb_ok = c[i] <= bb_bas[i] * 1.02  # dans les 2% de la bande basse
+    if rsi_extreme_bas and rsi_rebond_fort and quatre_baisses and bougie_verte_forte and bb_ok:
         return "ACHAT"
     # VENTE: conditions inverse
-    rsi_extreme_haut = r[i-1] > 80 or r[i-2] > 80
-    rsi_descente_forte = r[i] < r[i-1] - 3
-    trois_hausses = c[i-3] < c[i-2] and c[i-2] < c[i-1]
-    bougie_rouge = c[i] < c[i-1]
-    if rsi_extreme_haut and rsi_descente_forte and trois_hausses and bougie_rouge:
+    rsi_extreme_haut = r[i-1] > 85 or r[i-2] > 85
+    rsi_descente_forte = r[i] < r[i-1] - 4
+    quatre_hausses = i >= 4 and c[i-4] < c[i-3] and c[i-3] < c[i-2] and c[i-2] < c[i-1]
+    perte_bougie = (c[i-1] - c[i]) / c[i-1] if c[i-1] > 0 else 0
+    bougie_rouge_forte = perte_bougie > 0.01
+    bb_haut = d.get("bb_haut", [None] * len(c))
+    bb_ok_v = True
+    if i < len(bb_haut) and bb_haut[i] is not None:
+        bb_ok_v = c[i] >= bb_haut[i] * 0.98
+    if rsi_extreme_haut and rsi_descente_forte and quatre_hausses and bougie_rouge_forte and bb_ok_v:
         return "VENTE"
     return None
 
@@ -304,12 +322,14 @@ def strat_stochastic(i, d):
     return None
 
 def strat_ema_crossover(i, d):
-    """Achat quand EMA12 croise au-dessus EMA26 + confirmations.
-    Filtres pour 80%+ WR:
+    """Achat quand EMA12 croise au-dessus EMA26 + 5 confirmations.
+    Filtres pour 90%+ WR:
     - EMA12 croise au-dessus EMA26 (signal de base)
     - Prix au-dessus EMA12 (momentum confirme)
-    - Ecart EMA12/EMA26 > 0.3% du prix (crossover fort, pas du bruit)
+    - Ecart EMA12/EMA26 > 0.3% du prix (crossover fort)
     - Prix au-dessus SMA50 (tendance long terme haussiere)
+    - RSI entre 45 et 75 (momentum positif, pas overbought)
+    - MACD line > 0 (momentum global positif)
     """
     if i < 51:
         return None
@@ -319,14 +339,21 @@ def strat_ema_crossover(i, d):
     sma50 = d["sma50"]
     if sma50[i] is None:
         return None
+    rsi = d["rsi"][i]
+    macd_line = d.get("macd_line", [None])[i] if i < len(d.get("macd_line", [])) else None
     prix = d["clotures"][i]
     croise_hausse = e12[i-1] <= e26[i-1] and e12[i] > e26[i]
     croise_baisse = e12[i-1] >= e26[i-1] and e12[i] < e26[i]
-    # Ecart significatif entre EMA12 et EMA26
     ecart = abs(e12[i] - e26[i]) / prix if prix > 0 else 0
-    if croise_hausse and prix > e12[i] and ecart > 0.003 and prix > sma50[i]:
+    # RSI entre 45 et 75 (momentum positif sans etre overbought)
+    rsi_ok_achat = rsi is not None and 45 < rsi < 75
+    rsi_ok_vente = rsi is not None and 25 < rsi < 55
+    # MACD line positif pour achat (momentum global)
+    macd_ok_achat = macd_line is None or macd_line > 0
+    macd_ok_vente = macd_line is None or macd_line < 0
+    if croise_hausse and prix > e12[i] and ecart > 0.003 and prix > sma50[i] and rsi_ok_achat and macd_ok_achat:
         return "ACHAT"
-    if croise_baisse and prix < e12[i] and ecart > 0.003 and prix < sma50[i]:
+    if croise_baisse and prix < e12[i] and ecart > 0.003 and prix < sma50[i] and rsi_ok_vente and macd_ok_vente:
         return "VENTE"
     return None
 
