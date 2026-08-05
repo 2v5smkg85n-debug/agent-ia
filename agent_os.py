@@ -25,9 +25,14 @@ import re
 from datetime import datetime, timedelta
 from collections import defaultdict, deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import subprocess
+import tempfile
 
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, DOSSIER)
+
+CODE_DIR = os.path.join(DOSSIER, "generated_code")
+os.makedirs(CODE_DIR, exist_ok=True)
 
 try:
     from dotenv import load_dotenv
@@ -532,6 +537,189 @@ def scan_and_alert():
 
 
 # ============================================
+# 6b. EXECUTION DE CODE - Ecrire et executer du Python
+# ============================================
+ALLOWED_IMPORTS = {
+    "os", "sys", "json", "math", "time", "datetime", "collections",
+    "requests", "re", "random", "statistics", "itertools", "functools",
+    "decimal", "fractions", "hashlib", "base64", "csv", "io",
+    "dotenv", "indicateurs", "gestion_risque", "backtest_moteur",
+}
+
+DANGEROUS_PATTERNS = [
+    "import subprocess", "import os\n.*\bos\.", "os.system", "os.popen",
+    "os.remove", "os.rmdir", "os.unlink", "shutil.rmtree",
+    "__import__", "eval(", "exec(", "compile(",
+    "open('/etc", "open('/var", "open('/root",
+    "import socket", "import ctypes", "import threading\n.*\bThread",
+    "import multiprocessing", "os.environ\[", "os.exec",
+    "os.spawn", "os.fork", "os.kill",
+]
+
+def validate_code(code):
+    """Valide que le code est sur de executer."    
+    # Verifie les imports
+    for line in code.split('\n'):
+        line = line.strip()
+        if line.startswith('import ') or line.startswith('from '):
+            # Extrait le nom du module
+            if line.startswith('from '):
+                mod = line.split()[1].split('.')[0]
+            else:
+                mod = line.split()[1].split(',')[0].strip().split(' as ')[0]
+            if mod not in ALLOWED_IMPORTS:
+                return False, f"Import interdit: {mod}"
+    
+    # Verifie les patterns dangereux
+    for pattern in DANGEROUS_PATTERNS:
+        if re.search(pattern, code, re.MULTILINE):
+            return False, f"Pattern dangereux detecte: {pattern}"
+    
+    return True, "OK"
+
+def extract_code(text):
+    """Extrait le code Python d'une reponse IA."    
+    # Cherche blocs ```python ... ```
+    blocks = re.findall(r'```python\n(.*?)```', text, re.DOTALL)
+    if blocks:
+        return blocks[0].strip()
+    
+    # Cherche blocs ``` ... ```
+    blocks = re.findall(r'```\n(.*?)```', text, re.DOTALL)
+    if blocks:
+        return blocks[0].strip()
+    
+    # Cherche code qui commence par import ou def
+    lines = text.split('\n')
+    code_lines = []
+    in_code = False
+    for line in lines:
+        if line.startswith('import ') or line.startswith('from ') or line.startswith('def ') or line.startswith('#'):
+            in_code = True
+        if in_code:
+            code_lines.append(line)
+    
+    if code_lines:
+        return '\n'.join(code_lines)
+    
+    return None
+
+def execute_code(code, timeout=30):
+    """Execute du code Python sur le VPS de maniere securisee."    
+    # Valide le code
+    is_safe, reason = validate_code(code)
+    if not is_safe:
+        return {"success": False, "error": f"Code rejete: {reason}", "output": ""}
+    
+    # Cree un fichier temporaire
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"script_{timestamp}.py"
+    filepath = os.path.join(CODE_DIR, filename)
+    
+    # Ajoute le path du dossier pour les imports locaux
+    full_code = f"import sys\nsys.path.insert(0, '{DOSSIER}')\n\n{code}"
+    
+    with open(filepath, 'w') as f:
+        f.write(full_code)
+    
+    try:
+        # Execute avec timeout
+        result = subprocess.run(
+            [sys.executable, '-u', filepath],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=DOSSIER
+        )
+        
+        output = result.stdout
+        if result.stderr:
+            output += f"\n[STDERR]\n{result.stderr}"
+        
+        return {
+            "success": result.returncode == 0,
+            "output": output[:3000],
+            "returncode": result.returncode,
+            "file": filename,
+        }
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": f"Timeout apres {timeout}s", "output": ""}
+    except Exception as e:
+        return {"success": False, "error": str(e), "output": ""}
+
+def generate_and_run_code(instruction):
+    """Genere du code avec l'IA puis l'execute sur le VPS."    
+    # 1. Demande a l'IA de generer le code
+    prompt = f"""Genere du code Python pour cette tache:
+{instruction}
+
+Regles:
+- Code complet, executable, autonome
+- Imports autorises: os, sys, json, math, time, datetime, requests, re, random, statistics, collections, csv, io, hashlib, base64, indicateurs, gestion_risque, backtest_moteur
+- PAS de subprocess, PAS de os.system, PAS de fichiers systeme
+- Affiche les resultats avec print()
+- Code en français (commentaires)
+- Reponds UNIQUEMENT avec le code dans un bloc ```python```"""
+    
+    ia_response = ask_perplexity(prompt, temperature=0.2)
+    
+    # 2. Extrait le code
+    code = extract_code(ia_response)
+    if not code:
+        return {
+            "success": False,
+            "error": "Aucun code trouve dans la reponse IA",
+            "ia_response": ia_response[:500],
+        }
+    
+    # 3. Valide le code
+    is_safe, reason = validate_code(code)
+    if not is_safe:
+        return {
+            "success": False,
+            "error": f"Code rejete pour securite: {reason}",
+            "code": code[:500],
+        }
+    
+    # 4. Execute
+    result = execute_code(code)
+    
+    return {
+        "success": result.get("success", False),
+        "code": code[:1000],
+        "output": result.get("output", ""),
+        "error": result.get("error", ""),
+        "file": result.get("file", ""),
+    }
+
+def list_generated_scripts():
+    """Liste les scripts generes."    
+    scripts = []
+    try:
+        for f in os.listdir(CODE_DIR):
+            if f.endswith('.py'):
+                path = os.path.join(CODE_DIR, f)
+                size = os.path.getsize(path)
+                mtime = datetime.fromtimestamp(os.path.getmtime(path)).strftime("%d/%m %H:%M")
+                scripts.append(f"{f} ({size}b, {mtime})")
+    except Exception:
+        pass
+    return scripts
+
+def run_existing_script(filename):
+    """Re-execute un script deja genere."    
+    if not filename.endswith('.py'):
+        filename += '.py'
+    filepath = os.path.join(CODE_DIR, filename)
+    if not os.path.exists(filepath):
+        return {"success": False, "error": f"Script {filename} introuvable"}
+    
+    with open(filepath, 'r') as f:
+        code = f.read()
+    
+    return execute_code(code)
+
+# ============================================
 # 6. TRAITEMENT DES MESSAGES TELEGRAM
 # ============================================
 def handle_message(text, user_name="User"):
@@ -663,12 +851,65 @@ def handle_message(text, user_name="User"):
 
 🧠 IA:
   resoudre [problème] - Résoudre un problème
+  code [description] - Génère et exécute du code Python
+  scripts - Liste les scripts générés
+  run [nom] - Ré-exécute un script
   [question] - Pose n'importe quelle question
 
 ━━━━━━━━━━━━━━━━━━━━
 L'agent apprend de chaque interaction."""
         send_telegram(help_msg)
         return help_msg
+    
+    # === EXECUTION DE CODE ===
+    if text_lower.startswith("code ") or text_lower.startswith("execute ") or text_lower.startswith("codegen "):
+        instruction = text_stripped.split(" ", 1)[1] if " " in text_stripped else ""
+        if not instruction:
+            response = "Usage: code [description de la tache]\nExemple: code calcule la moyenne mobile du BTC sur 20 jours"
+            send_telegram(response)
+            return response
+        
+        send_telegram(f"🤖 Generation et execution du code...\nTache: {instruction[:100]}")
+        result = generate_and_run_code(instruction)
+        
+        if result.get("success"):
+            msg = f"✅ Code execute avec succes\n"
+            msg += f"📁 Fichier: {result.get('file', '?')}\n"
+            msg += f"\n📤 Sortie:\n{result.get('output', '')[:2000]}"
+            send_telegram(msg)
+            save_memory("user", text_stripped, msg)
+            learn_fact(f"Code genere pour: {instruction[:100]}", "strategy")
+            return msg
+        else:
+            msg = f"❌ Erreur\n"
+            if result.get("error"):
+                msg += f"Erreur: {result['error']}\n"
+            if result.get("code"):
+                msg += f"\nCode genere:\n```python\n{result['code'][:1000]}\n```\n"
+            if result.get("output"):
+                msg += f"\nSortie:\n{result['output'][:1000]}"
+            send_telegram(msg)
+            return msg
+    
+    if text_lower.startswith("scripts"):
+        scripts = list_generated_scripts()
+        if scripts:
+            msg = "📁 Scripts generes:\n\n" + "\n".join(scripts[:20])
+        else:
+            msg = "Aucun script genere pour l'instant.\nUtilise: code [description] pour en créer un."
+        send_telegram(msg)
+        return msg
+    
+    if text_lower.startswith("run "):
+        filename = text_stripped.split(" ", 1)[1].strip()
+        send_telegram(f"🔄 Execution de {filename}...")
+        result = run_existing_script(filename)
+        if result.get("success"):
+            msg = f"✅ Executé\n\n{result.get('output', '')[:2000]}"
+        else:
+            msg = f"❌ Erreur: {result.get('error', 'inconnue')}\n{result.get('output', '')[:1000]}"
+        send_telegram(msg)
+        return msg
     
     # === CONVERSATION GÉNÉRALE ===
     # Construit le prompt avec contexte
