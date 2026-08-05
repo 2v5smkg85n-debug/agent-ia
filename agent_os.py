@@ -547,12 +547,12 @@ ALLOWED_IMPORTS = {
 }
 
 DANGEROUS_PATTERNS = [
-    "import subprocess", "import os\n.*\bos\.", "os.system", "os.popen",
+    "import subprocess", "os.system", "os.popen",
     "os.remove", "os.rmdir", "os.unlink", "shutil.rmtree",
     "__import__", "eval(", "exec(", "compile(",
     "open('/etc", "open('/var", "open('/root",
-    "import socket", "import ctypes", "import threading\n.*\bThread",
-    "import multiprocessing", "os.environ\[", "os.exec",
+    "import socket", "import ctypes",
+    "import multiprocessing", "os.exec",
     "os.spawn", "os.fork", "os.kill",
 ]
 
@@ -572,7 +572,7 @@ def validate_code(code):
     
     # Verifie les patterns dangereux
     for pattern in DANGEROUS_PATTERNS:
-        if re.search(pattern, code, re.MULTILINE):
+        if pattern in code:
             return False, f"Pattern dangereux detecte: {pattern}"
     
     return True, "OK"
