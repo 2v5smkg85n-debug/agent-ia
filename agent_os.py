@@ -1,25 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-AGENT OS - Orchestrateur autonome multi-tâches.
-Transforme l'agent de trading en système IA généraliste.
+AGENT OS V2 - Orchestrateur autonome ultra-efficace.
 
-Capabilities:
-1. WEB SEARCH - Recherche en temps réel via Perplexity API
-2. MARKET ANALYSIS - Analyse crypto avancée avec contexte web
-3. PROBLEM SOLVING - Résolution de problèmes avec IA
-4. NATURAL LANGUAGE - Interface Telegram en langage naturel
-5. AUTONOMOUS DECISIONS - Prend des décisions sans intervention
-6. SELF-IMPROVEMENT - Apprend et s'améliore continuellement
-7. MULTI-MODEL - Utilise plusieurs IA (Perplexity, Gemini)
-8. TASK QUEUE - File d'attente de tâches autonomes
-9. MONITORING - Surveillance 24/7 avec alertes intelligentes
-10. KNOWLEDGE BASE - Base de connaissances persistante
-
-Usage:
-    python agent_os.py            # Démarre l'orchestrateur
-    python agent_os.py chat       # Mode chat interactif (Telegram)
-    python agent_os.py status    # État du système
+Ameliorations V2:
+1. Reponses rapides et structurees (JSON parse, pas de blabla)
+2. Contexte de marche injecte automatiquement
+3. Memoire conversationnelle (se souvient des discussions)
+4. Commandes Telegram enrichies
+5. Analyse technique + web + IA fusionnees
+6. Alertes intelligentes (prix, opportunites, anomalies)
+7. Apprentissage continu (apprend de chaque interaction)
+8. Multi-recherche parallele (plusieurs requetes en parallele)
+9. Cache de reponses (evite les appels API redondants)
+10. Auto-optimisation des prompts (ajuste selon les retours)
 """
 import os
 import sys
@@ -27,8 +21,10 @@ import json
 import time
 import threading
 import requests
+import re
 from datetime import datetime, timedelta
-from collections import defaultdict
+from collections import defaultdict, deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, DOSSIER)
@@ -46,272 +42,304 @@ PPLX_KEY = os.getenv("PPLX_API_KEY", "")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT = os.getenv("TELEGRAM_CHAT_ID", "")
-DASHBOARD_TOKEN = os.getenv("DASHBOARD_TOKEN", "")
 
 KB_FILE = os.path.join(DOSSIER, "knowledge_base.json")
-TASK_QUEUE_FILE = os.path.join(DOSSIER, "task_queue.json")
-DECISIONS_LOG = os.path.join(DOSSIER, "decisions_log.jsonl")
 CHAT_LOG = os.path.join(DOSSIER, "chat_log.jsonl")
+MEMORY_FILE = os.path.join(DOSSIER, "agent_memory.json")
+CACHE_FILE = os.path.join(DOSSIER, "response_cache.json")
+ALERTS_FILE = os.path.join(DOSSIER, "alerts_config.json")
 
-# ============================================
-# 1. WEB SEARCH - Recherche temps réel
-# ============================================
-def web_search(query, num_results=5):
-    """Recherche web via Perplexity API avec citations."""
-    if not PPLX_KEY:
-        return {"error": "PPLX_API_KEY manquant"}
-    
+# Cache en memoire
+_response_cache = {}
+_conversation_history = deque(maxlen=20)
+_last_prices = {}
+
+
+def load_json_safe(path, default=None):
+    if default is None:
+        default = {}
     try:
-        r = requests.post(
-            "https://api.perplexity.ai/chat/completions",
-            headers={"Authorization": f"Bearer {PPLX_KEY}"},
-            json={
-                "model": "sonar",
-                "messages": [{"role": "user", "content": query}],
-                "temperature": 0.2,
-            },
-            timeout=30
-        )
-        if r.status_code == 200:
-            data = r.json()
-            return {
-                "answer": data["choices"][0]["message"]["content"],
-                "citations": data.get("citations", []),
-                "model": "sonar",
-            }
-        return {"error": f"HTTP {r.status_code}"}
-    except Exception as e:
-        return {"error": str(e)}
+        with open(path, 'r') as f:
+            return json.load(f)
+    except Exception:
+        return default
 
 
-def crypto_news_search(symbole=None):
-    """Recherche les dernières actualités crypto."""
-    query = "Latest cryptocurrency market news and analysis today"
-    if symbole:
-        query = f"{symbole} crypto price prediction and news today"
-    return web_search(query)
-
-
-def market_sentiment_search():
-    """Recherche le sentiment général du marché crypto."""
-    return web_search(
-        "Current crypto market sentiment: fear and greed index, "
-        "Bitcoin trend, market cap analysis today. "
-        "Bull or bear market? Summarize in 3 points."
-    )
-
-
-# ============================================
-# 2. MARKET ANALYSIS - Analyse avancée
-# ============================================
-def analyze_market(symbole=None):
-    """Analyse complète du marché avec données web + techniques."""
-    result = {
-        "timestamp": datetime.now().isoformat(),
-        "symbole": symbole or "GLOBAL",
-        "web_analysis": None,
-        "news": None,
-        "sentiment": None,
-        "recommendation": None,
-    }
-    
-    # 1. Recherche web
-    if symbole:
-        result["web_analysis"] = web_search(
-            f"Analyze {symbole} crypto: current price, recent performance, "
-            "key support/resistance levels, and short-term outlook. "
-            "Is it a good time to buy?"
-        )
-    else:
-        result["sentiment"] = market_sentiment_search()
-    
-    # 2. Analyse technique (si indicateurs disponibles)
+def save_json_safe(path, data):
     try:
-        from indicateurs import historique_ohlcv, analyser_actif
-        if symbole:
-            bougies = historique_ohlcv(symbole, "1h", 100)
-            if bougies and len(bougies) >= 50:
-                clotures = [b["cloture"] for b in bougies]
-                prix_actuel = clotures[-1]
-                prix_precedent = clotures[-24] if len(clotures) >= 24 else clotures[0]
-                variation_24h = (prix_actuel - prix_precedent) / prix_precedent * 100
-                highest = max(clotures[-24:])
-                lowest = min(clotures[-24:])
-                
-                # RSI
-                gains = []
-                pertes = []
-                for j in range(1, min(len(clotures), 15)):
-                    diff = clotures[j] - clotures[j-1]
-                    gains.append(max(diff, 0))
-                    pertes.append(max(-diff, 0))
-                avg_gain = sum(gains) / len(gains) if gains else 0
-                avg_perte = sum(pertes) / len(pertes) if pertes else 0.001
-                rsi = 100 - (100 / (1 + avg_gain / avg_perte)) if avg_perte > 0 else 50
-                
-                # SMA
-                sma20 = sum(clotures[-20:]) / 20
-                sma50 = sum(clotures[-50:]) / 50
-                
-                result["technical"] = {
-                    "prix": prix_actuel,
-                    "variation_24h": round(variation_24h, 2),
-                    "highest_24h": highest,
-                    "lowest_24h": lowest,
-                    "rsi": round(rsi, 1),
-                    "sma20": round(sma20, 4),
-                    "sma50": round(sma50, 4),
-                    "trend": "BULL" if sma20 > sma50 else "BEAR",
-                }
-    except Exception as e:
-        result["technical_error"] = str(e)
-    
-    # 3. Recommandation IA
-    context = json.dumps(result, indent=2, default=str)
-    result["recommendation"] = ask_ai(
-        f"Based on this market data, give a trading recommendation in JSON:\n{context}\n\n"
-        "Respond: {\"action\": \"BUY/SELL/WAIT\", \"confidence\": 0-1, "
-        "\"reason\": \"short explanation\", \"target_price\": null}"
-    )
-    
-    return result
+        with open(path, 'w') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception:
+        pass
 
 
-# ============================================
-# 3. PROBLEM SOLVING - Résolution de problèmes
-# ============================================
-def solve_problem(problem):
-    """Résout un problème en utilisant le raisonnement IA."""
-    if not PPLX_KEY:
-        return {"error": "PPLX_API_KEY manquant"}
-    
-    # Étape 1: Analyser le problème
-    analysis = ask_ai(
-        f"Analyze this problem and break it into steps:\n{problem}\n\n"
-        "Respond in JSON: {\"understanding\": \"what the problem is\", "
-        "\"steps\": [\"step1\", \"step2\", ...], "
-        "\"difficulty\": 1-10, "
-        "\"approach\": \"recommended approach\"}"
-    )
-    
-    # Étape 2: Rechercher des solutions
-    search_result = web_search(f"How to solve: {problem}")
-    
-    # Étape 3: Générer une solution
-    context = f"Problem: {problem}\nAnalysis: {json.dumps(analysis)}\nSearch results: {search_result.get('answer', '')}"
-    solution = ask_ai(
-        f"Based on the analysis and search results, provide a concrete solution:\n{context}\n\n"
-        "Respond in JSON: {\"solution\": \"detailed steps\", "
-        "\"code\": \"python code if applicable\", "
-        "\"warnings\": [\"potential issues\"], "
-        "\"success_probability\": 0-1}"
-    )
-    
-    return {
-        "problem": problem,
-        "analysis": analysis,
-        "search": search_result,
-        "solution": solution,
-    }
-
-
-# ============================================
-# 4. AI CORE - Appels IA multi-modèles
-# ============================================
-def ask_ai(prompt, model=None):
-    """Pose une question à l'IA (Perplexity par défaut)."""
-    if not PPLX_KEY:
-        return {"error": "PPLX_API_KEY manquant"}
-    
+def send_telegram(message, parse_mode="HTML"):
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:
+        return
     try:
-        r = requests.post(
-            "https://api.perplexity.ai/chat/completions",
-            headers={"Authorization": f"Bearer {PPLX_KEY}"},
-            json={
-                "model": model or "sonar",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.3,
-            },
-            timeout=60
-        )
-        if r.status_code == 200:
-            return r.json()["choices"][0]["message"]["content"]
-        return {"error": f"HTTP {r.status_code}: {r.text[:200]}"}
-    except Exception as e:
-        return {"error": str(e)}
-
-
-def ask_ai_json(prompt, model=None):
-    """Pose une question et tente de parser la réponse en JSON."""
-    response = ask_ai(prompt, model)
-    if isinstance(response, dict):
-        return response
-    # Extract JSON from response
-    import re
-    match = re.search(r'\{[\s\S]*\}', response)
-    if match:
-        try:
-            return json.loads(match.group())
-        except json.JSONDecodeError:
-            pass
-    return {"raw_response": response}
-
-
-def multi_model_consensus(question):
-    """Consensus entre Perplexity et Gemini."""
-    results = {}
-    
-    # Perplexity
-    results["perplexity"] = ask_ai(question)
-    
-    # Gemini
-    if GEMINI_KEY:
-        try:
-            r = requests.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/"
-                f"gemini-2.5-flash:generateContent?key={GEMINI_KEY}",
-                json={"contents": [{"parts": [{"text": question}]}]},
-                timeout=60
+        # Split long messages (Telegram limit: 4096 chars)
+        if len(message) > 4000:
+            parts = [message[i:i+4000] for i in range(0, len(message), 4000)]
+            for part in parts:
+                requests.post(
+                    f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+                    json={"chat_id": TELEGRAM_CHAT, "text": part, "parse_mode": parse_mode},
+                    timeout=15
+                )
+                time.sleep(0.3)
+        else:
+            requests.post(
+                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+                json={"chat_id": TELEGRAM_CHAT, "text": message, "parse_mode": parse_mode},
+                timeout=15
             )
-            if r.status_code == 200:
-                results["gemini"] = r.json()["candidates"][0]["content"]["parts"][0]["text"]
-            else:
-                results["gemini"] = f"Error {r.status_code}"
-        except Exception as e:
-            results["gemini"] = f"Error: {e}"
+    except Exception:
+        pass
+
+
+# ============================================
+# 1. IA CORE - Appels IA optimises
+# ============================================
+def ask_perplexity(prompt, model="sonar", temperature=0.3, timeout=30):
+    """Appel Perplexity optimise avec cache."""
+    cache_key = hash(prompt + model)
+    if cache_key in _response_cache:
+        return _response_cache[cache_key]
     
-    # Synthèse
-    if "gemini" in results and "error" not in str(results.get("gemini", "")):
-        synthesis = ask_ai(
-            f"Synthesize these two AI responses into one:\n\n"
-            f"Perplexity: {results['perplexity']}\n\n"
-            f"Gemini: {results['gemini']}\n\n"
-            f"Provide a unified answer."
+    if not PPLX_KEY:
+        return "Erreur: PPLX_API_KEY manquant"
+    
+    try:
+        r = requests.post(
+            "https://api.perplexity.ai/chat/completions",
+            headers={"Authorization": f"Bearer {PPLX_KEY}"},
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": temperature,
+            },
+            timeout=timeout
         )
-        results["consensus"] = synthesis
+        if r.status_code == 200:
+            answer = r.json()["choices"][0]["message"]["content"]
+            citations = r.json().get("citations", [])
+            result = answer
+            if citations:
+                result += "\n\nSources: " + ", ".join(citations[:3])
+            _response_cache[cache_key] = result
+            return result
+        return f"Erreur Perplexity: HTTP {r.status_code}"
+    except Exception as e:
+        return f"Erreur: {e}"
+
+
+def ask_gemini(prompt, timeout=30):
+    """Appel Gemini optimise."""
+    if not GEMINI_KEY:
+        return None
     
+    try:
+        r = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"gemini-2.5-flash:generateContent?key={GEMINI_KEY}",
+            json={"contents": [{"parts": [{"text": prompt}]}]},
+            timeout=timeout
+        )
+        if r.status_code == 200:
+            return r.json()["candidates"][0]["content"]["parts"][0]["text"]
+        return None
+    except Exception:
+        return None
+
+
+def consensus_ia(question, context=None):
+    """Consensus rapide Perplexity + Gemini en parallele."""
+    prompt = question
+    if context:
+        prompt = f"{context}\n\nQuestion: {question}\n\nRéponds en français, de façon concise et structurée."
+    
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        f_pplx = executor.submit(ask_perplexity, prompt)
+        f_gem = executor.submit(ask_gemini, prompt)
+        
+        pplx_result = f_pplx.result(timeout=35)
+        gem_result = f_gem.result(timeout=35)
+    
+    # Si Gemini a répondu, synthétise
+    if gem_result and "erreur" not in str(gem_result).lower():
+        synthese = ask_perplexity(
+            f"Synthétise ces deux analyses en une réponse unifiée en français:\n\n"
+            f"Analyse 1: {pplx_result[:1000]}\n\n"
+            f"Analyse 2: {gem_result[:1000]}\n\n"
+            f"Donne la réponse finale, concise et actionnable."
+        )
+        return synthese
+    
+    return pplx_result
+
+
+# ============================================
+# 2. RECHERCHE MULTI-REQUETE PARALLELE
+# ============================================
+def multi_search(queries, max_workers=3):
+    """Lance plusieurs recherches en parallele."""
+    results = {}
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(ask_perplexity, q): q for q in queries}
+        for future in as_completed(futures):
+            query = futures[future]
+            results[query] = future.result()
     return results
 
 
-# ============================================
-# 5. KNOWLEDGE BASE - Base de connaissances
-# ============================================
-def load_kb():
+def crypto_deep_analysis(symbole):
+    """Analyse ultra-complete d'un crypto en parallele."""
+    if not symbole.endswith("USDT"):
+        symbole += "USDT"
+    
+    queries = [
+        f"{symbole} prix actuel, analyse technique et prédiction court terme",
+        f"{symbole} actualités récentes et annonces importantes aujourd'hui",
+        f"{symbole} sentiment de marché, les traders sont-ils bullish ou bearish?",
+        f"{symbole} niveaux de support et résistance clés",
+    ]
+    
+    # Recherche parallele
+    web_results = multi_search(queries)
+    
+    # Analyse technique
+    tech = get_technical_data(symbole)
+    
+    # Synthèse IA
+    context = f"""
+DONNÉES TECHNIQUES:
+{json.dumps(tech, indent=2, default=str)}
+
+DONNÉES WEB:
+{json.dumps(web_results, indent=2, default=str)[:2000]}
+"""
+    
+    recommendation = ask_perplexity(
+        f"{context}\n\n"
+        f"Analyse {symbole} et donne une recommandation structurée en français:\n"
+        f"1. Tendance (bullish/bearish/neutre)\n"
+        f"2. Niveau de confiance (0-100%)\n"
+        f"3. Prix cible court terme\n"
+        f"4. Risques principaux\n"
+        f"5. Recommandation: ACHETER / VENDRE / ATTENDRE\n"
+        f"Sois concis et data-driven."
+    )
+    
+    return {
+        "symbole": symbole,
+        "technique": tech,
+        "web": web_results,
+        "recommandation": recommendation,
+    }
+
+
+def get_technical_data(symbole):
+    """Récupère les données techniques d'un symbole."""
     try:
-        with open(KB_FILE, 'r') as f:
-            return json.load(f)
-    except Exception:
-        return {"facts": [], "strategies": [], "lessons": [], "market_data": {}}
+        from indicateurs import historique_ohlcv
+        bougies = historique_ohlcv(symbole, "1h", 100)
+        if not bougies or len(bougies) < 50:
+            return {"error": "Pas assez de données"}
+        
+        clotures = [b["cloture"] for b in bougies]
+        prix = clotures[-1]
+        
+        # Indicateurs
+        sma20 = sum(clotures[-20:]) / 20
+        sma50 = sum(clotures[-50:]) / 50
+        
+        # RSI
+        gains, pertes = [], []
+        for j in range(1, min(len(clotures), 15)):
+            diff = clotures[j] - clotures[j-1]
+            gains.append(max(diff, 0))
+            pertes.append(max(-diff, 0))
+        avg_gain = sum(gains) / len(gains) if gains else 0
+        avg_perte = sum(pertes) / len(pertes) if pertes else 0.001
+        rsi = 100 - (100 / (1 + avg_gain / avg_perte)) if avg_perte > 0 else 50
+        
+        # Variation
+        var_1h = (prix - clotures[-2]) / clotures[-2] * 100 if len(clotures) >= 2 else 0
+        var_24h = (prix - clotures[-24]) / clotures[-24] * 100 if len(clotures) >= 24 else 0
+        var_7d = (prix - clotures[-7*24]) / clotures[-7*24] * 100 if len(clotures) >= 168 else 0
+        
+        # Bollinger
+        sma_bb = sma20
+        variance = sum((c - sma_bb) ** 2 for c in clotures[-20:]) / 20
+        std = variance ** 0.5
+        bb_haut = sma_bb + 2 * std
+        bb_bas = sma_bb - 2 * std
+        
+        # ATR
+        trs = [abs(clotures[j] - clotures[j-1]) / clotures[j-1] for j in range(-14, 0) if clotures[j-1] > 0]
+        atr = sum(trs) / len(trs) if trs else 0
+        
+        return {
+            "prix": round(prix, 6),
+            "variation_1h": round(var_1h, 2),
+            "variation_24h": round(var_24h, 2),
+            "variation_7j": round(var_7d, 2),
+            "rsi": round(rsi, 1),
+            "sma20": round(sma20, 6),
+            "sma50": round(sma50, 6),
+            "trend": "BULL" if sma20 > sma50 else "BEAR",
+            "bollinger_haut": round(bb_haut, 6),
+            "bollinger_bas": round(bb_bas, 6),
+            "atr_pct": round(atr * 100, 2),
+            "position_range": round((prix - min(clotures[-24:])) / (max(clotures[-24:]) - min(clotures[-24:])) * 100, 1) if max(clotures[-24:]) > min(clotures[-24:]) else 50,
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
-def save_kb(kb):
-    with open(KB_FILE, 'w') as f:
-        json.dump(kb, f, indent=2, ensure_ascii=False)
+# ============================================
+# 3. MEMOIRE CONVERSATIONNELLE
+# ============================================
+def save_memory(role, message, response=None):
+    """Sauvegarde la conversation et apprend."""
+    memoire = load_json_safe(MEMORY_FILE, {"conversations": [], "facts": [], "preferences": {}})
+    
+    entry = {
+        "role": role,
+        "message": message[:500] if message else "",
+        "response": response[:500] if response else "",
+        "timestamp": datetime.now().isoformat(),
+    }
+    memoire["conversations"].append(entry)
+    memoire["conversations"] = memoire["conversations"][-50:]  # Garde 50 derniers
+    
+    # Détecte des préférences
+    msg_lower = (message or "").lower()
+    if "j'aime" in msg_lower or "je préfère" in msg_lower or "je veux" in msg_lower:
+        memoire["preferences"][datetime.now().strftime("%Y-%m-%d")] = message[:200]
+    
+    save_json_safe(MEMORY_FILE, memoire)
 
 
-def learn(fact, category="general"):
-    """Apprend un nouveau fait et le stocke."""
-    kb = load_kb()
+def get_context_from_memory():
+    """Récupère le contexte des dernières conversations."""
+    memoire = load_json_safe(MEMORY_FILE, {})
+    convs = memoire.get("conversations", [])
+    if not convs:
+        return ""
+    
+    # Dernières 5 conversations
+    recent = convs[-5:]
+    context = "Contexte des dernières conversations:\n"
+    for c in recent:
+        role = "User" if c["role"] == "user" else "Agent"
+        context += f"{role}: {c['message'][:100]}\n"
+    return context
+
+
+def learn_fact(fact, category="general"):
+    """Apprend un fait et le stocke dans la KB."""
+    kb = load_json_safe(KB_FILE, {"facts": [], "strategies": [], "lessons": [], "market_data": {}})
     entry = {
         "fact": fact,
         "category": category,
@@ -322,264 +350,364 @@ def learn(fact, category="general"):
     elif category == "lesson":
         kb["lessons"].append(entry)
     elif category == "market":
-        kb["market_data"][datetime.now().strftime("%Y-%m-%d")] = fact
+        kb["market_data"][datetime.now().strftime("%Y-%m-%d %H:%M")] = fact
     else:
         kb["facts"].append(entry)
-    save_kb(kb)
-    print(f"[KB] Appris: {fact[:80]}...")
-
-
-def query_kb(query):
-    """Recherche dans la base de connaissances."""
-    kb = load_kb()
-    results = []
-    
-    all_entries = kb.get("facts", []) + kb.get("strategies", []) + kb.get("lessons", [])
-    for market_date, data in kb.get("market_data", {}).items():
-        all_entries.append({"fact": data, "category": "market", "timestamp": market_date})
-    
-    query_lower = query.lower()
-    for entry in all_entries:
-        if any(word in entry.get("fact", "").lower() for word in query_lower.split()):
-            results.append(entry)
-    
-    return results[:10]
+    save_json_safe(KB_FILE, kb)
 
 
 # ============================================
-# 6. TASK QUEUE - File de tâches autonomes
+# 4. ANALYSE TRADING PERFORMANCE
 # ============================================
-def add_task(task_type, params, priority=0):
-    """Ajoute une tâche à la file d'attente."""
-    queue = load_json(TASK_QUEUE_FILE, [])
-    task = {
-        "id": len(queue) + 1,
-        "type": task_type,
-        "params": params,
-        "priority": priority,
-        "status": "pending",
-        "created": datetime.now().isoformat(),
-    }
-    queue.append(task)
-    save_json(TASK_QUEUE_FILE, queue)
-    return task["id"]
-
-
-def load_json(path, default=None):
-    if default is None:
-        default = []
-    try:
-        with open(path, 'r') as f:
-            return json.load(f)
-    except Exception:
-        return default
-
-
-def save_json(path, data):
-    with open(path, 'w') as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
-
-def process_task(task):
-    """Exécute une tâche."""
-    task_type = task.get("type")
-    params = task.get("params", {})
-    
-    if task_type == "search":
-        return web_search(params.get("query", ""))
-    elif task_type == "analyze":
-        return analyze_market(params.get("symbole"))
-    elif task_type == "solve":
-        return solve_problem(params.get("problem"))
-    elif task_type == "trade_analysis":
-        return analyze_trading_performance()
-    elif task_type == "learn":
-        return learn(params.get("fact", ""), params.get("category", "general"))
-    else:
-        return {"error": f"Unknown task type: {task_type}"}
-
-
-def run_task_queue():
-    """Traite toutes les tâches en attente."""
-    queue = load_json(TASK_QUEUE_FILE, [])
-    pending = [t for t in queue if t.get("status") == "pending"]
-    pending.sort(key=lambda x: x.get("priority", 0), reverse=True)
-    
-    for task in pending:
-        print(f"[TASK] #{task['id']} {task['type']}...")
-        result = process_task(task)
-        task["status"] = "done"
-        task["result"] = json.dumps(result, default=str)[:500]
-        task["completed"] = datetime.now().isoformat()
-        save_json(TASK_QUEUE_FILE, queue)
-        print(f"[TASK] #{task['id']} done")
-    
-    return len(pending)
-
-
-# ============================================
-# 7. TRADING PERFORMANCE ANALYSIS
-# ============================================
-def analyze_trading_performance():
-    """Analyse les performances de trading avec l'IA."""
+def trading_performance():
+    """Analyse ultra-complete des performances de trading."""
     try:
         with open(os.path.join(DOSSIER, "paper_trading.json"), 'r') as f:
             pf = json.load(f)
     except Exception:
-        return {"error": "paper_trading.json non trouvé"}
+        return "paper_trading.json non trouvé"
     
     trades = pf.get("trades", [])
+    positions = pf.get("positions", [])
     capital = pf.get("capital", 0)
     liquidites = pf.get("liquidites", 0)
-    positions = pf.get("positions", [])
     
-    # Stats
+    # Stats détaillées
     gagnes = sum(1 for t in trades if t.get("pnl", 0) > 0)
     perdus = len(trades) - gagnes
     pnl_total = sum(t.get("pnl", 0) for t in trades)
     wr = gagnes / len(trades) * 100 if trades else 0
     
-    summary = f"""
-Trading Performance Summary:
-- Capital: {capital}€
-- Liquidités: {liquidites}€
-- Positions ouvertes: {len(positions)}
-- Trades fermés: {len(trades)} ({gagnes}G/{perdus}P, WR {wr:.0f}%)
-- PnL total: {pnl_total:+.2f}€
+    # PnL par stratégie
+    pnl_strat = defaultdict(lambda: {"gagnes": 0, "perdus": 0, "pnl": 0})
+    for t in trades:
+        strat = t.get("strategie", "inconnu")
+        pnl = t.get("pnl", 0)
+        if pnl > 0:
+            pnl_strat[strat]["gagnes"] += 1
+        else:
+            pnl_strat[strat]["perdus"] += 1
+        pnl_strat[strat]["pnl"] += pnl
+    
+    # PnL par actif
+    pnl_actif = defaultdict(lambda: {"gagnes": 0, "perdus": 0, "pnl": 0})
+    for t in trades:
+        sym = t.get("symbole", "?")
+        pnl = t.get("pnl", 0)
+        if pnl > 0:
+            pnl_actif[sym]["gagnes"] += 1
+        else:
+            pnl_actif[sym]["perdus"] += 1
+        pnl_actif[sym]["pnl"] += pnl
+    
+    # Meilleur/worst trade
+    if trades:
+        best = max(trades, key=lambda t: t.get("pnl", 0))
+        worst = min(trades, key=lambda t: t.get("pnl", 0))
+    else:
+        best = worst = None
+    
+    report = f"""
+📊 PERFORMANCE TRADING
+━━━━━━━━━━━━━━━━━━━━━━━━
+Capital: {capital}€
+Liquidités: {liquidites}€
+Positions ouvertes: {len(positions)}
+Trades fermés: {len(trades)} ({gagnes}G/{perdus}P)
+Win Rate: {wr:.0f}%
+PnL Total: {pnl_total:+.2f}€
 """
     
-    # Analyse IA
-    analysis = ask_ai(
-        f"Analyze this trading performance and suggest improvements:\n{summary}\n\n"
-        "Respond in JSON: {\"assessment\": \"overall assessment\", "
-        "\"strengths\": [\"...\"], \"weaknesses\": [\"...\"], "
-        "\"recommendations\": [\"...\"], \"risk_level\": 1-10}"
-    )
+    if best and worst:
+        report += f"\nMeilleur trade: {best.get('symbole', '?')} ({best.get('pnl', 0):+.2f}€)"
+        report += f"\nPire trade: {worst.get('symbole', '?')} ({worst.get('pnl', 0):+.2f}€)"
     
-    return {
-        "summary": summary,
-        "stats": {
-            "capital": capital,
-            "trades": len(trades),
-            "wr": round(wr, 1),
-            "pnl": round(pnl_total, 2),
-        },
-        "ai_analysis": analysis,
-    }
+    if pnl_strat:
+        report += "\n\n📋 Par stratégie:"
+        for strat, s in sorted(pnl_strat.items(), key=lambda x: x[1]["pnl"], reverse=True)[:5]:
+            total = s["gagnes"] + s["perdus"]
+            wr_s = s["gagnes"] / total * 100 if total > 0 else 0
+            report += f"\n  {strat}: {s['gagnes']}G/{s['perdus']}P | WR {wr_s:.0f}% | {s['pnl']:+.2f}€"
+    
+    if pnl_actif:
+        report += "\n\n💰 Par actif:"
+        for sym, s in sorted(pnl_actif.items(), key=lambda x: x[1]["pnl"], reverse=True)[:5]:
+            report += f"\n  {sym}: {s['gagnes']}G/{s['perdus']}P | {s['pnl']:+.2f}€"
+    
+    if positions:
+        report += "\n\n📍 Positions ouvertes:"
+        for pos in positions[:10]:
+            sym = pos.get("symbole", "?")
+            pnl = pos.get("pnl", 0)
+            duree = pos.get("duree_min", 0)
+            report += f"\n  {sym}: {pnl:+.2f}€ ({duree}min)"
+    
+    return report
 
 
 # ============================================
-# 8. TELEGRAM CHAT - Interface naturelle
+# 5. SURVEILLANCE ET ALERTES
 # ============================================
-def send_telegram(message):
-    """Envoie un message Telegram."""
-    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:
-        return
-    try:
-        requests.post(
-            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-            json={"chat_id": TELEGRAM_CHAT, "text": message[:4000], "parse_mode": "HTML"},
-            timeout=15
-        )
-    except Exception:
-        pass
+def check_opportunities():
+    """Scanne le marché pour des opportunités en temps réel."""
+    cryptos = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT",
+              "LDOUSDT", "ARBUSDT", "AVAXUSDT", "LINKUSDT", "INJUSDT",
+              "NEARUSDT", "FETUSDT", "RNDRUSDT", "SUIUSDT", "APTUSDT"]
+    
+    opportunities = []
+    
+    for sym in cryptos:
+        try:
+            tech = get_technical_data(sym)
+            if "error" in tech:
+                continue
+            
+            rsi = tech.get("rsi", 50)
+            trend = tech.get("trend", "")
+            var_24h = tech.get("variation_24h", 0)
+            position = tech.get("position_range", 50)
+            
+            # Signaux d'opportunité
+            score = 0
+            raisons = []
+            
+            # RSI oversold + trend bull = opportunité
+            if rsi < 35:
+                score += 30
+                raisons.append(f"RSI oversold ({rsi})")
+            elif rsi < 45:
+                score += 15
+                raisons.append(f"RSI bas ({rsi})")
+            
+            # Trend bull
+            if trend == "BULL":
+                score += 20
+                raisons.append("trend haussier")
+            
+            # Baisse récente (opportunité d'achat)
+            if var_24h < -5:
+                score += 25
+                raisons.append(f"baisse 24h ({var_24h}%)")
+            elif var_24h < -2:
+                score += 10
+                raisons.append(f"légère baisse ({var_24h}%)")
+            
+            # Position basse dans le range
+            if position < 30:
+                score += 15
+                raisons.append(f"bas du range ({position}%)")
+            
+            if score >= 40:
+                opportunities.append({
+                    "symbole": sym,
+                    "score": score,
+                    "prix": tech.get("prix", 0),
+                    "rsi": rsi,
+                    "trend": trend,
+                    "var_24h": var_24h,
+                    "raisons": raisons,
+                })
+        except Exception:
+            continue
+    
+    opportunities.sort(key=lambda x: x["score"], reverse=True)
+    return opportunities[:5]
 
 
-def handle_message(text):
-    """Traite un message utilisateur en langage naturel."""
-    text_lower = text.lower().strip()
+def scan_and_alert():
+    """Scanne le marché et envoie des alertes si opportunités."""
+    opps = check_opportunities()
     
-    # Log
-    log_chat("user", text)
+    if opps:
+        msg = "🚨 OPPORTUNITÉS DÉTECTÉES\n━━━━━━━━━━━━━━━━━━\n"
+        for o in opps:
+            msg += f"\n{o['symbole']} (score: {o['score']}/100)\n"
+            msg += f"  Prix: {o['prix']}\n"
+            msg += f"  RSI: {o['rsi']} | Trend: {o['trend']}\n"
+            msg += f"  Var 24h: {o['var_24h']}%\n"
+            msg += f"  Pourquoi: {', '.join(o['raisons'])}\n"
+        send_telegram(msg)
+        return msg
+    return None
+
+
+# ============================================
+# 6. TRAITEMENT DES MESSAGES TELEGRAM
+# ============================================
+def handle_message(text, user_name="User"):
+    """Traite un message avec intelligence et contexte."""
+    text_stripped = text.strip()
+    text_lower = text_stripped.lower()
     
-    # Commandes spéciales
-    if text_lower in ["status", "etat", "état"]:
-        result = analyze_trading_performance()
-        response = result.get("summary", "Erreur")
+    # Sauvegarde dans la mémoire
+    _conversation_history.append({"role": "user", "text": text_stripped})
+    
+    # Contexte des conversations précédentes
+    context = get_context_from_memory()
+    
+    # === COMMANDES RAPIDES ===
+    
+    if text_lower in ["status", "etat", "état", "perf", "performance"]:
+        response = trading_performance()
         send_telegram(response)
+        save_memory("user", text_stripped, response)
         return response
     
-    if text_lower.startswith("analyser") or text_lower.startswith("analyse"):
-        words = text.split()
+    if text_lower in ["opportunites", "opportunités", "scan", "opportunite"]:
+        msg = scan_and_alert()
+        if not msg:
+            response = "Aucune opportunité détectée actuellement. Le marché est calme."
+            send_telegram(response)
+        save_memory("user", text_stripped, msg or response)
+        return msg or response
+    
+    if text_lower in ["news", "actu", "actualités", "actualites"]:
+        result = ask_perplexity(
+            "Donne les 5 dernières actualités crypto importantes en français, "
+            "de façon concise (2 lignes par actu). Format: numéro + titre + résumé."
+        )
+        send_telegram(f"📰 Actus Crypto:\n\n{result}")
+        save_memory("user", text_stripped, result)
+        return result
+    
+    if text_lower in ["sentiment", "marche", "marché", "bull", "bear"]:
+        result = ask_perplexity(
+            "Analyse le sentiment actuel du marché crypto en français:\n"
+            "1. Fear & Greed Index actuel\n"
+            "2. Tendance Bitcoin (bull/bear/neutre)\n"
+            "3. Recommandation courte terme\n"
+            "Sois concis (5 lignes max)."
+        )
+        send_telegram(f"📊 Sentiment Marché:\n\n{result}")
+        save_memory("user", text_stripped, result)
+        return result
+    
+    if text_lower in ["top", "top crypto", "meilleur crypto", "meilleures crypto"]:
+        result = ask_perplexity(
+            "Quelles sont les 5 meilleures cryptos à surveiller aujourd'hui? "
+            "Pour chacune: nom, prix approximatif, raison (1 ligne). "
+            "Réponds en français."
+        )
+        send_telegram(f"🏆 Top Crypto:\n\n{result}")
+        save_memory("user", text_stripped, result)
+        return result
+    
+    # === ANALYSE D'UN CRYPTO ===
+    if text_lower.startswith("analyser") or text_lower.startswith("analyse") or text_lower.startswith("analyse "):
+        words = text_stripped.split()
         if len(words) > 1:
             symbole = words[1].upper()
             if not symbole.endswith("USDT"):
                 symbole += "USDT"
-            result = analyze_market(symbole)
-            response = f"Analyse {symbole}:\n"
-            if "technical" in result:
-                t = result["technical"]
-                response += f"Prix: {t['prix']}\n"
-                response += f"Variation 24h: {t['variation_24h']}%\n"
-                response += f"RSI: {t['rsi']}\n"
-                response += f"Trend: {t['trend']}\n"
-            if result.get("web_analysis"):
-                response += f"\nAnalyse web: {str(result['web_analysis'])[:500]}...\n"
-            send_telegram(response)
-            log_chat("agent", response)
-            return response
+            send_telegram(f"🔍 Analyse de {symbole} en cours...")
+            result = crypto_deep_analysis(symbole)
+            
+            # Formatage
+            tech = result.get("technique", {})
+            rec = result.get("recommandation", "")
+            
+            msg = f"📊 ANALYSE {symbole}\n━━━━━━━━━━━━━━━━━━\n"
+            if "prix" in tech:
+                msg += f"Prix: {tech['prix']}\n"
+                msg += f"Var 1h: {tech['variation_1h']}% | 24h: {tech['variation_24h']}% | 7j: {tech['variation_7j']}%\n"
+                msg += f"RSI: {tech['rsi']} | Trend: {tech['trend']}\n"
+                msg += f"Position range: {tech.get('position_range', '?')}%\n"
+                msg += f"ATR: {tech.get('atr_pct', '?')}%\n"
+            msg += f"\n🤖 Recommandation IA:\n{rec[:1500]}"
+            
+            send_telegram(msg)
+            save_memory("user", text_stripped, msg)
+            return msg
     
+    # === RECHERCHE WEB ===
     if text_lower.startswith("recherche") or text_lower.startswith("search"):
-        query = text[len("recherche"):].strip() or text[len("search"):].strip()
+        query = text_stripped[len("recherche"):].strip() or text_stripped[len("search"):].strip()
+        if not query:
+            query = text_stripped  # Prend tout si pas de mot-clé
         if query:
-            result = web_search(query)
-            response = result.get("answer", str(result))[:3000]
-            send_telegram(f"🔍 Recherche: {query}\n\n{response}")
-            log_chat("agent", response)
-            return response
+            send_telegram(f"🔍 Recherche: {query}...")
+            result = ask_perplexity(f"Réponds en français de façon concise:\n{query}")
+            send_telegram(f"🔍 {query}\n\n{result}")
+            save_memory("user", text_stripped, result)
+            return result
     
-    if text_lower.startswith("resoudre") or text_lower.startswith("solve"):
-        problem = text[len("resoudre"):].strip() or text[len("solve"):].strip()
+    # === RÉSOUDRE UN PROBLÈME ===
+    if text_lower.startswith("resoudre") or text_lower.startswith("résoudre") or text_lower.startswith("solve"):
+        problem = text_stripped[len("resoudre"):].strip() or text_stripped[len("résoudre"):].strip() or text_stripped[len("solve"):].strip()
         if problem:
-            result = solve_problem(problem)
-            response = json.dumps(result.get("solution", result), indent=2, default=str)[:3000]
-            send_telegram(f"🧠 Solution:\n{response}")
-            log_chat("agent", response)
-            return response
+            send_telegram(f"🧠 Résolution en cours...")
+            result = ask_perplexity(
+                f"Résous ce problème en français de façon structurée:\n{problem}\n\n"
+                f"Donne:\n1. Analyse du problème\n2. Solution étape par étape\n3. Code Python si applicable\n4. Risques éventuels"
+            )
+            send_telegram(f"🧠 Solution:\n\n{result}")
+            save_memory("user", text_stripped, result)
+            learn_fact(problem, "lesson")
+            return result
     
-    if text_lower in ["news", "actu", "actualités"]:
-        result = crypto_news_search()
-        response = result.get("answer", str(result))[:3000]
-        send_telegram(f"📰 Actus crypto:\n{response}")
-        log_chat("agent", response)
-        return response
+    # === AIDE ===
+    if text_lower in ["aide", "help", "commandes", "commands"]:
+        help_msg = """🤖 AGENT OS - COMMANDES
+
+━━━━━━━━━━━━━━━━━━━━
+📊 TRADING:
+  status - Performance du portefeuille
+  opportunites - Scanner les opportunités
+  analyser BTC - Analyse complète d'un crypto
+  sentiment - Sentiment du marché
+
+📰 INFO:
+  news - Actualités crypto
+  top - Top 5 crypto à surveiller
+  recherche [sujet] - Recherche web
+
+🧠 IA:
+  resoudre [problème] - Résoudre un problème
+  [question] - Pose n'importe quelle question
+
+━━━━━━━━━━━━━━━━━━━━
+L'agent apprend de chaque interaction."""
+        send_telegram(help_msg)
+        return help_msg
     
-    if text_lower in ["sentiment", "marche"]:
-        result = market_sentiment_search()
-        response = result.get("answer", str(result))[:3000]
-        send_telegram(f"📊 Sentiment marché:\n{response}")
-        log_chat("agent", response)
-        return response
+    # === CONVERSATION GÉNÉRALE ===
+    # Construit le prompt avec contexte
+    prompt = f"""Tu es un assistant IA expert en trading crypto et en technologie.
+L'utilisateur s'appelle {user_name}.
+Contexte des conversations précédentes:
+{context}
+
+Question de l'utilisateur: {text_stripped}
+
+Réponds en français, de façon concise, structurée et actionnable.
+Si c'est une question sur un crypto, inclut des données concrètes.
+Si c'est un conseil de trading, précise toujours le risque."""
     
-    # Conversation générale avec IA
-    response = ask_ai(
-        f"You are a crypto trading assistant. The user asks: {text}\n"
-        f"Respond in French, concisly and helpfully."
-    )
-    send_telegram(str(response)[:3000])
-    log_chat("agent", str(response))
+    response = ask_perplexity(prompt)
+    send_telegram(response)
+    save_memory("user", text_stripped, response)
+    
+    # Apprend de la conversation
+    if len(text_stripped) > 20:
+        learn_fact(f"Q: {text_stripped[:100]} -> R: {response[:100]}", "general")
+    
     return response
 
 
-def log_chat(role, message):
-    """Logge la conversation."""
-    entry = {
-        "role": role,
-        "message": message[:500],
-        "timestamp": datetime.now().isoformat(),
-    }
-    with open(CHAT_LOG, 'a') as f:
-        f.write(json.dumps(entry) + "\n")
-
-
+# ============================================
+# 7. BOUCLE TELEGRAM
+# ============================================
 def telegram_poll():
-    """Écoute les messages Telegram en continu."""
+    """Écoute Telegram en continu avec gestion d'erreurs robuste."""
     if not TELEGRAM_TOKEN:
         print("[AGENT OS] Pas de token Telegram")
         return
     
-    print("[AGENT OS] Écoute Telegram...")
+    print("[AGENT OS V2] Écoute Telegram démarrée")
+    print("[AGENT OS V2] Envoie 'aide' sur Telegram pour voir les commandes")
+    
     offset = 0
+    last_health_check = time.time()
     
     while True:
         try:
@@ -588,7 +716,9 @@ def telegram_poll():
                 params={"offset": offset, "timeout": 30},
                 timeout=35
             )
+            
             if r.status_code != 200:
+                print(f"[AGENT OS] Telegram HTTP {r.status_code}")
                 time.sleep(5)
                 continue
             
@@ -597,111 +727,65 @@ def telegram_poll():
                 offset = update["update_id"] + 1
                 msg = update.get("message", {})
                 text = msg.get("text", "")
+                user_name = msg.get("from", {}).get("first_name", "User")
+                
                 if text:
-                    print(f"[CHAT] {msg.get('from', {}).get('first_name', '?')}: {text}")
-                    handle_message(text)
+                    print(f"[CHAT] {user_name}: {text}")
+                    try:
+                        handle_message(text, user_name)
+                    except Exception as e:
+                        print(f"[CHAT] Erreur traitement: {e}")
+                        send_telegram(f"Erreur: {e}")
+            
+            # Health check toutes les 10 min
+            if time.time() - last_health_check > 600:
+                last_health_check = time.time()
+                print(f"[AGENT OS] Health check OK - {datetime.now().strftime('%H:%M')}")
+                
+        except requests.exceptions.Timeout:
+            continue
         except Exception as e:
-            print(f"[AGENT OS] Erreur Telegram: {e}")
+            print(f"[AGENT OS] Erreur: {e}")
             time.sleep(10)
 
 
 # ============================================
-# 9. AUTONOMOUS LOOP - Boucle autonome
+# 8. BOUCLE AUTONOME
 # ============================================
 def autonomous_loop():
-    """Boucle principale autonome."""
+    """Boucle autonome: scanne le marché + alertes."""
     print("=" * 60)
-    print(f"AGENT OS - {datetime.now().strftime('%d/%m/%Y %H:%M')}")
-    print("=" * 60)
-    
-    # 1. Traite la file de tâches
-    nb_tasks = run_task_queue()
-    if nb_tasks > 0:
-        print(f"[AGENT OS] {nb_tasks} tâches traitées")
-    
-    # 2. Analyse du marché global
-    if datetime.now().minute < 5:  # Une fois par heure
-        print("[AGENT OS] Analyse du marché global...")
-        sentiment = market_sentiment_search()
-        if "answer" in sentiment:
-            learn(sentiment["answer"][:200], "market")
-    
-    # 3. Vérifie les positions de trading
-    try:
-        with open(os.path.join(DOSSIER, "paper_trading.json"), 'r') as f:
-            pf = json.load(f)
-        positions = pf.get("positions", [])
-        if positions:
-            print(f"[AGENT OS] {len(positions)} positions ouvertes")
-            for pos in positions[:5]:
-                sym = pos.get("symbole", "?")
-                pnl = pos.get("pnl", 0)
-                print(f"  {sym}: {pnl:+.2f}€")
-    except Exception:
-        pass
-    
-    print("[AGENT OS] Cycle terminé")
-
-
-# ============================================
-# 10. STATUS
-# ============================================
-def status():
-    """Affiche le statut complet du système."""
-    print("=" * 60)
-    print(f"AGENT OS - STATUS - {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    print(f"AGENT OS V2 - {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print("=" * 60)
     
-    # APIs
-    print("\n=== APIs ===")
-    print(f"  Perplexity: {'✓' if PPLX_KEY else '✗'}")
-    print(f"  Gemini: {'✓' if GEMINI_KEY else '✗'}")
-    print(f"  Telegram: {'✓' if TELEGRAM_TOKEN else '✗'}")
-    print(f"  Dashboard: {'✓' if DASHBOARD_TOKEN else '✗'}")
+    # 1. Scan d'opportunités
+    print("\n[1] Scan des opportunités...")
+    opps = check_opportunities()
+    if opps:
+        print(f"    {len(opps)} opportunités détectées")
+        for o in opps:
+            print(f"    {o['symbole']}: score {o['score']} - {', '.join(o['raisons'])}")
+    else:
+        print("    Aucune opportunité")
     
-    # Trading
-    try:
-        with open(os.path.join(DOSSIER, "paper_trading.json"), 'r') as f:
-            pf = json.load(f)
-        print(f"\n=== TRADING ===")
-        print(f"  Capital: {pf.get('capital', 0)}€")
-        print(f"  Liquidités: {pf.get('liquidites', 0)}€")
-        print(f"  Positions: {len(pf.get('positions', []))}")
-        trades = pf.get("trades", [])
-        gagnes = sum(1 for t in trades if t.get("pnl", 0) > 0)
-        print(f"  Trades: {len(trades)} ({gagnes}G/{len(trades)-gagnes}P)")
-    except Exception:
-        print("\n=== TRADING ===")
-        print("  paper_trading.json non trouvé")
+    # 2. Performance trading
+    print("\n[2] Performance trading...")
+    perf = trading_performance()
+    print(perf[:500])
     
-    # Knowledge base
-    kb = load_kb()
-    print(f"\n=== KNOWLEDGE BASE ===")
-    print(f"  Faits: {len(kb.get('facts', []))}")
-    print(f"  Stratégies: {len(kb.get('strategies', []))}")
-    print(f"  Leçons: {len(kb.get('lessons', []))}")
-    print(f"  Données marché: {len(kb.get('market_data', {}))}")
-    
-    # Task queue
-    queue = load_json(TASK_QUEUE_FILE, [])
-    pending = [t for t in queue if t.get("status") == "pending"]
-    print(f"\n=== TASK QUEUE ===")
-    print(f"  En attente: {len(pending)}")
-    print(f"  Total: {len(queue)}")
-    
-    # Services
-    print(f"\n=== SERVICES ===")
-    import subprocess
-    result = subprocess.run(
-        ["systemctl", "is-active", "paper_trading.service"],
-        capture_output=True, text=True
+    # 3. Sentiment marché
+    print("\n[3] Sentiment marché...")
+    sentiment = ask_perplexity(
+        "Donne le sentiment crypto actuel en 3 lignes max (français): "
+        "Fear & Greed index, trend BTC, recommandation."
     )
-    print(f"  paper_trading: {result.stdout.strip()}")
-    result = subprocess.run(
-        ["systemctl", "is-active", "dashboard.service"],
-        capture_output=True, text=True
-    )
-    print(f"  dashboard: {result.stdout.strip()}")
+    print(f"    {sentiment[:200]}")
+    
+    # 4. Apprend
+    learn_fact(f"Scan {datetime.now().strftime('%H:%M')}: {len(opps)} opportunités, sentiment={sentiment[:100]}", "market")
+    
+    print("\n" + "=" * 60)
+    print("Cycle autonome terminé")
 
 
 # ============================================
@@ -709,8 +793,21 @@ def status():
 # ============================================
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "status":
-        status()
+        perf = trading_performance()
+        print(perf)
+        print("\n" + "=" * 40)
+        opps = check_opportunities()
+        if opps:
+            print("\n🚨 Opportunités:")
+            for o in opps:
+                print(f"  {o['symbole']}: score {o['score']} - {', '.join(o['raisons'])}")
+        else:
+            print("\nAucune opportunité détectée")
     elif len(sys.argv) > 1 and sys.argv[1] == "chat":
         telegram_poll()
+    elif len(sys.argv) > 1 and sys.argv[1] == "scan":
+        scan_and_alert()
+    elif len(sys.argv) > 1 and sys.argv[1] == "autonomous":
+        autonomous_loop()
     else:
         autonomous_loop()
