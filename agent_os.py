@@ -597,10 +597,195 @@ def learn_fact(fact, category="general"):
         kb["facts"].append(entry)
     save_json_safe(KB_FILE, kb)
 
+# --- MEMOIRE DE RESOLUTION DE PROBLEMES ---
+SOLUTIONS_FILE = os.path.join(DOSSIER, "solutions_db.json")
+CORRECTIONS_FILE = os.path.join(DOSSIER, "corrections_db.json")
 
-# ============================================
-# 4. ANALYSE TRADING PERFORMANCE
-# ============================================
+def save_solution(problem, solution, category="general"):
+    """Sauvegarde une solution pour reutilisation future."""
+    db = load_json_safe(SOLUTIONS_FILE, {"solutions": []})
+    entry = {
+        "problem": problem[:500],
+        "solution": solution[:1000],
+        "category": category,
+        "timestamp": datetime.now().isoformat(),
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "times_reused": 0,
+    }
+    db["solutions"].append(entry)
+    db["solutions"] = db["solutions"][-200:]  # max 200 solutions
+    save_json_safe(SOLUTIONS_FILE, db)
+
+def search_similar_problem(problem, limit=3):
+    """Cherche des problemes similaires deja resolus."""
+    db = load_json_safe(SOLUTIONS_FILE, {"solutions": []})
+    problem_lower = problem.lower()
+    mots = [m for m in problem_lower.replace(",", " ").replace(".", " ").split() if len(m) > 2]
+    
+    results = []
+    for sol in db.get("solutions", []):
+        text = (sol.get("problem", "") + " " + sol.get("solution", "")).lower()
+        score = sum(1 for mot in mots if mot in text)
+        if score > 0:
+            sol_copy = sol.copy()
+            sol_copy["score"] = score
+            results.append(sol_copy)
+    
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return results[:limit]
+
+def save_correction(error, correction, topic=""):
+    """Sauvegarde une correction d'erreur pour ne plus la repeter."""
+    db = load_json_safe(CORRECTIONS_FILE, {"corrections": []})
+    entry = {
+        "error": error[:500],
+        "correction": correction[:500],
+        "topic": topic,
+        "timestamp": datetime.now().isoformat(),
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+    db["corrections"].append(entry)
+    db["corrections"] = db["corrections"][-100:]
+    save_json_safe(CORRECTIONS_FILE, db)
+    # Aussi apprend comme fait
+    learn_fact(f"ERREUR: {error[:100]} -> CORRECTION: {correction[:100]}", "lesson")
+
+def get_corrections_context():
+    """Retourne les corrections recentes pour l'IA."""
+    db = load_json_safe(CORRECTIONS_FILE, {"corrections": []})
+    corrections = db.get("corrections", [])
+    if not corrections:
+        return ""
+    recent = corrections[-5:]
+    ctx = "Corrections aprendues (ne repete pas ces erreurs):\n"
+    for c in recent:
+        ctx += f"  Erreur: {c['error'][:100]}\n"
+        ctx += f"  Correction: {c['correction'][:100]}\n\n"
+    return ctx
+
+def auto_summarize_old_conversations():
+    """Compresse les vieilles conversations en resumes."""
+    memoire = load_json_safe(MEMORY_FILE, {"conversations": [], "summaries": []})
+    convs = memoire.get("conversations", [])
+    summaries = memoire.get("summaries", [])
+    
+    # Si on a plus de 100 conversations, on resume les 50 plus vieilles
+    if len(convs) > 100:
+        old_convs = convs[:50]
+        convs = convs[50:]
+        
+        # Cree un resume simple par date
+        by_date = {}
+        for c in old_convs:
+            date = c.get("date", "unknown")
+            if date not in by_date:
+                by_date[date] = []
+            by_date[date].append(c)
+        
+        for date, day_convs in by_date.items():
+            topics = [c["message"][:80] for c in day_convs[:5]]
+            summary = {
+                "date": date,
+                "count": len(day_convs),
+                "topics": topics,
+                "summary": f"{len(day_convs)} conversations le {date}: " + " | ".join(topics),
+            }
+            summaries.append(summary)
+        
+        summaries = summaries[-50:]  # max 50 resumes
+        memoire["conversations"] = convs
+        memoire["summaries"] = summaries
+        save_json_safe(MEMORY_FILE, memoire)
+
+def get_solutions_context(problem):
+    """Cherche des solutions similaires et les injecte dans le contexte."""
+    similar = search_similar_problem(problem)
+    if not similar:
+        return ""
+    ctx = "Solutions similaires trouvees dans ma memoire:\n"
+    for s in similar[:2]:
+        ctx += f"  Probleme: {s['problem'][:150]}\n"
+        ctx += f"  Solution: {s['solution'][:200]}\n\n"
+    return ctx
+
+def detect_correction(user_msg, bot_response):
+    """Detecte si l'utilisateur corrige une reponse precedente."""
+    msg_lower = user_msg.lower()
+    correction_indicators = [
+        "non", "pas", "erreur", "faux", "incorrect", "c'est faux",
+        "le bon", "la bonne", "c'est ca", "rectification",
+        "en fait", "actuellement", "c'est pas", "non c'est",
+    ]
+    is_correction = any(ind in msg_lower for ind in correction_indicators)
+    if is_correction and bot_response:
+        save_correction(bot_response[:300], user_msg[:300])
+        return True
+    return False
+
+def smart_solve(problem):
+    """Resolution de probleme multi-étapes avec memoire."""
+    steps = []
+    
+    # 1. Cherche dans les solutions existantes
+    similar = search_similar_problem(problem, limit=1)
+    if similar and similar[0].get("score", 0) >= 3:
+        sol = similar[0]
+        steps.append(f"Solution similaire trouvee (score {sol['score']})")
+        # Incremente le compteur de reutilisation
+        db = load_json_safe(SOLUTIONS_FILE, {"solutions": []})
+        for s in db["solutions"]:
+            if s.get("timestamp") == sol.get("timestamp"):
+                s["times_reused"] = s.get("times_reused", 0) + 1
+                break
+        save_json_safe(SOLUTIONS_FILE, db)
+        
+        # Demande a l'IA d'adapter la solution
+        prompt = f"""Probleme: {problem}
+
+J'ai deja resolu un probleme similaire:
+{sol['problem']}
+Solution: {sol['solution']}
+
+Adapte cette solution au probleme actuel. Reponds en français."""
+        response = ask_perplexity(prompt)
+        return response, steps
+    
+    # 2. Resolution multi-étapes avec l'IA
+    steps.append("Aucune solution similaire - resolution IA")
+    
+    # Contexte enrichi
+    context_parts = []
+    profile_ctx = get_profile_context()
+    context_parts.append(profile_ctx)
+    
+    corrections_ctx = get_corrections_context()
+    if corrections_ctx:
+        context_parts.append(corrections_ctx)
+    
+    mem_ctx = get_context_from_memory()
+    if mem_ctx:
+        context_parts.append(mem_ctx)
+    
+    full_context = "\n".join(context_parts)
+    
+    prompt = f"""{full_context}
+
+Probleme a resoudre: {problem}
+
+Instructions:
+1. Analyse le probleme etape par etape
+2. Si des calculs sont necessaires, montre-les
+3. Si une erreur precedente existe, evite-la
+4. Donne une solution complete et precise
+5. Reponds en français"""
+    
+    response = ask_perplexity(prompt)
+    
+    # 3. Sauvegarde la solution
+    save_solution(problem, response)
+    
+    return response, steps
+
 def trading_performance():
     """Analyse ultra-complete des performances de trading."""
     try:
@@ -1056,16 +1241,24 @@ def handle_message(text, user_name="User"):
             save_memory("user", text_stripped, result)
             return result
     
-    # === RÉSOUDRE UN PROBLÈME ===
+    # === RÉSOUDRE UN PROBLÈME (avec memoire de resolution) ===
     if text_lower.startswith("resoudre") or text_lower.startswith("résoudre") or text_lower.startswith("solve"):
         problem = text_stripped[len("resoudre"):].strip() or text_stripped[len("résoudre"):].strip() or text_stripped[len("solve"):].strip()
         if problem:
-            send_telegram(f"🧠 Résolution en cours...")
-            result = ask_perplexity(
-                f"Résous ce problème en français de façon structurée:\n{problem}\n\n"
-                f"Donne:\n1. Analyse du problème\n2. Solution étape par étape\n3. Code Python si applicable\n4. Risques éventuels"
-            )
-            send_telegram(f"🧠 Solution:\n\n{result}")
+            # Cherche d'abord dans les solutions existantes
+            similar = search_similar_problem(problem, limit=1)
+            if similar and similar[0].get("score", 0) >= 3:
+                send_telegram(f"🧠 Solution similaire trouvee dans ma memoire! Adaptation...")
+            else:
+                send_telegram(f"🧠 Resolution en cours...")
+            
+            result, steps = smart_solve(problem)
+            
+            msg = "🧠 Solution:\n\n"
+            if steps:
+                msg += f"📝 Etapes: {', '.join(steps)}\n\n"
+            msg += result
+            send_telegram(msg)
             save_memory("user", text_stripped, result)
             learn_fact(problem, "lesson")
             return result
@@ -1225,18 +1418,50 @@ L'agent apprend de chaque interaction."""
         send_telegram(msg)
         return msg
     
-    # === CONVERSATION GÉNÉRALE ===
-    # Construit le prompt avec contexte
-    prompt = f"""Tu es un assistant IA expert en trading crypto et en technologie.
+    # === CONVERSATION GÉNÉRALE (avec memoire intelligente) ===
+    # Detecte si l'utilisateur corrige une reponse precedente
+    memoire = load_json_safe(MEMORY_FILE, {"conversations": []})
+    last_conv = memoire.get("conversations", [])[-1] if memoire.get("conversations") else None
+    if last_conv and last_conv.get("response"):
+        detect_correction(text_stripped, last_conv["response"])
+    
+    # Auto-resume si trop de conversations
+    auto_summarize_old_conversations()
+    
+    # Contexte enrichi: profil + memoire + corrections + solutions
+    context_parts = []
+    profile_ctx = get_profile_context()
+    if profile_ctx:
+        context_parts.append(profile_ctx)
+    
+    mem_ctx = get_context_from_memory()
+    if mem_ctx:
+        context_parts.append(mem_ctx)
+    
+    corrections_ctx = get_corrections_context()
+    if corrections_ctx:
+        context_parts.append(corrections_ctx)
+    
+    solutions_ctx = get_solutions_context(text_stripped)
+    if solutions_ctx:
+        context_parts.append(solutions_ctx)
+    
+    full_context = "\n".join(context_parts)
+    
+    prompt = f"""Tu es un assistant IA expert en trading crypto, en technologie et en resolution de problemes.
 L'utilisateur s'appelle {user_name}.
-Contexte des conversations précédentes:
-{context}
+
+{full_context}
 
 Question de l'utilisateur: {text_stripped}
 
-Réponds en français, de façon concise, structurée et actionnable.
-Si c'est une question sur un crypto, inclut des données concrètes.
-Si c'est un conseil de trading, précise toujours le risque."""
+Instructions:
+- Reponds en français, de façon concise, structurée et actionnable
+- Si c'est une question sur un crypto, inclut des donnees concretes
+- Si c'est un conseil de trading, precise toujours le risque
+- Si tu as deja repondu a une question similaire, ameliore ta reponse precedente
+- Si une correction existe dans le contexte, ne repete pas l'erreur
+- Si des calculs sont necessaires, montre-les etape par etape"""
     
     response = ask_perplexity(prompt)
     send_telegram(response)
@@ -1245,6 +1470,9 @@ Si c'est un conseil de trading, précise toujours le risque."""
     # Apprend de la conversation
     if len(text_stripped) > 20:
         learn_fact(f"Q: {text_stripped[:100]} -> R: {response[:100]}", "general")
+    
+    # Sauvegarde comme solution potentielle
+    save_solution(text_stripped, response)
     
     return response
 
