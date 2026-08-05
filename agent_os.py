@@ -557,7 +557,7 @@ DANGEROUS_PATTERNS = [
 ]
 
 def validate_code(code):
-    """Valide que le code est sur de executer."    
+    """Valide que le code est sur de executer."""
     # Verifie les imports
     for line in code.split('\n'):
         line = line.strip()
@@ -578,7 +578,7 @@ def validate_code(code):
     return True, "OK"
 
 def extract_code(text):
-    """Extrait le code Python d'une reponse IA."    
+    """Extrait le code Python d'une reponse IA."""
     # Cherche blocs ```python ... ```
     blocks = re.findall(r'```python\n(.*?)```', text, re.DOTALL)
     if blocks:
@@ -605,7 +605,7 @@ def extract_code(text):
     return None
 
 def execute_code(code, timeout=30):
-    """Execute du code Python sur le VPS de maniere securisee."    
+    """Execute du code Python sur le VPS de maniere securisee."""
     # Valide le code
     is_safe, reason = validate_code(code)
     if not is_safe:
@@ -648,7 +648,7 @@ def execute_code(code, timeout=30):
         return {"success": False, "error": str(e), "output": ""}
 
 def generate_and_run_code(instruction):
-    """Genere du code avec l'IA puis l'execute sur le VPS."    
+    """Genere du code avec l'IA puis l'execute sur le VPS."""
     # 1. Demande a l'IA de generer le code
     prompt = f"""Genere du code Python pour cette tache:
 {instruction}
@@ -693,7 +693,7 @@ Regles:
     }
 
 def list_generated_scripts():
-    """Liste les scripts generes."    
+    """Liste les scripts generes."""
     scripts = []
     try:
         for f in os.listdir(CODE_DIR):
@@ -707,7 +707,7 @@ def list_generated_scripts():
     return scripts
 
 def run_existing_script(filename):
-    """Re-execute un script deja genere."    
+    """Re-execute un script deja genere."""
     if not filename.endswith('.py'):
         filename += '.py'
     filepath = os.path.join(CODE_DIR, filename)
