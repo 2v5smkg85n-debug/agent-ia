@@ -105,7 +105,7 @@ def send_telegram(message, parse_mode="HTML"):
 # ============================================
 # 1. IA CORE - Appels IA optimises
 # ============================================
-def ask_perplexity(prompt, model="sonar", temperature=0.3, timeout=30):
+def ask_perplexity(prompt, model="sonar", temperature=0.3, timeout=20):
     """Appel Perplexity optimise avec cache."""
     cache_key = hash(prompt + model)
     if cache_key in _response_cache:
@@ -133,8 +133,13 @@ def ask_perplexity(prompt, model="sonar", temperature=0.3, timeout=30):
                 result += "\n\nSources: " + ", ".join(citations[:3])
             _response_cache[cache_key] = result
             return result
-        return f"Erreur Perplexity: HTTP {r.status_code}"
+        print(f"[PERPLEXITY] HTTP {r.status_code}: {r.text[:200]}")
+        return f"Erreur API (HTTP {r.status_code})"
+    except requests.exceptions.Timeout:
+        print("[PERPLEXITY] Timeout")
+        return "Erreur: l'IA met trop de temps a repondre. Reformule ta question."
     except Exception as e:
+        print(f"[PERPLEXITY] Erreur: {e}")
         return f"Erreur: {e}"
 
 
@@ -1521,11 +1526,28 @@ def telegram_poll():
                 
                 if text:
                     print(f"[CHAT] {user_name}: {text}")
-                    try:
-                        handle_message(text, user_name)
-                    except Exception as e:
-                        print(f"[CHAT] Erreur traitement: {e}")
-                        send_telegram(f"Erreur: {e}")
+                    # Lance le traitement dans un thread pour ne pas bloquer
+                    import threading as _th
+                    def _process():
+                        try:
+                            # Indicateur 'typing'
+                            try:
+                                requests.get(
+                                    f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendChatAction",
+                                    params={"chat_id": TELEGRAM_CHAT_ID, "action": "typing"},
+                                    timeout=5
+                                )
+                            except:
+                                pass
+                            handle_message(text, user_name)
+                        except Exception as e:
+                            print(f"[CHAT] Erreur traitement: {e}")
+                            try:
+                                send_telegram(f"Erreur: {e}")
+                            except:
+                                pass
+                    t = _th.Thread(target=_process, daemon=True)
+                    t.start()
             
             # Health check toutes les 10 min
             if time.time() - last_health_check > 600:
