@@ -424,6 +424,13 @@ def save_memory(role, message, response=None):
         "important_conv": [],
     })
     
+    # Migration: assure que toutes les cles existent
+    memoire.setdefault("important_conv", [])
+    memoire.setdefault("conversations", [])
+    memoire.setdefault("summaries", [])
+    memoire.setdefault("facts", [])
+    memoire.setdefault("preferences", {})
+    
     # Detecte l'importance
     importance = 1  # normal
     msg_lower = (message or "").lower()
@@ -450,7 +457,7 @@ def save_memory(role, message, response=None):
     
     # Garde les conversations importantes indefiniment
     if importance >= 2:
-        memoire["important_conv"].append(entry)
+        memoire.setdefault("important_conv", []).append(entry)
         memoire["important_conv"] = memoire["important_conv"][-100:]  # max 100 importantes
     
     # Garde les 200 dernieres conversations normales
