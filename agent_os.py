@@ -303,44 +303,281 @@ def get_technical_data(symbole):
 
 
 # ============================================
-# 3. MEMOIRE CONVERSATIONNELLE
+# 3. MEMOIRE CONVERSATIONNELLE INTELLIGENTE
 # ============================================
+MEMORY_FILE = os.path.join(DOSSIER, "agent_memory.json")
+PROFILE_FILE = os.path.join(DOSSIER, "user_profile.json")
+
+_conversation_history = deque(maxlen=50)
+
+# --- PROFIL UTILISATEUR PERSISTANT ---
+def load_profile():
+    """Charge le profil utilisateur persistant."""
+    return load_json_safe(PROFILE_FILE, {
+        "nom": "Tamaya",
+        "style_trading": "crypto",
+        "capital": 1000,
+        "preferences": {},
+        "interets": [],
+        "cryptos_suivies": [],
+        "strategies_preferees": [],
+        "derniere_interaction": None,
+        "total_conversations": 0,
+        "sujets_explores": {},
+    })
+
+def save_profile(profile):
+    """Sauvegarde le profil utilisateur."""
+    save_json_safe(PROFILE_FILE, profile)
+
+def update_profile(message, response=""):
+    """Met a jour le profil en fonction du message."""
+    profile = load_profile()
+    profile["total_conversations"] = profile.get("total_conversations", 0) + 1
+    profile["derniere_interaction"] = datetime.now().isoformat()
+    
+    msg_lower = message.lower()
+    
+    # Detecte le nom
+    if "je m'appelle" in msg_lower or "mon nom est" in msg_lower:
+        try:
+            nom = message.split("'")[1].split()[0] if "m'appelle" in msg_lower else message.lower().split("nom est")[1].strip().split()[0]
+            if nom and len(nom) < 30:
+                profile["nom"] = nom.capitalize()
+        except:
+            pass
+    
+    # Detecte les preferences
+    if "je prefere" in msg_lower or "j'aime" in msg_lower or "je veux" in msg_lower:
+        key = datetime.now().strftime("%Y-%m-%d")
+        profile["preferences"][key] = message[:300]
+    
+    # Detecte les cryptos mentionnees
+    cryptos_connues = ["btc", "eth", "sol", "bnb", "xrp", "ada", "doge", "avax", "matic", "dot", 
+                       "link", "ltc", "pepe", "wif", "jup", "pyth", "strk", "io", "zro", "w",
+                       "ethfi", "om", "ena", "jto", "popcat", "mew"]
+    mots = msg_lower.replace(",", " ").replace(".", " ").split()
+    for crypto in cryptos_connues:
+        if crypto in mots and crypto not in profile["cryptos_suivies"]:
+            profile["cryptos_suivies"].append(crypto.upper())
+    
+    # Detecte les strategies mentionnees
+    strategies_connues = ["rsi", "ema", "macd", "bollinger", "supertrend", "ichimoku", "vwap", 
+                          "cci", "adx", "williams", "parabolic", "heikin", "squeeze"]
+    for strat in strategies_connues:
+        if strat in msg_lower and strat.upper() not in profile.get("strategies_preferees", []):
+            profile.setdefault("strategies_preferees", []).append(strat.upper())
+    
+    # Compte les sujets explores
+    sujets = {
+        "trading": ["trader", "trade", "position", "achat", "vente", "long", "short"],
+        "analyse": ["analyser", "analyse", "graphique", "indicateur", "technique"],
+        "code": ["code", "python", "script", "programmer", "executer"],
+        "marche": ["marche", "prix", "cours", "evolution", "tendance"],
+        "strategie": ["strategie", "backtest", "winrate", "performance"],
+        "actualite": ["news", "actualite", "info", "journal"],
+        "sentiment": ["sentiment", "fear", "greed", "peur", "avidite"],
+        "opportunite": ["opportunite", "scanner", "signal", "achat"],
+        "resolution": ["resoudre", "probleme", "bug", "erreur", "fix"],
+    }
+    for sujet, mots_cles in sujets.items():
+        for mot in mots_cles:
+            if mot in msg_lower:
+                profile["sujets_explores"][sujet] = profile["sujets_explores"].get(sujet, 0) + 1
+                break
+    
+    save_profile(profile)
+
+def get_profile_context():
+    """Genere un resume du profil pour l'IA."""
+    profile = load_profile()
+    ctx = f"Profil utilisateur: {profile.get('nom', 'Tamaya')}\n"
+    ctx += f"Style: {profile.get('style_trading', 'crypto')}\n"
+    ctx += f"Capital: {profile.get('capital', 1000)}€\n"
+    
+    cryptos = profile.get("cryptos_suivies", [])
+    if cryptos:
+        ctx += f"Cryptos suivies: {', '.join(cryptos[:10])}\n"
+    
+    strats = profile.get("strategies_preferees", [])
+    if strats:
+        ctx += f"Strategies interessees: {', '.join(strats[:8])}\n"
+    
+    sujets = profile.get("sujets_explores", {})
+    if sujets:
+        top_sujets = sorted(sujets.items(), key=lambda x: x[1], reverse=True)[:3]
+        ctx += f"Sujets frequents: {', '.join([s[0] for s in top_sujets])}\n"
+    
+    total = profile.get("total_conversations", 0)
+    ctx += f"Total conversations: {total}\n"
+    
+    return ctx
+
+# --- MEMOIRE CONVERSATIONNELLE AVANCEE ---
 def save_memory(role, message, response=None):
-    """Sauvegarde la conversation et apprend."""
-    memoire = load_json_safe(MEMORY_FILE, {"conversations": [], "facts": [], "preferences": {}})
+    """Sauvegarde la conversation avec metadata et apprend."""
+    memoire = load_json_safe(MEMORY_FILE, {
+        "conversations": [], 
+        "facts": [], 
+        "preferences": {}, 
+        "summaries": [],
+        "important_conv": [],
+    })
+    
+    # Detecte l'importance
+    importance = 1  # normal
+    msg_lower = (message or "").lower()
+    resp_lower = (response or "").lower()
+    
+    # Importance elevee pour certains contenus
+    if any(kw in msg_lower for kw in ["important", "rapelle", "n'oublie", "souviens", "retiens"]):
+        importance = 3  # critique
+    elif any(kw in msg_lower for kw in ["strategie", "backtest", "resultat", "performance", "code", "erreur"]):
+        importance = 2  # important
+    elif any(kw in resp_lower for kw in ["succes", "execute", "gagnant", "benefice"]):
+        importance = 2
     
     entry = {
         "role": role,
-        "message": message[:500] if message else "",
-        "response": response[:500] if response else "",
+        "message": message[:800] if message else "",
+        "response": response[:800] if response else "",
         "timestamp": datetime.now().isoformat(),
+        "importance": importance,
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "heure": datetime.now().strftime("%H:%M"),
     }
     memoire["conversations"].append(entry)
-    memoire["conversations"] = memoire["conversations"][-50:]  # Garde 50 derniers
     
-    # Détecte des préférences
-    msg_lower = (message or "").lower()
-    if "j'aime" in msg_lower or "je préfère" in msg_lower or "je veux" in msg_lower:
-        memoire["preferences"][datetime.now().strftime("%Y-%m-%d")] = message[:200]
+    # Garde les conversations importantes indefiniment
+    if importance >= 2:
+        memoire["important_conv"].append(entry)
+        memoire["important_conv"] = memoire["important_conv"][-100:]  # max 100 importantes
+    
+    # Garde les 200 dernieres conversations normales
+    memoire["conversations"] = memoire["conversations"][-200:]
+    
+    # Met a jour le profil
+    update_profile(message, response)
     
     save_json_safe(MEMORY_FILE, memoire)
 
+def search_memory(query, limit=5):
+    """Recherche dans la memoire par mots-cles."""
+    memoire = load_json_safe(MEMORY_FILE, {"conversations": [], "important_conv": []})
+    query_lower = query.lower()
+    mots_cles = [m for m in query_lower.replace(",", " ").replace(".", " ").split() if len(m) > 2]
+    
+    results = []
+    all_conv = memoire.get("conversations", []) + memoire.get("important_conv", [])
+    
+    for conv in all_conv:
+        text = (conv.get("message", "") + " " + conv.get("response", "")).lower()
+        score = sum(1 for mot in mots_cles if mot in text)
+        if score > 0:
+            conv_copy = conv.copy()
+            conv_copy["score"] = score
+            results.append(conv_copy)
+    
+    # Trie par score puis par date
+    results.sort(key=lambda x: (x["score"], x.get("importance", 1)), reverse=True)
+    
+    # Dedouble par message
+    seen = set()
+    unique = []
+    for r in results:
+        key = r.get("message", "")[:50]
+        if key not in seen:
+            seen.add(key)
+            unique.append(r)
+    
+    return unique[:limit]
 
 def get_context_from_memory():
-    """Récupère le contexte des dernières conversations."""
+    """Récupère le contexte intelligent pour l'IA."""
+    ctx_parts = []
+    
+    # 1. Profil utilisateur
+    profile_ctx = get_profile_context()
+    if profile_ctx:
+        ctx_parts.append(profile_ctx)
+    
+    # 2. Dernieres conversations (3 recentes)
     memoire = load_json_safe(MEMORY_FILE, {})
     convs = memoire.get("conversations", [])
-    if not convs:
-        return ""
+    if convs:
+        recent = convs[-3:]
+        ctx = "Conversations recentes:\n"
+        for c in recent:
+            role = "User" if c["role"] == "user" else "Agent"
+            ctx += f"  {role}: {c['message'][:150]}\n"
+            if c.get("response"):
+                ctx += f"  Rep: {c['response'][:100]}\n"
+        ctx_parts.append(ctx)
     
-    # Dernières 5 conversations
-    recent = convs[-5:]
-    context = "Contexte des dernières conversations:\n"
-    for c in recent:
-        role = "User" if c["role"] == "user" else "Agent"
-        context += f"{role}: {c['message'][:100]}\n"
-    return context
+    # 3. Conversations importantes recentes (2 dernieres)
+    important = memoire.get("important_conv", [])
+    if important:
+        recent_imp = important[-2:]
+        ctx = "Points importants souvenus:\n"
+        for c in recent_imp:
+            ctx += f"  {c['message'][:200]}\n"
+            if c.get("response"):
+                ctx += f"  -> {c['response'][:150]}\n"
+        ctx_parts.append(ctx)
+    
+    return "\n".join(ctx_parts)
 
+def get_memory_summary():
+    """Genere un resume de la memoire pour l'utilisateur."""
+    memoire = load_json_safe(MEMORY_FILE, {"conversations": [], "important_conv": []})
+    profile = load_profile()
+    
+    total = len(memoire.get("conversations", []))
+    important = len(memoire.get("important_conv", []))
+    
+    summary = f"🧠 MEMOIRE DE L'AGENT\n\n"
+    summary += f"👤 Profil: {profile.get('nom', 'Tamaya')}\n"
+    summary += f"💬 Conversations: {total}\n"
+    summary += f"⭐ Conversations importantes: {important}\n"
+    summary += f"📊 Total echanges: {profile.get('total_conversations', 0)}\n\n"
+    
+    cryptos = profile.get("cryptos_suivies", [])
+    if cryptos:
+        summary += f"💰 Cryptos suivies: {', '.join(cryptos[:10])}\n"
+    
+    strats = profile.get("strategies_preferees", [])
+    if strats:
+        summary += f"📐 Strategies: {', '.join(strats[:8])}\n"
+    
+    sujets = profile.get("sujets_explores", {})
+    if sujets:
+        top = sorted(sujets.items(), key=lambda x: x[1], reverse=True)[:5]
+        summary += f"📚 Sujets: {', '.join([f'{s}({n})' for s, n in top])}\n"
+    
+    prefs = profile.get("preferences", {})
+    if prefs:
+        recent_prefs = sorted(prefs.items())[-3:]
+        summary += f"\n🔑 Preferences recentes:\n"
+        for date, pref in recent_prefs:
+            summary += f"  {date}: {pref[:80]}\n"
+    
+    # Dernieres conversations importantes
+    imp_conv = memoire.get("important_conv", [])
+    if imp_conv:
+        summary += f"\n⭐ Souvenirs importants:\n"
+        for c in imp_conv[-3:]:
+            summary += f"  [{c.get('date', '?')}] {c['message'][:100]}\n"
+    
+    return summary
+
+def forget_last():
+    """Oublie la derniere conversation."""
+    memoire = load_json_safe(MEMORY_FILE, {"conversations": []})
+    if memoire.get("conversations"):
+        memoire["conversations"].pop()
+        save_json_safe(MEMORY_FILE, memoire)
+        return True
+    return False
 
 def learn_fact(fact, category="general"):
     """Apprend un fait et le stocke dans la KB."""
@@ -856,10 +1093,87 @@ def handle_message(text, user_name="User"):
   run [nom] - Ré-exécute un script
   [question] - Pose n'importe quelle question
 
+🧠 MEMOIRE:
+  memoire - Resume de la memoire
+  profil - Ton profil utilisateur
+  souviens [info] - Retiens quelque chose
+  cherche [mots] - Recherche dans la memoire
+  oublie - Oublie la derniere conversation
+
 ━━━━━━━━━━━━━━━━━━━━
 L'agent apprend de chaque interaction."""
         send_telegram(help_msg)
         return help_msg
+    
+    if text_lower.startswith("memoire"):
+        msg = get_memory_summary()
+        send_telegram(msg)
+        return msg
+    
+    if text_lower.startswith("souviens") or text_lower.startswith("rapelle") or text_lower.startswith("retiens"):
+        # Force la sauvegarde comme important
+        memoire = load_json_safe(MEMORY_FILE, {"conversations": [], "important_conv": []})
+        entry = {
+            "role": "user",
+            "message": text_stripped,
+            "response": "",
+            "timestamp": datetime.now().isoformat(),
+            "importance": 3,
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "heure": datetime.now().strftime("%H:%M"),
+        }
+        memoire.setdefault("important_conv", []).append(entry)
+        memoire.setdefault("conversations", []).append(entry)
+        save_json_safe(MEMORY_FILE, memoire)
+        learn_fact(text_stripped, "lesson")
+        msg = "✅ Retenu! Je m'en souviendrai."
+        send_telegram(msg)
+        return msg
+    
+    if text_lower.startswith("cherche ") or text_lower.startswith("recherche memoire"):
+        query = text_stripped.split(" ", 1)[1] if " " in text_stripped else ""
+        if query:
+            results = search_memory(query)
+            if results:
+                msg = f"🔍 {len(results)} resultats pour '{query}':\n\n"
+                for i, r in enumerate(results, 1):
+                    msg += f"{i}. [{r.get('date', '?')}] {r['message'][:150]}\n"
+                    if r.get("response"):
+                        msg += f"   -> {r['response'][:100]}\n"
+            else:
+                msg = f"Rien trouve pour '{query}' dans ma memoire."
+        else:
+            msg = "Usage: cherche [mots cles]"
+        send_telegram(msg)
+        return msg
+    
+    if text_lower.startswith("oublie"):
+        if forget_last():
+            msg = "✅ Derniere conversation oubliee."
+        else:
+            msg = "Rien a oublier."
+        send_telegram(msg)
+        return msg
+    
+    if text_lower.startswith("profil"):
+        profile = load_profile()
+        msg = f"👤 PROFIL UTILISATEUR\n\n"
+        msg += f"Nom: {profile.get('nom', '?')}\n"
+        msg += f"Capital: {profile.get('capital', '?')}€\n"
+        msg += f"Total echanges: {profile.get('total_conversations', 0)}\n"
+        cryptos = profile.get("cryptos_suivies", [])
+        if cryptos:
+            msg += f"Cryptos: {', '.join(cryptos[:15])}\n"
+        strats = profile.get("strategies_preferees", [])
+        if strats:
+            msg += f"Strategies: {', '.join(strats[:10])}\n"
+        sujets = profile.get("sujets_explores", {})
+        if sujets:
+            top = sorted(sujets.items(), key=lambda x: x[1], reverse=True)[:5]
+            msg += f"Sujets: {', '.join([f'{s}({n})' for s, n in top])}\n"
+        msg += f"\nDerniere interaction: {profile.get('derniere_interaction', 'jamais')}\n"
+        send_telegram(msg)
+        return msg
     
     # === EXECUTION DE CODE ===
     if text_lower.startswith("code ") or text_lower.startswith("execute ") or text_lower.startswith("codegen "):
