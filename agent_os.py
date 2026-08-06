@@ -798,6 +798,104 @@ Instructions:
     
     return response, steps
 
+# ============================================
+# 3b. PRIX CRYPTO EN TEMPS REEL (CoinGecko - gratuit, sans cle)
+# ============================================
+COINGECKO_IDS = {
+    "BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "BNB": "binancecoin",
+    "XRP": "ripple", "ADA": "cardano", "DOGE": "dogecoin", "AVAX": "avalanche-2",
+    "MATIC": "matic-network", "DOT": "polkadot", "LINK": "chainlink", "LTC": "litecoin",
+    "PEPE": "pepe", "WIF": "dogwifcoin", "JUP": "jupiter-exchange-solana",
+    "PYTH": "pyth-network", "STRK": "starknet", "IO": "io-net", "ZRO": "layerzero",
+    "W": "wormhole", "ETHFI": "ether-fi", "OM": "mantra-dao", "ENA": "ethena",
+    "JTO": "jito-governance-token", "POPCAT": "popcat", "MEW": "cat-in-a-dogs-world",
+    "TRX": "tron", "ATOM": "cosmos", "NEAR": "near", "APT": "aptos",
+    "ARB": "arbitrum", "OP": "optimism", "INJ": "injective-protocol",
+    "SUI": "sui", "SEI": "sei-network", "TIA": "celestia",
+    "FIL": "filecoin", "HBAR": "hedera-hashgraph", "ICP": "internet-computer",
+}
+
+def get_crypto_price(symbole):
+    """Recupere le prix d'un crypto via CoinGecko."""
+    symbole = symbole.upper().replace("USDT", "").replace("USD", "")
+    coin_id = COINGECKO_IDS.get(symbole)
+    if not coin_id:
+        return None
+    try:
+        r = requests.get(
+            "https://api.coingecko.com/api/v3/simple/price",
+            params={"ids": coin_id, "vs_currencies": "usd,eur",
+                    "include_24hr_change": "true", "include_24hr_vol": "true",
+                    "include_market_cap": "true"},
+            timeout=10
+        )
+        if r.status_code == 200:
+            data = r.json().get(coin_id, {})
+            return {"symbole": symbole, "prix_usd": data.get("usd"),
+                    "prix_eur": data.get("eur"),
+                    "variation_24h": round(data.get("usd_24h_change", 0), 2),
+                    "volume_24h": data.get("usd_24h_vol"),
+                    "market_cap": data.get("usd_market_cap")}
+    except Exception as e:
+        print(f"[COINGECKO] Erreur: {e}")
+    return None
+
+def get_multiple_prices(symboles):
+    """Recupere plusieurs prix en une requete."""
+    coin_ids, symbole_map = [], {}
+    for s in symboles:
+        s = s.upper().replace("USDT", "").replace("USD", "")
+        coin_id = COINGECKO_IDS.get(s)
+        if coin_id:
+            coin_ids.append(coin_id)
+            symbole_map[coin_id] = s
+    if not coin_ids:
+        return []
+    try:
+        r = requests.get("https://api.coingecko.com/api/v3/simple/price",
+            params={"ids": ",".join(coin_ids), "vs_currencies": "eur",
+                    "include_24hr_change": "true"}, timeout=10)
+        if r.status_code == 200:
+            results = []
+            for coin_id, symbole in symbole_map.items():
+                if coin_id in r.json():
+                    d = r.json()[coin_id]
+                    results.append({"symbole": symbole, "prix_eur": d.get("eur"),
+                                   "variation_24h": round(d.get("eur_24h_change", 0), 2)})
+            return results
+    except Exception as e:
+        print(f"[COINGECKO] Erreur: {e}")
+    return []
+
+def format_price(info):
+    """Formate les infos prix pour Telegram."""
+    prix = info.get("prix_eur") or info.get("prix_usd")
+    if not prix:
+        return None
+    var = info.get("variation_24h", 0)
+    arrow = "📈" if var >= 0 else "📉"
+    msg = f"💰 {info['symbole']}: {prix:,.2f}€ {arrow} ({var:+.2f}% 24h)"
+    if info.get("volume_24h"):
+        vol = info["volume_24h"]
+        msg += f"\n📊 Vol: ${vol/1e9:.1f}B" if vol > 1e9 else f"\n📊 Vol: ${vol/1e6:.1f}M"
+    if info.get("market_cap"):
+        mc = info["market_cap"]
+        msg += f" | Cap: ${mc/1e9:.1f}B" if mc > 1e9 else f" | Cap: ${mc/1e6:.1f}M"
+    return msg
+
+def get_global_market():
+    """Stats globales du marche crypto."""
+    try:
+        r = requests.get("https://api.coingecko.com/api/v3/global", timeout=10)
+        if r.status_code == 200:
+            data = r.json().get("data", {})
+            return {"market_cap_total": data.get("total_market_cap", {}).get("usd", 0),
+                    "volume_total": data.get("total_volume", {}).get("usd", 0),
+                    "btc_dominance": round(data.get("market_cap_percentage", {}).get("btc", 0), 1)}
+    except Exception as e:
+        print(f"[COINGECKO] Erreur global: {e}")
+    return None
+
 def trading_performance():
     """Analyse ultra-complete des performances de trading."""
     try:
@@ -1214,6 +1312,39 @@ def handle_message(text, user_name="User"):
         save_memory("user", text_stripped, result)
         return result
     
+    # === PRIX CRYPTO EN TEMPS REEL ===
+    if text_lower.startswith("prix ") or text_lower.startswith("cours "):
+        symbole = text_stripped.split(" ", 1)[1].strip().upper().replace("USDT", "").replace("USD", "")
+        if symbole:
+            info = get_crypto_price(symbole)
+            if info:
+                msg = format_price(info)
+            else:
+                msg = f"❌ {symbole} non trouve sur CoinGecko. Cryptos supportees: BTC, ETH, SOL, BNB, XRP, ADA, DOGE, AVAX, MATIC, DOT, LINK, LTC, PEPE, WIF, JUP, PYTH, STRK, IO, ZRO, W, ETHFI, OM, ENA, JTO, POPCAT, MEW, TRX, ATOM, NEAR, APT, ARB, OP, INJ, SUI, SEI, TIA, FIL, HBAR, ICP"
+            send_telegram(msg)
+            return msg
+    
+    if text_lower in ["prix", "cours", "prix crypto", "cours crypto"]:
+        # Top 8 cryptos par defaut
+        top_symboles = ["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "AVAX", "LINK"]
+        prices = get_multiple_prices(top_symboles)
+        if prices:
+            msg = "💰 PRIX DU MARCHE\n━━━━━━━━━━━━━━━━━━\n"
+            for p in prices:
+                var = p.get("variation_24h", 0)
+                arrow = "📈" if var >= 0 else "📉"
+                msg += f"{p['symbole']}: {p['prix_eur']:,.2f}€ {arrow} ({var:+.2f}%)\n"
+            # Stats globales
+            global_data = get_global_market()
+            if global_data:
+                msg += f"\n📊 Cap total: ${global_data['market_cap_total']/1e9:.0f}B"
+                msg += f" | Vol 24h: ${global_data['volume_total']/1e9:.0f}B"
+                msg += f"\n BTC dominance: {global_data['btc_dominance']}%"
+        else:
+            msg = "Erreur recuperation prix. Reessaie plus tard."
+        send_telegram(msg)
+        return msg
+    
     # === ANALYSE D'UN CRYPTO ===
     if text_lower.startswith("analyser") or text_lower.startswith("analyse") or text_lower.startswith("analyse "):
         words = text_stripped.split()
@@ -1281,10 +1412,12 @@ def handle_message(text, user_name="User"):
 
 ━━━━━━━━━━━━━━━━━━━━
 📊 TRADING:
+  prix - Prix du marche (top 8)
+  prix BTC - Prix d'un crypto precis
   status - Performance du portefeuille
-  opportunites - Scanner les opportunités
-  analyser BTC - Analyse complète d'un crypto
-  sentiment - Sentiment du marché
+  opportunites - Scanner les opportunites
+  analyser BTC - Analyse complete d'un crypto
+  sentiment - Sentiment du marche
 
 📰 INFO:
   news - Actualités crypto
