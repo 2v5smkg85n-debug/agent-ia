@@ -29,6 +29,7 @@ import subprocess
 import tempfile
 import traceback
 import signal
+import ast
 
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, DOSSIER)
