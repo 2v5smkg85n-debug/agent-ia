@@ -105,7 +105,7 @@ def send_telegram(message, parse_mode="HTML"):
 # ============================================
 # 1. IA CORE - Appels IA optimises
 # ============================================
-def ask_perplexity(prompt, model="sonar", temperature=0.3, timeout=20):
+def ask_perplexity(prompt, model="sonar", temperature=0.3, timeout=15):
     """Appel Perplexity optimise avec cache."""
     cache_key = hash(prompt + model)
     if cache_key in _response_cache:
@@ -122,6 +122,7 @@ def ask_perplexity(prompt, model="sonar", temperature=0.3, timeout=20):
                 "model": model,
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": temperature,
+                "max_tokens": 800,
             },
             timeout=timeout
         )
@@ -137,7 +138,7 @@ def ask_perplexity(prompt, model="sonar", temperature=0.3, timeout=20):
         return f"Erreur API (HTTP {r.status_code})"
     except requests.exceptions.Timeout:
         print("[PERPLEXITY] Timeout")
-        return "Erreur: l'IA met trop de temps a repondre. Reformule ta question."
+        return "Erreur: l'IA met trop de temps. Reformule ta question."
     except Exception as e:
         print(f"[PERPLEXITY] Erreur: {e}")
         return f"Erreur: {e}"
@@ -1585,7 +1586,7 @@ L'agent apprend de chaque interaction."""
         send_telegram(msg)
         return msg
     
-    # === CONVERSATION GÉNÉRALE (avec memoire intelligente) ===
+    # === CONVERSATION GÉNÉRALE (rapide et intelligente) ===
     # Detecte si l'utilisateur corrige une reponse precedente
     memoire = load_json_safe(MEMORY_FILE, {"conversations": []})
     last_conv = memoire.get("conversations", [])[-1] if memoire.get("conversations") else None
@@ -1595,40 +1596,34 @@ L'agent apprend de chaque interaction."""
     # Auto-resume si trop de conversations
     auto_summarize_old_conversations()
     
-    # Contexte enrichi: profil + memoire + corrections + solutions
-    context_parts = []
-    profile_ctx = get_profile_context()
-    if profile_ctx:
-        context_parts.append(profile_ctx)
+    # Contexte leger (pas trop de texte pour aller vite)
+    profile = load_profile()
+    recent_convs = memoire.get("conversations", [])[-3:]
     
-    mem_ctx = get_context_from_memory()
-    if mem_ctx:
-        context_parts.append(mem_ctx)
+    context = f"Profil: {profile.get('nom', 'Tamaya')}, capital {profile.get('capital', 1000)}€\n"
+    if recent_convs:
+        context += "Dernieres conversations:\n"
+        for c in recent_convs:
+            role = "User" if c["role"] == "user" else "Agent"
+            context += f"  {role}: {c['message'][:80]}\n"
     
-    corrections_ctx = get_corrections_context()
-    if corrections_ctx:
-        context_parts.append(corrections_ctx)
+    # Corrections recentes (3 max)
+    corrections_db = load_json_safe(CORRECTIONS_FILE, {"corrections": []})
+    corrections = corrections_db.get("corrections", [])[-3:]
+    if corrections:
+        context += "\nCorrections (ne repete pas):\n"
+        for c in corrections:
+            context += f"  {c['error'][:60]} -> {c['correction'][:60]}\n"
     
-    solutions_ctx = get_solutions_context(text_stripped)
-    if solutions_ctx:
-        context_parts.append(solutions_ctx)
-    
-    full_context = "\n".join(context_parts)
-    
-    prompt = f"""Tu es un assistant IA expert en trading crypto, en technologie et en resolution de problemes.
-L'utilisateur s'appelle {user_name}.
+    # Prompt court pour aller vite
+    prompt = f"""Tu es un assistant IA expert en trading crypto et technologie.
+Utilisateur: {profile.get('nom', 'Tamaya')} (capital {profile.get('capital', 1000)}€)
 
-{full_context}
+{context}
 
-Question de l'utilisateur: {text_stripped}
+Question: {text_stripped}
 
-Instructions:
-- Reponds en français, de façon concise, structurée et actionnable
-- Si c'est une question sur un crypto, inclut des donnees concretes
-- Si c'est un conseil de trading, precise toujours le risque
-- Si tu as deja repondu a une question similaire, ameliore ta reponse precedente
-- Si une correction existe dans le contexte, ne repete pas l'erreur
-- Si des calculs sont necessaires, montre-les etape par etape"""
+Reponds en français, concis et direct. Maximum 5 phrases."""
     
     response = ask_perplexity(prompt)
     send_telegram(response)
@@ -1637,9 +1632,6 @@ Instructions:
     # Apprend de la conversation
     if len(text_stripped) > 20:
         learn_fact(f"Q: {text_stripped[:100]} -> R: {response[:100]}", "general")
-    
-    # Sauvegarde comme solution potentielle
-    save_solution(text_stripped, response)
     
     return response
 
@@ -1685,15 +1677,21 @@ def telegram_poll():
                     import threading as _th
                     def _process():
                         try:
-                            # Indicateur 'typing'
-                            try:
-                                requests.get(
-                                    f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendChatAction",
-                                    params={"chat_id": TELEGRAM_CHAT_ID, "action": "typing"},
-                                    timeout=5
-                                )
-                            except:
-                                pass
+                            # Indicateur 'typing' repeat
+                            def _keep_typing():
+                                while True:
+                                    try:
+                                        requests.get(
+                                            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendChatAction",
+                                            params={"chat_id": TELEGRAM_CHAT_ID, "action": "typing"},
+                                            timeout=3
+                                        )
+                                    except:
+                                        pass
+                                    time.sleep(4)
+                            
+                            t_typing = _th.Thread(target=_keep_typing, daemon=True)
+                            t_typing.start()
                             handle_message(text, user_name)
                         except Exception as e:
                             print(f"[CHAT] Erreur traitement: {e}")
