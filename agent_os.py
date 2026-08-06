@@ -1233,6 +1233,12 @@ def execute_code(code, timeout=30):
     if not is_safe:
         return {"success": False, "error": f"Code rejete: {reason}", "output": ""}
     
+    # Valide la syntaxe Python
+    try:
+        ast.parse(code)
+    except SyntaxError as e:
+        return {"success": False, "error": f"Erreur de syntaxe: {e}", "output": ""}
+    
     # Cree un fichier temporaire
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"script_{timestamp}.py"
@@ -1281,6 +1287,7 @@ Regles:
 - PAS de subprocess, PAS de os.system, PAS de fichiers systeme
 - Affiche les resultats avec print()
 - Code en français (commentaires)
+- VERIFIE l'indentation (4 espaces)
 - Reponds UNIQUEMENT avec le code dans un bloc ```python```"""
     
     ia_response = ask_perplexity(prompt, temperature=0.2)
@@ -1305,6 +1312,24 @@ Regles:
     
     # 4. Execute
     result = execute_code(code)
+    
+    # 5. Si erreur de syntaxe, essaie de corriger
+    if not result.get("success") and "syntaxe" in result.get("error", "").lower():
+        fix_prompt = f"""Ce code Python a une erreur de syntaxe:
+{code}
+
+Erreur: {result['error']}
+
+Corrige l'erreur et renvoie UNIQUEMENT le code corrige dans un bloc ```python```."""
+        fixed_response = ask_perplexity(fix_prompt, temperature=0.1)
+        fixed_code = extract_code(fixed_response)
+        if fixed_code and fixed_code != code:
+            is_safe2, reason2 = validate_code(fixed_code)
+            if is_safe2:
+                result = execute_code(fixed_code)
+                result["auto_fixed"] = True
+                result["code"] = fixed_code[:1000]
+                return result
     
     return {
         "success": result.get("success", False),
