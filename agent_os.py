@@ -1576,6 +1576,12 @@ def handle_message(text, user_name="User"):
         send_telegram(msg)
         return msg
     
+    # === CODE AUTONOME ===
+    if text_lower in ["code-seul", "code seul", "autonome", "code autonome", "improve", "auto-code"]:
+        send_telegram("🤖 Demarrage du codage autonome...\nAnalyse du systeme + codage + test en cours.")
+        bilan = autonomous_coder()
+        return bilan
+    
     # === AIDE ===
     if text_lower in ["aide", "help", "commandes", "commands"]:
         help_msg = """🤖 AGENT OS - COMMANDES
@@ -1608,6 +1614,7 @@ def handle_message(text, user_name="User"):
   cherche [mots] - Recherche dans la memoire
   oublie - Oublie la derniere conversation
   stats - Stats et sante de l'agent
+  code-seul - L'agent code seul et s'ameliorer
 
 ━━━━━━━━━━━━━━━━━━━━
 L'agent apprend de chaque interaction."""
@@ -1891,39 +1898,165 @@ def telegram_poll():
 # 8. BOUCLE AUTONOME
 # ============================================
 def autonomous_loop():
-    """Boucle autonome: scanne le marché + alertes."""
+    """Boucle autonome: scanne le marche + alertes."""
     print("=" * 60)
     print(f"AGENT OS V2 - {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print("=" * 60)
     
-    # 1. Scan d'opportunités
-    print("\n[1] Scan des opportunités...")
+    # 1. Scan d'opportunites
+    print("\n[1] Scan des opportunites...")
     opps = check_opportunities()
     if opps:
-        print(f"    {len(opps)} opportunités détectées")
+        print(f"    {len(opps)} opportunites detectees")
         for o in opps:
             print(f"    {o['symbole']}: score {o['score']} - {', '.join(o['raisons'])}")
     else:
-        print("    Aucune opportunité")
+        print("    Aucune opportunite")
     
     # 2. Performance trading
     print("\n[2] Performance trading...")
     perf = trading_performance()
     print(perf[:500])
     
-    # 3. Sentiment marché
-    print("\n[3] Sentiment marché...")
+    # 3. Sentiment marche
+    print("\n[3] Sentiment marche...")
     sentiment = ask_perplexity(
-        "Donne le sentiment crypto actuel en 3 lignes max (français): "
+        "Donne le sentiment crypto actuel en 3 lignes max (francais): "
         "Fear & Greed index, trend BTC, recommandation."
     )
     print(f"    {sentiment[:200]}")
     
     # 4. Apprend
-    learn_fact(f"Scan {datetime.now().strftime('%H:%M')}: {len(opps)} opportunités, sentiment={sentiment[:100]}", "market")
+    learn_fact(f"Scan {datetime.now().strftime('%H:%M')}: {len(opps)} opportunites, sentiment={sentiment[:100]}", "market")
     
     print("\n" + "=" * 60)
-    print("Cycle autonome terminé")
+    print("Cycle autonome termine")
+
+
+def autonomous_coder():
+    """L'agent code seul: analyse le systeme, identifie des ameliorations, code et test."""
+    print("\n" + "=" * 60)
+    print(f"[AUTONOMOUS CODER] {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    print("=" * 60)
+    
+    taches_faites = []
+    
+    # 1. Analyse le systeme de trading
+    print("[1] Analyse du systeme...")
+    try:
+        pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+        capital = pt.get("capital_initial", 1000)
+        liquidites = pt.get("liquidites", 0)
+        positions = pt.get("positions", [])
+        trades = pt.get("trades", [])
+        
+        # Calcule les stats
+        if trades:
+            gagnants = [t for t in trades if t.get("pnl", 0) > 0]
+            perdants = [t for t in trades if t.get("pnl", 0) < 0]
+            winrate = len(gagnants) / len(trades) * 100 if trades else 0
+            pnl_total = sum(t.get("pnl", 0) for t in trades)
+            
+            analyse = f"""Capital: {capital}€ | Liquidites: {liquidites}€
+Positions ouvertes: {len(positions)}
+Trades total: {len(trades)} | Gagnants: {len(gagnants)} | Perdants: {len(perdants)}
+Winrate: {winrate:.1f}% | PnL: {pnl_total:.2f}€"""
+        else:
+            analyse = f"Capital: {capital}€ | Liquidites: {liquidites}€ | 0 trade"
+        print(f"  {analyse}")
+    except Exception as e:
+        analyse = f"Erreur analyse: {e}"
+        print(f"  {analyse}")
+    
+    # 2. Identifie les ameliorations possibles
+    print("\n[2] Identification des ameliorations...")
+    ameliorations = []
+    
+    # Si winrate < 50%, code un meilleur filtre
+    if trades and winrate < 50:
+        ameliorations.append({
+            "titre": "Filtre anti-perte",
+            "description": f"Le winrate est de {winrate:.0f}%. Cree un script qui analyse les trades perdants et identifie les patterns a eviter",
+            "instruction": f"Analyse les trades dans paper_trading.json. Pour chaque trade perdant (pnl < 0), affiche le symbole, la strategie utilisee, et le PnL. Affiche un resume des strategies qui perdent le plus.",
+        })
+    
+    # Si peu de positions, code un scanner d'opportunites
+    if len(positions) < 5:
+        ameliorations.append({
+            "titre": "Scanner d'opportunites",
+            "description": "Peu de positions ouvertes. Cree un scanner deportunites",
+            "instruction": f"Recupere les prix de BTC, ETH, SOL, BNB, XRP via l'API CoinGecko (api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,binancecoin,ripple&vs_currencies=eur&include_24hr_change=true). Affiche ceux qui ont une variation negative > -2% (potentiel achat).",
+        })
+    
+    # Code un rapport de performance
+    ameliorations.append({
+        "titre": "Rapport performance",
+        "description": "Genere un rapport de performance detaille",
+        "instruction": f"Lis paper_trading.json. Affiche: capital initial, liquidites actuelles, nombre de positions ouvertes, nombre total de trades, nombre de trades gagnants/perdants, winrate en %, PnL total. Affiche aussi les 3 derniers trades avec date, symbole, strategie et PnL.",
+    })
+    
+    # Code un analyseur de volatilite
+    ameliorations.append({
+        "titre": "Analyseur volatilite",
+        "description": "Cree un analyseur de volatilite crypto",
+        "instruction": f"Recupere les prix et variations 24h de BTC, ETH, SOL, BNB, DOGE, AVAX, LINK, XRP via CoinGecko (api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,binancecoin,dogecoin,avalanche-2,chainlink,ripple&vs_currencies=eur&include_24hr_change=true). Classe-les du plus volatile au moins volatile. Affiche un score de volatilite (absolu de la variation 24h).",
+    })
+    
+    print(f"  {len(ameliorations)} ameliorations identifiees")
+    for a in ameliorations:
+        print(f"  - {a['titre']}")
+    
+    # 3. Code et execute chaque amelioration
+    print("\n[3] Codage et test...")
+    for i, amel in enumerate(ameliorations, 1):
+        print(f"\n  [{i}/{len(ameliorations)}] {amel['titre']}...")
+        result = generate_and_run_code(amel["instruction"])
+        
+        if result.get("success"):
+            output = result.get("output", "")[:500]
+            taches_faites.append(f"✅ {amel['titre']}: {output[:100]}")
+            print(f"    ✅ Succes")
+            print(f"    Output: {output[:200]}")
+            
+            # Envoie le resultat sur Telegram
+            msg = f"🤖 CODAGE AUTONOME\n━━━━━━━━━━━━━━━━━━\n"
+            msg += f"📋 Tache: {amel['titre']}\n"
+            msg += f"📁 Fichier: {result.get('file', '?')}\n"
+            msg += f"📤 Resultat:\n{output[:1500]}"
+            if result.get("auto_fixed"):
+                msg += "\n\n🔧 Code auto-corrige"
+            send_telegram(msg)
+            
+            # Apprend du resultat
+            save_solution(amel["instruction"], output, category=amel["titre"])
+            learn_fact(f"Code autonome: {amel['titre']} -> {output[:100]}", "strategy")
+        else:
+            error = result.get("error", "inconnue")[:200]
+            taches_faites.append(f"❌ {amel['titre']}: {error[:50]}")
+            print(f"    ❌ Echec: {error[:100]}")
+        
+        time.sleep(2)  # Pause entre chaque tache
+    
+    # 4. Bilan
+    print("\n[4] Bilan...")
+    bilan = "🤖 BILAN CODAGE AUTONOME\n━━━━━━━━━━━━━━━━━━\n"
+    bilan += f"Tentatives: {len(ameliorations)}\n"
+    reussis = [t for t in taches_faites if t.startswith("✅")]
+    echoues = [t for t in taches_faites if t.startswith("❌")]
+    bilan += f"Reussis: {len(reussis)} | Echoues: {len(echoues)}\n\n"
+    for t in taches_faites:
+        bilan += f"{t}\n"
+    
+    print(bilan)
+    send_telegram(bilan)
+    
+    # Sauvegarde le bilan en memoire
+    save_memory("agent", f"Codage autonome: {len(reussis)}/{len(ameliorations)} reussis", bilan)
+    learn_fact(f"Codage autonome {datetime.now().strftime('%d/%m %H:%M')}: {len(reussis)}/{len(ameliorations)} reussis", "strategy")
+    
+    print("\n" + "=" * 60)
+    print("Codage autonome termine")
+    return bilan
 
 
 # ============================================
@@ -1947,5 +2080,7 @@ if __name__ == "__main__":
         scan_and_alert()
     elif len(sys.argv) > 1 and sys.argv[1] == "autonomous":
         autonomous_loop()
+    elif len(sys.argv) > 1 and sys.argv[1] == "code-seul":
+        autonomous_coder()
     else:
         autonomous_loop()
