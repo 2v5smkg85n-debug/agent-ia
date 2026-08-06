@@ -27,12 +27,24 @@ from collections import defaultdict, deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import subprocess
 import tempfile
+import traceback
+import signal
 
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, DOSSIER)
 
 CODE_DIR = os.path.join(DOSSIER, "generated_code")
 os.makedirs(CODE_DIR, exist_ok=True)
+
+# Verrou pour les ecritures concurrentes
+_file_locks = {}
+_locks_lock = threading.Lock()
+
+def _get_lock(path):
+    with _locks_lock:
+        if path not in _file_locks:
+            _file_locks[path] = threading.Lock()
+        return _file_locks[path]
 
 try:
     from dotenv import load_dotenv
@@ -63,43 +75,111 @@ _last_prices = {}
 def load_json_safe(path, default=None):
     if default is None:
         default = {}
-    try:
-        with open(path, 'r') as f:
-            return json.load(f)
-    except Exception:
-        return default
+    lock = _get_lock(path)
+    with lock:
+        try:
+            with open(path, 'r') as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            # Fichier corrompu - essaie le backup
+            backup = path + ".bak"
+            try:
+                with open(backup, 'r') as f:
+                    data = json.load(f)
+                    save_json_safe(path, data)  # Restaure
+                    return data
+            except:
+                return default
+        except Exception:
+            return default
 
 
 def save_json_safe(path, data):
-    try:
-        with open(path, 'w') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-    except Exception:
-        pass
+    lock = _get_lock(path)
+    with lock:
+        try:
+            # Sauvegarde l'ancien fichier avant d'ecrire
+            if os.path.exists(path):
+                try:
+                    os.replace(path, path + ".bak")
+                except:
+                    pass
+            # Ecriture atomique: ecrit dans un fichier temp puis renomme
+            tmp_path = path + ".tmp"
+            with open(tmp_path, 'w') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            os.replace(tmp_path, path)
+        except Exception as e:
+            print(f"[SAVE] Erreur sauvegarde {path}: {e}")
+            # Dernier recours: ecriture directe
+            try:
+                with open(path, 'w') as f:
+                    json.dump(data, f, ensure_ascii=False)
+            except:
+                pass
 
 
 def send_telegram(message, parse_mode="HTML"):
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:
-        return
-    try:
-        # Split long messages (Telegram limit: 4096 chars)
-        if len(message) > 4000:
-            parts = [message[i:i+4000] for i in range(0, len(message), 4000)]
-            for part in parts:
-                requests.post(
+        return False
+    
+    for attempt in range(3):
+        try:
+            if len(message) > 4000:
+                parts = [message[i:i+4000] for i in range(0, len(message), 4000)]
+                for part in parts:
+                    requests.post(
+                        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+                        json={"chat_id": TELEGRAM_CHAT, "text": part, "parse_mode": parse_mode},
+                        timeout=10
+                    )
+                    time.sleep(0.3)
+            else:
+                r = requests.post(
                     f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-                    json={"chat_id": TELEGRAM_CHAT, "text": part, "parse_mode": parse_mode},
-                    timeout=15
+                    json={"chat_id": TELEGRAM_CHAT, "text": message, "parse_mode": parse_mode},
+                    timeout=10
                 )
-                time.sleep(0.3)
-        else:
-            requests.post(
-                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-                json={"chat_id": TELEGRAM_CHAT, "text": message, "parse_mode": parse_mode},
-                timeout=15
-            )
-    except Exception:
-        pass
+                if r.status_code == 200:
+                    return True
+                # Si erreur de parse_mode, renvoie en texte simple
+                if r.status_code == 400 and attempt == 1:
+                    requests.post(
+                        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+                        json={"chat_id": TELEGRAM_CHAT, "text": message[:4000]},
+                        timeout=10
+                    )
+                    return True
+            return True
+        except requests.exceptions.Timeout:
+            print(f"[TELEGRAM] Timeout tentative {attempt+1}/3")
+            time.sleep(2)
+        except Exception as e:
+            print(f"[TELEGRAM] Erreur: {e}")
+            time.sleep(2)
+    return False
+
+# Stats globales
+_stats = {
+    "messages_recus": 0,
+    "messages_repondus": 0,
+    "erreurs": 0,
+    "api_timeouts": 0,
+    "demarrage": datetime.now().isoformat(),
+}
+
+def increment_stat(key):
+    _stats[key] = _stats.get(key, 0) + 1
+
+def get_stats():
+    uptime = (datetime.now() - datetime.fromisoformat(_stats["demarrage"])).total_seconds()
+    heures = int(uptime // 3600)
+    minutes = int((uptime % 3600) // 60)
+    return {
+        **_stats,
+        "uptime": f"{heures}h{minutes}m",
+        "uptime_seconds": uptime,
+    }
 
 
 # ============================================
@@ -138,9 +218,18 @@ def ask_perplexity(prompt, model="sonar", temperature=0.3, timeout=15):
         return f"Erreur API (HTTP {r.status_code})"
     except requests.exceptions.Timeout:
         print("[PERPLEXITY] Timeout")
-        return "Erreur: l'IA met trop de temps. Reformule ta question."
+        increment_stat("api_timeouts")
+        # Fallback: essaie Gemini si disponible
+        gemini_resp = ask_gemini(prompt)
+        if gemini_resp:
+            return gemini_resp
+        return "L'IA met trop de temps. Reformule ta question."
     except Exception as e:
         print(f"[PERPLEXITY] Erreur: {e}")
+        # Fallback: essaie Gemini
+        gemini_resp = ask_gemini(prompt)
+        if gemini_resp:
+            return gemini_resp
         return f"Erreur: {e}"
 
 
@@ -1429,6 +1518,38 @@ def handle_message(text, user_name="User"):
             learn_fact(problem, "lesson")
             return result
     
+    if text_lower in ["stats", "health", "watchdog"]:
+        stats = get_stats()
+        msg = f"📊 STATS AGENT\n━━━━━━━━━━━━━━━━━━\n"
+        msg += f"⏱ Uptime: {stats['uptime']}\n"
+        msg += f"💬 Messages recus: {stats.get('messages_recus', 0)}\n"
+        msg += f"✅ Messages repondus: {stats.get('messages_repondus', 0)}\n"
+        msg += f"❌ Erreurs: {stats.get('erreurs', 0)}\n"
+        msg += f"⏳ API timeouts: {stats.get('api_timeouts', 0)}\n"
+        # Verifie l'etat des fichiers
+        files_check = ["agent_memory.json", "paper_trading.json", "knowledge_base.json"]
+        msg += "\n📁 Fichiers:\n"
+        for f in files_check:
+            path = os.path.join(DOSSIER, f)
+            exists = "✅" if os.path.exists(path) else "❌"
+            size = os.path.getsize(path) if os.path.exists(path) else 0
+            msg += f"  {exists} {f} ({size}b)\n"
+        # Verifie le papier trading
+        try:
+            pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+            capital = pt.get("capital_initial", "?")
+            liquidites = pt.get("liquidites", "?")
+            positions = len(pt.get("positions", []))
+            trades = len(pt.get("trades", []))
+            msg += f"\n💰 Capital: {capital}€\n"
+            msg += f"💵 Liquidites: {liquidites}€\n"
+            msg += f"📊 Positions: {positions}\n"
+            msg += f"📝 Trades: {trades}\n"
+        except:
+            msg += "\n❌ paper_trading.json illisible\n"
+        send_telegram(msg)
+        return msg
+    
     # === AIDE ===
     if text_lower in ["aide", "help", "commandes", "commands"]:
         help_msg = """🤖 AGENT OS - COMMANDES
@@ -1460,6 +1581,7 @@ def handle_message(text, user_name="User"):
   souviens [info] - Retiens quelque chose
   cherche [mots] - Recherche dans la memoire
   oublie - Oublie la derniere conversation
+  stats - Stats et sante de l'agent
 
 ━━━━━━━━━━━━━━━━━━━━
 L'agent apprend de chaque interaction."""
@@ -1645,11 +1767,25 @@ def telegram_poll():
         print("[AGENT OS] Pas de token Telegram")
         return
     
+    # Gestionnaire de signaux pour arret propre
+    def _signal_handler(signum, frame):
+        print(f"\n[AGENT OS] Signal {signum} recu - arret propre...")
+        try:
+            send_telegram("⚠️ Agent OS redemarre...")
+        except:
+            pass
+        sys.exit(0)
+    
+    signal.signal(signal.SIGTERM, _signal_handler)
+    signal.signal(signal.SIGINT, _signal_handler)
+    
     print("[AGENT OS V2] Écoute Telegram démarrée")
     print("[AGENT OS V2] Envoie 'aide' sur Telegram pour voir les commandes")
     
     offset = 0
     last_health_check = time.time()
+    last_watchdog = time.time()
+    consecutive_errors = 0
     
     while True:
         try:
@@ -1661,9 +1797,16 @@ def telegram_poll():
             
             if r.status_code != 200:
                 print(f"[AGENT OS] Telegram HTTP {r.status_code}")
-                time.sleep(5)
+                consecutive_errors += 1
+                if consecutive_errors > 10:
+                    print("[AGENT OS] Trop d'erreurs - pause 30s")
+                    time.sleep(30)
+                    consecutive_errors = 0
+                else:
+                    time.sleep(5)
                 continue
             
+            consecutive_errors = 0  # Reset si OK
             updates = r.json().get("result", [])
             for update in updates:
                 offset = update["update_id"] + 1
@@ -1673,6 +1816,7 @@ def telegram_poll():
                 
                 if text:
                     print(f"[CHAT] {user_name}: {text}")
+                    increment_stat("messages_recus")
                     # Lance le traitement dans un thread pour ne pas bloquer
                     import threading as _th
                     def _process():
@@ -1693,8 +1837,11 @@ def telegram_poll():
                             t_typing = _th.Thread(target=_keep_typing, daemon=True)
                             t_typing.start()
                             handle_message(text, user_name)
+                            increment_stat("messages_repondus")
                         except Exception as e:
+                            increment_stat("erreurs")
                             print(f"[CHAT] Erreur traitement: {e}")
+                            print(traceback.format_exc()[:500])
                             try:
                                 send_telegram(f"Erreur: {e}")
                             except:
