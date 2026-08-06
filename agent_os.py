@@ -1313,35 +1313,57 @@ def handle_message(text, user_name="User"):
         return result
     
     # === PRIX CRYPTO EN TEMPS REEL ===
-    if text_lower.startswith("prix ") or text_lower.startswith("cours "):
-        symbole = text_stripped.split(" ", 1)[1].strip().upper().replace("USDT", "").replace("USD", "")
+    # Detection en langage naturel: "prix du btc", "donne moi le prix de eth", "cours du sol", etc.
+    prix_patterns = ["prix du", "prix de", "prix d'", "cours du", "cours de", "cours d'",
+                     "combien coute", "combien vaut", "valeur du", "valeur de"]
+    is_prix_request = any(p in text_lower for p in prix_patterns) or text_lower.startswith("prix ") or text_lower.startswith("cours ")
+    
+    if is_prix_request or text_lower in ["prix", "cours", "prix crypto", "cours crypto"]:
+        # Extrait le symbole du message
+        symbole = None
+        if text_lower in ["prix", "cours", "prix crypto", "cours crypto"]:
+            symbole = None  # Affiche tous les prix
+        else:
+            # Cherche un symbole crypto dans le message
+            cryptos_connues = list(COINGECKO_IDS.keys())
+            mots = text_upper.replace(",", " ").replace(".", " ").split()
+            for c in cryptos_connues:
+                if c in mots or c + "USDT" in text_upper or c + "USD" in text_upper:
+                    symbole = c
+                    break
+            # Cherche aussi les noms complets
+            noms_complets = {"bitcoin": "BTC", "ethereum": "ETH", "solana": "SOL",
+                           "cardano": "ADA", "dogecoin": "DOGE", "ripple": "XRP",
+                           "litecoin": "LTC", "polkadot": "DOT", "chainlink": "LINK",
+                           "avalanche": "AVAX", "binance": "BNB"}
+            for nom, sym in noms_complets.items():
+                if nom in text_lower and not symbole:
+                    symbole = sym
+                    break
+        
         if symbole:
             info = get_crypto_price(symbole)
             if info:
                 msg = format_price(info)
             else:
-                msg = f"❌ {symbole} non trouve sur CoinGecko. Cryptos supportees: BTC, ETH, SOL, BNB, XRP, ADA, DOGE, AVAX, MATIC, DOT, LINK, LTC, PEPE, WIF, JUP, PYTH, STRK, IO, ZRO, W, ETHFI, OM, ENA, JTO, POPCAT, MEW, TRX, ATOM, NEAR, APT, ARB, OP, INJ, SUI, SEI, TIA, FIL, HBAR, ICP"
-            send_telegram(msg)
-            return msg
-    
-    if text_lower in ["prix", "cours", "prix crypto", "cours crypto"]:
-        # Top 8 cryptos par defaut
-        top_symboles = ["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "AVAX", "LINK"]
-        prices = get_multiple_prices(top_symboles)
-        if prices:
-            msg = "💰 PRIX DU MARCHE\n━━━━━━━━━━━━━━━━━━\n"
-            for p in prices:
-                var = p.get("variation_24h", 0)
-                arrow = "📈" if var >= 0 else "📉"
-                msg += f"{p['symbole']}: {p['prix_eur']:,.2f}€ {arrow} ({var:+.2f}%)\n"
-            # Stats globales
-            global_data = get_global_market()
-            if global_data:
-                msg += f"\n📊 Cap total: ${global_data['market_cap_total']/1e9:.0f}B"
-                msg += f" | Vol 24h: ${global_data['volume_total']/1e9:.0f}B"
-                msg += f"\n BTC dominance: {global_data['btc_dominance']}%"
+                msg = f"❌ {symbole} non trouve. Cryptos: BTC, ETH, SOL, BNB, XRP, ADA, DOGE, AVAX, LINK, etc."
         else:
-            msg = "Erreur recuperation prix. Reessaie plus tard."
+            # Top 8 cryptos
+            top_symboles = ["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "AVAX", "LINK"]
+            prices = get_multiple_prices(top_symboles)
+            if prices:
+                msg = "💰 PRIX DU MARCHE\n━━━━━━━━━━━━━━━━━━\n"
+                for p in prices:
+                    var = p.get("variation_24h", 0)
+                    arrow = "📈" if var >= 0 else "📉"
+                    msg += f"{p['symbole']}: {p['prix_eur']:,.2f}€ {arrow} ({var:+.2f}%)\n"
+                global_data = get_global_market()
+                if global_data:
+                    msg += f"\n📊 Cap total: ${global_data['market_cap_total']/1e9:.0f}B"
+                    msg += f" | Vol 24h: ${global_data['volume_total']/1e9:.0f}B"
+                    msg += f"\n BTC dominance: {global_data['btc_dominance']}%"
+            else:
+                msg = "Erreur recuperation prix. Reessaie plus tard."
         send_telegram(msg)
         return msg
     
