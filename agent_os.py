@@ -1326,9 +1326,9 @@ def handle_message(text, user_name="User"):
         else:
             # Cherche un symbole crypto dans le message
             cryptos_connues = list(COINGECKO_IDS.keys())
-            mots = text_upper.replace(",", " ").replace(".", " ").split()
+            mots = text_stripped.upper().replace(",", " ").replace(".", " ").split()
             for c in cryptos_connues:
-                if c in mots or c + "USDT" in text_upper or c + "USD" in text_upper:
+                if c in mots or c + "USDT" in text_stripped.upper() or c + "USD" in text_stripped.upper():
                     symbole = c
                     break
             # Cherche aussi les noms complets
