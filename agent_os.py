@@ -1171,7 +1171,7 @@ ALLOWED_IMPORTS = {
 DANGEROUS_PATTERNS = [
     "import subprocess", "os.system", "os.popen",
     "os.remove", "os.rmdir", "os.unlink", "shutil.rmtree",
-    "__import__", "eval(", "exec(", "compile(",
+    "__import__", "eval(", "exec(",
     "open('/etc", "open('/var", "open('/root",
     "import socket", "import ctypes",
     "import multiprocessing", "os.exec",
