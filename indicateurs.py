@@ -24,12 +24,61 @@ from datetime import datetime, timedelta
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 
 # ============================================
-# RECUPERATION HISTORIQUE OHLCV (Binance)
+# RECUPERATION HISTORIQUE OHLCV (CoinGecko first, Binance fallback)
 # ============================================
+# Mapping complet CoinGecko: symbole -> coin_id
+COINGECKO_MAP = {
+    "BTCUSDT": "bitcoin",
+    "ETHUSDT": "ethereum",
+    "SOLUSDT": "solana",
+    "BNBUSDT": "binancecoin",
+    "XRPUSDT": "ripple",
+    "LDOUSDT": "lido-dao",
+    "AAVEUSDT": "aave",
+    "UNIUSDT": "uniswap",
+    "PENDLEUSDT": "pendle",
+    "ARBUSDT": "arbitrum",
+    "DOGEUSDT": "dogecoin",
+    "AVAXUSDT": "avalanche-2",
+    "LINKUSDT": "chainlink",
+    "OPUSDT": "optimism",
+    "INJUSDT": "injective-protocol",
+    "NEARUSDT": "near",
+    "ADAUSDT": "cardano",
+    "MATICUSDT": "matic-network",
+    "DOTUSDT": "polkadot",
+    "LTCUSDT": "litecoin",
+    "PEPEUSDT": "pepe",
+    "ATOMUSDT": "cosmos",
+    "APTUSDT": "aptos",
+    "SUIUSDT": "sui",
+    "SEIUSDT": "sei-network",
+    "TIAUSDT": "celestia",
+    "FILUSDT": "filecoin",
+    "HBARUSDT": "hedera-hashgraph",
+    "ICPUSDT": "internet-computer",
+    "TRXUSDT": "tron",
+}
+
+NOMS = {
+    "BTCUSDT": "Bitcoin", "ETHUSDT": "Ethereum", "SOLUSDT": "Solana",
+    "BNBUSDT": "BNB", "XRPUSDT": "XRP", "LDOUSDT": "Lido DAO",
+    "AAVEUSDT": "Aave", "UNIUSDT": "Uniswap", "PENDLEUSDT": "Pendle",
+    "ARBUSDT": "Arbitrum", "DOGEUSDT": "Dogecoin", "AVAXUSDT": "Avalanche",
+    "LINKUSDT": "Chainlink", "OPUSDT": "Optimism", "INJUSDT": "Injective",
+    "NEARUSDT": "NEAR", "ADAUSDT": "Cardano", "MATICUSDT": "Polygon",
+    "DOTUSDT": "Polkadot", "LTCUSDT": "Litecoin", "PEPEUSDT": "Pepe",
+    "ATOMUSDT": "Cosmos", "APTUSDT": "Aptos", "SUIUSDT": "Sui",
+    "SEIUSDT": "Sei", "TIAUSDT": "Celestia", "FILUSDT": "Filecoin",
+    "HBARUSDT": "Hedera", "ICPUSDT": "Internet Computer", "TRXUSDT": "Tron",
+}
+
+SYMBOLES_SUIVIS = list(NOMS.keys())
+
 def historique_ohlcv(symbole="BTCUSDT", intervalle="1h", limite=200):
     """
     Recupere l'historique OHLCV (chandeliers).
-    Crypto -> Binance/CoinGecko. Forex/actions/indices/matieres -> Yahoo Finance.
+    Crypto -> CoinGecko (primaire) puis Binance (fallback). Forex/actions -> Yahoo.
     intervalle: 15m, 1h, 4h, 1d
     limite: nombre de bougies (max 1000)
     """
@@ -38,12 +87,15 @@ def historique_ohlcv(symbole="BTCUSDT", intervalle="1h", limite=200):
         bougies = _historique_yahoo(symbole, intervalle, limite)
         if bougies:
             return bougies
-    # Crypto -> Binance puis CoinGecko
+    # Crypto -> CoinGecko d'abord (Binance bloque depuis OVH)
+    bougies = _historique_coingecko(symbole, intervalle, limite)
+    if bougies and len(bougies) >= 20:
+        return bougies
+    # Fallback: Binance (au cas ou CoinGecko rate)
     bougies = _historique_binance(symbole, intervalle, limite)
     if bougies:
         return bougies
-    # Fallback: CoinGecko (plus lent mais accessible partout)
-    return _historique_coingecko(symbole, intervalle, limite)
+    return []
 
 # Symboles non-crypto reconnus (Yahoo Finance)
 _SYMBOLUMS_YAHOO_INDIC = {
@@ -122,11 +174,14 @@ def _historique_binance(symbole, intervalle, limite):
         return []
 
 def historique_ohlcv_long(symbole="BTCUSDT", intervalle="1h", nb_bougies=17520):
-    """Fetch >1000 bougies via PAGINATION Binance (startTime).
-    Permet des backtests long terme (1-3 ans). Yahoo/coingecko: limite a 1000 (pas de pagination).
-    Deduplique par temps, trie, trim au nb_bougies demande."""
+    """Fetch >1000 bougies via CoinGecko (primaire) ou pagination Binance."""
     if _est_symbole_yahoo(symbole):
         return historique_ohlcv(symbole, intervalle, min(nb_bougies, 1000))
+    # Essaie CoinGecko d'abord (jusqu'a 90 jours)
+    bougies = _historique_coingecko(symbole, intervalle, min(nb_bougies, 1000))
+    if bougies and len(bougies) >= 60:
+        return bougies
+    # Fallback: pagination Binance
     import time as _t
     interval_ms = {"15m": 900000, "30m": 1800000, "1h": 3600000,
                    "4h": 14400000, "1d": 86400000}.get(intervalle, 3600000)
@@ -162,19 +217,15 @@ def historique_ohlcv_long(symbole="BTCUSDT", intervalle="1h", nb_bougies=17520):
     return bougies[-nb_bougies:] if len(bougies) > nb_bougies else bougies
 
 def _historique_coingecko(symbole, intervalle, limite):
-    """Fallback via CoinGecko (API publique gratuite)."""
-    mapping = {
-        "BTCUSDT": "bitcoin",
-        "ETHUSDT": "ethereum",
-        "SOLUSDT": "solana",
-        "BNBUSDT": "binancecoin",
-        "XRPUSDT": "ripple",
-    }
-    coin_id = mapping.get(symbole)
+    """Recupere l'historique via CoinGecko (API publique gratuite).
+    Agrege les prix en vraies bougies OHLCV selon l'intervalle."""
+    coin_id = COINGECKO_MAP.get(symbole)
     if not coin_id:
         return []
-    # Conversion intervalle Binance -> jours CoinGecko
+    # Conversion intervalle -> jours CoinGecko
     jours = {"15m": 1, "1h": 7, "4h": 30, "1d": 90}.get(intervalle, 7)
+    # Interval en millisecondes pour l'agregation
+    interval_ms = {"15m": 900000, "1h": 3600000, "4h": 14400000, "1d": 86400000}.get(intervalle, 3600000)
     try:
         url = (f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
                f"?vs_currency=usd&days={jours}")
@@ -183,21 +234,51 @@ def _historique_coingecko(symbole, intervalle, limite):
             return []
         data = r.json()
         prices = data.get("prices", [])
-        bougies = []
+        volumes = data.get("total_volumes", [])
+        if not prices or len(prices) < 10:
+            return []
+        
+        # Agrege les prix en bougies OHLCV selon l'intervalle
+        buckets = {}
         for p in prices:
+            ts = p[0]
+            prix = p[1]
+            bucket = (ts // interval_ms) * interval_ms
+            if bucket not in buckets:
+                buckets[bucket] = {"ouverture": prix, "haut": prix, "bas": prix, "cloture": prix, "volume": 0}
+            else:
+                buckets[bucket]["haut"] = max(buckets[bucket]["haut"], prix)
+                buckets[bucket]["bas"] = min(buckets[bucket]["bas"], prix)
+                buckets[bucket]["cloture"] = prix
+        
+        # Trie par temps et cree les bougies
+        bougies = []
+        for ts in sorted(buckets.keys()):
+            b = buckets[ts]
             bougies.append({
-                "temps": p[0],
-                "ouverture": p[1],
-                "haut": p[1],
-                "bas": p[1],
-                "cloture": p[1],
-                "volume": 0
+                "temps": ts,
+                "ouverture": b["ouverture"],
+                "haut": b["haut"],
+                "bas": b["bas"],
+                "cloture": b["cloture"],
+                "volume": b["volume"]
             })
+        
         return bougies[-limite:] if len(bougies) > limite else bougies
-    except:
+    except Exception as e:
+        print(f"[CoinGecko] Erreur {symbole}: {e}")
         return []
 
 def prix_actuel(symbole):
+    """Prix actuel via CoinGecko (Binance bloque depuis OVH)."""
+    coin_id = COINGECKO_MAP.get(symbole)
+    if coin_id:
+        try:
+            r = requests.get(f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies=usd", timeout=10)
+            return float(r.json()[coin_id]["usd"])
+        except:
+            pass
+    # Fallback Binance
     try:
         r = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={symbole}", timeout=10)
         return float(r.json()["price"])
