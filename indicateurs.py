@@ -509,8 +509,8 @@ def analyser_actif(symbole, intervalle="1h"):
 # ============================================
 # SCAN DE TOUS LES ACTIFS
 # ============================================
-SYMBOLES_SUIVIS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"]
-NOMS = {"BTCUSDT":"Bitcoin","ETHUSDT":"Ethereum","SOLUSDT":"Solana","BNBUSDT":"BNB","XRPUSDT":"XRP"}
+# Anciens NOMS et SYMBOLES_SUIVIS remplaces par les versions etendues plus haut
+# (garde pour compatibilite mais utilise les versions avec 30 cryptos)
 
 def scan_complet(intervalle="1h"):
     """Analyse tous les actifs et affiche les opportunistes."""
