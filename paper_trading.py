@@ -1186,10 +1186,11 @@ def tick():
         except Exception as e:
             print(f"    Module signaux_gagnants indisponible: {e}")
         tous_signaux = list(signaux_gagnants)
-        # Fallback: si aucune strategie gagnante ne signale, ON ATTEND
-        # (ne pas utiliser les indicateurs generiques - trop de pertes)
+        # Fallback: si aucune strategie gagnante ne signale, on utilise les indicateurs techniques
         if not tous_signaux:
-            print("\nAucun signal gagnant valide -> on attend (pas d'indicateurs generiques)")
+            print("\nAucun signal gagnant -> indicateurs techniques...")
+            signaux_techniques = analyser_signaux_techniques(prix)
+            tous_signaux = signaux_techniques
         # En dernier recours: l'IA (rare)
         if not tous_signaux:
             print("\nAucun signal technique -> analyse IA (fallback)...")
