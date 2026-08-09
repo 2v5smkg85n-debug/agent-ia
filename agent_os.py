@@ -2549,6 +2549,307 @@ def schedule_task(text):
         return f"✅ Tache sauvegardee (mais cron non installe: {e})\n📋 {task_desc}\n⏰ {freq}"
 
 
+
+# ============================================
+# 13. ALERTES INTELLIGENTES
+# ============================================
+def alertes_intelligentes():
+    """Scan les cryptos et envoie des alertes intelligentes."""
+    alertes = []
+    symboles = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "NEARUSDT", "ARBUSDT"]
+    for sym in symboles:
+        try:
+            analyse = analyser_actif(sym, "1h")
+            if not analyse:
+                continue
+            score = analyse.get("score", 0)
+            rsi = analyse.get("indicateurs", {}).get("RSI", 50)
+            prix = analyse.get("prix", 0)
+            signaux = analyse.get("signaux", [])
+            if score >= 3:
+                alertes.append({"type": "🚀 ACHAT FORT", "symbole": sym, "prix": prix, "score": score, "rsi": rsi, "raison": "; ".join(signaux[:2])})
+            elif rsi < 25:
+                alertes.append({"type": "🔴 SURVENTE", "symbole": sym, "prix": prix, "score": score, "rsi": rsi, "raison": f"RSI tres bas ({rsi:.0f}) - rebond possible"})
+            elif score <= -2:
+                alertes.append({"type": "⚠️ VENTE FORTE", "symbole": sym, "prix": prix, "score": score, "rsi": rsi, "raison": "; ".join(signaux[:2])})
+            elif rsi > 75:
+                alertes.append({"type": "🟠 SURACHAT", "symbole": sym, "prix": prix, "score": score, "rsi": rsi, "raison": f"RSI tres haut ({rsi:.0f}) - correction possible"})
+        except:
+            continue
+    if not alertes:
+        return "✅ Aucune alerte. Marche calme."
+    msg = "🚨 ALERTES INTELLIGENTES\n" + "━" * 30 + "\n"
+    for a in alertes:
+        msg += f"\n{a['type']} {a['symbole']}\n  Prix: {a['prix']:.4f} EUR\n  Score: {a['score']:+d} | RSI: {a['rsi']:.0f}\n  Raison: {a['raison']}\n"
+    return msg, alertes
+
+
+def envoyer_alertes():
+    """Execute les alertes et envoie sur Telegram."""
+    resultat = alertes_intelligentes()
+    if isinstance(resultat, tuple):
+        msg, alertes = resultat
+        if alertes:
+            send_telegram(msg)
+            learn_fact(f"Alerte {datetime.now().strftime('%H:%M')}: {len(alertes)} signaux", "alert")
+            return msg
+    return ""
+
+
+# ============================================
+# 14. ANALYSE COMPARATIVE
+# ============================================
+def analyse_comparative(symboles=None):
+    """Compare plusieurs cryptos cote a cote."""
+    if not symboles:
+        symboles = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT"]
+    msg = "📊 ANALYSE COMPARATIVE\n" + "━" * 35 + "\n\n"
+    msg += f"{'Crypto':<12} {'Prix':>10} {'RSI':>6} {'Score':>6} {'Verdict':<12}\n"
+    msg += "─" * 50 + "\n"
+    donnees = []
+    for sym in symboles:
+        try:
+            analyse = analyser_actif(sym, "1h")
+            if not analyse:
+                continue
+            prix = analyse.get("prix", 0)
+            rsi = analyse.get("indicateurs", {}).get("RSI", 0)
+            score = analyse.get("score", 0)
+            verdict = analyse.get("verdict", "NEUTRE")
+            bb_haut = analyse.get("indicateurs", {}).get("BB_haut", 0)
+            bb_bas = analyse.get("indicateurs", {}).get("BB_bas", 0)
+            volatilite = ((bb_haut - bb_bas) / prix * 100) if prix > 0 else 0
+            donnees.append({"symbole": sym, "prix": prix, "rsi": rsi, "score": score, "verdict": verdict, "volatilite": volatilite})
+            nom = NOMS.get(sym, sym)[:11]
+            emoji = "🟢" if score >= 2 else ("🔴" if score <= -2 else "⚪")
+            msg += f"{emoji} {nom:<10} {prix:>10.4f} {rsi:>5.0f} {score:>+5d} {verdict:<12}\n"
+        except:
+            continue
+    if not donnees:
+        return msg + "Donnees indisponibles\n"
+    msg += "\n" + "━" * 35 + "\n🏆 TOP RECOMMANDATIONS:\n"
+    tries = sorted(donnees, key=lambda x: x["score"], reverse=True)
+    for i, d in enumerate(tries[:3], 1):
+        msg += f"  {i}. {NOMS.get(d['symbole'], d['symbole'])} - Score {d['score']:+d} ({d['verdict']})\n"
+        msg += f"     RSI: {d['rsi']:.0f} | Volat: {d['volatilite']:.1f}% | Prix: {d['prix']:.4f}EUR\n"
+    msg += "\n📈 TOP VOLATILITE (opportunite):\n"
+    tries_vol = sorted(donnees, key=lambda x: x["volatilite"], reverse=True)
+    for d in tries_vol[:3]:
+        msg += f"  {NOMS.get(d['symbole'], d['symbole'])} - {d['volatilite']:.1f}% | Score {d['score']:+d}\n"
+    achats = [d for d in donnees if d["score"] > 0]
+    ventes = [d for d in donnees if d["score"] < 0]
+    msg += f"\n📊 CORRELATION:\n  {len(achats)} haussieres vs {len(ventes)} baissieres\n"
+    if len(achats) > len(ventes) * 2:
+        msg += "  -> Marche globalement haussier\n"
+    elif len(ventes) > len(achats) * 2:
+        msg += "  -> Marche globalement baissier\n"
+    else:
+        msg += "  -> Marche mixte/neutre\n"
+    return msg
+
+
+# ============================================
+# 15. GRAPHIQUES VISUELS
+# ============================================
+def generer_graphique(symbole="BTCUSDT", type_graph="prix"):
+    """Genere un graphique et l'envoie sur Telegram."""
+    try:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        plt.style.use('dark_background')
+    except ImportError:
+        return "Erreur: matplotlib non installe. Run: pip install matplotlib"
+    bougies = historique_ohlcv(symbole, "1h", 100)
+    if not bougies or len(bougies) < 20:
+        return f"Pas assez de donnees pour {symbole}"
+    clotures = [b["cloture"] for b in bougies]
+    temps = [datetime.fromtimestamp(b["temps"]/1000) for b in bougies]
+    fig, axes = plt.subplots(2, 1, figsize=(10, 8), gridspec_kw={'height_ratios': [3, 1]})
+    nom = NOMS.get(symbole, symbole)
+    fig.suptitle(f"{nom} ({symbole}) - {datetime.now().strftime('%d/%m %H:%M')}", fontsize=14, color='white')
+    ax1 = axes[0]
+    ax1.plot(temps, clotures, color='#2196F3', linewidth=1.5, label='Prix')
+    if len(clotures) >= 20:
+        sma20 = [sum(clotures[max(0,i-19):i+1])/min(20,i+1) for i in range(len(clotures))]
+        ax1.plot(temps, sma20, color='#FF9800', linewidth=1, label='SMA20', alpha=0.8)
+    if len(clotures) >= 50:
+        sma50 = [sum(clotures[max(0,i-49):i+1])/min(50,i+1) for i in range(len(clotures))]
+        ax1.plot(temps, sma50, color='#4CAF50', linewidth=1, label='SMA50', alpha=0.8)
+    if len(clotures) >= 20:
+        import statistics
+        bb_milieu = sma20
+        bb_ecart = [statistics.stdev(clotures[max(0,i-19):i+1]) * 2 if i >= 19 else 0 for i in range(len(clotures))]
+        bb_haut = [m + e for m, e in zip(bb_milieu, bb_ecart)]
+        bb_bas = [m - e for m, e in zip(bb_milieu, bb_ecart)]
+        ax1.fill_between(temps, bb_haut, bb_bas, color='#2196F3', alpha=0.1, label='Bollinger')
+    ax1.set_ylabel('Prix (EUR)', color='white')
+    ax1.legend(loc='upper left', fontsize=8)
+    ax1.grid(True, alpha=0.2)
+    ax2 = axes[1]
+    if len(clotures) >= 14:
+        rsi_vals = []
+        for i in range(len(clotures)):
+            if i < 14:
+                rsi_vals.append(50)
+                continue
+            gains = [clotures[j] - clotures[j-1] for j in range(i-13, i+1) if clotures[j] > clotures[j-1]]
+            pertes = [clotures[j-1] - clotures[j] for j in range(i-13, i+1) if clotures[j] < clotures[j-1]]
+            avg_gain = sum(gains) / 14 if gains else 0
+            avg_perte = sum(pertes) / 14 if pertes else 0.001
+            rs = avg_gain / avg_perte if avg_perte > 0 else 100
+            rsi_vals.append(100 - (100 / (1 + rs)))
+        ax2.plot(temps, rsi_vals, color='#E91E63', linewidth=1)
+        ax2.axhline(y=70, color='red', linestyle='--', alpha=0.5, label='Surachat (70)')
+        ax2.axhline(y=30, color='green', linestyle='--', alpha=0.5, label='Survente (30)')
+        ax2.fill_between(temps, 70, 100, color='red', alpha=0.1)
+        ax2.fill_between(temps, 0, 30, color='green', alpha=0.1)
+    ax2.set_ylabel('RSI', color='white')
+    ax2.set_ylim(0, 100)
+    ax2.legend(loc='upper left', fontsize=8)
+    ax2.grid(True, alpha=0.2)
+    plt.tight_layout()
+    filepath = os.path.join(DOSSIER, f"chart_{symbole}_{datetime.now().strftime('%Y%m%d_%H%M')}.png")
+    plt.savefig(filepath, dpi=100, facecolor='#1a1a2e')
+    plt.close()
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto"
+        with open(filepath, 'rb') as f:
+            r = requests.post(url, data={"chat_id": TELEGRAM_CHAT_ID, "caption": f"📊 {nom} - Prix + RSI"}, files={"photo": f}, timeout=30)
+        if r.status_code == 200:
+            return filepath
+        return f"Erreur envoi photo: {r.status_code}"
+    except Exception as e:
+        return f"Erreur envoi: {e}"
+
+
+def generer_graphique_pnl():
+    """Genere un graphique du PnL du portefeuille."""
+    try:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        plt.style.use('dark_background')
+    except ImportError:
+        return "Erreur: matplotlib non installe"
+    pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+    trades = pt.get("trades_fermes", [])
+    if not trades:
+        return "Aucun trade ferme pour generer un graphique"
+    pnl_cumule = []
+    total = 0
+    for t in trades:
+        total += t.get("pnl", 0)
+        pnl_cumule.append(total)
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(range(1, len(pnl_cumule) + 1), pnl_cumule, color='#4CAF50', linewidth=2, marker='o', markersize=3)
+    ax.axhline(y=0, color='white', linestyle='--', alpha=0.3)
+    ax.fill_between(range(1, len(pnl_cumule) + 1), pnl_cumule, 0, where=[p >= 0 for p in pnl_cumule], color='#4CAF50', alpha=0.3)
+    ax.fill_between(range(1, len(pnl_cumule) + 1), pnl_cumule, 0, where=[p < 0 for p in pnl_cumule], color='#f44336', alpha=0.3)
+    ax.set_title(f"PnL Cumule - {len(trades)} trades", color='white', fontsize=14)
+    ax.set_xlabel('Nombre de trades', color='white')
+    ax.set_ylabel('PnL (EUR)', color='white')
+    ax.grid(True, alpha=0.2)
+    filepath = os.path.join(DOSSIER, f"chart_pnl_{datetime.now().strftime('%Y%m%d_%H%M')}.png")
+    plt.savefig(filepath, dpi=100, facecolor='#1a1a2e')
+    plt.close()
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto"
+        with open(filepath, 'rb') as f:
+            r = requests.post(url, data={"chat_id": TELEGRAM_CHAT_ID, "caption": f"📊 PnL Cumule - Total: {pnl_cumule[-1]:+.2f} EUR"}, files={"photo": f}, timeout=30)
+        if r.status_code == 200:
+            return filepath
+        return f"Erreur envoi: {r.status_code}"
+    except Exception as e:
+        return f"Erreur: {e}"
+
+
+# ============================================
+# 16. BACKTEST A LA VOLEE
+# ============================================
+def backtest_rapide(symbole="BTCUSDT", strategie="momentum"):
+    """Backtest rapide depuis Telegram."""
+    msg = f"🔬 BACKTEST RAPIDE\n" + "━" * 30 + "\n"
+    msg += f"Crypto: {NOMS.get(symbole, symbole)}\n"
+    msg += f"Strategie: {strategie}\n\n"
+    try:
+        bougies = historique_ohlcv(symbole, "1h", 200)
+        if not bougies or len(bougies) < 60:
+            return msg + "❌ Pas assez de donnees historiques"
+        clotures = [b["cloture"] for b in bougies]
+        capital = 100.0
+        position = None
+        trades = []
+        for i in range(50, len(clotures)):
+            prix = clotures[i]
+            sma20 = sum(clotures[max(0,i-19):i+1]) / min(20, i+1)
+            sma50 = sum(clotures[max(0,i-49):i+1]) / min(50, i+1)
+            gains = [clotures[j] - clotures[j-1] for j in range(i-13, i+1) if clotures[j] > clotures[j-1]]
+            pertes = [clotures[j-1] - clotures[j] for j in range(i-13, i+1) if clotures[j] < clotures[j-1]]
+            avg_gain = sum(gains) / 14 if gains else 0
+            avg_perte = sum(pertes) / 14 if pertes else 0.001
+            rs = avg_gain / avg_perte if avg_perte > 0 else 100
+            rsi_val = 100 - (100 / (1 + rs))
+            signal_achat = False
+            signal_vente = False
+            raison = ""
+            if strategie == "momentum":
+                signal_achat = sma20 > sma50 and 50 <= rsi_val <= 65
+                signal_vente = sma20 < sma50 or rsi_val > 75
+                raison = f"SMA20{'>' if sma20>sma50 else '<'}SMA50 RSI={rsi_val:.0f}"
+            elif strategie == "rsi":
+                signal_achat = rsi_val < 35
+                signal_vente = rsi_val > 65
+                raison = f"RSI={rsi_val:.0f}"
+            elif strategie == "tendance":
+                signal_achat = sma20 > sma50 and prix > sma20
+                signal_vente = sma20 < sma50 and prix < sma20
+                raison = "Prix vs SMA"
+            elif strategie == "bollinger":
+                import statistics
+                if i >= 19:
+                    bb_ecart = statistics.stdev(clotures[i-19:i+1]) * 2
+                    bb_bas = sma20 - bb_ecart
+                    bb_haut = sma20 + bb_ecart
+                    signal_achat = prix <= bb_bas
+                    signal_vente = prix >= bb_haut
+                    raison = f"BB {'bas' if signal_achat else 'haut' if signal_vente else 'milieu'}"
+            if signal_achat and not position:
+                qty = (capital * 0.95) / prix
+                position = {"prix": prix, "qty": qty, "index": i, "raison": raison}
+            elif signal_vente and position:
+                pnl = (prix - position["prix"]) * position["qty"]
+                capital += pnl
+                trades.append({"achat": position["prix"], "vente": prix, "pnl": pnl, "raison": position["raison"]})
+                position = None
+        if position:
+            prix_final = clotures[-1]
+            pnl = (prix_final - position["prix"]) * position["qty"]
+            capital += pnl
+            trades.append({"achat": position["prix"], "vente": prix_final, "pnl": pnl, "raison": position["raison"]})
+        gagnants = [t for t in trades if t["pnl"] > 0]
+        perdants = [t for t in trades if t["pnl"] < 0]
+        winrate = len(gagnants) / len(trades) * 100 if trades else 0
+        pnl_total = capital - 100
+        pnl_pct = (pnl_total / 100) * 100
+        msg += f"Periode: {len(bougies)} bougies (1h)\n"
+        msg += f"Trades: {len(trades)}\n"
+        msg += f"Gagnants: {len(gagnants)} | Perdants: {len(perdants)}\n"
+        msg += f"Winrate: {winrate:.1f}%\n"
+        msg += f"Capital final: {capital:.2f} EUR\n"
+        msg += f"PnL: {pnl_total:+.2f} EUR ({pnl_pct:+.1f}%)\n\n"
+        if trades:
+            msg += "Derniers trades:\n"
+            for t in trades[-5:]:
+                emoji = "✅" if t["pnl"] > 0 else "❌"
+                msg += f"  {emoji} {t['raison']} | PnL: {t['pnl']:+.2f}EUR\n"
+        msg += f"\n💡 Verdict: {'🟢 STRATEGIE GAGNANTE' if pnl_total > 0 else '🔴 STRATEGIE PERDANTE'}"
+        learn_fact(f"Backtest {symbole} {strategie}: {winrate:.0f}% WR, {pnl_pct:+.1f}% PnL", "strategy")
+        return msg
+    except Exception as e:
+        return msg + f"Erreur: {e}"
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "status":
         perf = trading_performance()
