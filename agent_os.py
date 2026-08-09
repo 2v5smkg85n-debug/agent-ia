@@ -2601,6 +2601,7 @@ def envoyer_alertes():
 # ============================================
 def analyse_comparative(symboles=None):
     """Compare plusieurs cryptos cote a cote."""
+    from indicateurs import NOMS
     if not symboles:
         symboles = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT"]
     msg = "📊 ANALYSE COMPARATIVE\n" + "━" * 35 + "\n\n"
@@ -2654,7 +2655,7 @@ def analyse_comparative(symboles=None):
 def generer_graphique(symbole="BTCUSDT", type_graph="prix"):
     """Genere un graphique et l'envoie sur Telegram."""
     try:
-        from indicateurs import historique_ohlcv
+        from indicateurs import historique_ohlcv, NOMS
         import matplotlib
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
@@ -2774,7 +2775,7 @@ def backtest_rapide(symbole="BTCUSDT", strategie="momentum"):
     msg += f"Crypto: {NOMS.get(symbole, symbole)}\n"
     msg += f"Strategie: {strategie}\n\n"
     try:
-        from indicateurs import historique_ohlcv
+        from indicateurs import historique_ohlcv, NOMS
         bougies = historique_ohlcv(symbole, "1h", 200)
         if not bougies or len(bougies) < 60:
             return msg + "❌ Pas assez de donnees historiques"
