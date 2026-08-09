@@ -2663,32 +2663,52 @@ def generer_graphique(symbole="BTCUSDT", type_graph="prix"):
         plt.style.use('dark_background')
     except ImportError:
         return "Erreur: matplotlib ou indicateurs non installe"
-    bougies = historique_ohlcv(symbole, "1h", 100)
+    bougies = historique_ohlcv(symbole, "1h", 60)
     if not bougies or len(bougies) < 20:
         return f"Pas assez de donnees pour {symbole}"
     clotures = [b["cloture"] for b in bougies]
+    ouvertures = [b["ouverture"] for b in bougies]
+    hauts = [b["haut"] for b in bougies]
+    bas = [b["bas"] for b in bougies]
     temps = [datetime.fromtimestamp(b["temps"]/1000) for b in bougies]
-    fig, axes = plt.subplots(2, 1, figsize=(10, 8), gridspec_kw={'height_ratios': [3, 1]})
+    fig, axes = plt.subplots(2, 1, figsize=(12, 9), gridspec_kw={'height_ratios': [3, 1]})
     nom = NOMS.get(symbole, symbole)
     fig.suptitle(f"{nom} ({symbole}) - {datetime.now().strftime('%d/%m %H:%M')}", fontsize=14, color='white')
     ax1 = axes[0]
-    ax1.plot(temps, clotures, color='#2196F3', linewidth=1.5, label='Prix')
+    # Bougies japonaises
+    for i in range(len(bougies)):
+        o, h, l, c = ouvertures[i], hauts[i], bas[i], clotures[i]
+        couleur = '#26A69A' if c >= o else '#EF5350'
+        # Mèche (haute-basse)
+        ax1.vlines(i, l, h, color=couleur, linewidth=0.8)
+        # Corps (ouverture-cloture)
+        body_bottom = min(o, c)
+        body_height = abs(c - o) if abs(c - o) > 0 else h * 0.0001
+        ax1.bar(i, body_height, bottom=body_bottom, color=couleur, width=0.7, edgecolor=couleur)
+    # SMA20
     if len(clotures) >= 20:
         sma20 = [sum(clotures[max(0,i-19):i+1])/min(20,i+1) for i in range(len(clotures))]
-        ax1.plot(temps, sma20, color='#FF9800', linewidth=1, label='SMA20', alpha=0.8)
+        ax1.plot(range(len(clotures)), sma20, color='#FF9800', linewidth=1, label='SMA20', alpha=0.8)
+    # SMA50
     if len(clotures) >= 50:
         sma50 = [sum(clotures[max(0,i-49):i+1])/min(50,i+1) for i in range(len(clotures))]
-        ax1.plot(temps, sma50, color='#4CAF50', linewidth=1, label='SMA50', alpha=0.8)
+        ax1.plot(range(len(clotures)), sma50, color='#4CAF50', linewidth=1, label='SMA50', alpha=0.8)
+    # Bandes de Bollinger
     if len(clotures) >= 20:
         import statistics
         bb_milieu = sma20
         bb_ecart = [statistics.stdev(clotures[max(0,i-19):i+1]) * 2 if i >= 19 else 0 for i in range(len(clotures))]
         bb_haut = [m + e for m, e in zip(bb_milieu, bb_ecart)]
         bb_bas = [m - e for m, e in zip(bb_milieu, bb_ecart)]
-        ax1.fill_between(temps, bb_haut, bb_bas, color='#2196F3', alpha=0.1, label='Bollinger')
+        ax1.fill_between(range(len(clotures)), bb_haut, bb_bas, color='#2196F3', alpha=0.08, label='Bollinger')
+    # Labels X tous les 10
+    tick_pos = list(range(0, len(temps), 10))
+    tick_labels = [temps[i].strftime('%d/%m %Hh') for i in tick_pos]
+    ax1.set_xticks(tick_pos)
+    ax1.set_xticklabels(tick_labels, rotation=30, ha='right', fontsize=7)
     ax1.set_ylabel('Prix (EUR)', color='white')
     ax1.legend(loc='upper left', fontsize=8)
-    ax1.grid(True, alpha=0.2)
+    ax1.grid(True, alpha=0.15)
     ax2 = axes[1]
     if len(clotures) >= 14:
         rsi_vals = []
@@ -2702,15 +2722,17 @@ def generer_graphique(symbole="BTCUSDT", type_graph="prix"):
             avg_perte = sum(pertes) / 14 if pertes else 0.001
             rs = avg_gain / avg_perte if avg_perte > 0 else 100
             rsi_vals.append(100 - (100 / (1 + rs)))
-        ax2.plot(temps, rsi_vals, color='#E91E63', linewidth=1)
+        ax2.plot(range(len(clotures)), rsi_vals, color='#E91E63', linewidth=1)
         ax2.axhline(y=70, color='red', linestyle='--', alpha=0.5, label='Surachat (70)')
         ax2.axhline(y=30, color='green', linestyle='--', alpha=0.5, label='Survente (30)')
-        ax2.fill_between(temps, 70, 100, color='red', alpha=0.1)
-        ax2.fill_between(temps, 0, 30, color='green', alpha=0.1)
+        ax2.fill_between(range(len(clotures)), 70, 100, color='red', alpha=0.1)
+        ax2.fill_between(range(len(clotures)), 0, 30, color='green', alpha=0.1)
     ax2.set_ylabel('RSI', color='white')
     ax2.set_ylim(0, 100)
+    ax2.set_xticks(tick_pos)
+    ax2.set_xticklabels(tick_labels, rotation=30, ha='right', fontsize=7)
     ax2.legend(loc='upper left', fontsize=8)
-    ax2.grid(True, alpha=0.2)
+    ax2.grid(True, alpha=0.15)
     plt.tight_layout()
     filepath = os.path.join(DOSSIER, f"chart_{symbole}_{datetime.now().strftime('%Y%m%d_%H%M')}.png")
     plt.savefig(filepath, dpi=100, facecolor='#1a1a2e')
