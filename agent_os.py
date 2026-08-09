@@ -1625,6 +1625,52 @@ def handle_message(text, user_name="User"):
         send_telegram(result)
         return result
     
+    # === ALERTES ===
+    if text_lower in ["alertes", "alerte", "veille"]:
+        send_telegram("🚨 Scan des alertes en cours...")
+        result = alertes_intelligentes()
+        if isinstance(result, tuple):
+            send_telegram(result[0])
+            return result[0]
+        else:
+            send_telegram(result)
+            return result
+    
+    # === COMPARATIF ===
+    if text_lower in ["comparatif", "compare", "comparer", "classement"]:
+        send_telegram("📊 Analyse comparative en cours...")
+        result = analyse_comparative()
+        send_telegram(result[:4000])
+        return result
+    
+    # === GRAPHIQUES ===
+    if text_lower.startswith("graph") or text_lower.startswith("chart"):
+        parts = text_stripped.split(None, 1)
+        symbole = parts[1].upper() if len(parts) > 1 else "BTC"
+        symbole = symbole + "USDT" if not symbole.endswith("USDT") else symbole
+        send_telegram(f"📊 Generation du graphique {symbole}...")
+        result = generer_graphique(symbole)
+        if isinstance(result, str) and result.startswith("Erreur"):
+            send_telegram(result)
+        return result or ""
+    
+    if text_lower in ["graph pnl", "chart pnl", "pnl chart"]:
+        send_telegram("📊 Generation du graphique PnL...")
+        result = generer_graphique_pnl()
+        if isinstance(result, str) and result.startswith("Erreur"):
+            send_telegram(result)
+        return result or ""
+    
+    # === BACKTEST RAPIDE ===
+    if text_lower.startswith("backtest"):
+        parts = text_stripped.split(None, 2)
+        symbole = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
+        strategie = parts[2].lower() if len(parts) > 2 else "momentum"
+        send_telegram(f"🔬 Backtest {symbole} strategie {strategie}...")
+        result = backtest_rapide(symbole, strategie)
+        send_telegram(result[:4000])
+        return result
+    
     # === AIDE ===
     if text_lower in ["aide", "help", "commandes", "commands"]:
         help_msg = """🤖 AGENT OS - COMMANDES
@@ -1665,6 +1711,13 @@ def handle_message(text, user_name="User"):
   auto-ameliorer - L'agent analyse ses faiblesses et se corrige
   planifie [tache] - Planifie une tache repetitive
   taches - Liste les taches programmees
+
+🔬 ANALYSE:
+  alertes - Alertes intelligentes (RSI extreme, pump/dump)
+  comparatif - Compare les cryptos et recommande les meilleures
+  graph BTC - Genere un graphique (prix + RSI) en image
+  graph pnl - Graphique du PnL cumule
+  backtest BTC momentum - Backtest rapide d'une strategie
 
 ━━━━━━━━━━━━━━━━━━━━
 L'agent apprend de chaque interaction."""
@@ -2525,5 +2578,12 @@ if __name__ == "__main__":
     elif len(sys.argv) > 1 and sys.argv[1] == "rapport":
         rapport = generate_report()
         print(rapport)
+    elif len(sys.argv) > 1 and sys.argv[1] == "alertes":
+        r = envoyer_alertes()
+        if r:
+            print(r)
+    elif len(sys.argv) > 1 and sys.argv[1] == "graph-telegram":
+        generer_graphique("BTCUSDT")
+        generer_graphique_pnl()
     else:
         autonomous_loop()
