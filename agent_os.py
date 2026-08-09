@@ -2794,6 +2794,7 @@ def generer_graphique_pnl():
 # ============================================
 def backtest_rapide(symbole="BTCUSDT", strategie="momentum"):
     """Backtest rapide depuis Telegram."""
+    from indicateurs import NOMS
     msg = f"🔬 BACKTEST RAPIDE\n" + "━" * 30 + "\n"
     msg += f"Crypto: {NOMS.get(symbole, symbole)}\n"
     msg += f"Strategie: {strategie}\n\n"
