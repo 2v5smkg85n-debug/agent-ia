@@ -1709,6 +1709,38 @@ def handle_message(text, user_name="User"):
         send_telegram(result[:4000])
         return result
     
+    # === SENTIMENT NEWS ===
+    if text_lower.startswith("sentiment") or text_lower.startswith("news"):
+        parts = text_stripped.split(None, 1)
+        crypto = parts[1].upper().replace("USDT", "") if len(parts) > 1 else "BTC"
+        send_telegram(f"📰 Analyse sentiment {crypto}...")
+        result = sentiment_news(crypto)
+        send_telegram(result[:4000])
+        return result
+    
+    # === APPRENTISSAGE AUTO ===
+    if text_lower in ["apprentissage", "apprend", "learn", "analyse trades"]:
+        send_telegram("📚 Analyse des trades en cours...")
+        result = apprentissage_auto_trades()
+        send_telegram(result[:4000])
+        return result
+    
+    # === CORRELATIONS ===
+    if text_lower in ["correlations", "correlation", "corr", "diversification"]:
+        send_telegram("🔗 Analyse des correlations...")
+        result = detection_correlations()
+        send_telegram(result[:4000])
+        return result
+    
+    # === PREVISION IA ===
+    if text_lower.startswith("prevision") or text_lower.startswith("forecast"):
+        parts = text_stripped.split(None, 1)
+        symbole = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
+        send_telegram(f"🔮 Generation prevision {symbole}...")
+        result = prevision_ia_prix(symbole)
+        send_telegram(result[:4000])
+        return result
+    
     # === AIDE ===
     if text_lower in ["aide", "help", "commandes", "commands"]:
         help_msg = """🤖 AGENT OS - COMMANDES
@@ -1764,6 +1796,12 @@ def handle_message(text, user_name="User"):
   alerte liste - Liste tes alertes prix
   alerte supprime 2 - Supprime une alerte
   mtf BTC - Analyse multi-timeframe (15m, 1h, 4h, 1d)
+
+🧠 INTELLIGENCE:
+  sentiment BTC - Sentiment des news + communaute
+  apprentissage - Analyse les trades et ajuste les strategies
+  correlations - Detecte les correlations du portefeuille
+  prevision BTC - Prevision de prix 24h/7j + analyse IA
 
 ━━━━━━━━━━━━━━━━━━━━
 L'agent apprend de chaque interaction."""
@@ -3182,6 +3220,371 @@ def analyse_multi_timeframe(symbole="BTCUSDT"):
     else:
         msg += f"\n⚪ NEUTRE: signaux mixtes\n"
     learn_fact(f"MTF {symbole}: score {total_score:+d}, {nb_haussier}H/{nb_baissier}B", "mtf")
+    return msg
+
+
+
+
+# ============================================
+# 20. SENTIMENT NEWS CRYPTO
+# ============================================
+def sentiment_news(crypto="BTC"):
+    """Analyse le sentiment des news crypto via Perplexity API."""
+    from indicateurs import NOMS
+    nom = NOMS.get(crypto + "USDT", crypto) if not crypto.endswith("USDT") else NOMS.get(crypto, crypto)
+    if not PPLX_KEY:
+        # Fallback: utilise CoinGecko sentiment data
+        try:
+            sym_clean = crypto.replace("USDT", "").upper()
+            coin_id = COINGECKO_IDS.get(sym_clean, "bitcoin")
+            r = requests.get(f"https://api.coingecko.com/api/v3/coins/{coin_id}", timeout=10)
+            if r.status_code == 200:
+                data = r.json()
+                sentiment_up = data.get("sentiment_votes_up_percentage", 50)
+                sentiment_down = data.get("sentiment_votes_down_percentage", 50)
+                community_score = data.get("community_score", 0)
+                msg = f"📰 SENTIMENT COMMUNAUTAIRE - {nom}\n" + "━" * 35 + "\n\n"
+                msg += f"🟢 Votes positifs: {sentiment_up:.1f}%\n"
+                msg += f"🔴 Votes negatifs: {sentiment_down:.1f}%\n"
+                msg += f"👥 Score communaute: {community_score:.0f}/100\n"
+                score = (sentiment_up - 50) / 50 * 10
+                if score > 3:
+                    msg += f"\n🟢 Sentiment POSITIF (score: {score:+.1f}/10)"
+                elif score < -3:
+                    msg += f"\n🔴 Sentiment NEGATIF (score: {score:+.1f}/10)"
+                else:
+                    msg += f"\n⚪ Sentiment NEUTRE (score: {score:+.1f}/10)"
+                return msg
+        except Exception as e:
+            return f"Erreur sentiment: {e}"
+        return "Pas de cle API Perplexity et CoinGecko indisponible"
+    try:
+        headers = {"Authorization": f"Bearer {PPLX_KEY}", "Content-Type": "application/json"}
+        prompt = f"Analyse le sentiment actuel du marche pour {nom} ({crypto}). Donne: 1) sentiment global (positif/negatif/neutre) avec score -10 a +10, 2) 3 news importantes recentes en une ligne chacune, 3) impact potentiel sur le prix a court terme (haussier/baissier/neutre). Sois concis."
+        payload = {
+            "model": "sonar",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 500,
+        }
+        r = requests.post("https://api.perplexity.ai/chat/completions",
+                          json=payload, headers=headers, timeout=30)
+        if r.status_code == 200:
+            data = r.json()
+            texte = data["choices"][0]["message"]["content"]
+            # Recupere aussi le sentiment CoinGecko
+            sym_clean = crypto.replace("USDT", "").upper()
+            coin_id = COINGECKO_IDS.get(sym_clean, "bitcoin")
+            cg_sentiment = 50
+            try:
+                r2 = requests.get(f"https://api.coingecko.com/api/v3/coins/{coin_id}", timeout=10)
+                if r2.status_code == 200:
+                    cg_sentiment = r2.json().get("sentiment_votes_up_percentage", 50)
+            except:
+                pass
+            msg = f"📰 SENTIMENT IA - {nom}\n" + "━" * 35 + "\n\n"
+            msg += f"👥 Vote communaute: {cg_sentiment:.0f}% positif\n\n"
+            msg += texte
+            learn_fact(f"Sentiment {crypto}: communaute {cg_sentiment:.0f}% positif", "sentiment")
+            return msg
+        return f"Erreur API: {r.status_code}"
+    except Exception as e:
+        return f"Erreur: {e}"
+
+
+# ============================================
+# 21. APPRENTISSAGE AUTO DES TRADES
+# ============================================
+def apprentissage_auto_trades():
+    """Analyse les trades passes et ajuste les poids des strategies."""
+    pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+    trades_fermes = pt.get("trades_fermes", [])
+    positions = pt.get("positions", [])
+    if not trades_fermes or len(trades_fermes) < 1:
+        # Analyse les positions ouvertes
+        if positions:
+            msg = "📚 APPRENTISSAGE - Analyse des positions ouvertes\n" + "━" * 40 + "\n\n"
+            strategies = {}
+            for p in positions:
+                strat = p.get("strategie", "inconnu")
+                source = p.get("source", "inconnu")
+                key = f"{strat}/{source}"
+                if key not in strategies:
+                    strategies[key] = {"count": 0, "exemples": []}
+                strategies[key]["count"] += 1
+                if len(strategies[key]["exemples"]) < 2:
+                    strategies[key]["exemples"].append(p.get("symbole", "?"))
+            msg += "Strategies utilisees sur les positions ouvertes:\n\n"
+            for key, info in sorted(strategies.items(), key=lambda x: x[1]["count"], reverse=True):
+                msg += f"  📊 {key}: {info['count']} position(s) - {', '.join(info['exemples'])}\n"
+            msg += f"\n💡 {len(positions)} positions ouvertes, pas assez de trades fermes pour apprentissage complet.\n"
+            msg += "L'agent analysera les trades fermes des qu'il y en aura assez (min 5)."
+            return msg
+        return "Pas assez de trades pour l'apprentissage (min 1 trade ferme)"
+    msg = "📚 APPRENTISSAGE AUTO DES TRADES\n" + "━" * 40 + "\n\n"
+    # Analyse par strategie
+    stats_strategies = {}
+    for t in trades_fermes:
+        strat = t.get("strategie", "inconnu")
+        pnl = t.get("pnl", 0)
+        if strat not in stats_strategies:
+            stats_strategies[strat] = {"trades": 0, "gagnants": 0, "perdants": 0, "pnl_total": 0, "symboles": set()}
+        stats_strategies[strat]["trades"] += 1
+        stats_strategies[strat]["pnl_total"] += pnl
+        if pnl > 0:
+            stats_strategies[strat]["gagnants"] += 1
+        else:
+            stats_strategies[strat]["perdants"] += 1
+        stats_strategies[strat]["symboles"].add(t.get("symbole", "?"))
+    # Affichage
+    msg += f"{'Strategie':<20} {'Trades':>7} {'Win%':>6} {'PnL':>10} {'Verdict':<12}\n"
+    msg += "─" * 58 + "\n"
+    recommandations = []
+    for strat, info in sorted(stats_strategies.items(), key=lambda x: x[1]["pnl_total"], reverse=True):
+        winrate = info["gagnants"] / info["trades"] * 100 if info["trades"] > 0 else 0
+        verdict = "GARDER" if info["pnl_total"] > 0 else "AMERLIORER"
+        if info["pnl_total"] < 0 and winrate < 40:
+            verdict = "DESACTIVER"
+            recommandations.append(f"Desactiver {strat} (winrate {winrate:.0f}%, PnL {info['pnl_total']:+.2f})")
+        elif info["pnl_total"] > 0 and winrate > 60:
+            verdict = "BOOSTER"
+            recommandations.append(f"Booster {strat} (winrate {winrate:.0f}%, PnL {info['pnl_total']:+.2f})")
+        emoji = "🟢" if info["pnl_total"] > 0 else "🔴"
+        msg += f"{emoji} {strat:<18} {info['trades']:>7} {winrate:>5.0f}% {info['pnl_total']:>+9.2f} {verdict:<12}\n"
+    # Analyse par source
+    msg += f"\n📋 ANALYSE PAR SOURCE DE SIGNAL:\n"
+    stats_sources = {}
+    for t in trades_fermes:
+        source = t.get("source", "inconnu")
+        pnl = t.get("pnl", 0)
+        if source not in stats_sources:
+            stats_sources[source] = {"trades": 0, "pnl_total": 0}
+        stats_sources[source]["trades"] += 1
+        stats_sources[source]["pnl_total"] += pnl
+    for source, info in sorted(stats_sources.items(), key=lambda x: x[1]["pnl_total"], reverse=True):
+        emoji = "🟢" if info["pnl_total"] > 0 else "🔴"
+        msg += f"  {emoji} {source}: {info['trades']} trades, PnL {info['pnl_total']:+.2f} EUR\n"
+    # Recommandations IA
+    msg += f"\n💡 RECOMMANDATIONS:\n"
+    if recommandations:
+        for r in recommandations:
+            msg += f"  → {r}\n"
+    else:
+        msg += "  → Maintenir les strategies actuelles (performances equilibrees)\n"
+    # Sauvegarde l'apprentissage
+    apprentissage = load_json_safe(os.path.join(DOSSIER, "apprentissage.json"), {})
+    apprentissage["derniere_analyse"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+    apprentissage["strategies"] = {k: {"trades": v["trades"], "pnl": v["pnl_total"],
+                                       "winrate": v["gagnants"]/v["trades"]*100 if v["trades"] > 0 else 0}
+                                   for k, v in stats_strategies.items()}
+    apprentissage["recommandations"] = recommandations
+    save_json_safe(os.path.join(DOSSIER, "apprentissage.json"), apprentissage)
+    learn_fact(f"Apprentissage: {len(trades_fermes)} trades analyses, {len(recommandations)} recommandations", "learning")
+    return msg
+
+
+# ============================================
+# 22. DETECTION CORRELATIONS
+# ============================================
+def detection_correlations():
+    """Detecte les correlations entre les cryptos du portefeuille."""
+    from indicateurs import historique_ohlcv, NOMS
+    pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+    positions = pt.get("positions", [])
+    if len(positions) < 2:
+        return "Pas assez de positions pour analyser les correlations (min 2)"
+    symboles = list(set(p.get("symbole", "") for p in positions if p.get("symbole")))
+    if len(symboles) < 2:
+        return "Pas assez de cryptos differentes dans le portefeuille"
+    msg = "🔗 ANALYSE DES CORRELATIONS\n" + "━" * 40 + "\n\n"
+    # Recupere les historiques de prix
+    prix_data = {}
+    for sym in symboles[:12]:
+        try:
+            bougies = historique_ohlcv(sym, "1d", 30)
+            if bougies and len(bougies) >= 20:
+                prix_data[sym] = [b["cloture"] for b in bougies]
+        except:
+            continue
+    if len(prix_data) < 2:
+        return "Pas assez de donnees historiques pour les correlations"
+    # Calcul des rendements
+    rendements = {}
+    for sym, prix in prix_data.items():
+        rets = [(prix[i] - prix[i-1]) / prix[i-1] for i in range(1, len(prix)) if prix[i-1] > 0]
+        rendements[sym] = rets
+    # Matrice de correlation
+    msg += f"{'':>12}"
+    for sym in list(rendements.keys())[:6]:
+        nom = NOMS.get(sym, sym)[:4]
+        msg += f" {nom:>8}"
+    msg += "\n" + "─" * 60 + "\n"
+    correlations_hautes = []
+    correlations_negatives = []
+    sym_list = list(rendements.keys())
+    for i, sym1 in enumerate(sym_list[:6]):
+        nom1 = NOMS.get(sym1, sym1)[:10]
+        msg += f"{nom1:>12}"
+        for j, sym2 in enumerate(sym_list[:6]):
+            if i == j:
+                msg += f" {'---':>8}"
+                continue
+            r1, r2 = rendements[sym1], rendements[sym2]
+            min_len = min(len(r1), len(r2))
+            if min_len < 5:
+                msg += f" {'N/A':>8}"
+                continue
+            # Coefficient de correlation de Pearson
+            r1_cut, r2_cut = r1[:min_len], r2[:min_len]
+            avg1, avg2 = sum(r1_cut)/min_len, sum(r2_cut)/min_len
+            num = sum((r1_cut[k] - avg1) * (r2_cut[k] - avg2) for k in range(min_len))
+            den1 = sum((r1_cut[k] - avg1)**2 for k in range(min_len)) ** 0.5
+            den2 = sum((r2_cut[k] - avg2)**2 for k in range(min_len)) ** 0.5
+            corr = num / (den1 * den2) if den1 > 0 and den2 > 0 else 0
+            if j < 6:
+                msg += f" {corr:>+7.2f}"
+            if abs(corr) > 0.7 and i < j:
+                correlations_hautes.append((sym1, sym2, corr))
+            elif corr < -0.3 and i < j:
+                correlations_negatives.append((sym1, sym2, corr))
+        msg += "\n"
+    # Analyse
+    msg += "\n" + "━" * 40 + "\n"
+    if correlations_hautes:
+        msg += "⚠️ CORRELATIONS HAUTES (>0.7):\n"
+        for s1, s2, c in correlations_hautes:
+            n1, n2 = NOMS.get(s1, s1), NOMS.get(s2, s2)
+            msg += f"  {n1} <-> {n2}: {c:+.2f}\n"
+        msg += "\n💡 Risque: ces cryptos bougent ensemble. Diversification faible.\n"
+        msg += "    Envisage de vendre l'une pour acheter une crypto decoorreee.\n"
+    else:
+        msg += "✅ Aucune correlation excessive (>0.7) detectee.\n"
+        msg += "    Le portefeuille est bien diversifie.\n"
+    if correlations_negatives:
+        msg += f"\n🟢 CORRELATIONS NEGATIVES (diversification):\n"
+        for s1, s2, c in correlations_negatives:
+            n1, n2 = NOMS.get(s1, s1), NOMS.get(s2, s2)
+            msg += f"  {n1} <-> {n2}: {c:+.2f}\n"
+    # Score de diversification
+    nb_paires = len(sym_list) * (len(sym_list) - 1) / 2
+    pct_hautes = len(correlations_hautes) / nb_paires * 100 if nb_paires > 0 else 0
+    msg += f"\n📊 Score diversification: {100 - pct_hautes:.0f}/100\n"
+    if pct_hautes < 10:
+        msg += "🟢 Excellent - portefeuille bien diversifie\n"
+    elif pct_hautes < 30:
+        msg += "🟡 Correct - quelques correlations a surveiller\n"
+    else:
+        msg += "🔴 Faible - trop de correlations, risque concentre\n"
+    learn_fact(f"Correlations: {len(correlations_hautes)} hautes, diversification {100-pct_hautes:.0f}/100", "correlation")
+    return msg
+
+
+# ============================================
+# 23. PREVISIONS IA PRIX
+# ============================================
+def prevision_ia_prix(symbole="BTCUSDT"):
+    """Genere des previsions de prix a 24h et 7j en combinant indicateurs + IA."""
+    from indicateurs import historique_ohlcv, NOMS
+    nom = NOMS.get(symbole, symbole)
+    bougies = historique_ohlcv(symbole, "1h", 100)
+    if not bougies or len(bougies) < 50:
+        return f"Pas assez de donnees pour {symbole}"
+    clotures = [b["cloture"] for b in bougies]
+    prix_actuel = clotures[-1]
+    # Indicateurs techniques
+    sma20 = sum(clotures[-20:]) / 20
+    sma50 = sum(clotures[-50:]) / 50
+    gains = [clotures[j] - clotures[j-1] for j in range(-14, 0) if clotures[j] > clotures[j-1]]
+    pertes = [clotures[j-1] - clotures[j] for j in range(-14, 0) if clotures[j] < clotures[j-1]]
+    avg_gain = sum(gains) / 14 if gains else 0
+    avg_perte = sum(pertes) / 14 if pertes else 0.001
+    rs = avg_gain / avg_perte if avg_perte > 0 else 100
+    rsi_val = 100 - (100 / (1 + rs))
+    # Bandes de Bollinger
+    import statistics
+    bb_milieu = sma20
+    bb_ecart = statistics.stdev(clotures[-20:]) * 2
+    bb_haut = bb_milieu + bb_ecart
+    bb_bas = bb_milieu - bb_ecart
+    # Variation recente
+    var_24h = (prix_actuel - clotures[-24]) / clotures[-24] * 100 if len(clotures) >= 24 else 0
+    var_7d = (prix_actuel - clotures[-7*24]) / clotures[-7*24] * 100 if len(clotures) >= 168 else 0
+    # Tendance
+    if prix_actuel > sma20 > sma50:
+        tendance = "HAUSSIERE FORTE"
+        score_tech = 3
+    elif prix_actuel > sma20:
+        tendance = "HAUSSIERE"
+        score_tech = 1
+    elif prix_actuel < sma20 < sma50:
+        tendance = "BAISSIERE FORTE"
+        score_tech = -3
+    elif prix_actuel < sma20:
+        tendance = "BAISSIERE"
+        score_tech = -1
+    else:
+        tendance = "NEUTRE"
+        score_tech = 0
+    # Ajustement RSI
+    if rsi_val > 70:
+        score_tech -= 1
+    elif rsi_val < 30:
+        score_tech += 1
+    # Position dans les bandes de Bollinger
+    bb_pos = (prix_actuel - bb_bas) / (bb_haut - bb_bas) * 100 if (bb_haut - bb_bas) > 0 else 50
+    # Prevision technique simple
+    momentum = (clotures[-1] - clotures[-5]) / clotures[-5] * 100 if len(clotures) >= 5 else 0
+    # Estimation 24h
+    volatilite = statistics.stdev(clotures[-24:]) / prix_actuel * 100 if len(clotures) >= 24 else 2
+    estimation_24h_hausse = prix_actuel * (1 + volatilite/100 * 0.5)
+    estimation_24h_baisse = prix_actuel * (1 - volatilite/100 * 0.5)
+    # Biais technique
+    if score_tech > 0:
+        prevision_24h = prix_actuel * (1 + volatilite/100 * 0.3 * min(score_tech, 3)/3)
+    elif score_tech < 0:
+        prevision_24h = prix_actuel * (1 - volatilite/100 * 0.3 * min(abs(score_tech), 3)/3)
+    else:
+        prevision_24h = prix_actuel
+    # Estimation 7j
+    prevision_7j = prevision_24h * (1 + (score_tech * 0.02))
+    msg = f"🔮 PREVISION IA - {nom} ({symbole})\n" + "━" * 40 + "\n\n"
+    msg += f" Prix actuel: {prix_actuel:.4f} EUR\n"
+    msg += f" RSI: {rsi_val:.0f} | SMA20: {sma20:.4f} | SMA50: {sma50:.4f}\n"
+    msg += f" Tendance: {tendance} (score: {score_tech:+d})\n"
+    msg += f" Bandes BB: {bb_bas:.4f} / {bb_milieu:.4f} / {bb_haut:.4f}\n"
+    msg += f" Position BB: {bb_pos:.0f}%\n"
+    msg += f" Volatilite 24h: {volatilite:.2f}%\n"
+    msg += f" Variation 24h: {var_24h:+.1f}% | 7j: {var_7d:+.1f}%\n"
+    msg += f" Momentum 5h: {momentum:+.2f}%\n"
+    msg += f"\n{'━' * 40}\n"
+    msg += f"📊 PREVISIONS TECHNIQUES:\n"
+    msg += f"  24h: {prevision_24h:.4f} EUR ({(prevision_24h/prix_actuel-1)*100:+.1f}%)\n"
+    msg += f"  7j:  {prevision_7j:.4f} EUR ({(prevision_7j/prix_actuel-1)*100:+.1f}%)\n"
+    msg += f"  Range 24h: {estimation_24h_baisse:.4f} - {estimation_24h_hausse:.4f} EUR\n"
+    # Analyse IA si dispo
+    if PPLX_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {PPLX_KEY}", "Content-Type": "application/json"}
+            prompt = f"Prix actuel {nom}: {prix_actuel:.4f} EUR. RSI: {rsi_val:.0f}. Tendance: {tendance}. Variation 24h: {var_24h:+.1f}%. Donne une prevision de prix a 24h et 7j pour {nom}. Sois concis: juste les 2 prix prevus et 2-3 lignes de raison."
+            payload = {"model": "sonar", "messages": [{"role": "user", "content": prompt}], "max_tokens": 300}
+            r = requests.post("https://api.perplexity.ai/chat/completions", json=payload, headers=headers, timeout=30)
+            if r.status_code == 200:
+                ia_texte = r.json()["choices"][0]["message"]["content"]
+                msg += f"\n🤖 ANALYSE IA:\n{ia_texte}\n"
+        except:
+            pass
+    # Verdict final
+    msg += f"\n{'━' * 40}\n"
+    if score_tech >= 2:
+        msg += "🟢 SIGNAL: ACHAT - Tendance haussiere forte confirmee\n"
+    elif score_tech >= 1:
+        msg += "🟡 SIGNAL: ACHAT MODERE - Tendance positive\n"
+    elif score_tech <= -2:
+        msg += "🔴 SIGNAL: VENTE - Tendance baissiere forte\n"
+    elif score_tech <= -1:
+        msg += "🟠 SIGNAL: VENTE MODERE - Tendance negative\n"
+    else:
+        msg += "⚪ SIGNAL: NEUTRE - Attendre une direction claire\n"
+    learn_fact(f"Prevision {symbole}: {tendance} score {score_tech:+d}, 24h {(prevision_24h/prix_actuel-1)*100:+.1f}%", "forecast")
     return msg
 
 
