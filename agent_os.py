@@ -1741,6 +1741,31 @@ def handle_message(text, user_name="User"):
         send_telegram(result[:4000])
         return result
     
+    # === STRATEGIES AVANCEES ===
+    if text_lower.startswith("strategies") or text_lower.startswith("avance"):
+        parts = text_stripped.split(None, 1)
+        symbole = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
+        send_telegram(f"🧪 Strategies avancees {symbole}...")
+        result = analyser_strategies_avancees(symbole)
+        send_telegram(result[:4000])
+        return result
+    
+    # === BRIEFING MATIN ===
+    if text_lower in ["briefing", "matin", "bonjour", "salut", "morning"]:
+        send_telegram("🌅 Generation du briefing...")
+        result = briefing_matin()
+        return result
+    
+    # === GESTION AUTO (stop-loss/take-profit manuel) ===
+    if text_lower in ["gestion", "stop-loss", "stop loss", "take profit", "verifier positions"]:
+        send_telegram("🛡️ Verification des positions...")
+        result = gerer_stop_loss_take_profit()
+        if result:
+            send_telegram(result[:4000])
+        else:
+            send_telegram("Aucune position a fermer. Tout va bien.")
+        return result or "OK"
+    
     # === AIDE ===
     if text_lower in ["aide", "help", "commandes", "commands"]:
         help_msg = """🤖 AGENT OS - COMMANDES
@@ -1802,6 +1827,11 @@ def handle_message(text, user_name="User"):
   apprentissage - Analyse les trades et ajuste les strategies
   correlations - Detecte les correlations du portefeuille
   prevision BTC - Prevision de prix 24h/7j + analyse IA
+
+🛡️ RISQUE:
+  gestion - Verifie stop-loss (-5%) et take-profit (+10%) auto
+  strategies BTC - Ichimoku + VWAP + Elliott Wave
+  briefing - Briefing matinal complet (PnL + alertes + opportunit)
 
 ━━━━━━━━━━━━━━━━━━━━
 L'agent apprend de chaque interaction."""
@@ -2089,8 +2119,10 @@ def telegram_poll():
                     nb = verifier_alertes_prix()
                     if nb > 0:
                         print(f"[AGENT OS] {nb} alerte(s) prix declenchee(s)")
+                    # Stop-loss / take-profit auto
+                    gerer_stop_loss_take_profit()
                 except Exception as e:
-                    print(f"[AGENT OS] Erreur alertes prix: {e}")
+                    print(f"[AGENT OS] Erreur alertes/gestion: {e}")
                 
         except requests.exceptions.Timeout:
             continue
@@ -3850,6 +3882,321 @@ def boucle_autonome_intelligente():
             time.sleep(300)
 
 
+
+
+# ============================================
+# 26. STOP-LOSS / TAKE-PROFIT AUTOMATIQUE
+# ============================================
+def gerer_stop_loss_take_profit():
+    """Verifie toutes les positions et ferme celles qui hitent stop-loss ou take-profit."""
+    from indicateurs import NOMS
+    pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+    positions = pt.get("positions", [])
+    trades_fermes = pt.get("trades_fermes", [])
+    liquidites = pt.get("liquidites", 0)
+    if not positions:
+        return "Aucune position ouverte"
+    fermees = []
+    for p in list(positions):
+        sym = p.get("symbole", "")
+        prix_entree = p.get("prix_entree", 0)
+        quantite = p.get("quantite", 0)
+        montant = p.get("montant_eur", 0)
+        strategie = p.get("strategie", "inconnu")
+        date_ouv = p.get("date_ouverture", "")
+        # Prix actuel
+        prix_actuel = get_crypto_price(sym.replace("USDT", ""))
+        if not prix_actuel or prix_actuel == 0:
+            continue
+        pnl_pct = (prix_actuel - prix_entree) / prix_entree * 100 if prix_entree > 0 else 0
+        pnl_eur = (prix_actuel - prix_entree) * quantite
+        # Stop-loss a -5%
+        if pnl_pct <= -5:
+            raison = f"Stop-loss declenche ({pnl_pct:+.1f}%)"
+            liquidites += montant + pnl_eur - montant * 0.001  # frais 0.1%
+            trades_fermes.append({
+                "symbole": sym, "nom": NOMS.get(sym, sym),
+                "prix_entree": prix_entree, "prix_sortie": prix_actuel,
+                "quantite": quantite, "pnl": pnl_eur,
+                "raison": raison, "strategie": strategie,
+                "date_ouverture": date_ouv,
+                "date_fermeture": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "type_sortie": "stop_loss"
+            })
+            positions.remove(p)
+            fermees.append((sym, "STOP-LOSS", pnl_pct, pnl_eur))
+        # Take-profit a +10%
+        elif pnl_pct >= 10:
+            raison = f"Take-profit declenche ({pnl_pct:+.1f}%)"
+            liquidites += montant + pnl_eur - montant * 0.001
+            trades_fermes.append({
+                "symbole": sym, "nom": NOMS.get(sym, sym),
+                "prix_entree": prix_entree, "prix_sortie": prix_actuel,
+                "quantite": quantite, "pnl": pnl_eur,
+                "raison": raison, "strategie": strategie,
+                "date_ouverture": date_ouv,
+                "date_fermeture": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "type_sortie": "take_profit"
+            })
+            positions.remove(p)
+            fermees.append((sym, "TAKE-PROFIT", pnl_pct, pnl_eur))
+    # Sauvegarde
+    if fermees:
+        pt["positions"] = positions
+        pt["trades_fermes"] = trades_fermes
+        pt["liquidites"] = liquidites
+        save_json_safe(os.path.join(DOSSIER, "paper_trading.json"), pt)
+        # Notification Telegram
+        msg = "🛡️ GESTION AUTOMATIQUE DES POSITIONS\n" + "━" * 35 + "\n"
+        for sym, type_s, pct, eur in fermees:
+            emoji = "🟢" if type_s == "TAKE-PROFIT" else "🔴"
+            msg += f"\n{emoji} {NOMS.get(sym, sym)} - {type_s}\n"
+            msg += f"   PnL: {eur:+.2f} EUR ({pct:+.1f}%)\n"
+        send_telegram(msg)
+        learn_fact(f"Stop-loss/take-profit: {len(fermees)} position(s) fermee(s)", "risk")
+        return msg
+    return ""
+
+
+# ============================================
+# 27. POSITION SIZING INTELLIGENT
+# ============================================
+def calculer_taille_position(score, capital_disponible, liquidites):
+    """Calcule la taille optimale d'une position selon le score de conviction.
+    Score 1-2: petite position (5% du capital)
+    Score 3: position moyenne (8% du capital)
+    Score 4+: grosse position (12% du capital)
+    """
+    # Limite basee sur les liquidites
+    max_par_trade = min(liquidites * 0.95, capital_disponible * 0.15)
+    if score <= 1:
+        pct = 0.05
+    elif score == 2:
+        pct = 0.07
+    elif score == 3:
+        pct = 0.10
+    elif score >= 4:
+        pct = 0.12
+    else:
+        pct = 0.05
+    montant = capital_disponible * pct
+    # Ne pas depasser les liquidites
+    montant = min(montant, max_par_trade)
+    # Minimum 10 EUR
+    return max(montant, 10.0) if montant >= 10 else 0
+
+
+# ============================================
+# 28. STRATEGIES AVANCEES
+# ============================================
+def strategie_ichimoku(clotures):
+    """Analyse Ichimoku Cloud."""
+    if len(clotures) < 52:
+        return None, None
+    # Tenkan-sen (9)
+    nine_high = max(clotures[-9:])
+    nine_low = min(clotures[-9:])
+    tenkan = (nine_high + nine_low) / 2
+    # Kijun-sen (26)
+    twentysix_high = max(clotures[-26:])
+    twentysix_low = min(clotures[-26:])
+    kijun = (twentysix_high + twentysix_low) / 2
+    # Senkou Span A
+    senkou_a = (tenkan + kijun) / 2
+    # Senkou Span B (52)
+    fiftytwo_high = max(clotures[-52:])
+    fiftytwo_low = min(clotures[-52:])
+    senkou_b = (fiftytwo_high + fiftytwo_low) / 2
+    prix = clotures[-1]
+    # Signaux
+    signal = "NEUTRE"
+    score = 0
+    if prix > senkou_a and prix > senkou_b:
+        signal = "HAUSSIER (au-dessus du nuage)"
+        score = 2
+    elif prix < senkou_a and prix < senkou_b:
+        signal = "BAISSIER (sous le nuage)"
+        score = -2
+    else:
+        signal = "NEUTRE (dans le nuage)"
+        score = 0
+    if tenkan > kijun:
+        score += 1
+    else:
+        score -= 1
+    return signal, score
+
+
+def strategie_vwap(clotures, volumes=None):
+    """Analyse VWAP."""
+    if len(clotures) < 20:
+        return None, None
+    if volumes and len(volumes) == len(clotures):
+        vwap = sum(c * v for c, v in zip(clotures, volumes)) / sum(volumes) if sum(volumes) > 0 else sum(clotures) / len(clotures)
+    else:
+        vwap = sum(clotures) / len(clotures)
+    prix = clotures[-1]
+    if prix > vwap * 1.01:
+        return "HAUSSIER (prix > VWAP)", 1
+    elif prix < vwap * 0.99:
+        return "BAISSIER (prix < VWAP)", -1
+    return "NEUTRE (prix = VWAP)", 0
+
+
+def strategie_elliott(clotures):
+    """Detection simplifiee des vagues d'Elliott."""
+    if len(clotures) < 30:
+        return None, None
+    # Cherche 5 points extremes
+    recent = clotures[-30:]
+    # Detection de tendance (5 vagues haussieres = 1,2,3,4,5)
+    haute = max(recent)
+    basse = min(recent)
+    pos_haute = recent.index(haute)
+    pos_basse = recent.index(basse)
+    prix = clotures[-1]
+    # Vague 3 (la plus forte)
+    if pos_basse < pos_haute and prix > haute * 0.98:
+        return "Vague 3 haussiere (impulsion)", 2
+    elif pos_haute < pos_basse and prix < basse * 1.02:
+        return "Vague 3 baissiere (correction)", -2
+    elif pos_basse < pos_haute:
+        return "Impulsion haussiere en cours", 1
+    else:
+        return "Correction en cours", -1
+
+
+def analyser_strategies_avancees(symbole="BTCUSDT"):
+    """Combine toutes les strategies avancees."""
+    from indicateurs import historique_ohlcv, NOMS
+    bougies = historique_ohlcv(symbole, "1h", 100)
+    if not bougies or len(bougies) < 52:
+        return f"Pas assez de donnees pour {symbole}"
+    clotures = [b["cloture"] for b in bougies]
+    volumes = [b.get("volume", 0) for b in bougies]
+    nom = NOMS.get(symbole, symbole)
+    msg = f"🧪 STRATEGIES AVANCEES - {nom}\n" + "━" * 40 + "\n\n"
+    # Ichimoku
+    ich_sig, ich_score = strategie_ichimoku(clotures)
+    if ich_sig:
+        emoji = "🟢" if ich_score > 0 else ("🔴" if ich_score < 0 else "⚪")
+        msg += f"📜 ICHIMOKU: {ich_sig} (score: {ich_score:+d})\n"
+    # VWAP
+    vwap_sig, vwap_score = strategie_vwap(clotures, volumes)
+    if vwap_sig:
+        emoji = "🟢" if vwap_score > 0 else ("🔴" if vwap_score < 0 else "⚪")
+        msg += f"📊 VWAP: {vwap_sig} (score: {vwap_score:+d})\n"
+    # Elliott
+    ell_sig, ell_score = strategie_elliott(clotures)
+    if ell_sig:
+        emoji = "🟢" if ell_score > 0 else ("🔴" if ell_score < 0 else "⚪")
+        msg += f"🌊 ELLIOTT: {ell_sig} (score: {ell_score:+d})\n"
+    # Score total
+    total = (ich_score or 0) + (vwap_score or 0) + (ell_score or 0)
+    msg += f"\n{'━' * 40}\n"
+    msg += f"📊 SCORE TOTAL: {total:+d}/6\n"
+    if total >= 3:
+        msg += "🟢 CONFLUENCE FORTE: ACHAT\n"
+    elif total >= 1:
+        msg += "🟡 SIGNAL MODERE: ACHAT prudent\n"
+    elif total <= -3:
+        msg += "🔴 CONFLUENCE FORTE: VENTE\n"
+    elif total <= -1:
+        msg += "🟠 SIGNAL MODERE: VENTE prudent\n"
+    else:
+        msg += "⚪ NEUTRE: attendre\n"
+    learn_fact(f"Strategies avancees {symbole}: Ichimoku {ich_score:+d}, VWAP {vwap_score:+d}, Elliott {ell_score:+d}", "advanced")
+    return msg
+
+
+# ============================================
+# 29. BRIEFING MATIN AUTOMATIQUE
+# ============================================
+def briefing_matin():
+    """Genere et envoie un briefing matinal complet."""
+    from indicateurs import NOMS
+    msg = "🌅 BRIEFING MATIN - " + datetime.now().strftime("%d/%m/%Y %H:%M") + "\n"
+    msg += "━" * 40 + "\n"
+    # 1. Performance portefeuille
+    try:
+        pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+        capital = pt.get("capital_initial", 1000)
+        liquidites = pt.get("liquidites", 0)
+        positions = pt.get("positions", [])
+        valeur_positions = sum(p.get("montant_eur", 0) for p in positions)
+        valeur_totale = liquidites + valeur_positions
+        gain = valeur_totale - capital
+        gain_pct = (gain / capital * 100) if capital else 0
+        msg += f"\n💼 PORTEFEUILLE:\n"
+        msg += f"  Valeur: {valeur_totale:.2f} EUR ({gain:+.2f} EUR, {gain_pct:+.1f}%)\n"
+        msg += f"  Positions: {len(positions)} | Liquidites: {liquidites:.2f} EUR\n"
+    except:
+        msg += "\n💼 PORTEFEUILLE: indisponible\n"
+    # 2. PnL temps reel (top 3)
+    try:
+        pnl_msg = pnl_temps_reel()
+        # Extraire juste les positions avec PnL
+        for line in pnl_msg.split("\n"):
+            if "EUR" in line and ("🟢" in line or "🔴" in line):
+                msg += f"  {line.strip()}\n"
+                if msg.count("\n") > 15:
+                    break
+    except:
+        pass
+    # 3. Alertes
+    try:
+        alertes_result = alertes_intelligentes()
+        if isinstance(alertes_result, tuple):
+            alertes = alertes_result[1]
+            msg += f"\n🚨 ALERTES:\n"
+            if alertes:
+                for a in alertes[:3]:
+                    msg += f"  {a['type']} {a['symbole']} (score {a['score']:+d})\n"
+            else:
+                msg += "  Marche calme, aucune alerte\n"
+    except:
+        msg += "\n🚨 ALERTES: indisponible\n"
+    # 4. Opportunites
+    try:
+        symboles = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"]
+        opportunites = []
+        for sym in symboles:
+            try:
+                analyse = analyser_actif(sym, "1h")
+                if analyse and analyse.get("score", 0) >= 2:
+                    opportunites.append((sym, analyse["score"]))
+            except:
+                continue
+        msg += f"\n🚀 OPPORTUNITES:\n"
+        if opportunites:
+            for sym, score in sorted(opportunites, key=lambda x: x[1], reverse=True)[:3]:
+                msg += f"  {NOMS.get(sym, sym)} - Score {score:+d}\n"
+        else:
+            msg += "  Aucune opportunite forte ce matin\n"
+    except:
+        msg += "\n🚀 OPPORTUNITES: indisponible\n"
+    # 5. Recommandation IA
+    msg += f"\n💡 RECOMMANDATION:\n"
+    if len(positions) >= 10:
+        msg += "  Portefeuille charge - eviter nouveaux achats, consolider\n"
+    elif liquidites > capital * 0.3:
+        msg += "  Liquidites disponibles - surveiller les opportunites\n"
+    else:
+        msg += "  Portefeuille equilibre - maintenir la strategy\n"
+    # 6. Stop-loss check
+    try:
+        sl_result = gerer_stop_loss_take_profit()
+        if sl_result:
+            msg += f"\n🛡️ GESTION AUTO:\n{sl_result}\n"
+    except:
+        pass
+    msg += f"\n━" * 40 + "\n"
+    msg += "Bon trading! 📈"
+    send_telegram(msg[:4000])
+    learn_fact("Briefing matinal envoye", "briefing")
+    return msg
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "status":
         perf = trading_performance()
@@ -3892,6 +4239,10 @@ if __name__ == "__main__":
         print(result)
     elif len(sys.argv) > 1 and sys.argv[1] == "autonome-ia":
         boucle_autonome_intelligente()
+    elif len(sys.argv) > 1 and sys.argv[1] == "briefing":
+        briefing_matin()
+    elif len(sys.argv) > 1 and sys.argv[1] == "gestion-auto":
+        gerer_stop_loss_take_profit()
     elif len(sys.argv) > 1 and sys.argv[1] == "graph-telegram":
         generer_graphique("BTCUSDT")
         generer_graphique_pnl()
