@@ -1957,6 +1957,13 @@ L'agent apprend de chaque interaction."""
         for c in corrections:
             context += f"  {c['error'][:60]} -> {c['correction'][:60]}\n"
     
+    # === COUCHE NLP: comprendre le langage naturel ===
+    nlp_result = comprendre_message(text_stripped)
+    if nlp_result:
+        send_telegram(nlp_result[:4000] if isinstance(nlp_result, str) else str(nlp_result)[:4000])
+        save_memory("user", text_stripped, nlp_result[:200] if isinstance(nlp_result, str) else "")
+        return nlp_result
+    
     # Prompt court pour aller vite
     prompt = f"""Tu es un assistant IA expert en trading crypto et technologie.
 Utilisateur: {profile.get('nom', 'Tamaya')} (capital {profile.get('capital', 1000)}€)
@@ -3588,6 +3595,261 @@ def prevision_ia_prix(symbole="BTCUSDT"):
     return msg
 
 
+
+
+# ============================================
+# 24. INTELLIGENCE CONVERSATIONNELLE (NLP)
+# ============================================
+def comprendre_message(texte):
+    """Comprend un message en langage naturel et le route vers la bonne action."""
+    texte_lower = texte.lower().strip()
+    
+    # Si c'est une commande connue, on la laisse passer
+    commandes_connues = [
+        "aide", "help", "status", "opportunites", "analyser", "sentiment",
+        "news", "top", "recherche", "resoudre", "code", "scripts", "run",
+        "prix", "memoire", "profil", "souviens", "cherche", "oublie", "stats",
+        "code-seul", "rapport", "auto-ameliorer", "planifie", "taches",
+        "alertes", "alerte", "comparatif", "graph", "backtest",
+        "pnl", "mtf", "sentiment", "apprentissage", "correlations",
+        "prevision", "forecast"
+    ]
+    premiere_mot = texte_lower.split()[0] if texte_lower.split() else ""
+    for cmd in commandes_connues:
+        if premiere_mot.startswith(cmd) or texte_lower == cmd:
+            return None  # Laisser le handler normal traiter
+    
+    # Detection d'intention par mots-cles
+    intentions = {
+        "portefeuille": ["portefeuille", "portfolio", "combien j", "valeur", "capital", "solde", "balance"],
+        "pnl": ["gain", "perte", "profit", "pnl", "latents", "performance", "resultat"],
+        "prix_simple": ["prix", "cote", "vaut combien", "combien coute"],
+        "achat_suggestion": ["acheter", "achat", "dois je acheter", "investir", "bon moment"],
+        "vente_suggestion": ["vendre", "vente", "dois je vendre", "liquider", "sortir"],
+        "analyse_crypto": ["analyser", "analyse", "qu en penses", "avis sur", "tendance"],
+        "opportunites": ["opportunite", "opportunit", "quel crypto", "quoi acheter", "bon crypto"],
+        "risque": ["risque", "dangereux", "safe", "securise", "peur", "inquiet"],
+        "strategie": ["strategie", "methode", "approche", "comment trader"],
+        "marche": ["marche", "market", "comment va le marche", "global"],
+        "aide_general": ["aide", "comment", "que peux tu", "que sais tu"],
+    }
+    
+    for intention, mots_cles in intentions.items():
+        for mot in mots_cles:
+            if mot in texte_lower:
+                return executer_intention(intention, texte)
+    
+    # Si aucun mot-cle trouve, utiliser l'IA pour comprendre
+    return repondre_ia(texte)
+
+
+def executer_intention(intention, texte_original):
+    """Execute l'action correspondant a l'intention detectee."""
+    if intention == "portefeuille":
+        return pnl_temps_reel()
+    
+    elif intention == "pnl":
+        return pnl_temps_reel()
+    
+    elif intention == "prix_simple":
+        # Extraire la crypto mentionnee
+        from indicateurs import NOMS
+        mots = texte_original.upper().split()
+        for mot in mots:
+            clean = mot.replace("USDT", "").replace("USD", "")
+            if clean in COINGECKO_IDS:
+                prix = get_crypto_price(clean)
+                if prix:
+                    nom = NOMS.get(clean + "USDT", clean)
+                    return f"💰 {nom}: {prix:.4f} EUR"
+        return "Quelle crypto? Ex: prix BTC"
+    
+    elif intention == "achat_suggestion":
+        # Analyser les opportunites + prevision
+        return "Analyse des opportunites d'achat...\n" + scan_opportunites_rapide()
+    
+    elif intention == "vente_suggestion":
+        from indicateurs import NOMS
+        pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+        positions = pt.get("positions", [])
+        if not positions:
+            return "Tu n'as aucune position ouverte a vendre."
+        msg = "📊 ANALYSE DE VENTE\n" + "━" * 30 + "\n\n"
+        for p in positions[:8]:
+            sym = p.get("symbole", "?")
+            try:
+                prev = prevision_ia_prix(sym)
+                # Extraire juste le verdict
+                for line in prev.split("\n"):
+                    if "SIGNAL:" in line:
+                        msg += f"  {NOMS.get(sym, sym)}: {line.strip()}\n"
+                        break
+            except:
+                msg += f"  {NOMS.get(sym, sym)}: Analyse indisponible\n"
+        return msg
+    
+    elif intention == "analyse_crypto":
+        from indicateurs import NOMS
+        mots = texte_original.upper().split()
+        for mot in mots:
+            clean = mot.replace("USDT", "").replace("USD", "")
+            if clean in COINGECKO_IDS:
+                return analyse_multi_timeframe(clean + "USDT")
+        return analyse_multi_timeframe("BTCUSDT")
+    
+    elif intention == "opportunites":
+        return scan_opportunites_rapide()
+    
+    elif intention == "risque":
+        return detection_correlations()
+    
+    elif intention == "strategie":
+        return apprentissage_auto_trades()
+    
+    elif intention == "marche":
+        return "📊 ETAT DU MARCHE\n" + "━" * 30 + "\n" + alertes_intelligentes() if isinstance(alertes_intelligentes(), str) else alertes_intelligentes()[0]
+    
+    elif intention == "aide_general":
+        return None  # Laisser le handler d'aide normal
+    
+    return None
+
+
+def scan_opportunites_rapide():
+    """Scan rapide des opportunites d'achat."""
+    from indicateurs import NOMS, analyser_signaux_techniques
+    msg = "🚀 OPPORTUNITES D'ACHAT\n" + "━" * 30 + "\n\n"
+    symboles = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT",
+                "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "ARBUSDT", "NEARUSDT"]
+    opportunites = []
+    for sym in symboles:
+        try:
+            analyse = analyser_actif(sym, "1h")
+            if analyse and analyse.get("score", 0) >= 2:
+                opportunites.append(analyse)
+        except:
+            continue
+    if not opportunites:
+        msg += "Aucune opportunite d'achat forte pour le moment.\n"
+        msg += "Le marche est neutre. Patience requise."
+        return msg
+    for o in sorted(opportunites, key=lambda x: x.get("score", 0), reverse=True)[:5]:
+        sym = o.get("symbole", "?")
+        msg += f"🟢 {NOMS.get(sym, sym)} - Score {o['score']:+d}\n"
+        msg += f"   Prix: {o.get('prix', 0):.4f} EUR | RSI: {o.get('indicateurs', {}).get('RSI', 0):.0f}\n"
+        signaux = o.get("signaux", [])
+        if signaux:
+            msg += f"   Raison: {signaux[0]}\n"
+        msg += "\n"
+    return msg
+
+
+def repondre_ia(texte):
+    """Repond a un message en langage naturel via l'IA Perplexity."""
+    if not PPLX_KEY:
+        return None  # Laisser le handler normal
+    try:
+        # Contexte du portefeuille
+        pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+        capital = pt.get("capital_initial", 1000)
+        liquidites = pt.get("liquidites", 0)
+        positions = pt.get("positions", [])
+        nb_positions = len(positions)
+        
+        contexte = f"Tu es un agent de trading crypto autonome. Capital: {capital}EUR, Liquidites: {liquidites:.2f}EUR, {nb_positions} positions ouvertes. Reponds a la question de maniere concise et utile. Si on te demande un prix, utilise les donnees disponibles. Reponds en francais."
+        
+        headers = {"Authorization": f"Bearer {PPLX_KEY}", "Content-Type": "application/json"}
+        payload = {
+            "model": "sonar",
+            "messages": [
+                {"role": "system", "content": contexte},
+                {"role": "user", "content": texte}
+            ],
+            "max_tokens": 500,
+        }
+        r = requests.post("https://api.perplexity.ai/chat/completions",
+                          json=payload, headers=headers, timeout=30)
+        if r.status_code == 200:
+            return r.json()["choices"][0]["message"]["content"]
+        return None
+    except:
+        return None
+
+
+# ============================================
+# 25. MOTEUR DE DECISION AUTONOME
+# ============================================
+def moteur_decision_autonome():
+    """L'agent analyse le marche et prend des decisions autonomes."""
+    decisions = []
+    
+    # 1. Verifier les alertes prix
+    try:
+        nb = verifier_alertes_prix()
+        if nb > 0:
+            decisions.append(f"{nb} alerte(s) prix declenchee(s)")
+    except:
+        pass
+    
+    # 2. Scanner les opportunites
+    try:
+        from indicateurs import NOMS
+        symboles = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT",
+                    "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "ARBUSDT", "NEARUSDT"]
+        opportunites = []
+        for sym in symboles:
+            try:
+                analyse = analyser_actif(sym, "1h")
+                if analyse and analyse.get("score", 0) >= 3:
+                    opportunites.append((sym, analyse))
+            except:
+                continue
+        if opportunites:
+            msg = "🤖 DECISION AUTONOME - Opportunites detectees:\n\n"
+            for sym, a in opportunites[:3]:
+                msg += f"🟢 {NOMS.get(sym, sym)} - Score {a['score']:+d}\n"
+                msg += f"   Prix: {a.get('prix', 0):.4f} EUR\n"
+            decisions.append(msg)
+    except:
+        pass
+    
+    # 3. Verifier les positions ouvertes pour stop-loss
+    try:
+        pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+        positions = pt.get("positions", [])
+        for p in positions:
+            sym = p.get("symbole", "")
+            prix_entree = p.get("prix_entree", 0)
+            montant = p.get("montant_eur", 0)
+            prix_actuel = get_crypto_price(sym.replace("USDT", ""))
+            if prix_actuel and prix_entree > 0:
+                pnl_pct = (prix_actuel - prix_entree) / prix_entree * 100
+                if pnl_pct < -5:
+                    decisions.append(f"⚠️ {sym} en perte de {pnl_pct:.1f}% - envisager stop-loss")
+                elif pnl_pct > 10:
+                    decisions.append(f"🟢 {sym} en gain de {pnl_pct:.1f}% - envisager take-profit")
+    except:
+        pass
+    
+    return decisions
+
+
+def boucle_autonome_intelligente():
+    """Boucle autonome qui tourne en arriere-plan et prend des decisions."""
+    while True:
+        try:
+            decisions = moteur_decision_autonome()
+            for d in decisions:
+                if isinstance(d, str) and len(d) > 20:
+                    send_telegram(d)
+                    learn_fact(f"Decision autonome: {d[:50]}", "autonomous")
+            # Attendre 30 minutes
+            time.sleep(1800)
+        except Exception as e:
+            print(f"[AUTONOME] Erreur: {e}")
+            time.sleep(300)
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "status":
         perf = trading_performance()
@@ -3628,6 +3890,8 @@ if __name__ == "__main__":
         result = pnl_temps_reel()
         send_telegram(result[:4000])
         print(result)
+    elif len(sys.argv) > 1 and sys.argv[1] == "autonome-ia":
+        boucle_autonome_intelligente()
     elif len(sys.argv) > 1 and sys.argv[1] == "graph-telegram":
         generer_graphique("BTCUSDT")
         generer_graphique_pnl()
