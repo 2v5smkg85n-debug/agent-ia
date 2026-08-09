@@ -2654,12 +2654,13 @@ def analyse_comparative(symboles=None):
 def generer_graphique(symbole="BTCUSDT", type_graph="prix"):
     """Genere un graphique et l'envoie sur Telegram."""
     try:
+        from indicateurs import historique_ohlcv
         import matplotlib
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         plt.style.use('dark_background')
     except ImportError:
-        return "Erreur: matplotlib non installe. Run: pip install matplotlib"
+        return "Erreur: matplotlib ou indicateurs non installe"
     bougies = historique_ohlcv(symbole, "1h", 100)
     if not bougies or len(bougies) < 20:
         return f"Pas assez de donnees pour {symbole}"
@@ -2773,6 +2774,7 @@ def backtest_rapide(symbole="BTCUSDT", strategie="momentum"):
     msg += f"Crypto: {NOMS.get(symbole, symbole)}\n"
     msg += f"Strategie: {strategie}\n\n"
     try:
+        from indicateurs import historique_ohlcv
         bougies = historique_ohlcv(symbole, "1h", 200)
         if not bougies or len(bougies) < 60:
             return msg + "❌ Pas assez de donnees historiques"
