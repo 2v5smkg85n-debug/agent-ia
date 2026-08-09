@@ -60,6 +60,7 @@ PPLX_KEY = os.getenv("PPLX_API_KEY", "")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT = os.getenv("TELEGRAM_CHAT_ID", "")
+TELEGRAM_CHAT_ID = TELEGRAM_CHAT  # alias
 
 KB_FILE = os.path.join(DOSSIER, "knowledge_base.json")
 CHAT_LOG = os.path.join(DOSSIER, "chat_log.jsonl")
