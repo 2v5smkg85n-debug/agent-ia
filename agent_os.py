@@ -4275,7 +4275,7 @@ def analyse_double_ia(symbole="BTCUSDT"):
     gemini_reponse = None
     if GEMINI_KEY:
         try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={GEMINI_KEY}"
             prompt = f"Analyse {nom} crypto. Prix: {prix:.4f} EUR, var 24h: {var_24h:+.1f}%, SMA20: {sma20:.4f}, SMA50: {sma50:.4f}. Donnes: 1) tendance court terme (haussier/baissier/neutre) 2) score -10 a +10 3) 2 raisons principales 4) niveau de confiance (0-100%). Sois concis."
             payload = {"contents": [{"parts": [{"text": prompt}]}]}
             r = requests.post(url, json=payload, timeout=30)
