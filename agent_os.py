@@ -2193,8 +2193,11 @@ def generate_report():
     try:
         prix_data = get_multiple_prices(["BTC", "ETH", "SOL", "BNB", "XRP"])
         if prix_data:
-            for sym, prix in prix_data.items():
-                rapport += f"  {sym}: {prix:.2f} EUR\n"
+            for item in prix_data:
+                sym = item.get("symbole", "?")
+                prix = item.get("prix_eur", 0)
+                var = item.get("variation_24h", 0)
+                rapport += f"  {sym}: {prix:.2f} EUR ({var:+.1f}%)\n"
         else:
             rapport += "  Prix indisponibles\n"
     except Exception as e:
