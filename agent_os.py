@@ -2146,7 +2146,7 @@ def generate_report():
         trades_fermes = pt.get("trades_fermes", [])
         total_frais = pt.get("total_frais", 0)
         
-        valeur_positions = sum(p.get("valeur_actuelle", p.get("montant", 0)) for p in positions)
+        valeur_positions = sum(p.get("montant_eur", p.get("valeur_actuelle", p.get("montant", 0))) for p in positions)
         valeur_totale = liquidites + valeur_positions
         gain_perte = valeur_totale - capital
         gain_pct = (gain_perte / capital * 100) if capital else 0
@@ -2182,9 +2182,9 @@ def generate_report():
             for p in positions[:10]:
                 sym = p.get("symbole", "?")
                 prix_entree = p.get("prix_entree", 0)
-                pnl = p.get("pnl", 0)
-                emoji = "📈" if pnl >= 0 else "📉"
-                rapport += f"  {emoji} {sym} @ {prix_entree:.4f} | PnL: {pnl:+.2f} EUR\n"
+                montant = p.get("montant_eur", 0)
+                quantite = p.get("quantite", 0)
+                rapport += f"  📈 {sym} @ {prix_entree:.4f} | {montant:.2f} EUR | qty {quantite:.6f}\n"
     except Exception as e:
         rapport += f"Erreur: {e}\n"
     
@@ -2192,10 +2192,13 @@ def generate_report():
     rapport += f"\n## 2. ETAT DU MARCHE\n"
     try:
         prix_data = get_multiple_prices(["BTC", "ETH", "SOL", "BNB", "XRP"])
-        for sym, prix in prix_data.items():
-            rapport += f"  {sym}: {prix:.2f} EUR\n"
-    except:
-        rapport += "  Prix indisponibles\n"
+        if prix_data:
+            for sym, prix in prix_data.items():
+                rapport += f"  {sym}: {prix:.2f} EUR\n"
+        else:
+            rapport += "  Prix indisponibles\n"
+    except Exception as e:
+        rapport += f"  Prix indisponibles ({e})\n"
     
     # 3. STATS AGENT
     rapport += f"\n## 3. STATS AGENT\n"
