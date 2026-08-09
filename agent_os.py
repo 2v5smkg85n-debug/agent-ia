@@ -1582,6 +1582,49 @@ def handle_message(text, user_name="User"):
         bilan = autonomous_coder()
         return bilan
     
+    # === RECHERCHE WEB ===
+    if text_lower.startswith("recherche") or text_lower.startswith("search"):
+        query = text_stripped.split(" ", 1)[1] if " " in text_stripped else ""
+        if not query:
+            send_telegram("Usage: recherche [sujet]\nEx: recherche bitcoin halving 2026")
+            return ""
+        send_telegram(f"🔍 Recherche web: {query}...")
+        result = web_search(query)
+        send_telegram(result)
+        save_memory("user", text_stripped, result)
+        return result
+    
+    # === RAPPORTS AUTO ===
+    if text_lower in ["rapport", "bilan", "report"]:
+        send_telegram("📊 Generation du rapport...")
+        rapport = generate_report()
+        send_telegram(rapport[:4000])
+        # Sauvegarde en fichier HTML
+        filepath = os.path.join(DOSSIER, f"rapport_{datetime.now().strftime('%Y%m%d_%H%M')}.html")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(f"<html><head><meta charset='utf-8'><style>body{{font-family:Arial;max-width:800px;margin:auto;padding:20px}}h1{{color:#2196F3}}table{{border-collapse:collapse;width:100%}}td,th{{border:1px solid #ddd;padding:8px}}</style></head><body>{rapport.replace(chr(10),'<br>')}</body></html>")
+        send_telegram(f"📁 Rapport sauvegarde: rapport_{datetime.now().strftime('%Y%m%d_%H%M')}.html")
+        save_memory("agent", "rapport", rapport)
+        return rapport
+    
+    # === AUTO-AMELIORATION ===
+    if text_lower in ["auto-ameliorer", "evolue", "ameliorer", "self-improve"]:
+        send_telegram("🧠 Auto-amenlioration lancee...\nAnalyse des faiblesses + corrections.")
+        bilan = self_improve()
+        send_telegram(bilan)
+        return bilan
+    
+    # === TACHES PROGRAMMEES ===
+    if text_lower.startswith("planifie") or text_lower.startswith("programme"):
+        result = schedule_task(text_stripped)
+        send_telegram(result)
+        return result
+    
+    if text_lower in ["taches", "planning", "schedule"]:
+        result = list_scheduled_tasks()
+        send_telegram(result)
+        return result
+    
     # === AIDE ===
     if text_lower in ["aide", "help", "commandes", "commands"]:
         help_msg = """🤖 AGENT OS - COMMANDES
@@ -1615,6 +1658,13 @@ def handle_message(text, user_name="User"):
   oublie - Oublie la derniere conversation
   stats - Stats et sante de l'agent
   code-seul - L'agent code seul et s'ameliorer
+
+🔧 AVANCE:
+  recherche [sujet] - Recherche web via Perplexity
+  rapport - Genere un rapport complet (HTML)
+  auto-ameliorer - L'agent analyse ses faiblesses et se corrige
+  planifie [tache] - Planifie une tache repetitive
+  taches - Liste les taches programmees
 
 ━━━━━━━━━━━━━━━━━━━━
 L'agent apprend de chaque interaction."""
@@ -2060,8 +2110,386 @@ Winrate: {winrate:.1f}% | PnL: {pnl_total:.2f}€"""
 
 
 # ============================================
-# MAIN
+# 9. RECHERCHE WEB
 # ============================================
+def web_search(query):
+    """Recherche web via Perplexity API avec sources."""
+    prompt = f"""Recherche web: {query}
+
+Reponds en francais de facon structuree:
+1. Resume (3-5 lignes)
+2. Points cles (3-5 bullet points)
+3. Sources (nom + URL si possible)
+
+Sois precis et factuel."""
+    result = ask_perplexity(prompt, temperature=0.1)
+    learn_fact(f"Recherche web: {query[:50]}", "research")
+    return result
+
+
+# ============================================
+# 10. RAPPORTS AUTOMATIQUES
+# ============================================
+def generate_report():
+    """Genere un rapport complet du systeme."""
+    rapport = f"""📊 RAPPORT SYSTEME - {datetime.now().strftime('%d/%m/%Y %H:%M')}
+{'='*50}
+
+## 1. PERFORMANCE TRADING
+"""
+    try:
+        pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+        capital = pt.get("capital_initial", 0)
+        liquidites = pt.get("liquidites", 0)
+        positions = pt.get("positions", [])
+        trades = pt.get("trades", [])
+        trades_fermes = pt.get("trades_fermes", [])
+        total_frais = pt.get("total_frais", 0)
+        
+        valeur_positions = sum(p.get("valeur_actuelle", p.get("montant", 0)) for p in positions)
+        valeur_totale = liquidites + valeur_positions
+        gain_perte = valeur_totale - capital
+        gain_pct = (gain_perte / capital * 100) if capital else 0
+        
+        rapport += f"Capital initial: {capital:.2f} EUR\n"
+        rapport += f"Liquidites: {liquidites:.2f} EUR\n"
+        rapport += f"Positions ouvertes: {len(positions)}\n"
+        rapport += f"Valeur positions: {valeur_positions:.2f} EUR\n"
+        rapport += f"Valeur totale: {valeur_totale:.2f} EUR\n"
+        rapport += f"Gain/Perte: {gain_perte:+.2f} EUR ({gain_pct:+.1f}%)\n"
+        rapport += f"Frais payes: {total_frais:.2f} EUR\n"
+        rapport += f"Trades total: {len(trades_fermes)}\n"
+        
+        if trades_fermes:
+            gagnants = [t for t in trades_fermes if t.get("pnl", 0) > 0]
+            perdants = [t for t in trades_fermes if t.get("pnl", 0) < 0]
+            winrate = len(gagnants) / len(trades_fermes) * 100
+            pnl_total = sum(t.get("pnl", 0) for t in trades_fermes)
+            rapport += f"Winrate: {winrate:.1f}% ({len(gagnants)}G / {len(perdants)}P)\n"
+            rapport += f"PnL realise: {pnl_total:+.2f} EUR\n"
+            
+            # Top stratégies
+            from collections import Counter
+            strats = Counter(t.get("strategie", "?") for t in trades_fermes if t.get("pnl", 0) > 0)
+            if strats:
+                rapport += f"\nTop strategies gagnantes:\n"
+                for s, n in strats.most_common(5):
+                    rapport += f"  {s}: {n} trades gagnants\n"
+        
+        # Positions ouvertes
+        if positions:
+            rapport += f"\nPositions ouvertes:\n"
+            for p in positions[:10]:
+                sym = p.get("symbole", "?")
+                prix_entree = p.get("prix_entree", 0)
+                pnl = p.get("pnl", 0)
+                emoji = "📈" if pnl >= 0 else "📉"
+                rapport += f"  {emoji} {sym} @ {prix_entree:.4f} | PnL: {pnl:+.2f} EUR\n"
+    except Exception as e:
+        rapport += f"Erreur: {e}\n"
+    
+    # 2. MARCHE
+    rapport += f"\n## 2. ETAT DU MARCHE\n"
+    try:
+        prix_data = get_multiple_prices(["BTC", "ETH", "SOL", "BNB", "XRP"])
+        for sym, prix in prix_data.items():
+            rapport += f"  {sym}: {prix:.2f} EUR\n"
+    except:
+        rapport += "  Prix indisponibles\n"
+    
+    # 3. STATS AGENT
+    rapport += f"\n## 3. STATS AGENT\n"
+    stats = get_stats()
+    rapport += f"  Uptime: {stats['uptime']}\n"
+    rapport += f"  Messages recus: {stats.get('messages_recus', 0)}\n"
+    rapport += f"  Messages repondus: {stats.get('messages_repondus', 0)}\n"
+    rapport += f"  Erreurs: {stats.get('erreurs', 0)}\n"
+    rapport += f"  API timeouts: {stats.get('api_timeouts', 0)}\n"
+    
+    # 4. SERVICES
+    rapport += f"\n## 4. SERVICES\n"
+    fichiers = ["agent_memory.json", "paper_trading.json", "knowledge_base.json", "solutions_db.json", "corrections_db.json"]
+    for f in fichiers:
+        path = os.path.join(DOSSIER, f)
+        if os.path.exists(path):
+            size = os.path.getsize(path)
+            rapport += f"  ✅ {f} ({size}b)\n"
+        else:
+            rapport += f"  ❌ {f}\n"
+    
+    # 5. RECOMMANDATIONS IA
+    rapport += f"\n## 5. ANALYSE IA\n"
+    try:
+        analyse = ask_perplexity(
+            f"Analyse ce portefeuille crypto et donne 3 recommandations en francais (2 lignes max chacune):\n"
+            f"Capital: {capital}EUR, Liquidites: {liquidites}EUR, Positions: {len(positions)}, "
+            f"Winrate: {winrate:.0f}% si trades, PnL: {gain_perte:+.2f}EUR\n"
+            f"Recommande: ajuster taille positions? diversifier? arreter?",
+            temperature=0.3
+        )
+        rapport += analyse
+    except:
+        rapport += "Analyse IA indisponible\n"
+    
+    rapport += f"\n{'='*50}\nGenere le {datetime.now().strftime('%d/%m/%Y a %H:%M')}"
+    return rapport
+
+
+# ============================================
+# 11. AUTO-AMELIORATION
+# ============================================
+def self_improve():
+    """L'agent analyse ses faiblesses et se corrige automatiquement."""
+    rapport = "🧠 AUTO-AMELIORATION\n" + "=" * 40 + "\n"
+    corrections = []
+    
+    # 1. Analyse des erreurs recentes
+    rapport += "\n[1] Analyse des erreurs...\n"
+    stats = get_stats()
+    nb_erreurs = stats.get("erreurs", 0)
+    nb_timeouts = stats.get("api_timeouts", 0)
+    nb_messages = stats.get("messages_recus", 0)
+    
+    if nb_messages > 0 and nb_erreurs / nb_messages > 0.1:
+        corrections.append(f"Taux d'erreur eleve: {nb_erreurs}/{nb_messages} ({nb_erreurs/nb_messages*100:.0f}%)")
+        rapport += f"  ⚠️ Taux d'erreur: {nb_erreurs/nb_messages*100:.0f}%\n"
+    else:
+        rapport += f"  ✅ Taux d'erreur OK: {nb_erreurs}/{nb_messages}\n"
+    
+    if nb_timeouts > 5:
+        corrections.append(f"API timeouts frequents: {nb_timeouts}")
+        rapport += f"  ⚠️ API timeouts: {nb_timeouts}\n"
+    else:
+        rapport += f"  ✅ API timeouts OK: {nb_timeouts}\n"
+    
+    # 2. Analyse des trades
+    rapport += "\n[2] Analyse des trades...\n"
+    try:
+        pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+        trades = pt.get("trades_fermes", [])
+        positions = pt.get("positions", [])
+        
+        if trades:
+            gagnants = [t for t in trades if t.get("pnl", 0) > 0]
+            perdants = [t for t in trades if t.get("pnl", 0) < 0]
+            winrate = len(gagnants) / len(trades) * 100 if trades else 0
+            pnl_total = sum(t.get("pnl", 0) for t in trades)
+            
+            rapport += f"  Trades: {len(trades)} | Winrate: {winrate:.1f}% | PnL: {pnl_total:+.2f}EUR\n"
+            
+            if winrate < 50:
+                corrections.append(f"Winrate faible: {winrate:.0f}%")
+                rapport += f"  ⚠️ Winrate faible: {winrate:.0f}%\n"
+                
+                # Analyse des trades perdants
+                perdants_strats = {}
+                for t in perdants:
+                    s = t.get("strategie", "?")
+                    perdants_strats[s] = perdants_strats.get(s, 0) + 1
+                if perdants_strats:
+                    pire_strat = max(perdants_strats, key=perdants_strats.get)
+                    corrections.append(f"Strategie perdante: {pire_strat} ({perdants_strats[pire_strat]} pertes)")
+                    rapport += f"  ⚠️ Strategie {pire_strat}: {perdants_strats[pire_strat]} pertes\n"
+            else:
+                rapport += f"  ✅ Winrate OK: {winrate:.0f}%\n"
+            
+            if pnl_total < 0:
+                corrections.append(f"PnL negatif: {pnl_total:.2f}EUR")
+                rapport += f"  ⚠️ PnL negatif: {pnl_total:.2f}EUR\n"
+            else:
+                rapport += f"  ✅ PnL positif: {pnl_total:.2f}EUR\n"
+        else:
+            rapport += "  Aucun trade ferme\n"
+        
+        rapport += f"  Positions ouvertes: {len(positions)}\n"
+    except Exception as e:
+        rapport += f"  Erreur analyse: {e}\n"
+    
+    # 3. Analyse memoire
+    rapport += "\n[3] Analyse memoire...\n"
+    try:
+        memoire = load_json_safe(MEMORY_FILE, {"conversations": [], "important_conv": []})
+        nb_conv = len(memoire.get("conversations", []))
+        nb_important = len(memoire.get("important_conv", []))
+        rapport += f"  Conversations: {nb_conv}\n"
+        rapport += f"  Conversations importantes: {nb_important}\n"
+        
+        solutions = load_json_safe(os.path.join(DOSSIER, "solutions_db.json"), [])
+        corrections_db = load_json_safe(os.path.join(DOSSIER, "corrections_db.json"), [])
+        rapport += f"  Solutions sauvegardees: {len(solutions)}\n"
+        rapport += f"  Corrections apprises: {len(corrections_db)}\n"
+        
+        if nb_conv > 150:
+            corrections.append(f"Memoire pleine: {nb_conv} conversations -> nettoyer")
+            rapport += f"  ⚠️ Memoire pleine: {nb_conv} conversations\n"
+            # Auto-nettoyage: supprime les vieilles conversations non importantes
+            convs = memoire.get("conversations", [])
+            if len(convs) > 150:
+                memoire["conversations"] = convs[-150:]  # garde les 150 plus recentes
+                save_json_safe(MEMORY_FILE, memoire)
+                rapport += f"  🧹 Nettoyage: garde 150 conversations recentes\n"
+        else:
+            rapport += f"  ✅ Memoire OK\n"
+    except Exception as e:
+        rapport += f"  Erreur: {e}\n"
+    
+    # 4. Analyse fichiers
+    rapport += "\n[4] Analyse fichiers...\n"
+    fichiers_critiques = ["paper_trading.json", "agent_memory.json"]
+    for f in fichiers_critiques:
+        path = os.path.join(DOSSIER, f)
+        if os.path.exists(path):
+            size = os.path.getsize(path)
+            if size < 50:
+                corrections.append(f"Fichier {f} suspectement petit: {size}b")
+                rapport += f"  ⚠️ {f}: {size}b (trop petit)\n"
+            else:
+                rapport += f"  ✅ {f}: {size}b\n"
+        else:
+            corrections.append(f"Fichier {f} manquant")
+            rapport += f"  ❌ {f} manquant\n"
+    
+    # 5. Actions correctives
+    rapport += "\n[5] Actions correctives...\n"
+    if corrections:
+        rapport += f"  {len(corrections)} probleme(s) detecte(s):\n"
+        for i, c in enumerate(corrections, 1):
+            rapport += f"  {i}. {c}\n"
+            learn_fact(f"Faiblesse detectee: {c}", "correction")
+            
+            # Demande a l'IA une solution
+            try:
+                solution = ask_perplexity(
+                    f"Probleme detecte dans un systeme de trading crypto: {c}\n"
+                    f"Donne une solution concrete en 2 lignes max (francais).",
+                    temperature=0.2
+                )
+                rapport += f"     -> Solution: {solution[:100]}\n"
+                save_solution(c, solution, category="auto-improvement")
+            except:
+                pass
+    else:
+        rapport += "  ✅ Aucun probleme detecte\n"
+    
+    # 6. Apprentissage
+    rapport += "\n[6] Apprentissage...\n"
+    try:
+        # Apprend des trades gagnants/perdants
+        if trades:
+            gagnants = [t for t in trades if t.get("pnl", 0) > 0]
+            perdants = [t for t in trades if t.get("pnl", 0) < 0]
+            
+            if gagnants:
+                for t in gagnants[-3:]:  # 3 derniers gagnants
+                    learn_fact(
+                        f"Trade gagnant: {t.get('symbole')} {t.get('strategie')} "
+                        f"PnL={t.get('pnl', 0):.2f}EUR",
+                        "strategy"
+                    )
+            if perdants:
+                for t in perdants[-3:]:  # 3 derniers perdants
+                    learn_fact(
+                        f"Trade perdant: {t.get('symbole')} {t.get('strategie')} "
+                        f"PnL={t.get('pnl', 0):.2f}EUR",
+                        "correction"
+                    )
+            rapport += f"  ✅ Appris de {len(gagnants[-3:])} gagnants et {len(perdants[-3:])} perdants\n"
+    except:
+        rapport += "  Erreur apprentissage\n"
+    
+    bilan = f"\n{'='*40}\nBilan: {len(corrections)} probleme(s) | {len(corrections)} solution(s) generee(s)\n"
+    rapport += bilan
+    learn_fact(f"Auto-amenlioration {datetime.now().strftime('%d/%m %H:%M')}: {len(corrections)} problemes", "correction")
+    save_memory("agent", "auto-amenlioration", rapport)
+    return rapport
+
+
+# ============================================
+# 12. TACHES PROGRAMMEES
+# ============================================
+_TASKS_FILE = os.path.join(DOSSIER, "scheduled_tasks.json")
+
+def list_scheduled_tasks():
+    """Liste les taches programmees."""
+    tasks = load_json_safe(_TASKS_FILE, [])
+    if not tasks:
+        return "📋 Aucune tache programmee.\nUsage: planifie [tache]\nEx: planifie rapport quotidien 8h"
+    msg = "📋 TACHES PROGRAMMEES\n" + "━" * 30 + "\n"
+    for i, t in enumerate(tasks, 1):
+        msg += f"{i}. {t.get('description', '?')}\n"
+        msg += f"   Frequence: {t.get('frequence', '?')}\n"
+        msg += f"   Derniere execution: {t.get('derniere_exec', 'jamais')}\n"
+    return msg
+
+def schedule_task(text):
+    """Planifie une tache repetitive depuis Telegram."""
+    # Parse: planifie [tache] [frequence]
+    parts = text.split(None, 1)
+    if len(parts) < 2:
+        return "Usage: planifie [tache]\nEx: planifie rapport quotidien 8h"
+    
+    task_desc = parts[1]
+    
+    # Determine la frequence
+    freq = "quotidien"
+    crontab_entry = "0 8 * * *"  # defaut: 8h tous les jours
+    
+    if "horaire" in task_desc.lower() or "heure" in task_desc.lower():
+        freq = "horaire"
+        crontab_entry = "0 * * * *"
+    elif "quotidien" in task_desc.lower() or "jour" in task_desc.lower():
+        freq = "quotidien"
+        # Cherche une heure
+        import re
+        heure_match = re.search(r'(\d+)h', task_desc.lower())
+        if heure_match:
+            h = int(heure_match.group(1))
+            crontab_entry = f"0 {h} * * *"
+    elif "hebdo" in task_desc.lower() or "semaine" in task_desc.lower():
+        freq = "hebdomadaire"
+        crontab_entry = "0 8 * * 1"
+    
+    # Determine la commande
+    commande = None
+    if "rapport" in task_desc.lower() or "bilan" in task_desc.lower():
+        commande = "cd /home/ubuntu/agent-ia && /home/ubuntu/agent-ia/venv/bin/python -u agent_os.py rapport-telegram"
+    elif "scan" in task_desc.lower() or "opportunite" in task_desc.lower():
+        commande = "cd /home/ubuntu/agent-ia && /home/ubuntu/agent-ia/venv/bin/python -u agent_os.py scan"
+    elif "ameliorer" in task_desc.lower() or "evolue" in task_desc.lower():
+        commande = "cd /home/ubuntu/agent-ia && /home/ubuntu/agent-ia/venv/bin/python -u agent_os.py auto-improve"
+    elif "code" in task_desc.lower():
+        commande = "cd /home/ubuntu/agent-ia && /home/ubuntu/agent-ia/venv/bin/python -u agent_os.py code-seul"
+    else:
+        commande = f"echo 'Tache: {task_desc}'"
+    
+    # Sauvegarde la tache
+    tasks = load_json_safe(_TASKS_FILE, [])
+    tasks.append({
+        "description": task_desc,
+        "frequence": freq,
+        "crontab": crontab_entry,
+        "commande": commande,
+        "derniere_exec": "jamais",
+        "cree_le": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    })
+    save_json_safe(_TASKS_FILE, tasks)
+    
+    # Installe le cron sur le VPS
+    try:
+        import subprocess as sp
+        # Recupere le crontab actuel
+        result = sp.run(["crontab", "-l"], capture_output=True, text=True)
+        current = result.stdout if result.returncode == 0 else ""
+        # Ajoute la nouvelle ligne
+        new_entry = f"{crontab_entry} {commande} >> /home/ubuntu/agent-ia/tasks.log 2>&1\n"
+        current += new_entry
+        # Ecrit le nouveau crontab
+        sp.run(["crontab", "-"], input=current, text=True)
+        return f"✅ Tache planifiee!\n📋 {task_desc}\n⏰ Frequence: {freq} ({crontab_entry})\n🔧 Commande: {commande[:80]}"
+    except Exception as e:
+        return f"✅ Tache sauvegardee (mais cron non installe: {e})\n📋 {task_desc}\n⏰ {freq}"
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "status":
         perf = trading_performance()
@@ -2082,5 +2510,14 @@ if __name__ == "__main__":
         autonomous_loop()
     elif len(sys.argv) > 1 and sys.argv[1] == "code-seul":
         autonomous_coder()
+    elif len(sys.argv) > 1 and sys.argv[1] == "rapport-telegram":
+        rapport = generate_report()
+        send_telegram(rapport[:4000])
+    elif len(sys.argv) > 1 and sys.argv[1] == "auto-improve":
+        bilan = self_improve()
+        print(bilan)
+    elif len(sys.argv) > 1 and sys.argv[1] == "rapport":
+        rapport = generate_report()
+        print(rapport)
     else:
         autonomous_loop()
