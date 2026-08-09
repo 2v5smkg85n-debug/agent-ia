@@ -1795,6 +1795,22 @@ def handle_message(text, user_name="User"):
         send_telegram(result[:4000])
         return result
     
+    # === DEBAT IA ===
+    if text_lower.startswith("debat") or text_lower.startswith("versus") or text_lower.startswith("vs "):
+        parts = text_stripped.split(None, 1)
+        symbole = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
+        send_telegram(f"⚔️ Debat IA sur {symbole}...")
+        result = debat_ia(symbole)
+        send_telegram(result[:4000])
+        return result
+    
+    # === OPTIMISATION PORTEFEUILLE ===
+    if text_lower in ["optimise", "optimiser", "reequilibrage", "equilibrage", "rebalance"]:
+        send_telegram("⚖️ Optimisation du portefeuille...")
+        result = optimiser_portefeuille()
+        send_telegram(result[:4000])
+        return result
+    
     # === AIDE ===
     if text_lower in ["aide", "help", "commandes", "commands"]:
         help_msg = """🤖 AGENT OS - COMMANDES
@@ -1867,6 +1883,8 @@ def handle_message(text, user_name="User"):
   regime - Regime global du marche (bull/bear/range)
   erreurs - Memoire des erreurs passees
   evolution - Auto-evolution: analyse faiblesses + genere code
+  debat BTC - Debat IA bull vs bear avec juge impartial
+  optimise - Reequilibrage optimal du portefeuille
 
 ━━━━━━━━━━━━━━━━━━━━
 L'agent apprend de chaque interaction."""
@@ -4601,6 +4619,197 @@ def auto_evolution_code():
     msg += f"\n✅ {corrections_appliquees} correction(s) auto-appliquee(s)\n"
     msg += f"📝 {len(faiblesses)} faiblesse(s) documentee(s) pour evolution future"
     learn_fact(f"Auto-evolution: {len(faiblesses)} faiblesses, {corrections_appliquees} corrections", "evolution")
+    return msg
+
+
+
+
+# ============================================
+# 34. DEBAT IA (Bull vs Bear)
+# ============================================
+def debat_ia(symbole="BTCUSDT"):
+    """Deux IA avec des positions opposees (bull vs bear) debattent sur un trade."""
+    from indicateurs import historique_ohlcv, NOMS
+    nom = NOMS.get(symbole, symbole)
+    bougies = historique_ohlcv(symbole, "1h", 100)
+    if not bougies or len(bougies) < 50:
+        return f"Pas assez de donnees pour {symbole}"
+    clotures = [b["cloture"] for b in bougies]
+    prix = clotures[-1]
+    sma20 = sum(clotures[-20:]) / 20
+    sma50 = sum(clotures[-50:]) / 50
+    var_24h = (prix - clotures[-24]) / clotures[-24] * 100 if len(clotures) >= 24 else 0
+    var_7d = (prix - clotures[-7*24]) / clotures[-7*24] * 100 if len(clotures) >= 168 else 0
+
+    # RSI
+    gains = [clotures[j] - clotures[j-1] for j in range(-14, 0) if clotures[j] > clotures[j-1]]
+    pertes = [clotures[j-1] - clotures[j] for j in range(-14, 0) if clotures[j] < clotures[j-1]]
+    avg_gain = sum(gains) / 14 if gains else 0
+    avg_perte = sum(pertes) / 14 if pertes else 0.001
+    rsi_val = 100 - (100 / (1 + (avg_gain / avg_perte if avg_perte > 0 else 100)))
+
+    contexte = f"{nom} ({symbole}) | Prix: {prix:.4f} EUR | RSI: {rsi_val:.0f} | SMA20: {sma20:.4f} | SMA50: {sma50:.4f} | Var 24h: {var_24h:+.1f}% | Var 7j: {var_7d:+.1f}%"
+
+    msg = f"⚔️ DEBAT IA - {nom}\n" + "━" * 40 + "\n\n"
+    msg += f"📊 Contexte: {contexte}\n\n"
+
+    # Arguments BULL (via Perplexity)
+    bull_args = ""
+    if PPLX_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {PPLX_KEY}", "Content-Type": "application/json"}
+            prompt = f"Tu es un trader BULLISH. Defends l'achat de {nom} maintenant. Donnes 3 arguments solides en 2 lignes chacun max. Sois persuasif mais honnete avec les donnees. Contexte: {contexte}. Reponds en francais."
+            payload = {"model": "sonar", "messages": [{"role": "user", "content": prompt}], "max_tokens": 300}
+            r = requests.post("https://api.perplexity.ai/chat/completions", json=payload, headers=headers, timeout=30)
+            if r.status_code == 200:
+                bull_args = r.json()["choices"][0]["message"]["content"]
+                msg += f"🟢 ARGUMENTS BULL (Perplexity):\n{bull_args}\n\n"
+        except Exception as e:
+            msg += f"🟢 ARGUMENTS BULL: Erreur ({e})\n\n"
+    else:
+        msg += "🟢 ARGUMENTS BULL: Cle API manquante\n\n"
+
+    # Arguments BEAR (via Gemini)
+    bear_args = ""
+    if GEMINI_KEY:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={GEMINI_KEY}"
+            prompt = f"Tu es un trader BEARISH. Defends la vente ou l'evitement de {nom} maintenant. Donnes 3 arguments solides en 2 lignes chacun max. Sois persuasif mais honnete avec les donnees. Contexte: {contexte}. Reponds en francais."
+            payload = {"contents": [{"parts": [{"text": prompt}]}]}
+            r = requests.post(url, json=payload, timeout=30)
+            if r.status_code == 200:
+                bear_args = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+                msg += f"🔴 ARGUMENTS BEAR (Gemini):\n{bear_args}\n\n"
+        except Exception as e:
+            msg += f"🔴 ARGUMENTS BEAR: Erreur ({e})\n\n"
+    else:
+        msg += "🔴 ARGUMENTS BEAR: Cle API manquante\n\n"
+
+    # Juge IA (Perplexity avec les deux arguments)
+    msg += "━" * 40 + "\n"
+    msg += "⚖️ VERDICT DU JUGE IA:\n"
+    if PPLX_KEY and bull_args and bear_args:
+        try:
+            headers = {"Authorization": f"Bearer {PPLX_KEY}", "Content-Type": "application/json"}
+            prompt = f"Tu es un juge impartial. Voici un debat sur {nom}:\n\nARGUMENTS BULL:\n{bull_args}\n\nARGUMENTS BEAR:\n{bear_args}\n\nDonne ton verdict: 1) Qui a les arguments les plus solides? 2) Score final -10 a +10 3) Recommendation: ACHETER / VENDRE / ATTENDRE 4) Une phrase de conclusion. Sois concis."
+            payload = {"model": "sonar", "messages": [{"role": "user", "content": prompt}], "max_tokens": 300}
+            r = requests.post("https://api.perplexity.ai/chat/completions", json=payload, headers=headers, timeout=30)
+            if r.status_code == 200:
+                verdict = r.json()["choices"][0]["message"]["content"]
+                msg += verdict
+                learn_fact(f"Debat {symbole}: verdict juge rendu", "debat")
+        except Exception as e:
+            msg += f"Erreur juge: {e}"
+    elif bull_args or bear_args:
+        # Verdict local si une seule IA disponible
+        score_tech = 0
+        if prix > sma20 > sma50:
+            score_tech += 2
+        elif prix > sma20:
+            score_tech += 1
+        elif prix < sma20 < sma50:
+            score_tech -= 2
+        elif prix < sma20:
+            score_tech -= 1
+        if rsi_val < 35:
+            score_tech += 1
+        elif rsi_val > 65:
+            score_tech -= 1
+        if score_tech >= 2:
+            msg += "Verdict local: ACHETER (arguments techniques favorables)\n"
+        elif score_tech <= -2:
+            msg += "Verdict local: VENDRE (arguments techniques defavorables)\n"
+        else:
+            msg += "Verdict local: ATTENDRE (signaux neutres)\n"
+    else:
+        msg += "Aucune IA disponible pour le verdict\n"
+
+    msg += f"\n{'━' * 40}\n"
+    msg += "💡 Le debat t'aide a voir les deux cotes avant de decider."
+    return msg
+
+
+# ============================================
+# 35. OPTIMISEUR DE PORTEFEUILLE
+# ============================================
+def optimiser_portefeuille():
+    """Suggere un reequilibrage optimal du portefeuille."""
+    from indicateurs import NOMS
+    pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+    positions = pt.get("positions", [])
+    liquidites = pt.get("liquidites", 0)
+    capital = pt.get("capital_initial", 1000)
+    if not positions:
+        return "Aucune position a optimiser"
+    msg = "⚖️ OPTIMISATION DU PORTEFEUILLE\n" + "━" * 40 + "\n\n"
+    # Analyser chaque position
+    analyses = []
+    total_investi = 0
+    for p in positions:
+        sym = p.get("symbole", "")
+        prix_entree = p.get("prix_entree", 0)
+        quantite = p.get("quantite", 0)
+        montant = p.get("montant_eur", 0)
+        total_investi += montant
+        prix_actuel = get_crypto_price(sym.replace("USDT", ""))
+        if not prix_actuel:
+            prix_actuel = prix_entree
+        pnl_pct = (prix_actuel - prix_entree) / prix_entree * 100 if prix_entree > 0 else 0
+        poids = montant / capital * 100 if capital > 0 else 0
+        # Score technique rapide
+        try:
+            analyse = analyser_actif(sym, "1h")
+            score = analyse.get("score", 0) if analyse else 0
+        except:
+            score = 0
+        analyses.append({
+            "symbole": sym, "nom": NOMS.get(sym, sym),
+            "montant": montant, "pnl_pct": pnl_pct,
+            "poids": poids, "score": score, "prix_actuel": prix_actuel
+        })
+    # Trier par performance
+    msg += f"{'Crypto':<12} {'Montant':>8} {'%':>5} {'PnL':>7} {'Score':>6} {'Action':<15}\n"
+    msg += "─" * 58 + "\n"
+    recommandations = []
+    for a in sorted(analyses, key=lambda x: x["pnl_pct"]):
+        action = "GARDER"
+        if a["pnl_pct"] < -5 and a["score"] < 0:
+            action = "🔴 VENDRE"
+            recommandations.append(f"Vendre {a['nom']} (perte {a['pnl_pct']:+.1f}%, score {a['score']:+d})")
+        elif a["pnl_pct"] > 10:
+            action = "🟢 TP PARTIEL"
+            recommandations.append(f"Take-profit partiel sur {a['nom']} (+{a['pnl_pct']:.1f}%)")
+        elif a["score"] >= 3 and a["poids"] < 5:
+            action = "🟡 RENFORCER"
+            recommandations.append(f"Renforcer {a['nom']} (score {a['score']:+d}, sous-pondere)")
+        elif a["poids"] > 15:
+            action = "🟠 REDUIRE"
+            recommandations.append(f"Reduire {a['nom']} (trop pondere: {a['poids']:.1f}%)")
+        emoji = "🟢" if a["pnl_pct"] >= 0 else "🔴"
+        msg += f"{emoji} {a['nom'][:10]:<10} {a['montant']:>7.0f} {a['poids']:>4.0f}% {a['pnl_pct']:>+6.1f}% {a['score']:>+5d} {action}\n"
+    # Stats globales
+    valeur_total = sum(a["montant"] for a in analyses) + liquidites
+    nb_gagnants = len([a for a in analyses if a["pnl_pct"] > 0])
+    nb_perdants = len([a for a in analyses if a["pnl_pct"] < 0])
+    msg += "\n" + "━" * 40 + "\n"
+    msg += f"📊 STATS:\n"
+    msg += f"  Positions: {len(analyses)} ({nb_gagnants}G / {nb_perdants}P)\n"
+    msg += f"  Investi: {total_investi:.0f} EUR | Liquidites: {liquidites:.0f} EUR\n"
+    msg += f"  Liquidites: {liquidites/capital*100:.0f}% du capital\n"
+    # Recommandations
+    msg += f"\n💡 RECOMMANDATIONS D'EQUILIBRAGE:\n"
+    if recommandations:
+        for r in recommandations:
+            msg += f"  → {r}\n"
+    else:
+        msg += "  → Portefeuille equilibre, aucune action necessaire\n"
+    # Diversification
+    poids_max = max(a["poids"] for a in analyses) if analyses else 0
+    if poids_max > 15:
+        msg += f"\n⚠️ Concentration: une position represente {poids_max:.0f}% - envisager de diversifier\n"
+    elif liquidites / capital > 0.3:
+        msg += f"\n💡 {liquidites:.0f} EUR disponibles - opportuniste pour de nouveaux achats\n"
+    learn_fact(f"Optimisation: {len(recommandations)} recommandations, {nb_gagnants}G/{nb_perdants}P", "optimisation")
     return msg
 
 
