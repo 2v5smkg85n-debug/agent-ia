@@ -1811,6 +1811,21 @@ def handle_message(text, user_name="User"):
         send_telegram(result[:4000])
         return result
     
+    # === ANALYSE WHALES ===
+    if text_lower in ["whales", "baleines", "whale", "gros volume"]:
+        send_telegram("🐋 Analyse des mouvements de baleines...")
+        result = analyser_whales()
+        send_telegram(result[:4000])
+        return result
+    
+    # === COPILOT TRADING ===
+    if text_lower.startswith("copilot") or text_lower.startswith("conseil"):
+        question = text_stripped.split(None, 1)[1] if len(text_stripped.split(None, 1)) > 1 else "analyse generale"
+        send_telegram(f"🤖 Copilot analyse: {question[:40]}...")
+        result = copilot_trading(question)
+        send_telegram(result[:4000])
+        return result
+    
     # === AIDE ===
     if text_lower in ["aide", "help", "commandes", "commands"]:
         help_msg = """🤖 AGENT OS - COMMANDES
@@ -1885,6 +1900,8 @@ def handle_message(text, user_name="User"):
   evolution - Auto-evolution: analyse faiblesses + genere code
   debat BTC - Debat IA bull vs bear avec juge impartial
   optimise - Reequilibrage optimal du portefeuille
+  whales - Detecte les mouvements de baleines (gros volumes)
+  copilot BTC - Assistant IA qui croise toutes les analyses
 
 ━━━━━━━━━━━━━━━━━━━━
 L'agent apprend de chaque interaction."""
@@ -4810,6 +4827,208 @@ def optimiser_portefeuille():
     elif liquidites / capital > 0.3:
         msg += f"\n💡 {liquidites:.0f} EUR disponibles - opportuniste pour de nouveaux achats\n"
     learn_fact(f"Optimisation: {len(recommandations)} recommandations, {nb_gagnants}G/{nb_perdants}P", "optimisation")
+    return msg
+
+
+
+
+# ============================================
+# 36. ANALYSE DE WHALES (mouvements gros volume)
+# ============================================
+def analyser_whales():
+    """Detecte les mouvements de baleines (gros volumes) via CoinGecko et analyse on-chain."""
+    from indicateurs import NOMS, COINGECKO_MAP
+    msg = "🐋 ANALYSE WHALES - Gros mouvements detectes\n" + "━" * 40 + "\n\n"
+    
+    symboles = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT"]
+    whales_detectes = []
+    
+    for sym in symboles:
+        crypto_id = COINGECKO_MAP.get(sym.replace("USDT", "").lower(), sym.replace("USDT", "").lower())
+        try:
+            # Recupere donnees marche (volume 24h)
+            url = f"https://api.coingecko.com/api/v3/coins/{crypto_id}/market_chart?vs_currency=eur&days=7"
+            r = requests.get(url, timeout=10)
+            if r.status_code != 200:
+                continue
+            data = r.json()
+            volumes = data.get("volumes", [])
+            if len(volumes) < 48:
+                continue
+            # Volume moyen et volume recent
+            vol_recent = volumes[-1][1] if volumes else 0
+            vol_moyen = sum(v[1] for v in volumes[-48:]) / len(volumes[-48:]) if volumes else 0
+            # Detecte pic de volume (x3 = whale)
+            if vol_moyen > 0:
+                ratio = vol_recent / vol_moyen
+                if ratio > 1.5:
+                    nom = NOMS.get(sym, sym)
+                    # Recupere prix actuel
+                    prix_url = f"https://api.coingecko.com/api/v3/simple/price?ids={crypto_id}&vs_currencies=eur&include_24hr_vol=true"
+                    pr = requests.get(prix_url, timeout=10)
+                    prix = 0
+                    var_vol_24h = 0
+                    if pr.status_code == 200:
+                        pd = pr.json().get(crypto_id, {})
+                        prix = pd.get("eur", 0)
+                        var_vol_24h = pd.get("eur_24h_vol", 0)
+                    
+                    # Direction: compare prix actuel vs prix il y a 24h
+                    prices = data.get("prices", [])
+                    prix_24h = prices[-24][1] if len(prices) >= 24 else (prices[0][1] if prices else prix)
+                    direction = "🟢 ACHAT" if prix > prix_24h else "🔴 VENTE"
+                    intensite = "🔥 MASSIF" if ratio > 3 else "⚡ IMPORTANT" if ratio > 2 else "📈 MODERE"
+                    
+                    whales_detectes.append({
+                        "nom": nom, "symbole": sym,
+                        "ratio": ratio, "direction": direction,
+                        "intensite": intensite, "prix": prix,
+                        "volume": vol_recent
+                    })
+        except:
+            continue
+    
+    if not whales_detectes:
+        msg += "✅ Aucun mouvement de baleine detecte dans les dernieres 24h.\n"
+        msg += "Le marche est calme - pas de gros volumes anormaux.\n"
+    else:
+        # Trier par intensite
+        whales_detectes.sort(key=lambda x: x["ratio"], reverse=True)
+        for w in whales_detectes:
+            msg += f"{w['intensite']} {w['nom']:<12} {w['direction']}\n"
+            msg += f"  Volume: {w['volume']/1e6:.1f}M EUR (x{w['ratio']:.1f} vs moyenne)\n"
+            msg += f"  Prix: {w['prix']:.4f} EUR\n\n"
+        
+        # Interpretation
+        msg += "━" * 40 + "\n"
+        msg += "📊 INTERPRETATION:\n"
+        achats = [w for w in whales_detectes if "ACHAT" in w["direction"]]
+        ventes = [w for w in whales_detectes if "VENTE" in w["direction"]]
+        msg += f"  🟢 Baleines qui achetent: {len(achats)}\n"
+        msg += f"  🔴 Baleines qui vendent: {len(ventes)}\n"
+        if len(achats) > len(ventes):
+            msg += "  → Sentiment whale: HAUSSIER (accumulation)\n"
+            msg += "  → Les gros joueurs accumulent - signal positif\n"
+        elif len(ventes) > len(achats):
+            msg += "  → Sentiment whale: BAISSIER (distribution)\n"
+            msg += "  → Les gros joueurs vendent - prudence\n"
+        else:
+            msg += "  → Sentiment whale: NEUTRE (mixte)\n"
+    
+    learn_fact(f"Whales: {len(whales_detectes)} mouvements detectes", "whales")
+    return msg
+
+
+# ============================================
+# 37. COPILOT TRADING (assistant interactif)
+# ============================================
+def copilot_trading(question=""):
+    """Assistant intelligent qui repond aux questions de trading en croisant toutes les analyses."""
+    from indicateurs import NOMS
+    
+    # Detecte le symbole dans la question
+    symbole = "BTCUSDT"
+    crypto_map = {
+        "btc": "BTCUSDT", "bitcoin": "BTCUSDT",
+        "eth": "ETHUSDT", "ethereum": "ETHUSDT", 
+        "sol": "SOLUSDT", "solana": "SOLUSDT",
+        "bnb": "BNBUSDT", "xrp": "XRPUSDT", "ripple": "XRPUSDT",
+        "doge": "DOGEUSDT", "avax": "AVAXUSDT",
+        "link": "LINKUSDT", "arb": "ARBUSDT",
+        "near": "NEARUSDT", "fet": "FETUSDT",
+        "rndr": "RNDRUSDT", "ldo": "LDOUSDT",
+        "aave": "AAVEUSDT", "pendle": "PENDLEUSDT",
+    }
+    q_lower = question.lower()
+    for k, v in crypto_map.items():
+        if k in q_lower:
+            symbole = v
+            break
+    
+    nom = NOMS.get(symbole, symbole)
+    
+    # Collecte toutes les analyses disponibles
+    msg = f"🤖 COPILOT TRADING - {nom}\n" + "━" * 40 + "\n\n"
+    
+    # 1. Regime de marche
+    try:
+        regime = detecter_regime_marche(symbole)
+        if regime:
+            msg += f"🌐 Regime: {regime['regime']} (ADX: {regime['adx']:.0f})\n"
+            msg += f"   Strategie: {regime['strategie']}\n\n"
+    except:
+        msg += "🌐 Regime: indisponible\n\n"
+    
+    # 2. Prix et tendance
+    try:
+        prix = get_crypto_price(symbole.replace("USDT", ""))
+        if prix:
+            msg += f"💰 Prix actuel: {prix:.4f} EUR\n"
+    except:
+        pass
+    
+    # 3. Score technique
+    try:
+        analyse = analyser_actif(symbole, "1h")
+        if analyse and "score" in analyse:
+            score = analyse["score"]
+            emoji = "🟢" if score >= 3 else "🔴" if score <= -3 else "🟡"
+            msg += f"{emoji} Score technique: {score:+d}/10\n"
+            if "signaux" in analyse and analyse["signaux"]:
+                msg += f"   Signaux: {', '.join(analyse['signaux'][:3])}\n"
+    except:
+        pass
+    
+    # 4. RSI
+    try:
+        from indicateurs import historique_ohlcv
+        bougies = historique_ohlcv(symbole, "1h", 20)
+        if bougies and len(bougies) >= 15:
+            clotures = [b["cloture"] for b in bougies]
+            gains = [clotures[j] - clotures[j-1] for j in range(-14, 0) if clotures[j] > clotures[j-1]]
+            pertes = [clotures[j-1] - clotures[j] for j in range(-14, 0) if clotures[j] < clotures[j-1]]
+            avg_gain = sum(gains) / 14 if gains else 0
+            avg_perte = sum(pertes) / 14 if pertes else 0.001
+            rsi = 100 - (100 / (1 + (avg_gain / avg_perte if avg_perte > 0 else 100)))
+            etat_rsi = "SURVENTE 🟢" if rsi < 35 else "SURACHAT 🔴" if rsi > 65 else "NEUTRE 🟡"
+            msg += f"📊 RSI: {rsi:.0f} ({etat_rsi})\n"
+    except:
+        pass
+    
+    # 5. Verifie si on a une position
+    pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+    positions = pt.get("positions", [])
+    pos = next((p for p in positions if p.get("symbole") == symbole), None)
+    if pos:
+        prix_entree = pos.get("prix_entree", 0)
+        prix_actuel = get_crypto_price(symbole.replace("USDT", "")) or prix_entree
+        pnl_pct = (prix_actuel - prix_entree) / prix_entree * 100 if prix_entree > 0 else 0
+        msg += f"\n💼 Position ouverte:\n"
+        msg += f"   Entree: {prix_entree:.4f} EUR | PnL: {pnl_pct:+.1f}%\n"
+        msg += f"   Stop-loss: -5% | Take-profit: +10%\n"
+    else:
+        msg += f"\n💼 Aucune position ouverte sur {nom}\n"
+    
+    # 6. Verdict IA
+    msg += "\n" + "━" * 40 + "\n"
+    msg += "🧠 VERDICT COPILOT:\n"
+    
+    if PPLX_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {PPLX_KEY}", "Content-Type": "application/json"}
+            contexte = msg.replace("━" * 40, "").replace("🤖 COPILOT TRADING", "")
+            prompt = f"Tu es un copilot de trading crypto. Un utilisateur demande: '{question}'. Voici le contexte technique de {nom}:\n{contexte}\n\nDonne un conseil clair et concis en 3-4 lignes max: 1) Action recommandee 2) Pourquoi 3) Niveau de risque (faible/moyen/eleve). Reponds en francais."
+            payload = {"model": "sonar", "messages": [{"role": "user", "content": prompt}], "max_tokens": 200}
+            r = requests.post("https://api.perplexity.ai/chat/completions", json=payload, headers=headers, timeout=30)
+            if r.status_code == 200:
+                verdict = r.json()["choices"][0]["message"]["content"]
+                msg += verdict
+                learn_fact(f"Copilot {symbole}: conseil rendu pour '{question[:50]}'", "copilot")
+        except Exception as e:
+            msg += f"IA indisponible ({e})\n"
+    else:
+        msg += "Cle API manquante\n"
+    
     return msg
 
 
