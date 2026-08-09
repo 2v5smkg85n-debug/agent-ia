@@ -1672,6 +1672,43 @@ def handle_message(text, user_name="User"):
         send_telegram(result[:4000])
         return result
     
+    # === PNL TEMPS REEL ===
+    if text_lower in ["pnl", "gain", "gains", "pertes", "latents"]:
+        send_telegram("💰 Calcul du PnL temps reel...")
+        result = pnl_temps_reel()
+        send_telegram(result[:4000])
+        return result
+    
+    # === ALERTES PRIX ===
+    if text_lower.startswith("alerte") and not text_lower in ["alertes", "alerte"]:
+        # alerte BTC 70000 | alerte supprime 2 | alerte liste
+        if "supprime" in text_lower or "remove" in text_lower or "delete" in text_lower:
+            result = supprimer_alerte_prix(text_stripped)
+            send_telegram(result)
+            return result
+        elif "liste" in text_lower or "list" in text_lower:
+            result = lister_alertes_prix()
+            send_telegram(result)
+            return result
+        else:
+            result = ajouter_alerte_prix(text_stripped)
+            send_telegram(result)
+            return result
+    
+    if text_lower in ["alertes prix", "prix alertes"]:
+        result = lister_alertes_prix()
+        send_telegram(result)
+        return result
+    
+    # === MULTI-TIMEFRAME ===
+    if text_lower.startswith("mtf") or (text_lower.startswith("multi") and "time" in text_lower):
+        parts = text_stripped.split(None, 1)
+        symbole = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
+        send_telegram(f"🔬 Analyse multi-timeframe {symbole}...")
+        result = analyse_multi_timeframe(symbole)
+        send_telegram(result[:4000])
+        return result
+    
     # === AIDE ===
     if text_lower in ["aide", "help", "commandes", "commands"]:
         help_msg = """🤖 AGENT OS - COMMANDES
@@ -1719,6 +1756,14 @@ def handle_message(text, user_name="User"):
   graph BTC - Genere un graphique (prix + RSI) en image
   graph pnl - Graphique du PnL cumule
   backtest BTC momentum - Backtest rapide d'une strategie
+
+💰 TRADING:
+  pnl - PnL temps reel (gains/pertes latents)
+  alerte BTC 70000 - Alerte prix personnalisee
+  alerte BTC 70000 bas - Alerte prix a la baisse
+  alerte liste - Liste tes alertes prix
+  alerte supprime 2 - Supprime une alerte
+  mtf BTC - Analyse multi-timeframe (15m, 1h, 4h, 1d)
 
 ━━━━━━━━━━━━━━━━━━━━
 L'agent apprend de chaque interaction."""
@@ -1922,6 +1967,7 @@ def telegram_poll():
     offset = 0
     last_health_check = time.time()
     last_watchdog = time.time()
+    last_alerte_check = time.time()
     consecutive_errors = 0
     
     while True:
@@ -1990,6 +2036,16 @@ def telegram_poll():
             if time.time() - last_health_check > 600:
                 last_health_check = time.time()
                 print(f"[AGENT OS] Health check OK - {datetime.now().strftime('%H:%M')}")
+            
+            # Verifier les alertes prix toutes les 5 minutes
+            if time.time() - last_alerte_check > 300:
+                last_alerte_check = time.time()
+                try:
+                    nb = verifier_alertes_prix()
+                    if nb > 0:
+                        print(f"[AGENT OS] {nb} alerte(s) prix declenchee(s)")
+                except Exception as e:
+                    print(f"[AGENT OS] Erreur alertes prix: {e}")
                 
         except requests.exceptions.Timeout:
             continue
@@ -2877,6 +2933,258 @@ def backtest_rapide(symbole="BTCUSDT", strategie="momentum"):
         return msg + f"Erreur: {e}"
 
 
+
+
+# ============================================
+# 17. PnL TEMPS REEL
+# ============================================
+def pnl_temps_reel():
+    """Calcule les gains/pertes latents sur les positions ouvertes."""
+    from indicateurs import NOMS
+    pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+    positions = pt.get("positions", [])
+    liquidites = pt.get("liquidites", 0)
+    capital = pt.get("capital_initial", 1000)
+    if not positions:
+        return "Aucune position ouverte"
+    msg = "💰 PnL TEMPS REEL\n" + "━" * 35 + "\n\n"
+    msg += f"{'Crypto':<12} {'Entree':>10} {'Actuel':>10} {'PnL':>10} {'%':>7}\n"
+    msg += "─" * 52 + "\n"
+    total_investi = 0
+    total_actuel = 0
+    for p in positions:
+        try:
+            sym = p.get("symbole", "?")
+            prix_entree = p.get("prix_entree", 0)
+            quantite = p.get("quantite", 0)
+            montant = p.get("montant_eur", 0)
+            # Recupere le prix actuel
+            prix_actuel = get_crypto_price(sym.replace("USDT", ""))
+            if not prix_actuel or prix_actuel == 0:
+                prix_actuel = prix_entree
+            valeur_actuelle = prix_actuel * quantite
+            pnl = valeur_actuelle - montant
+            pnl_pct = (pnl / montant * 100) if montant > 0 else 0
+            total_investi += montant
+            total_actuel += valeur_actuelle
+            nom = NOMS.get(sym, sym)[:11]
+            emoji = "🟢" if pnl >= 0 else "🔴"
+            msg += f"{emoji} {nom:<10} {prix_entree:>10.4f} {prix_actuel:>10.4f} {pnl:>+9.2f} {pnl_pct:>+6.1f}%\n"
+        except:
+            continue
+    pnl_total = total_actuel - total_investi
+    pnl_pct_total = (pnl_total / total_investi * 100) if total_investi > 0 else 0
+    valeur_portefeuille = liquidites + total_actuel
+    gain_global = valeur_portefeuille - capital
+    gain_global_pct = (gain_global / capital * 100) if capital > 0 else 0
+    msg += "─" * 52 + "\n"
+    msg += f"\n💼 Investi: {total_investi:.2f} EUR\n"
+    msg += f"📈 Valeur actuelle: {total_actuel:.2f} EUR\n"
+    msg += f"{'🟢' if pnl_total >= 0 else '🔴'} PnL latents: {pnl_total:+.2f} EUR ({pnl_pct_total:+.1f}%)\n"
+    msg += f"\n💵 Liquidites: {liquidites:.2f} EUR\n"
+    msg += f"🏦 Valeur totale: {valeur_portefeuille:.2f} EUR\n"
+    msg += f"{'🟢' if gain_global >= 0 else '🔴'} Gain global: {gain_global:+.2f} EUR ({gain_global_pct:+.1f}%)\n"
+    return msg
+
+
+# ============================================
+# 18. ALERTES PRIX PERSONNALISEES
+# ============================================
+_ALERTES_PRIX_FILE = os.path.join(DOSSIER, "alertes_prix.json")
+
+
+def ajouter_alerte_prix(texte):
+    """Ajoute une alerte prix personnalisee. Format: alerte BTC 70000"""
+    from indicateurs import NOMS
+    parts = texte.split()
+    if len(parts) < 3:
+        return "Usage: alerte BTC 70000\n ou: alerte BTC 70000 bas\n (haut/bas pour direction)"
+    crypto = parts[1].upper()
+    if not crypto.endswith("USDT"):
+        crypto = crypto + "USDT"
+    try:
+        prix_cible = float(parts[2].replace(",", "."))
+    except:
+        return "Prix invalide. Ex: alerte BTC 70000"
+    direction = "haut"
+    if len(parts) > 3 and parts[3].lower() in ["bas", "down", "dessous"]:
+        direction = "bas"
+    # Prix actuel pour reference
+    prix_actuel = get_crypto_price(crypto.replace("USDT", ""))
+    alertes = load_json_safe(_ALERTES_PRIX_FILE, [])
+    alerte = {
+        "crypto": crypto,
+        "nom": NOMS.get(crypto, crypto),
+        "prix_cible": prix_cible,
+        "direction": direction,
+        "prix_creation": prix_actuel,
+        "active": True,
+        "cree_le": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+    alertes.append(alerte)
+    save_json_safe(_ALERTES_PRIX_FILE, alertes)
+    emoji = "📈" if direction == "haut" else "📉"
+    msg = f"✅ Alerte creee!\n"
+    msg += f"{emoji} {NOMS.get(crypto, crypto)} {direction} {prix_cible:.2f} EUR\n"
+    if prix_actuel:
+        diff = ((prix_cible - prix_actuel) / prix_actuel * 100) if prix_actuel > 0 else 0
+        msg += f" Prix actuel: {prix_actuel:.2f} EUR ({diff:+.1f}%)\n"
+    msg += f" Tu seras notifie sur Telegram quand le prix sera atteint."
+    return msg
+
+
+def lister_alertes_prix():
+    """Liste les alertes prix actives."""
+    alertes = load_json_safe(_ALERTES_PRIX_FILE, [])
+    actives = [a for a in alertes if a.get("active", True)]
+    if not actives:
+        return "Aucune alerte prix active.\nCree: alerte BTC 70000"
+    msg = "📋 ALERTES PRIX ACTIVES\n" + "━" * 30 + "\n"
+    for i, a in enumerate(actives, 1):
+        emoji = "📈" if a["direction"] == "haut" else "📉"
+        msg += f"\n{i}. {emoji} {a['nom']} {a['direction']} {a['prix_cible']:.2f} EUR\n"
+        msg += f"   Cree: {a['cree_le']} | Prix: {a.get('prix_creation', '?'):.2f} EUR\n"
+    msg += f"\nTotal: {len(actives)} alerte(s) active(s)"
+    return msg
+
+
+def supprimer_alerte_prix(texte):
+    """Supprime une alerte prix. Format: alerte supprime 2"""
+    parts = texte.split()
+    if len(parts) < 3 or parts[1].lower() not in ["supprime", "remove", "delete"]:
+        return "Usage: alerte supprime [numero]"
+    try:
+        num = int(parts[2])
+    except:
+        return "Numero invalide"
+    alertes = load_json_safe(_ALERTES_PRIX_FILE, [])
+    actives = [a for a in alertes if a.get("active", True)]
+    if num < 1 or num > len(actives):
+        return f"Numero invalide (1-{len(actives)})"
+    # Trouve et desactive
+    target = actives[num - 1]
+    for a in alertes:
+        if a == target:
+            a["active"] = False
+            break
+    save_json_safe(_ALERTES_PRIX_FILE, alertes)
+    return f"✅ Alerte supprimee: {target['nom']} {target['direction']} {target['prix_cible']:.2f} EUR"
+
+
+def verifier_alertes_prix():
+    """Verifie si des alertes prix sont declenchees et notifie sur Telegram."""
+    alertes = load_json_safe(_ALERTES_PRIX_FILE, [])
+    declenchees = []
+    for a in alertes:
+        if not a.get("active", True):
+            continue
+        crypto = a["crypto"]
+        prix_cible = a["prix_cible"]
+        direction = a["direction"]
+        prix_actuel = get_crypto_price(crypto.replace("USDT", ""))
+        if not prix_actuel:
+            continue
+        triggered = False
+        if direction == "haut" and prix_actuel >= prix_cible:
+            triggered = True
+        elif direction == "bas" and prix_actuel <= prix_cible:
+            triggered = True
+        if triggered:
+            emoji = "🚀" if direction == "haut" else "🔻"
+            msg = f"{emoji} ALERTE PRIX ATTEINT!\n"
+            msg += f"{a['nom']} a {prix_actuel:.2f} EUR\n"
+            msg += f"Objectif: {direction} {prix_cible:.2f} EUR\n"
+            msg += f"Variation: {((prix_actuel - a.get('prix_creation', prix_cible)) / a.get('prix_creation', prix_cible) * 100):+.1f}%"
+            send_telegram(msg)
+            a["active"] = False
+            a["declenchee_le"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+            a["prix_declenchement"] = prix_actuel
+            declenchees.append(a)
+    if declenchees:
+        save_json_safe(_ALERTES_PRIX_FILE, alertes)
+    return len(declenchees)
+
+
+# ============================================
+# 19. MULTI-TIMEFRAME ANALYSIS
+# ============================================
+def analyse_multi_timeframe(symbole="BTCUSDT"):
+    """Analyse une crypto sur plusieurs timeframes (15m, 1h, 4h, 1d)."""
+    from indicateurs import historique_ohlcv, NOMS
+    timeframes = [("15m", 100), ("1h", 100), ("4h", 100), ("1d", 100)]
+    nom = NOMS.get(symbole, symbole)
+    msg = f"🔬 ANALYSE MULTI-TIMEFRAME\n{nom} ({symbole})\n" + "━" * 40 + "\n\n"
+    msg += f"{'TF':<6} {'Prix':>10} {'RSI':>5} {'SMA20':>10} {'SMA50':>10} {'Tendance':<12} {'Score':>6}\n"
+    msg += "─" * 62 + "\n"
+    resultats = []
+    for tf, limite in timeframes:
+        try:
+            bougies = historique_ohlcv(symbole, tf, limite)
+            if not bougies or len(bougies) < 50:
+                msg += f"{tf:<6} Donnees insuffisantes\n"
+                resultats.append({"tf": tf, "score": 0, "tendance": "NEUTRE"})
+                continue
+            clotures = [b["cloture"] for b in bougies]
+            prix = clotures[-1]
+            sma20 = sum(clotures[-20:]) / 20
+            sma50 = sum(clotures[-50:]) / 50
+            # RSI
+            gains = [clotures[j] - clotures[j-1] for j in range(-14, 0) if clotures[j] > clotures[j-1]]
+            pertes = [clotures[j-1] - clotures[j] for j in range(-14, 0) if clotures[j] < clotures[j-1]]
+            avg_gain = sum(gains) / 14 if gains else 0
+            avg_perte = sum(pertes) / 14 if pertes else 0.001
+            rs = avg_gain / avg_perte if avg_perte > 0 else 100
+            rsi_val = 100 - (100 / (1 + rs))
+            # Tendance
+            if prix > sma20 > sma50:
+                tendance = "HAUSSIERE"
+                score = 2
+            elif prix > sma20 or sma20 > sma50:
+                tendance = "HAUSSIER"
+                score = 1
+            elif prix < sma20 < sma50:
+                tendance = "BAISSIERE"
+                score = -2
+            elif prix < sma20 or sma20 < sma50:
+                tendance = "BAISSIER"
+                score = -1
+            else:
+                tendance = "NEUTRE"
+                score = 0
+            # RSI ajustement
+            if rsi_val > 70:
+                score -= 1
+            elif rsi_val < 30:
+                score += 1
+            resultats.append({"tf": tf, "score": score, "tendance": tendance, "prix": prix, "rsi": rsi_val, "sma20": sma20, "sma50": sma50})
+            emoji = "🟢" if score > 0 else ("🔴" if score < 0 else "⚪")
+            msg += f"{emoji} {tf:<4} {prix:>10.4f} {rsi_val:>4.0f} {sma20:>10.4f} {sma50:>10.4f} {tendance:<12} {score:>+5d}\n"
+        except Exception as e:
+            msg += f"{tf:<6} Erreur: {str(e)[:20]}\n"
+            resultats.append({"tf": tf, "score": 0, "tendance": "NEUTRE"})
+    # Synthese
+    msg += "\n" + "━" * 40 + "\n"
+    total_score = sum(r["score"] for r in resultats)
+    nb_haussier = len([r for r in resultats if r["score"] > 0])
+    nb_baissier = len([r for r in resultats if r["score"] < 0])
+    msg += f"📊 SYNTHESE:\n"
+    msg += f"  Score global: {total_score:+d}/8\n"
+    msg += f"  Timeframes haussiers: {nb_haussier}/4\n"
+    msg += f"  Timeframes baissiers: {nb_baissier}/4\n"
+    if total_score >= 3:
+        msg += f"\n🟢 SIGNAL FORT: ACHAT (confluence {nb_haussier}/4 timeframes)\n"
+    elif total_score >= 1:
+        msg += f"\n🟡 SIGNAL MODERE: tendance positive\n"
+    elif total_score <= -3:
+        msg += f"\n🔴 SIGNAL FORT: VENTE (confluence {nb_baissier}/4 timeframes)\n"
+    elif total_score <= -1:
+        msg += f"\n🟠 SIGNAL MODERE: tendance negative\n"
+    else:
+        msg += f"\n⚪ NEUTRE: signaux mixtes\n"
+    learn_fact(f"MTF {symbole}: score {total_score:+d}, {nb_haussier}H/{nb_baissier}B", "mtf")
+    return msg
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "status":
         perf = trading_performance()
@@ -2910,6 +3218,13 @@ if __name__ == "__main__":
         r = envoyer_alertes()
         if r:
             print(r)
+    elif len(sys.argv) > 1 and sys.argv[1] == "check-alertes":
+        nb = verifier_alertes_prix()
+        print(f"{nb} alerte(s) declenchee(s)")
+    elif len(sys.argv) > 1 and sys.argv[1] == "pnl":
+        result = pnl_temps_reel()
+        send_telegram(result[:4000])
+        print(result)
     elif len(sys.argv) > 1 and sys.argv[1] == "graph-telegram":
         generer_graphique("BTCUSDT")
         generer_graphique_pnl()
