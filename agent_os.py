@@ -1766,6 +1766,35 @@ def handle_message(text, user_name="User"):
             send_telegram("Aucune position a fermer. Tout va bien.")
         return result or "OK"
     
+    # === DOUBLE IA ===
+    if text_lower.startswith("double") or text_lower.startswith("croise"):
+        parts = text_stripped.split(None, 1)
+        symbole = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
+        send_telegram(f"🧠 Double IA croisee {symbole}...")
+        result = analyse_double_ia(symbole)
+        send_telegram(result[:4000])
+        return result
+    
+    # === REGIME MARCHE ===
+    if text_lower in ["regime", "marche", "market regime"]:
+        send_telegram("🌐 Analyse du regime global...")
+        result = analyser_regime_global()
+        send_telegram(result[:4000])
+        return result
+    
+    # === MEMOIRE D'ERREURS ===
+    if text_lower in ["erreurs", "memoire erreurs", "lecons", "lessons"]:
+        result = consulter_memoire_erreurs()
+        send_telegram(result[:4000])
+        return result
+    
+    # === AUTO-EVOLUTION ===
+    if text_lower in ["evolution", "evolue", "auto-evolution", "evolution code"]:
+        send_telegram("🧬 Auto-evolution en cours...")
+        result = auto_evolution_code()
+        send_telegram(result[:4000])
+        return result
+    
     # === AIDE ===
     if text_lower in ["aide", "help", "commandes", "commands"]:
         help_msg = """🤖 AGENT OS - COMMANDES
@@ -1832,6 +1861,12 @@ def handle_message(text, user_name="User"):
   gestion - Verifie stop-loss (-5%) et take-profit (+10%) auto
   strategies BTC - Ichimoku + VWAP + Elliott Wave
   briefing - Briefing matinal complet (PnL + alertes + opportunit)
+
+🧬 SUPER INTELLIGENCE:
+  double BTC - Double IA croisee (Perplexity + Gemini)
+  regime - Regime global du marche (bull/bear/range)
+  erreurs - Memoire des erreurs passees
+  evolution - Auto-evolution: analyse faiblesses + genere code
 
 ━━━━━━━━━━━━━━━━━━━━
 L'agent apprend de chaque interaction."""
@@ -4194,6 +4229,378 @@ def briefing_matin():
     msg += "Bon trading! 📈"
     send_telegram(msg[:4000])
     learn_fact("Briefing matinal envoye", "briefing")
+    return msg
+
+
+
+
+# ============================================
+# 30. DOUBLE IA CROISEE (Perplexity + Gemini)
+# ============================================
+def analyse_double_ia(symbole="BTCUSDT"):
+    """Croise les analyses de Perplexity et Gemini pour une decision plus fiable."""
+    from indicateurs import historique_ohlcv, NOMS
+    nom = NOMS.get(symbole, symbole)
+    bougies = historique_ohlcv(symbole, "1h", 100)
+    if not bougies or len(bougies) < 50:
+        return f"Pas assez de donnees pour {symbole}"
+    clotures = [b["cloture"] for b in bougies]
+    prix = clotures[-1]
+    sma20 = sum(clotures[-20:]) / 20
+    sma50 = sum(clotures[-50:]) / 50
+    var_24h = (prix - clotures[-24]) / clotures[-24] * 100 if len(clotures) >= 24 else 0
+    
+    contexte = f"Crypto: {nom} ({symbole})\nPrix: {prix:.4f} EUR\nSMA20: {sma20:.4f}\nSMA50: {sma50:.4f}\nVariation 24h: {var_24h:+.1f}%"
+    
+    msg = f"🧠 DOUBLE IA CROISEE - {nom}\n" + "━" * 40 + "\n\n"
+    msg += f"📊 Donnees techniques:\n{contexte}\n\n"
+    
+    # IA 1: Perplexity
+    perplexity_reponse = None
+    if PPLX_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {PPLX_KEY}", "Content-Type": "application/json"}
+            prompt = f"Analyse {nom} crypto. Prix: {prix:.4f} EUR, var 24h: {var_24h:+.1f}%. Donnes: 1) tendance court terme (haussier/baissier/neutre) 2) score -10 a +10 3) 2 raisons principales 4) niveau de confiance (0-100%). Sois concis."
+            payload = {"model": "sonar", "messages": [{"role": "user", "content": prompt}], "max_tokens": 300}
+            r = requests.post("https://api.perplexity.ai/chat/completions", json=payload, headers=headers, timeout=30)
+            if r.status_code == 200:
+                perplexity_reponse = r.json()["choices"][0]["message"]["content"]
+                msg += f"🟣 IA PERPLEXITY:\n{perplexity_reponse}\n\n"
+        except Exception as e:
+            msg += f"🟣 IA PERPLEXITY: Erreur ({e})\n\n"
+    else:
+        msg += "🟣 IA PERPLEXITY: Cle API manquante\n\n"
+    
+    # IA 2: Gemini
+    gemini_reponse = None
+    if GEMINI_KEY:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash:generateContent?key={GEMINI_KEY}"
+            prompt = f"Analyse {nom} crypto. Prix: {prix:.4f} EUR, var 24h: {var_24h:+.1f}%, SMA20: {sma20:.4f}, SMA50: {sma50:.4f}. Donnes: 1) tendance court terme (haussier/baissier/neutre) 2) score -10 a +10 3) 2 raisons principales 4) niveau de confiance (0-100%). Sois concis."
+            payload = {"contents": [{"parts": [{"text": prompt}]}]}
+            r = requests.post(url, json=payload, timeout=30)
+            if r.status_code == 200:
+                gemini_reponse = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+                msg += f"🔵 IA GEMINI:\n{gemini_reponse}\n\n"
+            else:
+                msg += f"🔵 IA GEMINI: Erreur {r.status_code}\n\n"
+        except Exception as e:
+            msg += f"🔵 IA GEMINI: Erreur ({e})\n\n"
+    else:
+        msg += "🔵 IA GEMINI: Cle API manquante\n\n"
+    
+    # Synthese croisee
+    msg += "━" * 40 + "\n"
+    msg += "🔀 SYNTHESE CROISEE:\n"
+    
+    # Extraction des scores (recherche de patterns)
+    import re
+    score_ppl = 0
+    score_gem = 0
+    if perplexity_reponse:
+        match = re.search(r'score[:\s]*(-?\d+)', perplexity_reponse, re.IGNORECASE)
+        if match:
+            score_ppl = int(match.group(1))
+    if gemini_reponse:
+        match = re.search(r'score[:\s]*(-?\d+)', gemini_reponse, re.IGNORECASE)
+        if match:
+            score_gem = int(match.group(1))
+    
+    score_moyen = (score_ppl + score_gem) / 2 if (perplexity_reponse or gemini_reponse) else 0
+    
+    # Verifie concordance
+    if perplexity_reponse and gemini_reponse:
+        if score_ppl > 0 and score_gem > 0:
+            concordance = "🟢 CONCORDANCE: Les 2 IA sont haussieres"
+            score_final = max(score_ppl, score_gem)
+        elif score_ppl < 0 and score_gem < 0:
+            concordance = "🔴 CONCORDANCE: Les 2 IA sont baissieres"
+            score_final = min(score_ppl, score_gem)
+        elif abs(score_ppl - score_gem) > 5:
+            concordance = "⚠️ DIVERGENCE: Les IA ne sont pas d'accord"
+            score_final = score_moyen
+        else:
+            concordance = "🟡 NEUTRE: Signaux mixtes"
+            score_final = score_moyen
+    else:
+        concordance = "🟡 Analyse partielle (une IA indisponible)"
+        score_final = score_ppl if perplexity_reponse else score_gem
+    
+    msg += f"  Score Perplexity: {score_ppl:+d}/10\n"
+    msg += f"  Score Gemini: {score_gem:+d}/10\n"
+    msg += f"  Score moyen: {score_moyen:+.1f}/10\n"
+    msg += f"  {concordance}\n"
+    
+    if score_final >= 3:
+        msg += "\n🟢 DECISION: ACHAT FORTE (double validation IA)"
+    elif score_final >= 1:
+        msg += "\n🟡 DECISION: ACHAT MODERE"
+    elif score_final <= -3:
+        msg += "\n🔴 DECISION: VENTE FORTE (double validation IA)"
+    elif score_final <= -1:
+        msg += "\n🟠 DECISION: VENTE MODEREE"
+    else:
+        msg += "\n⚪ DECISION: ATTENDRE"
+    
+    learn_fact(f"Double IA {symbole}: PPLX {score_ppl:+d}, GEM {score_gem:+d}, final {score_final:+.1f}", "double_ia")
+    return msg
+
+
+# ============================================
+# 31. DETECTION DE REGIME DE MARCHE
+# ============================================
+def detecter_regime_marche(symbole="BTCUSDT"):
+    """Detecte le regime de marche: bull, bear, ou range."""
+    from indicateurs import historique_ohlcv, NOMS
+    bougies = historique_ohlcv(symbole, "1d", 100)
+    if not bougies or len(bougies) < 50:
+        return None
+    clotures = [b["cloture"] for b in bougies]
+    prix = clotures[-1]
+    # SMA 20 et 50
+    sma20 = sum(clotures[-20:]) / 20
+    sma50 = sum(clotures[-50:]) / 50
+    # ADX simplifie (force de tendance)
+    dm_plus = []
+    dm_moins = []
+    tr_list = []
+    for i in range(1, min(14, len(clotures))):
+        haut = bougies[-i-1]["haut"]
+        bas = bougies[-i-1]["bas"]
+        cloture_prec = bougies[-i-2]["cloture"] if i + 2 <= len(bougies) else clotures[-i-1]
+        haut_prec = bougies[-i-2]["haut"] if i + 2 <= len(bougies) else haut
+        bas_prec = bougies[-i-2]["bas"] if i + 2 <= len(bougies) else bas
+        up = haut - haut_prec
+        down = bas_prec - bas
+        dm_plus.append(up if up > down and up > 0 else 0)
+        dm_moins.append(down if down > up and down > 0 else 0)
+        tr = max(haut - bas, abs(haut - cloture_prec), abs(bas - cloture_prec))
+        tr_list.append(tr)
+    # ADX approximatif
+    if tr_list:
+        atr = sum(tr_list) / len(tr_list)
+        di_plus = sum(dm_plus) / len(dm_plus) / atr * 100 if atr > 0 else 0
+        di_moins = sum(dm_moins) / len(dm_moins) / atr * 100 if atr > 0 else 0
+        dx = abs(di_plus - di_moins) / (di_plus + di_moins) * 100 if (di_plus + di_moins) > 0 else 0
+    else:
+        di_plus = di_moins = dx = 0
+    # Volatilite
+    import statistics
+    rendements = [(clotures[i] - clotures[i-1]) / clotures[i-1] for i in range(1, len(clotures)) if clotures[i-1] > 0]
+    volatilite = statistics.stdev(rendements) * 100 if len(rendements) > 2 else 0
+    # Detection du regime
+    if dx > 25:
+        if prix > sma20 > sma50 and di_plus > di_moins:
+            regime = "BULL"
+            strategie = "Acheter les retracements, holder les positions"
+        elif prix < sma20 < sma50 and di_moins > di_plus:
+            regime = "BEAR"
+            strategie = "Vendre les rebonds, reduire l'exposition"
+        else:
+            regime = "MIXTE"
+            strategie = "Attendre une direction claire"
+    else:
+        regime = "RANGE"
+        strategie = "Trader les bandes (acheter bas, vendre haut)"
+    return {
+        "regime": regime,
+        "strategie": strategie,
+        "adx": dx,
+        "di_plus": di_plus,
+        "di_moins": di_moins,
+        "volatilite": volatilite,
+        "prix": prix,
+        "sma20": sma20,
+        "sma50": sma50,
+    }
+
+
+def analyser_regime_global():
+    """Analyse le regime global du marche sur plusieurs cryptos."""
+    from indicateurs import NOMS
+    symboles = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"]
+    msg = "🌐 REGIME GLOBAL DU MARCHE\n" + "━" * 40 + "\n\n"
+    regimes = {"BULL": 0, "BEAR": 0, "RANGE": 0, "MIXTE": 0}
+    details = []
+    for sym in symboles:
+        try:
+            r = detecter_regime_marche(sym)
+            if r:
+                regimes[r["regime"]] = regimes.get(r["regime"], 0) + 1
+                nom = NOMS.get(sym, sym)
+                emoji = "🟢" if r["regime"] == "BULL" else ("🔴" if r["regime"] == "BEAR" else "🟡" if r["regime"] == "RANGE" else "🟠")
+                details.append(f"{emoji} {nom:<12} {r['regime']:<6} ADX:{r['adx']:.0f} Vol:{r['volatilite']:.1f}%")
+        except:
+            continue
+    for d in details:
+        msg += d + "\n"
+    # Regime global
+    msg += "\n" + "━" * 40 + "\n"
+    regime_global = max(regimes, key=regimes.get)
+    msg += f"📊 REGIME GLOBAL: {regime_global}\n"
+    msg += f"  🟢 Bull: {regimes['BULL']} | 🔴 Bear: {regimes['BEAR']} | 🟡 Range: {regimes['RANGE']} | 🟠 Mixte: {regimes['MIXTE']}\n\n"
+    # Strategie adaptee
+    if regime_global == "BULL":
+        msg += "💡 STRATEGIE: Marche haussier - favoriser les achats, holder, utiliser momentum"
+    elif regime_global == "BEAR":
+        msg += "💡 STRATEGIE: Marche baissier - reduire les positions, stop-loss serres, eviter les achats"
+    elif regime_global == "RANGE":
+        msg += "💡 STRATEGIE: Marche range - trader les bandes, mean reversion, RSI extreme"
+    else:
+        msg += "💡 STRATEGIE: Signaux mixtes - prudence, petites positions, attendre clarification"
+    learn_fact(f"Regime marche: {regime_global} (Bull:{regimes['BULL']} Bear:{regimes['BEAR']} Range:{regimes['RANGE']})", "regime")
+    return msg
+
+
+# ============================================
+# 32. MEMOIRE D'ERREURS
+# ============================================
+_ERREURS_FILE = os.path.join(DOSSIER, "memoire_erreurs.json")
+
+
+def enregistrer_erreur(type_err, contexte, detail, solution=""):
+    """Enregistre une erreur pour ne pas la repeter."""
+    erreurs = load_json_safe(_ERREURS_FILE, {"erreurs": []})
+    erreurs["erreurs"].append({
+        "type": type_err,
+        "contexte": contexte,
+        "detail": detail[:200],
+        "solution": solution[:200],
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "compteur": 1,
+    })
+    # Garder max 200 erreurs
+    if len(erreurs["erreurs"]) > 200:
+        erreurs["erreurs"] = erreurs["erreurs"][-200:]
+    save_json_safe(_ERREURS_FILE, erreurs)
+
+
+def verifier_erreurs_passees(contexte, type_err=None):
+    """Verifie si une situation similaire a deja cause une erreur."""
+    erreurs = load_json_safe(_ERREURS_FILE, {"erreurs": []})
+    correspondances = []
+    for e in erreurs.get("erreurs", []):
+        if type_err and e.get("type") != type_err:
+            continue
+        # Correspondance simple par mots-cles
+        mots_contexte = set(contexte.lower().split())
+        mots_erreur = set(e.get("contexte", "").lower().split())
+        commun = mots_contexte & mots_erreur
+        if len(commun) >= 2:
+            correspondances.append(e)
+    return correspondances
+
+
+def consulter_memoire_erreurs():
+    """Affiche les erreurs passees et les lecons apprises."""
+    erreurs = load_json_safe(_ERREURS_FILE, {"erreurs": []})
+    liste = erreurs.get("erreurs", [])
+    if not liste:
+        return "✅ Aucune erreur enregistree. L'agent apprend encore."
+    msg = "🧠 MEMOIRE D'ERREURS\n" + "━" * 35 + "\n\n"
+    # Grouper par type
+    par_type = {}
+    for e in liste:
+        t = e.get("type", "inconnu")
+        if t not in par_type:
+            par_type[t] = []
+        par_type[t].append(e)
+    for type_err, items in par_type.items():
+        msg += f"📋 {type_err.upper()} ({len(items)} erreurs):\n"
+        for e in items[-3:]:  # 3 derniers par type
+            msg += f"  • {e.get('contexte', '?')[:60]}\n"
+            if e.get("solution"):
+                msg += f"    → Solution: {e['solution'][:60]}\n"
+        msg += "\n"
+    msg += f"Total: {len(liste)} erreurs enregistrees\n"
+    msg += "L'agent evite de reproduire ces situations."
+    return msg
+
+
+# ============================================
+# 33. AUTO-EVOLUTION DE CODE
+# ============================================
+def auto_evolution_code():
+    """L'agent analyse ses propres faiblesses et genere du code pour s'ameliorer."""
+    msg = "🧬 AUTO-EVOLUTION EN COURS\n" + "━" * 40 + "\n\n"
+    # 1. Analyser les faiblesses
+    faiblesses = []
+    # Verifier les erreurs recentes
+    erreurs = load_json_safe(_ERREURS_FILE, {"erreurs": []})
+    liste_err = erreurs.get("erreurs", [])
+    if len(liste_err) > 5:
+        faiblesses.append(f"{len(liste_err)} erreurs repetees - besoin de corrections")
+    # Verifier les trades perdants
+    pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+    trades_fermes = pt.get("trades_fermes", [])
+    perdants = [t for t in trades_fermes if t.get("pnl", 0) < 0]
+    if len(perdants) > 3:
+        faiblesses.append(f"{len(perdants)} trades perdants - strategie a ameliorer")
+    # Verifier la memoire
+    memoire = load_json_safe(MEMORY_FILE, {})
+    if len(memoire.get("facts", [])) < 10:
+        faiblesses.append("Memoire limitee - besoin d'apprendre plus")
+    # Verifier les fichiers
+    try:
+        taille_code = os.path.getsize(os.path.join(DOSSIER, "agent_os.py"))
+        if taille_code < 50000:
+            faiblesses.append("Code encore limite - peut etre etendu")
+    except:
+        pass
+    if not faiblesses:
+        faiblesses.append("Systeme stable - chercher de nouvelles opportunites d'amelioration")
+    msg += "🔍 FAIBLESSES DETECTEES:\n"
+    for f in faiblesses:
+        msg += f"  • {f}\n"
+    # 2. Generer des solutions via IA
+    msg += "\n💡 SOLUTIONS PROPOSEES:\n"
+    solutions = []
+    if PPLX_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {PPLX_KEY}", "Content-Type": "application/json"}
+            prompt = f"Tu es un agent de trading crypto autonome. Tu as ces faiblesses: {'; '.join(faiblesses)}. Propose 3 ameliorations concretes que tu pourrais coder en Python. Pour chaque amelioration, donne: 1) titre court 2) description 1 ligne 3) code Python (fonction complete). Reponds en francais, sois concret."
+            payload = {"model": "sonar", "messages": [{"role": "user", "content": prompt}], "max_tokens": 800}
+            r = requests.post("https://api.perplexity.ai/chat/completions", json=payload, headers=headers, timeout=45)
+            if r.status_code == 200:
+                ia_reponse = r.json()["choices"][0]["message"]["content"]
+                msg += ia_reponse + "\n"
+                solutions.append(ia_reponse)
+            else:
+                msg += "  IA indisponible - solutions locales generees\n"
+        except:
+            msg += "  IA indisponible - solutions locales generees\n"
+    # 3. Solutions locales par defaut
+    if not solutions:
+        solutions_locales = [
+            ("Optimisation stop-loss dynamique", "Ajuster le stop-loss selon la volatilite (ATR) au lieu de -5% fixe"),
+            ("Cache prix CoinGecko", "Mettre en cache les prix pendant 60s pour eviter le rate limit"),
+            ("Scan opportunites intelligent", "Scanner uniquement les cryptos avec volume anormal + RSI extreme"),
+            ("Backtest strategies combinees", "Tester des combinaisons de strategies (momentum + RSI + Bollinger)"),
+            ("Notification smart", "Grouper les notifications pour eviter le spam Telegram"),
+        ]
+        for titre, desc in solutions_locales:
+            msg += f"  📦 {titre}: {desc}\n"
+    # 4. Sauvegarder les propositions
+    evolution_file = os.path.join(DOSSIER, "evolution_log.json")
+    evolution = load_json_safe(evolution_file, {"iterations": []})
+    evolution["iterations"].append({
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "faiblesses": faiblesses,
+        "solutions": solutions[:1] if solutions else solutions_locales,
+    })
+    save_json_safe(evolution_file, evolution)
+    # 5. Auto-application des corrections simples
+    corrections_appliquees = 0
+    # Si erreurs repetees, enregistrer en memoire
+    if len(liste_err) > 5:
+        learn_fact("Pattern d'erreurs detecte - ajustement des strategies", "auto_evolution")
+        corrections_appliquees += 1
+    if len(perdants) > 3:
+        learn_fact(f"{len(perdants)} trades perdants - reduction de la taille des positions", "auto_evolution")
+        corrections_appliquees += 1
+    msg += f"\n✅ {corrections_appliquees} correction(s) auto-appliquee(s)\n"
+    msg += f"📝 {len(faiblesses)} faiblesse(s) documentee(s) pour evolution future"
+    learn_fact(f"Auto-evolution: {len(faiblesses)} faiblesses, {corrections_appliquees} corrections", "evolution")
     return msg
 
 
