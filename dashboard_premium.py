@@ -4,7 +4,8 @@ import json
 import os
 import html
 import time
-import requests
+import urllib.request
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -64,18 +65,20 @@ def get_prix_batch(symboles):
         id_to_sym[cg_id] = sym
     try:
         url = f"https://api.coingecko.com/api/v3/simple/price?ids={','.join(ids)}&vs_currencies=eur&include_24hr_change=true"
-        r = requests.get(url, timeout=10)
-        if r.status_code == 200:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
             result = {}
-            for cg_id, data in r.json().items():
+            for cg_id, d in data.items():
                 sym = id_to_sym.get(cg_id, cg_id)
                 result[sym] = {
-                    "prix": data.get("eur", 0),
-                    "var_24h": data.get("eur_24h_change", 0)
+                    "prix": d.get("eur", 0),
+                    "var_24h": d.get("eur_24h_change", 0)
                 }
             return result
-    except:
-        pass
+    except Exception as e:
+        with open("dashboard_premium.log", "a") as f:
+            f.write(f"CoinGecko error: {e}\n")
     return {}
 
 def read_system():
