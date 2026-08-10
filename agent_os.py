@@ -1860,6 +1860,33 @@ def handle_message(text, user_name="User"):
         send_telegram(result[:4000])
         return result
     
+    # === MEMOIRE SEMANTIQUE ===
+    if text_lower.startswith("memoire"):
+        parts = text_stripped.split(None, 2)
+        action = parts[1] if len(parts) > 1 else "stats"
+        requete = parts[2] if len(parts) > 2 else ""
+        result = memoire_semantique_commande(action, requete)
+        send_telegram(result[:4000])
+        return result
+    
+    # === MULTI-MODELES ===
+    if text_lower.startswith("multi") or text_lower.startswith("consensus"):
+        parts = text_stripped.split(None, 2)
+        symbole = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
+        question = parts[2] if len(parts) > 2 else ""
+        send_telegram(f"🌐 Multi-modeles sur {symbole}...")
+        result = multi_modeles_analyse(symbole, question)
+        send_telegram(result[:4000])
+        return result
+    
+    # === RECHERCHE ACADEMIQUE ===
+    if text_lower.startswith("paper") or text_lower.startswith("academique") or text_lower.startswith("recherche paper"):
+        sujet = text_stripped.split(None, 1)[1] if len(text_stripped.split(None, 1)) > 1 else "cryptocurrency trading"
+        send_telegram(f"📚 Recherche academique: {sujet}...")
+        result = recherche_academique(sujet, 5)
+        send_telegram(result[:4000])
+        return result
+    
     # === AIDE ===
     if text_lower in ["aide", "help", "commandes", "commands"]:
         help_msg = """🤖 AGENT OS - COMMANDES
@@ -1951,6 +1978,14 @@ def handle_message(text, user_name="User"):
   connecteur email send <dest> <sujet> <msg> - Envoyer email
   connecteur slack config <webhook_url> - Configurer Slack
   connecteur slack send <message> - Envoyer message Slack
+
+🧠 INTELLIGENCE AVANCEE:
+  memoire cherche <mots> - Recherche semantique dans ta memoire
+  memoire ajoute <texte> - Enregistre un souvenir
+  memoire stats - Statistiques de ta memoire
+  multi BTC - Consulte Perplexity + Gemini + GPT + Claude en parallele
+  paper cryptocurrency trading - Recherche de papers academiques
+  academique machine learning finance - Alias pour recherche papers
 
 ━━━━━━━━━━━━━━━━━━━━
 L'agent apprend de chaque interaction."""
@@ -5645,6 +5680,321 @@ def connecteur_externe(service="liste", action="status", params=""):
             return f"❌ Erreur Slack: {e}"
     
     return f"Commande inconnue. Utilise 'connecteur liste' pour voir les options"
+
+
+
+
+# ============================================
+# 42. MEMOIRE SEMANTIQUE (recherche par sens)
+# ============================================
+MEMOIRE_SEM_FILE = os.path.join(DOSSIER, "memoire_semantique.json")
+
+def memoire_ajouter(categorie, contenu, tags=None):
+    """Ajoute un element a la memoire semantique avec tags et timestamp."""
+    memoire = load_json_safe(MEMOIRE_SEM_FILE, {"entrees": []})
+    entree = {
+        "id": len(memoire.get("entrees", [])) + 1,
+        "categorie": categorie,  # trade, analyse, decision, erreur, apprentissage
+        "contenu": contenu[:500],
+        "tags": tags or [],
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "poids": 1,  # augmente avec le temps si pertinent
+    }
+    memoire.setdefault("entrees", []).append(entree)
+    # Garder max 500 entrees
+    if len(memoire["entrees"]) > 500:
+        memoire["entrees"] = memoire["entrees"][-500:]
+    save_json_safe(MEMOIRE_SEM_FILE, memoire)
+    return entree["id"]
+
+def memoire_rechercher(requete, limite=10):
+    """Recherche semantique dans la memoire - score par correspondance de mots et categories."""
+    memoire = load_json_safe(MEMOIRE_SEM_FILE, {"entrees": []})
+    entrees = memoire.get("entrees", [])
+    if not entrees:
+        return []
+    
+    # Decompose la requete en mots significatifs
+    mots_requete = set(m.lower().strip(".,!?;:") for m in requete.split() if len(m) > 2)
+    # Stop words basiques
+    stop_words = {"les", "des", "une", "que", "pour", "dans", "sur", "avec", "mais", "sont", "est", "the", "and", "for", "with"}
+    mots_requete -= stop_words
+    
+    resultats = []
+    for e in entrees:
+        score = 0
+        contenu_words = set(e.get("contenu", "").lower().split())
+        tags = set(t.lower() for t in e.get("tags", []))
+        categorie = e.get("categorie", "").lower()
+        
+        # Score par mots correspondants dans le contenu
+        mots_communs = mots_requete & contenu_words
+        score += len(mots_communs) * 2
+        
+        # Score par tags correspondants
+        tags_communs = mots_requete & tags
+        score += len(tags_communs) * 3
+        
+        # Score par categorie correspondante
+        for mot in mots_requete:
+            if mot in categorie:
+                score += 5
+        
+        # Bonus de recence (plus recent = plus pertinent)
+        try:
+            from datetime import datetime as dt
+            date_e = dt.strptime(e.get("date", "2026-01-01"), "%Y-%m-%d %H:%M")
+            age_jours = (datetime.now() - date_e).days
+            score += max(0, 10 - age_jours)  # bonus si recent (< 10j)
+        except:
+            pass
+        
+        # Bonus de poids (si l'entree a ete utile avant)
+        score += e.get("poids", 1)
+        
+        if score > 0:
+            resultats.append((score, e))
+    
+    # Trier par score decroissant
+    resultats.sort(key=lambda x: x[0], reverse=True)
+    return [e for _, e in resultats[:limime]] if 'limite' in dir() else [e for _, e in resultats[:limite]]
+
+def memoire_semantique_commande(action="recherche", requete=""):
+    """Commande Telegram pour la memoire semantique."""
+    if action in ["recherche", "cherche", "search", "rappel", "rapelle"]:
+        if not requete:
+            return "Usage: memoire cherche <mots-cles> - Recherche dans ta memoire"
+        resultats = memoire_rechercher(requete, 5)
+        if not resultats:
+            return f"🔍 Aucun souvenir trouve pour '{requete}'"
+        msg = f"🧠 MEMOIRE SEMANTIQUE - '{requete}'\n" + "━" * 35 + "\n\n"
+        for i, e in enumerate(resultats):
+            msg += f"📌 [{e.get('categorie', '?').upper()}] {e.get('date', '?')}\n"
+            msg += f"   {e.get('contenu', '?')[:150]}\n"
+            if e.get("tags"):
+                msg += f"   Tags: {', '.join(e['tags'][:5])}\n"
+            msg += "\n"
+        return msg
+    
+    elif action in ["ajoute", "ajouter", "note", "retiens"]:
+        tags = [m.strip(".,!?;:") for m in requete.split() if len(m) > 3][:5]
+        mid = memoire_ajouter("note", requete, tags)
+        return f"✅ Memoire #{mid} enregistree: '{requete[:60]}...'"
+    
+    elif action in ["stats", "statistiques"]:
+        memoire = load_json_safe(MEMOIRE_SEM_FILE, {"entrees": []})
+        entrees = memoire.get("entrees", [])
+        if not entrees:
+            return "Memoire vide"
+        cats = {}
+        for e in entrees:
+            c = e.get("categorie", "?")
+            cats[c] = cats.get(c, 0) + 1
+        msg = "🧠 STATS MEMOIRE SEMANTIQUE\n" + "━" * 35 + "\n\n"
+        msg += f"Total entrees: {len(entrees)}\n\n"
+        for c, n in sorted(cats.items(), key=lambda x: x[1], reverse=True):
+            msg += f"  📂 {c}: {n}\n"
+        return msg
+    
+    elif action in ["vide", "clear", "reset"]:
+        save_json_safe(MEMOIRE_SEM_FILE, {"entrees": []})
+        return "✅ Memoire semantique videe"
+    
+    return "Actions: cherche, ajoute, stats, vide"
+
+
+# ============================================
+# 43. MULTI-MODELES (Claude + GPT + Gemini + Perplexity)
+# ============================================
+def multi_modeles_analyse(symbole="BTCUSDT", question=""):
+    """Consulte plusieurs modeles IA en parallele et synthetise."""
+    from indicateurs import historique_ohlcv, NOMS
+    nom = NOMS.get(symbole, symbole)
+    bougies = historique_ohlcv(symbole, "1h", 100)
+    if not bougies or len(bougies) < 50:
+        return f"Pas assez de donnees pour {symbole}"
+    clotures = [b["cloture"] for b in bougies]
+    prix = clotures[-1]
+    sma20 = sum(clotures[-20:]) / 20
+    sma50 = sum(clotures[-50:]) / 50
+    var_24h = (prix - clotures[-24]) / clotures[-24] * 100 if len(clotures) >= 24 else 0
+    
+    contexte = f"{nom} ({symbole}) | Prix: {prix:.4f} EUR | SMA20: {sma20:.4f} | SMA50: {sma50:.4f} | Var 24h: {var_24h:+.1f}%"
+    question = question or f"Analyse {nom} et donne une recommandation (acheter/vendre/attendre) avec un score -10 a +10"
+    
+    msg = f"🌐 MULTI-MODELES - {nom}\n" + "━" * 40 + "\n\n"
+    msg += f"📊 Contexte: {contexte}\n\n"
+    
+    reponses = {}
+    
+    # Modele 1: Perplexity (sonar)
+    if PPLX_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {PPLX_KEY}", "Content-Type": "application/json"}
+            payload = {"model": "sonar", "messages": [{"role": "user", "content": f"{question}\nContexte: {contexte}\nReponds en francais en 3 lignes max."}], "max_tokens": 200}
+            r = requests.post("https://api.perplexity.ai/chat/completions", json=payload, headers=headers, timeout=30)
+            if r.status_code == 200:
+                reponses["Perplexity"] = r.json()["choices"][0]["message"]["content"]
+                msg += f"🟣 PERPLEXITY (sonar):\n{reponses['Perplexity']}\n\n"
+        except Exception as e:
+            msg += f"🟣 PERPLEXITY: Erreur ({e})\n\n"
+    
+    # Modele 2: Gemini
+    if GEMINI_KEY:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={GEMINI_KEY}"
+            payload = {"contents": [{"parts": [{"text": f"{question}\nContexte: {contexte}\nReponds en francais en 3 lignes max."}]}]}
+            r = requests.post(url, json=payload, timeout=30)
+            if r.status_code == 200:
+                reponses["Gemini"] = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+                msg += f"🔵 GEMINI (flash):\n{reponses['Gemini']}\n\n"
+        except Exception as e:
+            msg += f"🔵 GEMINI: Erreur ({e})\n\n"
+    
+    # Modele 3: OpenAI GPT (si cle disponible)
+    OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "") or (load_env().get("OPENAI_API_KEY", "") if 'load_env' in dir() else "")
+    if OPENAI_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {OPENAI_KEY}", "Content-Type": "application/json"}
+            payload = {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": f"{question}\nContexte: {contexte}\nReponds en francais en 3 lignes max."}], "max_tokens": 200}
+            r = requests.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers, timeout=30)
+            if r.status_code == 200:
+                reponses["GPT"] = r.json()["choices"][0]["message"]["content"]
+                msg += f"🟢 GPT (4o-mini):\n{reponses['GPT']}\n\n"
+        except Exception as e:
+            msg += f"🟢 GPT: Erreur ({e})\n\n"
+    else:
+        msg += "🟢 GPT: Cle API non configuree (OPENAI_API_KEY)\n\n"
+    
+    # Modele 4: Claude (si cle disponible)
+    CLAUDE_KEY = os.environ.get("ANTHROPIC_API_KEY", "") or (load_env().get("ANTHROPIC_API_KEY", "") if 'load_env' in dir() else "")
+    if CLAUDE_KEY:
+        try:
+            headers = {"x-api-key": CLAUDE_KEY, "Content-Type": "application/json", "anthropic-version": "2023-06-01"}
+            payload = {"model": "claude-3-5-sonnet-20241022", "max_tokens": 200, "messages": [{"role": "user", "content": f"{question}\nContexte: {contexte}\nReponds en francais en 3 lignes max."}]}
+            r = requests.post("https://api.anthropic.com/v1/messages", json=payload, headers=headers, timeout=30)
+            if r.status_code == 200:
+                reponses["Claude"] = r.json()["content"][0]["text"]
+                msg += f"🟠 CLAUDE (sonnet):\n{reponses['Claude']}\n\n"
+        except Exception as e:
+            msg += f"🟠 CLAUDE: Erreur ({e})\n\n"
+    else:
+        msg += "🟠 CLAUDE: Cle API non configuree (ANTHROPIC_API_KEY)\n\n"
+    
+    # Synthese
+    msg += "━" * 40 + "\n"
+    msg += f"🔀 SYNTHESE ({len(reponses)} modeles):\n"
+    
+    import re
+    scores = {}
+    for nom_ia, rep in reponses.items():
+        match = re.search(r'score[:\s]*(-?\d+)', rep, re.IGNORECASE)
+        if match:
+            scores[nom_ia] = int(match.group(1))
+    
+    if scores:
+        score_moyen = sum(scores.values()) / len(scores)
+        msg += f"  Score moyen: {score_moyen:+.1f}/10\n"
+        for ia, s in scores.items():
+            msg += f"  {ia}: {s:+d}/10\n"
+        
+        if all(s > 0 for s in scores.values()):
+            msg += "\n🟢 CONSENSUS: Tous les modeles sont haussiers"
+        elif all(s < 0 for s in scores.values()):
+            msg += "\n🔴 CONSENSUS: Tous les modeles sont baissiers"
+        else:
+            msg += "\n🟡 DIVERGENCE: Les modeles ne sont pas d'accord"
+    else:
+        msg += "  Scores non extractibles - voir reponses ci-dessus"
+    
+    # Enregistrer en memoire semantique
+    memoire_ajouter("analyse", f"Multi-modeles {symbole}: {len(reponses)} IA consultees, score moyen {score_moyen if scores else 'N/A'}", [symbole.replace("USDT",""), "multi_ia"])
+    
+    return msg
+
+
+# ============================================
+# 44. RECHERCHE ACADEMIQUE (papers de recherche)
+# ============================================
+def recherche_academique(sujet, limite=5):
+    """Recherche des papers academiques via API gratuite (Crossref/OpenAlex)."""
+    msg = f"📚 RECHERCHE ACADEMIQUE - '{sujet}'\n" + "━" * 40 + "\n\n"
+    
+    # API Crossref (gratuite, pas de cle)
+    try:
+        url = f"https://api.crossref.org/works?query={sujet}&rows={limite}&sort=relevance&order=desc"
+        req = urllib.request.Request(url, headers={"User-Agent": "Agent-IA/1.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode())
+        
+        items = data.get("message", {}).get("items", [])
+        if not items:
+            msg += "Aucun paper trouve.\n"
+            return msg
+        
+        for i, item in enumerate(items[:limite]):
+            titre = item.get("title", ["Sans titre"])[0] if item.get("title") else "Sans titre"
+            auteurs = ", ".join([a.get("family", "") + " " + a.get("given", "") for a in item.get("author", [])[:3]])
+            if len(item.get("author", [])) > 3:
+                auteurs += " et al."
+            date_pub = item.get("published-print", item.get("published-online", item.get("created", {})))
+            annee = date_pub.get("date-parts", [["?"]])[0][0] if date_pub else "?"
+            journal = item.get("container-title", ["?"])[0] if item.get("container-title") else "?"
+            doi = item.get("DOI", "")
+            citations = item.get("is-referenced-by-count", 0)
+            resume = item.get("abstract", "")
+            if resume:
+                resume = resume.replace("<jats:p>", "").replace("</jats:p>", "").replace("<jats:italic>", "").replace("</jats:italic>", "")[:200]
+            
+            msg += f"📄 Paper #{i+1}:\n"
+            msg += f"  Titre: {titre}\n"
+            msg += f"  Auteurs: {auteurs}\n"
+            msg += f"  Journal: {journal} ({annee})\n"
+            msg += f"  Citations: {citations}\n"
+            if resume:
+                msg += f"  Resume: {resume}...\n"
+            if doi:
+                msg += f"  DOI: https://doi.org/{doi}\n"
+            msg += "\n"
+        
+        msg += "━" * 40 + "\n"
+        msg += f"Total: {len(items[:limite])} papers trouves via Crossref"
+        
+        # Enregistrer en memoire
+        memoire_ajouter("recherche", f"Recherche academique '{sujet}': {len(items)} papers", [sujet, "academique"])
+        
+    except Exception as e:
+        msg += f"Erreur Crossref: {e}\n"
+        
+        # Fallback: OpenAlex API (aussi gratuite)
+        try:
+            url = f"https://api.openalex.org/works?search={sujet}&per-page={limite}"
+            req = urllib.request.Request(url, headers={"User-Agent": "Agent-IA/1.0"})
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode())
+            
+            results = data.get("results", [])
+            for i, w in enumerate(results[:limite]):
+                titre = w.get("title", "Sans titre")
+                annee = w.get("publication_year", "?")
+                citations = w.get("cited_by_count", 0)
+                doi = w.get("doi", "")
+                concepts = [c.get("display_name", "") for c in w.get("concepts", [])[:3]]
+                
+                msg += f"📄 Paper #{i+1}:\n"
+                msg += f"  Titre: {titre}\n"
+                msg += f"  Annee: {annee} | Citations: {citations}\n"
+                if concepts:
+                    msg += f"  Concepts: {', '.join(concepts)}\n"
+                if doi:
+                    msg += f"  DOI: {doi}\n"
+                msg += "\n"
+            
+            msg += f"Total: {len(results[:limite])} papers via OpenAlex"
+        except Exception as e2:
+            msg += f"Erreur OpenAlex: {e2}\n"
+    
+    return msg
 
 
 if __name__ == "__main__":
