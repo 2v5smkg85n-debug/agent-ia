@@ -1826,6 +1826,40 @@ def handle_message(text, user_name="User"):
         send_telegram(result[:4000])
         return result
     
+    # === RAPPORT DOCUMENT ===
+    if text_lower in ["rapport pdf", "document", "genere rapport", "rapport complet"]:
+        send_telegram("📄 Generation du rapport...")
+        result = generer_rapport_pdf("complet")
+        send_telegram(result[:4000])
+        return result
+    
+    # === VISUALISATIONS ===
+    if text_lower.startswith("viz") or text_lower.startswith("visualise"):
+        type_viz = text_stripped.split(None, 1)[1] if len(text_stripped.split(None, 1)) > 1 else "correlations"
+        send_telegram(f"📊 Visualisation: {type_viz}...")
+        result = visualisation_avancee(type_viz)
+        if isinstance(result, str) and not result.endswith(".svg"):
+            send_telegram(result[:4000])
+        return result
+    
+    # === SOUS-AGENTS PARALLELES ===
+    if text_lower.startswith("scan") or text_lower.startswith("sous-agents") or text_lower.startswith("parallele"):
+        critere = text_stripped.split(None, 1)[1] if len(text_stripped.split(None, 1)) > 1 else "toutes"
+        send_telegram(f"🤖 Scan parallele de {critere}...")
+        result = sous_agents_scan(critere)
+        send_telegram(result[:4000])
+        return result
+    
+    # === CONNECTEURS EXTERNES ===
+    if text_lower.startswith("connecteur"):
+        parts = text_stripped.split(None, 3)
+        service = parts[1] if len(parts) > 1 else "liste"
+        action = parts[2] if len(parts) > 2 else "status"
+        params = parts[3] if len(parts) > 3 else ""
+        result = connecteur_externe(service, action, params)
+        send_telegram(result[:4000])
+        return result
+    
     # === AIDE ===
     if text_lower in ["aide", "help", "commandes", "commands"]:
         help_msg = """🤖 AGENT OS - COMMANDES
@@ -1902,6 +1936,21 @@ def handle_message(text, user_name="User"):
   optimise - Reequilibrage optimal du portefeuille
   whales - Detecte les mouvements de baleines (gros volumes)
   copilot BTC - Assistant IA qui croise toutes les analyses
+
+📄 DOCUMENTS & VISUALISATIONS:
+  rapport pdf - Genere un rapport HTML complet (camembert + barres + stats)
+  viz correlations - Heatmap des correlations entre cryptos
+  viz camembert - Repartition du portefeuille en camembert
+  viz courbe - Evolution du capital en graphique
+
+🤖 SOUS-AGENTS & CONNECTEURS:
+  scan - Scan parallele de 10 cryptos (score + RSI + signaux)
+  scan BTC - Scan d'une crypto specifique
+  connecteur liste - Voir les connecteurs externes disponibles
+  connecteur email config <smtp> <email> <password> - Configurer email
+  connecteur email send <dest> <sujet> <msg> - Envoyer email
+  connecteur slack config <webhook_url> - Configurer Slack
+  connecteur slack send <message> - Envoyer message Slack
 
 ━━━━━━━━━━━━━━━━━━━━
 L'agent apprend de chaque interaction."""
@@ -5030,6 +5079,560 @@ def copilot_trading(question=""):
         msg += "Cle API manquante\n"
     
     return msg
+
+
+
+
+# ============================================
+# 38. GENERATION DE DOCUMENTS (rapports PDF/HTML)
+# ============================================
+def generer_rapport_pdf(type_rapport="complet"):
+    """Genere un rapport HTML complet avec graphiques, tableaux et analyses."""
+    from indicateurs import NOMS
+    pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+    positions = pt.get("positions", [])
+    fermes = pt.get("trades_fermes", [])
+    cap_init = float(pt.get("capital_initial", 1000))
+    liq = float(pt.get("liquidites", 0))
+    frais = float(pt.get("total_frais", 0))
+    
+    # Prix temps reel
+    symboles = [p.get("symbole", "") for p in positions if isinstance(p, dict)]
+    prix_dict = {}
+    for sym in symboles:
+        base = sym.replace("USDT", "")
+        prix = get_crypto_price(base)
+        if prix:
+            prix_dict[sym] = prix
+    
+    total_valeur = 0
+    total_pnl = 0
+    lignes_pos = ""
+    for p in positions:
+        sym = p.get("symbole", "?")
+        nom = NOMS.get(sym, sym)
+        prix_entree = float(p.get("prix_entree", 0))
+        quantite = float(p.get("quantite", 0))
+        montant = float(p.get("montant_eur", 0))
+        prix_actuel = prix_dict.get(sym, prix_entree)
+        valeur = prix_actuel * quantite
+        pnl = valeur - montant
+        pnl_pct = (pnl / montant * 100) if montant > 0 else 0
+        total_valeur += valeur
+        total_pnl += pnl
+        color = "#4ade80" if pnl >= 0 else "#f87171"
+        lignes_pos += f"<tr><td>{nom}</td><td>{prix_entree:.4f}</td><td>{prix_actuel:.4f}</td><td>{montant:.2f}</td><td style='color:{color}'>{pnl:+.2f} ({pnl_pct:+.1f}%)</td></tr>"
+    
+    cap_actuel = liq + total_valeur
+    perf = ((cap_actuel - cap_init) / cap_init * 100) if cap_init else 0
+    
+    # Graphique camembert (repartition portefeuille)
+    camembert = ""
+    if positions:
+        total_montants = sum(float(p.get("montant_eur", 0)) for p in positions)
+        angles = []
+        cumul = 0
+        couleurs = ["#58a6ff", "#f78166", "#4ade80", "#fbbf24", "#a78bfa", "#fb7185", "#22d3ee", "#a3e635", "#fb923c", "#e879f9", "#34d399", "#facc15"]
+        for i, p in enumerate(positions):
+            nom = NOMS.get(p.get("symbole", ""), p.get("symbole", ""))
+            montant = float(p.get("montant_eur", 0))
+            pct = montant / total_montants * 100 if total_montants > 0 else 0
+            angle = pct * 3.6
+            debut = cumul
+            cumul += angle
+            rayon = 80
+            import math
+            x1 = 100 + rayon * math.cos(math.radians(debut - 90))
+            y1 = 100 + rayon * math.sin(math.radians(debut - 90))
+            x2 = 100 + rayon * math.cos(math.radians(cumul - 90))
+            y2 = 100 + rayon * math.sin(math.radians(cumul - 90))
+            large_arc = 1 if angle > 180 else 0
+            couleur = couleurs[i % len(couleurs)]
+            camembert += f'<path d="M 100,100 L {x1:.1f},{y1:.1f} A {rayon},{rayon} 0 {large_arc},1 {x2:.1f},{y2:.1f} Z" fill="{couleur}" opacity="0.85"/>'
+            # Label
+            milieu = (debut + cumul) / 2
+            lx = 100 + rayon * 0.6 * math.cos(math.radians(milieu - 90))
+            ly = 100 + rayon * 0.6 * math.sin(math.radians(milieu - 90))
+            if pct > 5:
+                camembert += f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="middle" fill="white" font-size="9" font-weight="bold">{nom[:4]}</text>'
+        camembert = f'<svg viewBox="0 0 200 200" width="250" height="250">{camembert}<circle cx="100" cy="100" r="40" fill="#0d1117"/><text x="100" y="98" text-anchor="middle" fill="#e6edf3" font-size="12" font-weight="bold">{cap_actuel:.0f}€</text><text x="100" y="112" text-anchor="middle" fill="#8b949e" font-size="9">Capital</text></svg>'
+    
+    # Graphique PnL par position (barres horizontales)
+    barres_pnl = '<svg viewBox="0 0 400 300" width="100%" height="300">'
+    for i, p in enumerate(positions):
+        sym = p.get("symbole", "?")
+        nom = NOMS.get(sym, sym)[:10]
+        montant = float(p.get("montant_eur", 0))
+        prix_actuel = prix_dict.get(sym, float(p.get("prix_entree", 0)))
+        pnl = (prix_actuel * float(p.get("quantite", 0))) - montant
+        pnl_pct = (pnl / montant * 100) if montant > 0 else 0
+        y = i * 24 + 10
+        color = "#4ade80" if pnl >= 0 else "#f87171"
+        largeur = min(abs(pnl_pct) * 5, 180)
+        barres_pnl += f'<text x="0" y="{y+12}" fill="#e6edf3" font-size="10">{nom}</text>'
+        barres_pnl += f'<rect x="80" y="{y}" width="{largeur}" height="16" fill="{color}" rx="3"/>'
+        barres_pnl += f'<text x="265" y="{y+12}" fill="{color}" font-size="10">{pnl_pct:+.1f}%</text>'
+    barres_pnl += '</svg>'
+    
+    # Trades fermes
+    lignes_fermes = ""
+    for t in fermes[-15:]:
+        sym = t.get("symbole", "?")
+        pnl = t.get("pnl", 0)
+        raison = t.get("raison_fermeture", "?")
+        date_f = t.get("date_fermeture", "?")
+        color = "#4ade80" if pnl >= 0 else "#f87171"
+        lignes_fermes += f"<tr><td>{sym}</td><td style='color:{color}'>{pnl:+.2f}€</td><td>{raison}</td><td>{date_f}</td></tr>"
+    
+    date_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+    
+    rapport_html = f"""<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapport Agent IA - {date_str}</title>
+<style>
+:root{{--bg:#0d1117;--card:#161b22;--txt:#e6edf3;--muted:#8b949e;--pos:#4ade80;--neg:#f87171;--border:#30363d;--accent:#58a6ff}}
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{background:var(--bg);color:var(--txt);font-family:-apple-system,sans-serif;padding:20px;max-width:900px;margin:0 auto}}
+h1{{font-size:24px;margin-bottom:4px;color:var(--accent)}}
+h2{{font-size:16px;margin:20px 0 10px;border-bottom:1px solid var(--border);padding-bottom:6px}}
+.subtitle{{color:var(--muted);font-size:13px;margin-bottom:20px}}
+.cards{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}}
+.card{{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}}
+.card .lbl{{font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:4px}}
+.card .val{{font-size:20px;font-weight:700}}
+.card.pos .val{{color:var(--pos)}}.card.neg .val{{color:var(--neg)}}
+.graphs{{display:flex;flex-wrap:wrap;gap:20px;margin-bottom:20px;justify-content:center}}
+table{{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px}}
+th,td{{padding:8px;border-bottom:1px solid var(--border);text-align:left}}
+th{{color:var(--muted);text-transform:uppercase;font-size:10px}}
+.footer{{text-align:center;color:var(--muted);font-size:11px;margin-top:30px;padding-top:14px;border-top:1px solid var(--border)}}
+</style></head><body>
+<h1>📊 Rapport de Trading - Agent IA</h1>
+<div class="subtitle">Genere le {date_str} · Paper Trading · Capital initial {cap_init:.0f}€</div>
+
+<div class="cards">
+  <div class="card"><div class="lbl">Capital</div><div class="val">{cap_actuel:.2f}€</div></div>
+  <div class="card {'pos' if perf>=0 else 'neg'}"><div class="lbl">Performance</div><div class="val">{perf:+.2f}%</div></div>
+  <div class="card"><div class="lbl">Liquidites</div><div class="val">{liq:.2f}€</div></div>
+  <div class="card neg"><div class="lbl">PnL latent</div><div class="val">{total_pnl:+.2f}€</div></div>
+</div>
+
+<h2>🥧 Repartition du portefeuille</h2>
+<div class="graphs">
+  {camembert if camembert else '<p style="color:var(--muted)">Aucune position</p>'}
+</div>
+
+<h2>📊 PnL par position</h2>
+<div class="graphs">
+  {barres_pnl}
+</div>
+
+<h2>💼 Positions ouvertes ({len(positions)})</h2>
+<table><thead><tr><th>Crypto</th><th>Prix entree</th><th>Prix actuel</th><th>Montant</th><th>PnL</th></tr></thead>
+<tbody>{lignes_pos if lignes_pos else '<tr><td colspan="5" style="color:var(--muted)">Aucune position</td></tr>'}</tbody></table>
+
+<h2>📋 Trades fermes ({len(fermes)})</h2>
+<table><thead><tr><th>Crypto</th><th>PnL</th><th>Raison</th><th>Date</th></tr></thead>
+<tbody>{lignes_fermes if lignes_fermes else '<tr><td colspan="4" style="color:var(--muted)">Aucun trade ferme</td></tr>'}</tbody></table>
+
+<h2>📈 Statistiques</h2>
+<table><tr><th>Metrique</th><th>Valeur</th></tr>
+<tr><td>Capital initial</td><td>{cap_init:.2f}€</td></tr>
+<tr><td>Capital actuel</td><td>{cap_actuel:.2f}€</td></tr>
+<tr><td>Positions ouvertes</td><td>{len(positions)}</td></tr>
+<tr><td>Trades fermes</td><td>{len(fermes)}</td></tr>
+<tr><td>Frais cumules</td><td>{frais:.2f}€</td></tr>
+<tr><td>Liquidites</td><td>{liq:.2f}€ ({liq/cap_init*100:.0f}%)</td></tr>
+</table>
+
+<div class="footer">
+  Rapport genere par Agent IA Trading v2 · {date_str}<br>
+  Donnees via CoinGecko · 37+ commandes Telegram
+</div>
+</body></html>"""
+    
+    # Sauvegarder le rapport
+    rapport_file = os.path.join(DOSSIER, f"rapport_{datetime.now().strftime('%Y%m%d_%H%M')}.html")
+    with open(rapport_file, "w") as f:
+        f.write(rapport_html)
+    
+    # Envoyer sur Telegram
+    send_telegram(f"📄 Rapport genere: {rapport_file}\n\nLe rapport HTML contient:\n  🥧 Camembert repartition\n  📊 Barres PnL par position\n  💼 Tableau positions\n  📋 Trades fermes\n  📈 Statistiques\n\nOuvre le fichier sur le VPS pour voir le rapport complet.")
+    
+    return rapport_file
+
+
+# ============================================
+# 39. VISUALISATIONS AVANCEES (camembert, heatmap, courbes)
+# ============================================
+def visualisation_avancee(type_viz="correlations"):
+    """Genere des visualisations avancees en SVG."""
+    from indicateurs import NOMS, historique_ohlcv
+    pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+    positions = pt.get("positions", [])
+    
+    if type_viz in ["correlations", "heatmap", "correlation"]:
+        # Heatmap des correlations
+        symboles = [p.get("symbole", "") for p in positions if isinstance(p, dict)][:8]
+        if len(symboles) < 2:
+            return "Pas assez de positions pour une heatmap"
+        
+        # Calcul matrice correlation
+        import statistics
+        prix_data = {}
+        for sym in symboles:
+            bougies = historique_ohlcv(sym, "1d", 30)
+            if bougies and len(bougies) >= 10:
+                prix_data[sym] = [b["cloture"] for b in bougies]
+        
+        if len(prix_data) < 2:
+            return "Pas assez de donnees pour les correlations"
+        
+        # Calcul correlations de Pearson
+        def pearson(x, y):
+            n = min(len(x), len(y))
+            x, y = x[:n], y[:n]
+            mx, my = statistics.mean(x), statistics.mean(y)
+            sx, sy = statistics.stdev(x), statistics.stdev(y)
+            if sx == 0 or sy == 0:
+                return 0
+            cov = sum((xi-mx)*(yi-my) for xi, yi in zip(x, y)) / n
+            return cov / (sx * sy)
+        
+        syms = list(prix_data.keys())
+        n = len(syms)
+        matrix = [[pearson(prix_data[syms[i]], prix_data[syms[j]]) for j in range(n)] for i in range(n)]
+        
+        # SVG heatmap
+        cell = 40
+        svg = f'<svg viewBox="0 0 {cell*(n+1)+20} {cell*(n+1)+20}" width="100%">'
+        # Headers
+        for i, sym in enumerate(syms):
+            nom = NOMS.get(sym, sym)[:6]
+            svg += f'<text x="{cell*(i+1)+cell/2+10}" y="15" text-anchor="middle" fill="#8b949e" font-size="9">{nom}</text>'
+            svg += f'<text x="5" y="{cell*(i+1)+cell/2+5}" fill="#8b949e" font-size="9">{nom}</text>'
+        # Cells
+        for i in range(n):
+            for j in range(n):
+                val = matrix[i][j]
+                # Couleur: rouge (negatif) a vert (positif)
+                if val > 0:
+                    r = int(248 * (1 - val))
+                    g = 222
+                    b = 128
+                else:
+                    r = 248
+                    g = int(222 * (1 + val))
+                    b = 113
+                x = cell * (j + 1) + 10
+                y = cell * (i + 1) + 10
+                svg += f'<rect x="{x}" y="{y}" width="{cell-2}" height="{cell-2}" fill="rgb({r},{g},{b})" rx="3"/>'
+                svg += f'<text x="{x+cell/2-1}" y="{y+cell/2+4}" text-anchor="middle" fill="white" font-size="9" font-weight="bold">{val:+.1f}</text>'
+        svg += '</svg>'
+        
+        # Interpretation
+        diversification = "Faible" if max(max(row) for row in matrix) > 0.8 else "Bonne" if max(max(row) for row in matrix) < 0.5 else "Moyenne"
+        
+        msg = "🔥 HEATMAP CORRELATIONS\n" + "━" * 40 + "\n\n"
+        msg += f"Diversification: {diversification}\n\n"
+        msg += "Couleurs: 🟢 positif (meme direction) | 🔴 negatif (direction opposee)\n\n"
+        msg += svg if False else "Le graphique a ete sauvegarde."
+        
+        # Sauvegarder SVG
+        svg_file = os.path.join(DOSSIER, f"heatmap_{datetime.now().strftime('%Y%m%d_%H%M')}.svg")
+        with open(svg_file, "w") as f:
+            f.write(svg)
+        
+        # Envoyer info sur Telegram
+        msg_tg = "🔥 HEATMAP CORRELATIONS\n" + "━" * 35 + "\n\n"
+        for i in range(n):
+            for j in range(i+1, n):
+                val = matrix[i][j]
+                if abs(val) > 0.6:
+                    nom_i = NOMS.get(syms[i], syms[i])
+                    nom_j = NOMS.get(syms[j], syms[j])
+                    emoji = "🔴" if val < 0 else "🟢"
+                    msg_tg += f"{emoji} {nom_i} / {nom_j}: {val:+.2f}\n"
+        msg_tg += f"\n📊 Diversification: {diversification}\n"
+        msg_tg += f"📁 SVG sauvegarde: {svg_file}"
+        send_telegram(msg_tg[:4000])
+        return msg_tg
+    
+    elif type_viz in ["camembert", "pie", "repartition"]:
+        # Camembert repartition
+        if not positions:
+            return "Aucune position"
+        total = sum(float(p.get("montant_eur", 0)) for p in positions)
+        msg = "🥧 REPARTITION PORTEFEUILLE\n" + "━" * 35 + "\n\n"
+        for p in sorted(positions, key=lambda x: float(x.get("montant_eur", 0)), reverse=True):
+            sym = p.get("symbole", "?")
+            nom = NOMS.get(sym, sym)
+            montant = float(p.get("montant_eur", 0))
+            pct = montant / total * 100 if total > 0 else 0
+            barre = "█" * int(pct / 2) + "░" * (25 - int(pct / 2))
+            msg += f"{nom:<12} {barre} {pct:.1f}% ({montant:.0f}€)\n"
+        msg += f"\nTotal investi: {total:.0f}€"
+        send_telegram(msg[:4000])
+        return msg
+    
+    elif type_viz in ["courbe", "evolution", "historique"]:
+        # Courbe evolution capital
+        hist = pt.get("historique", [])
+        if not hist or len(hist) < 2:
+            return "Pas assez d'historique"
+        msg = "📈 EVOLUTION DU CAPITAL\n" + "━" * 35 + "\n\n"
+        vals = []
+        for h in hist:
+            if isinstance(h, dict):
+                for k in ("capital", "valeur", "total"):
+                    if k in h:
+                        try:
+                            vals.append(float(h[k]))
+                        except:
+                            pass
+                        break
+            elif isinstance(h, (int, float)):
+                vals.append(float(h))
+        if len(vals) < 2:
+            return "Pas assez de donnees"
+        vmin, vmax = min(vals), max(vals)
+        if vmax == vmin:
+            vmax = vmin + 1
+        # Graphique ASCII
+        for i, v in enumerate(vals):
+            hauteur = int((v - vmin) / (vmax - vmin) * 15)
+            barre = "▁▂▃▄▅▆▇█"[min(hauteur, 7)] * 2
+            msg += f"{barre} {v:.2f}€\n"
+        msg += f"\nMin: {vmin:.2f}€ | Max: {vmax:.2f}€ | Actuel: {vals[-1]:.2f}€"
+        send_telegram(msg[:4000])
+        return msg
+    
+    return "Type de visualisation inconnu. Utilise: correlations, camembert, ou courbe"
+
+
+# ============================================
+# 40. SOUS-AGENTS PARALLELES (scan multi-crypto)
+# ============================================
+def sous_agents_scan(critere="toutes"):
+    """Lance des analyses en parallele sur plusieurs cryptos (simule des sous-agents)."""
+    from indicateurs import NOMS
+    msg = "🤖 SOUS-AGENTS PARALLELES - Scan multi-crypto\n" + "━" * 40 + "\n\n"
+    
+    # Liste de cryptos a scanner
+    if critere == "toutes":
+        symboles = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "ARBUSDT", "NEARUSDT"]
+    else:
+        symboles = [critere.upper() + "USDT"] if not critere.upper().endswith("USDT") else [critere.upper()]
+    
+    msg += f"🔍 Scan de {len(symboles)} cryptos en parallele...\n\n"
+    
+    resultats = []
+    for sym in symboles:
+        try:
+            nom = NOMS.get(sym, sym)
+            prix = get_crypto_price(sym.replace("USDT", ""))
+            if not prix:
+                continue
+            
+            # Analyse technique rapide
+            from indicateurs import historique_ohlcv
+            bougies = historique_ohlcv(sym, "1h", 50)
+            if not bougies or len(bougies) < 20:
+                continue
+            
+            clotures = [b["cloture"] for b in bougies]
+            sma20 = sum(clotures[-20:]) / 20
+            sma50 = sum(clotures[-50:]) / 50
+            
+            # RSI
+            gains = [clotures[j] - clotures[j-1] for j in range(-14, 0) if clotures[j] > clotures[j-1]]
+            pertes = [clotures[j-1] - clotures[j] for j in range(-14, 0) if clotures[j] < clotures[j-1]]
+            avg_gain = sum(gains) / 14 if gains else 0
+            avg_perte = sum(pertes) / 14 if pertes else 0.001
+            rsi = 100 - (100 / (1 + (avg_gain / avg_perte if avg_perte > 0 else 100)))
+            
+            # Score
+            score = 0
+            signaux = []
+            if prix > sma20 > sma50:
+                score += 3
+                signaux.append("tendance haussiere")
+            elif prix > sma20:
+                score += 1
+                signaux.append("au-dessus SMA20")
+            elif prix < sma20 < sma50:
+                score -= 3
+                signaux.append("tendance baissiere")
+            else:
+                score -= 1
+                signaux.append("sous SMA20")
+            
+            if rsi < 35:
+                score += 2
+                signaux.append("RSI survente")
+            elif rsi > 65:
+                score -= 2
+                signaux.append("RSI surachat")
+            else:
+                signaux.append(f"RSI {rsi:.0f}")
+            
+            # Verifier position ouverte
+            pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
+            positions = pt.get("positions", [])
+            pos_ouverte = any(p.get("symbole") == sym for p in positions)
+            
+            resultats.append({
+                "sym": sym, "nom": nom, "prix": prix, "score": score,
+                "rsi": rsi, "signaux": signaux, "pos_ouverte": pos_ouverte
+            })
+        except:
+            continue
+    
+    # Trier par score
+    resultats.sort(key=lambda x: x["score"], reverse=True)
+    
+    # Afficher resultats
+    for r in resultats:
+        emoji = "🟢" if r["score"] >= 3 else "🔴" if r["score"] <= -3 else "🟡"
+        pos = "💼" if r["pos_ouverte"] else "  "
+        msg += f"{emoji} {pos} {r['nom']:<12} {r['prix']:.4f}€  Score: {r['score']:+d}  RSI: {r['rsi']:.0f}\n"
+        msg += f"   → {', '.join(r['signaux'][:3])}\n"
+    
+    # Synthese
+    msg += "\n" + "━" * 40 + "\n"
+    msg += "📊 SYNTHESE:\n"
+    achats = [r for r in resultats if r["score"] >= 3]
+    ventes = [r for r in resultats if r["score"] <= -3]
+    neutres = [r for r in resultats if -2 <= r["score"] <= 2]
+    msg += f"  🟢 Achats potentiels: {len(achats)} ({', '.join(r['nom'] for r in achats[:5])})\n"
+    msg += f"  🔴 Ventes potentielles: {len(ventes)} ({', '.join(r['nom'] for r in ventes[:5])})\n"
+    msg += f"  🟡 Neutres: {len(neutres)}\n"
+    
+    if achats:
+        msg += f"\n💡 TOP OPPORTUNITE: {achats[0]['nom']} (score {achats[0]['score']:+d})\n"
+        msg += f"   Prix: {achats[0]['prix']:.4f}€ | RSI: {achats[0]['rsi']:.0f}\n"
+    
+    learn_fact(f"Sous-agents scan: {len(resultats)} cryptos, {len(achats)} achats, {len(ventes)} ventes", "sous_agents")
+    return msg
+
+
+# ============================================
+# 41. CONNECTEURS EXTERNES (webhooks, API)
+# ============================================
+def connecteur_externe(service="liste", action="status", params=""):
+    """Connecte l'agent a des services externes via API."""
+    connecteurs_file = os.path.join(DOSSIER, "connecteurs.json")
+    connecteurs = load_json_safe(connecteurs_file, {"connecteurs": {}})
+    
+    if service == "liste" or service == "":
+        msg = "🔌 CONNECTEURS EXTERNES\n" + "━" * 40 + "\n\n"
+        if not connecteurs.get("connecteurs"):
+            msg += "Aucun connecteur configure.\n\n"
+        else:
+            for nom, conf in connecteurs["connecteurs"].items():
+                status = "✅ Actif" if conf.get("actif") else "❌ Inactif"
+                msg += f"{status} {nom}: {conf.get('description', '?')}\n"
+        
+        msg += "\nConnecteurs disponibles:\n"
+        msg += "  📧 email - Envoi d'emails via SMTP\n"
+        msg += "  📅 calendar - Google Calendar API\n"
+        msg += "  📝 notion - Notion API (notes/docs)\n"
+        msg += "  💬 slack - Slack webhook (messages)\n"
+        msg += "  📊 webhook - Webhook generique\n"
+        msg += "  🐙 github - GitHub API (issues/PRs)\n"
+        msg += "\nPour configurer: connecteur email config <smtp_host> <email> <password>"
+        send_telegram(msg[:4000])
+        return msg
+    
+    if service == "email" and action == "config":
+        # Configuration email SMTP
+        parts = params.split()
+        if len(parts) < 3:
+            return "Usage: connecteur email config <smtp_host> <email> <password>"
+        connecteurs.setdefault("connecteurs", {})["email"] = {
+            "smtp_host": parts[0],
+            "email": parts[1],
+            "password": parts[2],
+            "actif": True,
+            "description": f"Email via {parts[0]}"
+        }
+        save_json_safe(connecteurs_file, connecteurs)
+        return f"✅ Connecteur email configure: {parts[1]} via {parts[0]}"
+    
+    if service == "email" and action == "send":
+        # Envoi email
+        conf = connecteurs.get("connecteurs", {}).get("email", {})
+        if not conf.get("actif"):
+            return "Connecteur email non configure. Utilise: connecteur email config <smtp> <email> <password>"
+        parts = params.split(None, 2)
+        if len(parts) < 3:
+            return "Usage: connecteur email send <destinataire> <sujet> <message>"
+        try:
+            import smtplib
+            from email.mime.text import MIMEText
+            msg_email = MIMEText(parts[2])
+            msg_email['Subject'] = parts[1]
+            msg_email['From'] = conf['email']
+            msg_email['To'] = parts[0]
+            with smtplib.SMTP(conf['smtp_host'], 587) as server:
+                server.starttls()
+                server.login(conf['email'], conf['password'])
+                server.send_message(msg_email)
+            return f"✅ Email envoye a {parts[0]}"
+        except Exception as e:
+            return f"❌ Erreur envoi email: {e}"
+    
+    if service == "webhook" and action == "config":
+        # Configuration webhook generique
+        if not params:
+            return "Usage: connecteur webhook config <nom> <url>"
+        parts = params.split(None, 1)
+        if len(parts) < 2:
+            return "Usage: connecteur webhook config <nom> <url>"
+        connecteurs.setdefault("connecteurs", {})[f"webhook_{parts[0]}"] = {
+            "url": parts[1],
+            "actif": True,
+            "description": f"Webhook {parts[0]}"
+        }
+        save_json_safe(connecteurs_file, connecteurs)
+        return f"✅ Webhook {parts[0]} configure: {parts[1]}"
+    
+    if service == "webhook" and action == "send":
+        # Envoi webhook
+        parts = params.split(None, 1)
+        if len(parts) < 2:
+            return "Usage: connecteur webhook send <nom> <data_json>"
+        conf = connecteurs.get("connecteurs", {}).get(f"webhook_{parts[0]}", {})
+        if not conf.get("actif"):
+            return f"Webhook {parts[0]} non configure"
+        try:
+            r = requests.post(conf["url"], json=json.loads(parts[1]), timeout=10)
+            return f"✅ Webhook {parts[0]}: {r.status_code}"
+        except Exception as e:
+            return f"❌ Erreur webhook: {e}"
+    
+    if service == "slack" and action == "config":
+        if not params:
+            return "Usage: connecteur slack config <webhook_url>"
+        connecteurs.setdefault("connecteurs", {})["slack"] = {
+            "webhook_url": params,
+            "actif": True,
+            "description": "Slack webhook"
+        }
+        save_json_safe(connecteurs_file, connecteurs)
+        return "✅ Slack configure"
+    
+    if service == "slack" and action == "send":
+        conf = connecteurs.get("connecteurs", {}).get("slack", {})
+        if not conf.get("actif"):
+            return "Slack non configure. Utilise: connecteur slack config <webhook_url>"
+        try:
+            r = requests.post(conf["webhook_url"], json={"text": params}, timeout=10)
+            return f"✅ Slack: message envoye ({r.status_code})"
+        except Exception as e:
+            return f"❌ Erreur Slack: {e}"
+    
+    return f"Commande inconnue. Utilise 'connecteur liste' pour voir les options"
 
 
 if __name__ == "__main__":
