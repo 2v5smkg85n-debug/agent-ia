@@ -25,6 +25,7 @@ ENV = load_env()
 TOKEN = ENV.get("DASHBOARD_TOKEN", "changeme")
 PORT = int(ENV.get("DASHBOARD_PORT", "8765"))
 DATA_FILE = "paper_trading.json"
+CACHE_FILE = "prix_cache.json"
 
 # CoinGecko pour prix temps reel
 COINGECKO_MAP = {
@@ -55,7 +56,23 @@ def fmt(x):
         return str(x)
 
 def get_prix_batch(symboles):
-    """Recupere les prix de plusieurs cryptos en une seule requete CoinGecko."""
+    """Recupere les prix de plusieurs cryptos en une seule requete CoinGecko.
+    Utilise un cache local de 90s pour eviter les faux PnL quand l'API ne repond pas."""
+    # Charge le cache
+    cache = {}
+    try:
+        with open(CACHE_FILE) as f:
+            cache = json.load(f)
+    except:
+        pass
+    
+    # Verifie si le cache est encore valide (< 90s)
+    cache_age = time.time() - cache.get("timestamp", 0)
+    if cache_age < 90 and cache.get("prix", {}):
+        # Cache valide - retourne les prix caches
+        return cache["prix"]
+    
+    # Cache expire ou vide - requete CoinGecko
     ids = []
     id_to_sym = {}
     for sym in symboles:
@@ -75,10 +92,22 @@ def get_prix_batch(symboles):
                     "prix": d.get("eur", 0),
                     "var_24h": d.get("eur_24h_change", 0)
                 }
+            # Si on a au moins 1 prix valide, on met a jour le cache
+            if result:
+                cache["prix"] = result
+                cache["timestamp"] = time.time()
+                try:
+                    with open(CACHE_FILE, "w") as f:
+                        json.dump(cache, f)
+                except:
+                    pass
             return result
     except Exception as e:
         with open("dashboard_premium.log", "a") as f:
             f.write(f"CoinGecko error: {e}\n")
+    # En cas d'erreur, retourne le cache meme s'il est vieux (mieux que prix_entree)
+    if cache.get("prix", {}):
+        return cache["prix"]
     return {}
 
 def read_system():
@@ -155,12 +184,17 @@ def build_premium_page(d):
         strategie = p.get("strategie", "?")
         date_ouv = p.get("date_ouverture", "?")
         
-        prix_actuel = prix_temps_reel.get(sym, {}).get("prix", prix_entree)
+        prix_actuel = prix_temps_reel.get(sym, {}).get("prix", 0)
         var_24h = prix_temps_reel.get(sym, {}).get("var_24h", 0)
         
-        valeur_actuelle = prix_actuel * quantite
-        pnl_eur = valeur_actuelle - montant
-        pnl_pct = (pnl_eur / montant * 100) if montant > 0 else 0
+        # Si pas de prix temps reel, on affiche N/A au lieu d'utiliser prix_entree
+        prix_disponible = prix_actuel > 0
+        if not prix_disponible:
+            prix_actuel = prix_entree  # fallback pour calcul mais on l'indique
+        
+        valeur_actuelle = (prix_actuel * quantite) if prix_disponible else montant
+        pnl_eur = (valeur_actuelle - montant) if prix_disponible else 0
+        pnl_pct = (pnl_eur / montant * 100) if montant > 0 and prix_disponible else 0
         
         total_valeur += valeur_actuelle
         total_investi += montant
@@ -169,18 +203,21 @@ def build_premium_page(d):
         emoji = "🟢" if pnl_pct >= 0 else "🔴"
         pnl_color = "#4ade80" if pnl_pct >= 0 else "#f87171"
         bar_width = min(abs(pnl_pct) * 10, 100)
+        pnl_text = f"{pnl_eur:+.2f}€ ({pnl_pct:+.1f}%)" if prix_disponible else "N/A (prix indisponible)"
+        prix_actuel_text = f"{prix_actuel:.4f}€" if prix_disponible else "N/A"
+        var_text = f"{var_24h:+.1f}%" if prix_disponible else "N/A"
         
         positions_html += f"""
         <div class="pos-card" onclick="this.classList.toggle('expanded')">
           <div class="pos-header">
             <span class="pos-emoji">{emoji}</span>
             <span class="pos-name">{esc(nom)}</span>
-            <span class="pos-pnl" style="color:{pnl_color}">{pnl_eur:+.2f}€ ({pnl_pct:+.1f}%)</span>
+            <span class="pos-pnl" style="color:{pnl_color}">{pnl_text}</span>
           </div>
           <div class="pos-details">
             <span>Entree: {prix_entree:.4f}€</span>
-            <span>Actuel: {prix_actuel:.4f}€</span>
-            <span>24h: {var_24h:+.1f}%</span>
+            <span>Actuel: {prix_actuel_text}</span>
+            <span>24h: {var_text}</span>
             <span>Qty: {quantite:.6f}</span>
             <span>Montant: {montant:.2f}€</span>
             <span>Strat: {esc(strategie)}</span>
@@ -193,8 +230,9 @@ def build_premium_page(d):
     perf = ((cap_actuel - cap_init) / cap_init * 100) if cap_init else 0
     dd = ((cap_actuel - pic) / pic * 100) if pic else 0
     nb_pos = len(positions)
-    nb_gagnants = len([p for p in positions if isinstance(p, dict) and prix_temps_reel.get(p.get("symbole",""),{}).get("prix",0) * p.get("quantite",0) >= p.get("montant_eur",0)])
-    nb_perdants = nb_pos - nb_gagnants
+    nb_gagnants = len([p for p in positions if isinstance(p, dict) and prix_temps_reel.get(p.get("symbole",""),{}).get("prix",0) > 0 and prix_temps_reel.get(p.get("symbole",""),{}).get("prix",0) * p.get("quantite",0) >= p.get("montant_eur",0)])
+    nb_perdants = len([p for p in positions if isinstance(p, dict) and prix_temps_reel.get(p.get("symbole",""),{}).get("prix",0) > 0 and prix_temps_reel.get(p.get("symbole",""),{}).get("prix",0) * p.get("quantite",0) < p.get("montant_eur",0)])
+    nb_indispo = nb_pos - nb_gagnants - nb_perdants
     
     # Historique pour graphique
     hist_vals = []
@@ -339,6 +377,7 @@ th{{color:var(--muted);font-size:11px;text-transform:uppercase}}
   <span>📊 {nb_pos} positions</span>
   <span style="color:{pnl_color_total}">💰 PnL latent: {total_pnl:+.2f}€</span>
   <span>💸 Frais: {fmt(frais)}€</span>
+  {f'<span style="color:#fbbf24">⚠️ {nb_indispo} prix indispo</span>' if nb_indispo > 0 else ''}
 </div>
 
 <div class="section">
