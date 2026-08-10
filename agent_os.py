@@ -5115,6 +5115,12 @@ def generer_rapport_pdf(type_rapport="complet"):
         quantite = float(p.get("quantite", 0))
         montant = float(p.get("montant_eur", 0))
         prix_actuel = prix_dict.get(sym, prix_entree)
+        if isinstance(prix_actuel, dict):
+            prix_actuel = prix_actuel.get("prix", prix_actuel.get("eur", prix_entree))
+        try:
+            prix_actuel = float(prix_actuel)
+        except (ValueError, TypeError):
+            prix_actuel = prix_entree
         valeur = prix_actuel * quantite
         pnl = valeur - montant
         pnl_pct = (pnl / montant * 100) if montant > 0 else 0
@@ -5164,6 +5170,12 @@ def generer_rapport_pdf(type_rapport="complet"):
         nom = NOMS.get(sym, sym)[:10]
         montant = float(p.get("montant_eur", 0))
         prix_actuel = prix_dict.get(sym, float(p.get("prix_entree", 0)))
+        if isinstance(prix_actuel, dict):
+            prix_actuel = prix_actuel.get("prix", prix_actuel.get("eur", float(p.get("prix_entree", 0))))
+        try:
+            prix_actuel = float(prix_actuel)
+        except (ValueError, TypeError):
+            prix_actuel = float(p.get("prix_entree", 0))
         pnl = (prix_actuel * float(p.get("quantite", 0))) - montant
         pnl_pct = (pnl / montant * 100) if montant > 0 else 0
         y = i * 24 + 10
