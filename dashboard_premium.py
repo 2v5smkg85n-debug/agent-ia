@@ -361,7 +361,7 @@ th{{color:var(--muted);font-size:11px;text-transform:uppercase}}
 </style></head><body>
 <div class="header">
   <h1>🤖 Agent IA Trading</h1>
-  <div class="live">LIVE · {esc(str(tick))}</div>
+  <div class="live">LIVE · {esc(str(tick))} · <a class="lnk" href="/rapport?token={TOKEN}" style="font-size:11px">📄 Rapport</a></div>
 </div>
 
 <div class="cards">
@@ -424,6 +424,23 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "text/plain")
             self.end_headers()
             self.wfile.write(b"Forbidden")
+            return
+        # Route /rapport : rapport HTML complet
+        if parsed.path in ('/rapport', '/report'):
+            try:
+                import glob
+                rapports = sorted(glob.glob(os.path.join(os.path.dirname(DATA_FILE) or '.', 'rapport_*.html')), reverse=True)
+                if rapports:
+                    with open(rapports[0]) as f:
+                        out = f.read()
+                else:
+                    out = '<html><body style="background:#0d1117;color:#e6edf3;font-family:sans-serif;padding:20px"><h2>Aucun rapport genere</h2><p>Envoie "rapport pdf" sur Telegram pour generer un rapport.</p></body></html>'
+            except Exception as e:
+                out = f"<html><body style='background:#0d1117;color:#e6edf3;font-family:sans-serif;padding:20px'><h2>Erreur</h2><pre>{html.escape(str(e))}</pre></body></html>"
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(out.encode())
             return
         try:
             d = json.load(open(DATA_FILE))
