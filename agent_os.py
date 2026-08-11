@@ -6472,6 +6472,7 @@ def auto_ajuster_strategies():
         
         # Quick backtest pour chaque strategie
         resultats = {}
+        trades_par_strat = {}  # Stocker les trades pour walk-forward
         for strat in strategies:
             try:
                 from indicateurs import historique_ohlcv_long
@@ -6533,6 +6534,7 @@ def auto_ajuster_strategies():
                     roi *= (1 + t / 100)
                 roi = (roi - 1) * 100
                 resultats[strat] = {"wr": wr, "roi": roi, "n": len(trades)}
+                trades_par_strat[strat] = list(trades)  # Garder pour walk-forward
         
         # Calculer les poids avec protection anti-surapprentissage
         if resultats:
@@ -6556,51 +6558,8 @@ def auto_ajuster_strategies():
                         continue
                     
                     # PROTECTION 2: Walk-forward (split 70/30 des trades)
-                    split_idx = int(len(trades) * 0.7) if 'trades' in dir() else int(r["n"] * 0.7)
-                    # Recalculer les trades pour le split
-                    trades_strat = []
-                    pos = None
-                    for i in range(20, len(bougies)):
-                        cl = [b["cloture"] for b in bougies[:i+1]]
-                        p = cl[-1]
-                        sma20 = sum(cl[-20:]) / 20 if len(cl) >= 20 else p
-                        sma50 = sum(cl[-50:]) / 50 if len(cl) >= 50 else sma20
-                        g = [cl[j] - cl[j-1] for j in range(-14, 0) if j >= -len(cl) and cl[j] > cl[j-1]]
-                        pe = [cl[j-1] - cl[j] for j in range(-14, 0) if j >= -len(cl) and cl[j] < cl[j-1]]
-                        ag = sum(g) / 14 if g else 0
-                        ap = sum(pe) / 14 if pe else 0.001
-                        rsi_v = 100 - (100 / (1 + (ag / ap if ap > 0 else 100)))
-                        sig = 0
-                        if strat == "momentum":
-                            if (sma20 > sma50 or p > sma20) and rsi_v < 70 and rsi_v > 30: sig = 1
-                            elif (p < sma20 or rsi_v > 70): sig = -1
-                        elif strat == "mean_reversion":
-                            if rsi_v < 30: sig = 1
-                            elif rsi_v > 70: sig = -1
-                        elif strat == "breakout":
-                            hs = [b["haut"] for b in bougies[:i+1]]
-                            bs = [b["bas"] for b in bougies[:i+1]]
-                            if len(hs) >= 20:
-                                if p > max(hs[-20:]) * 0.99: sig = 1
-                                elif p < min(bs[-20:]) * 1.01: sig = -1
-                        elif strat == "rsi_extreme":
-                            if rsi_v < 25: sig = 1
-                            elif rsi_v > 75: sig = -1
-                        elif strat == "macd":
-                            e12 = sum(cl[-12:]) / 12 if len(cl) >= 12 else p
-                            e26 = sum(cl[-26:]) / 26 if len(cl) >= 26 else p
-                            m = e12 - e26
-                            if m > 0 and rsi_v < 65: sig = 1
-                            elif m < 0 and rsi_v > 35: sig = -1
-                        if sig == 1 and pos is None:
-                            pos = p
-                        elif sig == -1 and pos is not None:
-                            pnl = (p - pos) / pos * 100 - 0.2
-                            trades_strat.append(pnl)
-                            pos = None
-                    if pos is not None:
-                        pnl = (bougies[-1]["cloture"] - pos) / pos * 100 - 0.2
-                        trades_strat.append(pnl)
+                    # Utiliser les trades deja calcules (pas de recalcul)
+                    trades_strat = trades_par_strat.get(strat, [])
                     
                     # Split walk-forward
                     split_t = int(len(trades_strat) * 0.7) if len(trades_strat) >= 4 else len(trades_strat)
