@@ -6980,7 +6980,7 @@ def auto_diagnostic():
     problemes = []
     reparations = []
     
-    # 1. Verifier la syntaxe de agent_os.py
+    # 1. Verifier la syntaxe de agent_os.py (sans modifier le code)
     msg += "1️⃣ Verification syntaxe agent_os.py...\n"
     try:
         import ast
@@ -6991,38 +6991,15 @@ def auto_diagnostic():
     except SyntaxError as e:
         problemes.append(f"Syntaxe agent_os.py: {e}")
         msg += f"   ❌ Erreur syntaxe ligne {e.lineno}: {e.msg}\n"
-        # Tentative de reparation: commenter la ligne problematique
-        try:
-            lignes = code.split("\n")
-            if e.lineno and e.lineno <= len(lignes):
-                lignes[e.lineno - 1] = "# AUTO-REPARATION: " + lignes[e.lineno - 1]
-                with open(os.path.join(DOSSIER, "agent_os.py"), "w") as f:
-                    f.write("\n".join(lignes))
-                reparations.append(f"Ligne {e.lineno} commentee")
-                msg += "   🔧 Ligne problematique commentee automatiquement\n"
-        except:
-            pass
+        msg += "   ⚠️ Correction manuelle requise\n"
     
-    # 2. Verifier les imports manquants
+    # 2. Verifier les imports manquants (sans modifier le code)
     msg += "\n2️⃣ Verification des imports...\n"
     imports_necessaires = ["requests", "json", "os", "datetime", "urllib.request"]
     for imp in imports_necessaires:
         if f"import {imp}" not in code and f"from {imp}" not in code:
             problemes.append(f"Import manquant: {imp}")
-            msg += f"   ❌ Import manquant: {imp}\n"
-            # Reparation: ajouter l'import
-            try:
-                lignes = code.split("\n")
-                for i, l in enumerate(lignes):
-                    if l.startswith("import ") or l.startswith("from "):
-                        lignes.insert(i + 1, f"import {imp}")
-                        break
-                with open(os.path.join(DOSSIER, "agent_os.py"), "w") as f:
-                    f.write("\n".join(lignes))
-                reparations.append(f"import {imp} ajoute")
-                msg += f"   🔧 import {imp} ajoute automatiquement\n"
-            except:
-                pass
+            msg += f"   ⚠️ Import manquant: {imp} (a ajouter manuellement)\n"
         else:
             msg += f"   ✅ {imp} present\n"
     
