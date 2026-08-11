@@ -47,11 +47,26 @@ def _get_lock(path):
             _file_locks[path] = threading.Lock()
         return _file_locks[path]
 
+# Charger .env depuis le dossier de l'agent (DOSSIER deja defini plus haut)
+_env_path = os.path.join(DOSSIER, ".env")
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(_env_path)
 except Exception:
-    pass
+    # Fallback: parser .env manuellement
+    try:
+        if os.path.exists(_env_path):
+            with open(_env_path) as _f:
+                for _line in _f:
+                    _line = _line.strip()
+                    if _line and "=" in _line and not _line.startswith("#"):
+                        _k, _v = _line.split("=", 1)
+                        _k = _k.strip()
+                        _v = _v.strip().strip('"').strip("'")
+                        if _k and _k not in os.environ:
+                            os.environ[_k] = _v
+    except:
+        pass
 
 # ============================================
 # CONFIG
