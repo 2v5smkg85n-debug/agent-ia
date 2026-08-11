@@ -596,6 +596,40 @@ def ouvrir_position(pf, signal, prix_actuel):
             pass  # module absent -> pas de protection (paper)
         except Exception:
             pass
+    # FILTRE POIDS STRATEGIES (anti-surapprentissage): bloque les stratégies
+    # qui ont été ajustées à 0 (perdantes) par l'auto-ajustement. Le moteur de
+    # trading ne peut pas ouvrir de position avec une stratégie qui a échoué
+    # en backtest walk-forward. Toggle: POIDS_STRAT_FILTER=0.
+    if os.getenv("POIDS_STRAT_FILTER", "1") != "0":
+        try:
+            _strat_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "poids_strategies.json")
+            if os.path.exists(_strat_file):
+                with open(_strat_file, 'r') as _f:
+                    _poids = json.load(_f)
+                _strats = _poids.get("strategies", {})
+                _sym_key = signal["symbole"]
+                _strat_name = signal.get("strategie", "") or signal.get("source", "")
+                # Normaliser le nom de stratégie (momentum, mean_reversion, breakout, rsi_extreme, macd)
+                _strat_lower = _strat_name.lower()
+                _strat_key = None
+                for _s in ["momentum", "mean_reversion", "breakout", "rsi_extreme", "macd"]:
+                    if _s in _strat_lower or _s.replace("_", "") in _strat_lower.replace(" ", ""):
+                        _strat_key = _s
+                        break
+                if _strat_key:
+                    _poids_val = _strats.get(f"{_sym_key}_{_strat_key}", 0.20)
+                    if _poids_val <= 0.06:  # MIN_POIDS = 0.05, donc 0.06 = strat perdante
+                        print(f"  [POIDS STRAT] {signal.get('nom', _sym_key)}: stratégie '{_strat_key}' poids={_poids_val:.2f} (perdante) -> entrée bloquée")
+                        return False
+                    # Ajuster la taille selon le poids (stratégie faible = position réduite)
+                    if _poids_val < 0.20:
+                        signal["poids_strat"] = _poids_val
+                        print(f"  [POIDS STRAT] {signal.get('nom', _sym_key)}: stratégie '{_strat_key}' poids={_poids_val:.2f} (position réduite)")
+                    elif _poids_val > 0.40:
+                        signal["poids_strat"] = _poids_val
+                        print(f"  [POIDS STRAT] {signal.get('nom', _sym_key)}: stratégie '{_strat_key}' poids={_poids_val:.2f} (stratégie forte)")
+        except Exception as _e:
+            print(f"  [POIDS STRAT erreur {_e}] entrée autorisée (fail-open)")
     # FILTRE SENTIMENT (gate d'entrée — Feature 2): bloque les achats en euphorie
     # (Extreme Greed F&G >= 80) ou quand l'actu crypto est fortement baissière.
     # Crypto uniquement (le F&G est le Crypto Fear & Greed Index). Complète le sizing
@@ -875,6 +909,16 @@ def ouvrir_position(pf, signal, prix_actuel):
         if _var >= 1.0:  # position en profit de +1% minimum
             montant = montant * 1.5  # pyramiding: 50% plus
             print(f"  [PYRAMIDING] {signal.get('nom',signal['symbole'])}: ajout a position +{_var:.1f}% -> x1.5 ({montant:.0f}EUR)")
+    # POIDS STRATEGIES (anti-surapprentissage): ajuste la taille selon le poids
+    # de la stratégie. Une stratégie forte (poids > 0.40) obtient +50% de taille,
+    # une stratégie faible (poids < 0.20) obtient -50% de taille.
+    _poids_strat = signal.get("poids_strat", 0.20)
+    if _poids_strat > 0.40:
+        montant = montant * 1.5
+        print(f"  [POIDS STRAT SIZE] stratégie forte (poids {_poids_strat:.2f}) -> x1.5 ({montant:.0f}EUR)")
+    elif _poids_strat < 0.20:
+        montant = montant * 0.5
+        print(f"  [POIDS STRAT SIZE] stratégie faible (poids {_poids_strat:.2f}) -> x0.5 ({montant:.0f}EUR)")
     # Clamp de securite: un plugin bugue ne peut pas depasser le liquide ni aller negatif
     # PLANCHER MINIMUM 80EUR applique APRES tous les filtres (regime, sentiment, plugins)
     montant = max(80, min(montant, pf["liquidites"]))
