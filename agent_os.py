@@ -6390,8 +6390,8 @@ def backtest_avance(symbole="BTCUSDT", strategie="momentum", jours=90):
             p = cl[-1]
             sma20 = sum(cl[-20:]) / 20 if len(cl) >= 20 else p
             sma50 = sum(cl[-50:]) / 50 if len(cl) >= 50 else sma20
-            g = [cl[j] - cl[j-1] for j in range(-14, 0) if j >= -len(cl) and cl[j] > cl[j-1]]
-            pe = [cl[j-1] - cl[j] for j in range(-14, 0) if j >= -len(cl) and cl[j] < cl[j-1]]
+            g = [cl[j] - cl[j-1] for j in range(-14, 0) if j >= -len(cl) and (j-1) >= -len(cl) and cl[j] > cl[j-1]]
+            pe = [cl[j-1] - cl[j] for j in range(-14, 0) if j >= -len(cl) and (j-1) >= -len(cl) and cl[j] < cl[j-1]]
             ag = sum(g) / 14 if g else 0
             ap = sum(pe) / 14 if pe else 0.001
             r = 100 - (100 / (1 + (ag / ap if ap > 0 else 100)))
@@ -6454,7 +6454,10 @@ def backtest_avance(symbole="BTCUSDT", strategie="momentum", jours=90):
 # ============================================
 def auto_ajuster_strategies():
     """Analyse les backtests et ajuste automatiquement les poids des strategies par crypto."""
-    from indicateurs import NOMS
+    try:
+        from indicateurs import NOMS
+    except Exception:
+        NOMS = {}
     
     # Fichier de configuration des strategies
     strat_file = os.path.join(DOSSIER, "poids_strategies.json")
@@ -6467,6 +6470,7 @@ def auto_ajuster_strategies():
     
     ajustements = 0
     for sym in cryptos:
+      try:
         nom = NOMS.get(sym, sym)
         msg += f"📊 {nom}:\n"
         
@@ -6493,8 +6497,8 @@ def auto_ajuster_strategies():
             p = cl[-1]
             sma20 = sum(cl[-20:]) / 20 if len(cl) >= 20 else p
             sma50 = sum(cl[-50:]) / 50 if len(cl) >= 50 else sma20
-            g = [cl[j] - cl[j-1] for j in range(-14, 0) if j >= -len(cl) and cl[j] > cl[j-1]]
-            pe = [cl[j-1] - cl[j] for j in range(-14, 0) if j >= -len(cl) and cl[j] < cl[j-1]]
+            g = [cl[j] - cl[j-1] for j in range(-14, 0) if j >= -len(cl) and (j-1) >= -len(cl) and cl[j] > cl[j-1]]
+            pe = [cl[j-1] - cl[j] for j in range(-14, 0) if j >= -len(cl) and (j-1) >= -len(cl) and cl[j] < cl[j-1]]
             ag = sum(g) / 14 if g else 0
             ap = sum(pe) / 14 if pe else 0.001
             rsi = 100 - (100 / (1 + (ag / ap if ap > 0 else 100)))
@@ -6630,6 +6634,10 @@ def auto_ajuster_strategies():
                 else:
                     msg += f"  ⚪ {strat:<16} 0.05 (pas de donnees)\n"
         msg += "\n"
+      except Exception as _e:
+        import traceback
+        msg += f"  ❌ Erreur {sym}: {_e}\n\n"
+        print(f"[AUTO-AJUSTER] Erreur {sym}: {traceback.format_exc()}")
     
     # Sauvegarder
     poids["dernier_ajustement"] = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -6644,7 +6652,10 @@ def auto_ajuster_strategies():
     msg += "  • Facteur de confiance selon nb de trades\n"
     msg += "  ✓ = strategie consistante (train+test positifs) | ⚠ = surapprentissage suspecte"
     
-    memoire_ajouter("ajustement", f"Auto-ajustement: {ajustements} strategies modifiees sur {len(cryptos)} cryptos", ["strategies", "auto_ajustement"])
+    try:
+        memoire_ajouter("ajustement", f"Auto-ajustement: {ajustements} strategies modifiees sur {len(cryptos)} cryptos", ["strategies", "auto_ajustement"])
+    except:
+        pass
     
     return msg
 
