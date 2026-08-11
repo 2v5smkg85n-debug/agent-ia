@@ -6028,10 +6028,31 @@ def backtest_avance(symbole="BTCUSDT", strategie="momentum", jours=90):
     msg += f"Strategie: {strategie} | Periode: {jours} jours\n"
     msg += "━" * 40 + "\n\n"
     
-    # Recuperer les donnees historiques
-    bougies = historique_ohlcv(symbole, "1d", jours)
+    # Recuperer les donnees historiques (utiliser historique_ohlcv_long pour plus de donnees)
+    try:
+        from indicateurs import historique_ohlcv_long
+        bougies = historique_ohlcv_long(symbole, "1d", min(jours, 365))
+    except ImportError:
+        bougies = historique_ohlcv(symbole, "1d", jours)
     if not bougies or len(bougies) < 30:
-        return f"Pas assez de donnees pour {symbole} ({jours}j). Minimum 30 bougies necessaires."
+        # Fallback: essayer 1h et agreger en journalier
+        bougies = historique_ohlcv(symbole, "1h", 200)
+        if not bougies or len(bougies) < 30:
+            return f"Pas assez de donnees pour {symbole} ({jours}j). Obtenu: {len(bougies) if bougies else 0} bougies."
+        # Agreger en journalier si on a des donnees 1h
+        if len(bougies) > 30:
+            bougies_agg = []
+            for i in range(0, len(bougies), 24):
+                chunk = bougies[i:i+24]
+                if chunk:
+                    bougies_agg.append({
+                        "ouverture": chunk[0]["ouverture"],
+                        "haut": max(b["haut"] for b in chunk),
+                        "bas": min(b["bas"] for b in chunk),
+                        "cloture": chunk[-1]["cloture"],
+                        "volume": sum(b.get("volume", 0) for b in chunk)
+                    })
+            bougies = bougies_agg
     
     # Split walk-forward: 70% training, 30% validation
     total = len(bougies)
@@ -6062,9 +6083,10 @@ def backtest_avance(symbole="BTCUSDT", strategie="momentum", jours=90):
         signal = 0  # 1=achat, -1=vente, 0=rien
         
         if strategie == "momentum":
-            if sma20 > sma50 and prix > sma20 and rsi < 65:
+            # Momentum assoupli: SMA20 > SMA50 OU prix > SMA20 avec RSI < 70
+            if (sma20 > sma50 or prix > sma20) and rsi < 70 and rsi > 30:
                 signal = 1
-            elif prix < sma20 and rsi > 65:
+            elif (prix < sma20 or rsi > 70):
                 signal = -1
         
         elif strategie == "mean_reversion":
@@ -6146,8 +6168,8 @@ def backtest_avance(symbole="BTCUSDT", strategie="momentum", jours=90):
         
         signal = 0
         if strategie == "momentum":
-            if sma20 > sma50 and prix > sma20 and rsi < 65: signal = 1
-            elif prix < sma20 and rsi > 65: signal = -1
+            if (sma20 > sma50 or prix > sma20) and rsi < 70 and rsi > 30: signal = 1
+            elif (prix < sma20 or rsi > 70): signal = -1
         elif strategie == "mean_reversion":
             if rsi < 30: signal = 1
             elif rsi > 70: signal = -1
@@ -6304,8 +6326,8 @@ def backtest_avance(symbole="BTCUSDT", strategie="momentum", jours=90):
             r = 100 - (100 / (1 + (ag / ap if ap > 0 else 100)))
             sig = 0
             if strat == "momentum":
-                if sma20 > sma50 and p > sma20 and r < 65: sig = 1
-                elif p < sma20 and r > 65: sig = -1
+                if (sma20 > sma50 or p > sma20) and r < 70 and r > 30: sig = 1
+                elif (p < sma20 or r > 70): sig = -1
             elif strat == "mean_reversion":
                 if r < 30: sig = 1
                 elif r > 70: sig = -1
