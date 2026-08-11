@@ -7047,25 +7047,30 @@ def auto_diagnostic():
     
     # 4. Verifier les cles API
     msg += "\n4️⃣ Verification des cles API...\n"
+    # Lire les cles depuis les variables globales (deja chargees par load_dotenv)
     cles = {
-        "TELEGRAM_BOT_TOKEN": TELEGRAM_TOKEN if 'TELEGRAM_TOKEN' in dir() else (ENV.get("TELEGRAM_BOT_TOKEN", "") if 'ENV' in dir() else ""),
-        "PPLX_API_KEY": PPLX_KEY if 'PPLX_KEY' in dir() else (ENV.get("PPLX_API_KEY", "") if 'ENV' in dir() else ""),
-        "GEMINI_API_KEY": GEMINI_KEY if 'GEMINI_KEY' in dir() else (ENV.get("GEMINI_API_KEY", "") if 'ENV' in dir() else ""),
+        "TELEGRAM_BOT_TOKEN": globals().get("TELEGRAM_TOKEN", "") or os.getenv("TELEGRAM_BOT_TOKEN", ""),
+        "PPLX_API_KEY": globals().get("PPLX_KEY", "") or os.getenv("PPLX_API_KEY", ""),
+        "GEMINI_API_KEY": globals().get("GEMINI_KEY", "") or os.getenv("GEMINI_API_KEY", ""),
     }
-    # Recharger .env directement pour verification
-    try:
-        env_direct = {}
-        with open(os.path.join(DOSSIER, ".env")) as f:
-            for line in f:
-                line = line.strip()
-                if "=" in line and not line.startswith("#"):
-                    k, v = line.split("=", 1)
-                    env_direct[k.strip()] = v.strip().strip('"').strip("'")
-        cles["TELEGRAM_BOT_TOKEN"] = cles["TELEGRAM_BOT_TOKEN"] or env_direct.get("TELEGRAM_BOT_TOKEN", "")
-        cles["PPLX_API_KEY"] = cles["PPLX_API_KEY"] or env_direct.get("PPLX_API_KEY", "")
-        cles["GEMINI_API_KEY"] = cles["GEMINI_API_KEY"] or env_direct.get("GEMINI_API_KEY", "")
-    except:
-        pass
+    # Fallback: lire .env directement si toujours vide
+    if not cles["TELEGRAM_BOT_TOKEN"] or not cles["PPLX_API_KEY"] or not cles["GEMINI_API_KEY"]:
+        try:
+            env_direct = {}
+            env_path = os.path.join(DOSSIER, ".env")
+            if not os.path.exists(env_path):
+                env_path = os.path.expanduser("~/agent-ia/.env")
+            with open(env_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if "=" in line and not line.startswith("#"):
+                        k, v = line.split("=", 1)
+                        env_direct[k.strip()] = v.strip().strip('"').strip("'")
+            cles["TELEGRAM_BOT_TOKEN"] = cles["TELEGRAM_BOT_TOKEN"] or env_direct.get("TELEGRAM_BOT_TOKEN", "")
+            cles["PPLX_API_KEY"] = cles["PPLX_API_KEY"] or env_direct.get("PPLX_API_KEY", "")
+            cles["GEMINI_API_KEY"] = cles["GEMINI_API_KEY"] or env_direct.get("GEMINI_API_KEY", "")
+        except:
+            pass
     for nom_cle, val in cles.items():
         if not val:
             problemes.append(f"Cle API manquante: {nom_cle}")
