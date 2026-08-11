@@ -7048,10 +7048,24 @@ def auto_diagnostic():
     # 4. Verifier les cles API
     msg += "\n4️⃣ Verification des cles API...\n"
     cles = {
-        "TELEGRAM_BOT_TOKEN": TELEGRAM_TOKEN if 'TELEGRAM_TOKEN' in dir() else "",
-        "PPLX_API_KEY": PPLX_KEY if 'PPLX_KEY' in dir() else "",
-        "GEMINI_API_KEY": GEMINI_KEY if 'GEMINI_KEY' in dir() else "",
+        "TELEGRAM_BOT_TOKEN": TELEGRAM_TOKEN if 'TELEGRAM_TOKEN' in dir() else (ENV.get("TELEGRAM_BOT_TOKEN", "") if 'ENV' in dir() else ""),
+        "PPLX_API_KEY": PPLX_KEY if 'PPLX_KEY' in dir() else (ENV.get("PPLX_API_KEY", "") if 'ENV' in dir() else ""),
+        "GEMINI_API_KEY": GEMINI_KEY if 'GEMINI_KEY' in dir() else (ENV.get("GEMINI_API_KEY", "") if 'ENV' in dir() else ""),
     }
+    # Recharger .env directement pour verification
+    try:
+        env_direct = {}
+        with open(os.path.join(DOSSIER, ".env")) as f:
+            for line in f:
+                line = line.strip()
+                if "=" in line and not line.startswith("#"):
+                    k, v = line.split("=", 1)
+                    env_direct[k.strip()] = v.strip().strip('"').strip("'")
+        cles["TELEGRAM_BOT_TOKEN"] = cles["TELEGRAM_BOT_TOKEN"] or env_direct.get("TELEGRAM_BOT_TOKEN", "")
+        cles["PPLX_API_KEY"] = cles["PPLX_API_KEY"] or env_direct.get("PPLX_API_KEY", "")
+        cles["GEMINI_API_KEY"] = cles["GEMINI_API_KEY"] or env_direct.get("GEMINI_API_KEY", "")
+    except:
+        pass
     for nom_cle, val in cles.items():
         if not val:
             problemes.append(f"Cle API manquante: {nom_cle}")
@@ -7062,7 +7076,17 @@ def auto_diagnostic():
     # 5. Verifier la connexion Telegram
     msg += "\n5️⃣ Test connexion Telegram...\n"
     try:
-        r = requests.get(f"https://api.telegram.org/bot{cles.get('TELEGRAM_BOT_TOKEN', '')}/getMe", timeout=10)
+        token_tg = cles.get("TELEGRAM_BOT_TOKEN", "")
+        if not token_tg:
+            try:
+                with open(os.path.join(DOSSIER, ".env")) as f:
+                    for line in f:
+                        if "TELEGRAM_BOT_TOKEN" in line and "=" in line and not line.strip().startswith("#"):
+                            token_tg = line.split("=", 1)[1].strip().strip('"').strip("'")
+                            break
+            except:
+                pass
+        r = requests.get(f"https://api.telegram.org/bot{token_tg}/getMe", timeout=10)
         if r.status_code == 200:
             bot_info = r.json().get("result", {})
             msg += f"   ✅ Bot connecte: @{bot_info.get('username', '?')}\n"
