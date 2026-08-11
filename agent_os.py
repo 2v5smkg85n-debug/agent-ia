@@ -1887,6 +1887,17 @@ def handle_message(text, user_name="User"):
         send_telegram(result[:4000])
         return result
     
+    # === BACKTEST AVANCE ===
+    if text_lower.startswith("backtest avance") or text_lower.startswith("bt avance"):
+        parts = text_stripped.split()
+        symbole = parts[2].upper() + "USDT" if len(parts) > 2 and not parts[2].upper().endswith("USDT") else (parts[2].upper() if len(parts) > 2 else "BTCUSDT")
+        strategie = parts[3] if len(parts) > 3 else "momentum"
+        jours = int(parts[4]) if len(parts) > 4 and parts[4].isdigit() else 90
+        send_telegram(f"🔬 Backtest avance {symbole} {strategie} {jours}j...")
+        result = backtest_avance(symbole, strategie, jours)
+        send_telegram(result[:4000])
+        return result
+    
     # === AIDE ===
     if text_lower in ["aide", "help", "commandes", "commands"]:
         help_msg = """🤖 AGENT OS - COMMANDES
@@ -1986,6 +1997,12 @@ def handle_message(text, user_name="User"):
   multi BTC - Consulte Perplexity + Gemini + GPT + Claude en parallele
   paper cryptocurrency trading - Recherche de papers academiques
   academique machine learning finance - Alias pour recherche papers
+
+🔬 BACKTESTING AVANCE:
+  backtest avance BTC momentum 90 - Walk-forward + stats pro
+  backtest avance ETH mean_reversion 180 - 6 mois
+  bt avance SOL breakout 90 - Version courte
+  Strategies: momentum, mean_reversion, breakout, rsi_extreme, macd
 
 ━━━━━━━━━━━━━━━━━━━━
 L'agent apprend de chaque interaction."""
@@ -5993,6 +6010,346 @@ def recherche_academique(sujet, limite=5):
             msg += f"Total: {len(results[:limite])} papers via OpenAlex"
         except Exception as e2:
             msg += f"Erreur OpenAlex: {e2}\n"
+    
+    return msg
+
+
+
+
+# ============================================
+# 45. BACKTESTING AVANCE (walk-forward + stats pro)
+# ============================================
+def backtest_avance(symbole="BTCUSDT", strategie="momentum", jours=90):
+    """Backtest avance avec walk-forward testing et statistiques professionnelles."""
+    from indicateurs import historique_ohlcv, NOMS
+    nom = NOMS.get(symbole, symbole)
+    
+    msg = f"🔬 BACKTEST AVANCE - {nom}\n"
+    msg += f"Strategie: {strategie} | Periode: {jours} jours\n"
+    msg += "━" * 40 + "\n\n"
+    
+    # Recuperer les donnees historiques
+    bougies = historique_ohlcv(symbole, "1d", jours)
+    if not bougies or len(bougies) < 30:
+        return f"Pas assez de donnees pour {symbole} ({jours}j). Minimum 30 bougies necessaires."
+    
+    # Split walk-forward: 70% training, 30% validation
+    total = len(bougies)
+    split = int(total * 0.7)
+    train_data = bougies[:split]
+    test_data = bougies[split:]
+    
+    # Simuler les trades sur la periode de training
+    trades_train = []
+    position = None
+    capital = 100.0  # capital virtuel en EUR
+    
+    for i in range(20, len(train_data)):
+        clotures = [b["cloture"] for b in train_data[:i+1]]
+        prix = clotures[-1]
+        
+        # Signaux selon la strategie
+        sma20 = sum(clotures[-20:]) / 20 if len(clotures) >= 20 else prix
+        sma50 = sum(clotures[-50:]) / 50 if len(clotures) >= 50 else sma20
+        
+        # RSI
+        gains = [clotures[j] - clotures[j-1] for j in range(-14, 0) if j >= -len(clotures) and clotures[j] > clotures[j-1]]
+        pertes = [clotures[j-1] - clotures[j] for j in range(-14, 0) if j >= -len(clotures) and clotures[j] < clotures[j-1]]
+        avg_gain = sum(gains) / 14 if gains else 0
+        avg_perte = sum(pertes) / 14 if pertes else 0.001
+        rsi = 100 - (100 / (1 + (avg_gain / avg_perte if avg_perte > 0 else 100)))
+        
+        signal = 0  # 1=achat, -1=vente, 0=rien
+        
+        if strategie == "momentum":
+            if sma20 > sma50 and prix > sma20 and rsi < 65:
+                signal = 1
+            elif prix < sma20 and rsi > 65:
+                signal = -1
+        
+        elif strategie == "mean_reversion":
+            if rsi < 30:
+                signal = 1
+            elif rsi > 70:
+                signal = -1
+        
+        elif strategie == "breakout":
+            hauts = [b["haut"] for b in train_data[:i+1]]
+            bas = [b["bas"] for b in train_data[:i+1]]
+            if len(hauts) >= 20:
+                haut_20 = max(hauts[-20:])
+                bas_20 = min(bas[-20:])
+                if prix > haut_20 * 0.99:
+                    signal = 1
+                elif prix < bas_20 * 1.01:
+                    signal = -1
+        
+        elif strategie == "rsi_extreme":
+            if rsi < 25:
+                signal = 1
+            elif rsi > 75:
+                signal = -1
+        
+        elif strategie == "macd":
+            ema12 = sum(clotures[-12:]) / 12 if len(clotures) >= 12 else prix
+            ema26 = sum(clotures[-26:]) / 26 if len(clotures) >= 26 else prix
+            macd = ema12 - ema26
+            signal_ema = sum([clotures[-9:][j] - clotures[-9:][j-1] for j in range(1, min(9, len(clotures)))]) / 9 if len(clotures) >= 9 else 0
+            if macd > 0 and rsi < 65:
+                signal = 1
+            elif macd < 0 and rsi > 35:
+                signal = -1
+        
+        # Executer le trade
+        if signal == 1 and position is None:
+            position = {"prix": prix, "date": train_data[i].get("date", f"J{i}")}
+        elif signal == -1 and position is not None:
+            pnl_pct = (prix - position["prix"]) / position["prix"] * 100
+            # Frais 0.1%
+            pnl_pct -= 0.2
+            capital *= (1 + pnl_pct / 100)
+            trades_train.append({
+                "entree": position["prix"], "sortie": prix,
+                "pnl_pct": pnl_pct, "date_e": position["date"],
+                "date_s": train_data[i].get("date", f"J{i}")
+            })
+            position = None
+    
+    # Fermer position ouverte a la fin
+    if position is not None:
+        prix_final = train_data[-1]["cloture"]
+        pnl_pct = (prix_final - position["prix"]) / position["prix"] * 100 - 0.2
+        capital *= (1 + pnl_pct / 100)
+        trades_train.append({
+            "entree": position["prix"], "sortie": prix_final,
+            "pnl_pct": pnl_pct, "date_e": position["date"],
+            "date_s": "fin"
+        })
+    
+    # Simuler sur la periode de validation (test)
+    trades_test = []
+    position = None
+    capital_test = 100.0
+    
+    for i in range(20, len(test_data)):
+        clotures = [b["cloture"] for b in test_data[:i+1]]
+        prix = clotures[-1]
+        
+        sma20 = sum(clotures[-20:]) / 20 if len(clotures) >= 20 else prix
+        sma50 = sum(clotures[-50:]) / 50 if len(clotures) >= 50 else sma20
+        
+        gains = [clotures[j] - clotures[j-1] for j in range(-14, 0) if j >= -len(clotures) and clotures[j] > clotures[j-1]]
+        pertes = [clotures[j-1] - clotures[j] for j in range(-14, 0) if j >= -len(clotures) and clotures[j] < clotures[j-1]]
+        avg_gain = sum(gains) / 14 if gains else 0
+        avg_perte = sum(pertes) / 14 if pertes else 0.001
+        rsi = 100 - (100 / (1 + (avg_gain / avg_perte if avg_perte > 0 else 100)))
+        
+        signal = 0
+        if strategie == "momentum":
+            if sma20 > sma50 and prix > sma20 and rsi < 65: signal = 1
+            elif prix < sma20 and rsi > 65: signal = -1
+        elif strategie == "mean_reversion":
+            if rsi < 30: signal = 1
+            elif rsi > 70: signal = -1
+        elif strategie == "breakout":
+            hauts = [b["haut"] for b in test_data[:i+1]]
+            bas = [b["bas"] for b in test_data[:i+1]]
+            if len(hauts) >= 20:
+                if prix > max(hauts[-20:]) * 0.99: signal = 1
+                elif prix < min(bas[-20:]) * 1.01: signal = -1
+        elif strategie == "rsi_extreme":
+            if rsi < 25: signal = 1
+            elif rsi > 75: signal = -1
+        elif strategie == "macd":
+            ema12 = sum(clotures[-12:]) / 12 if len(clotures) >= 12 else prix
+            ema26 = sum(clotures[-26:]) / 26 if len(clotures) >= 26 else prix
+            macd = ema12 - ema26
+            if macd > 0 and rsi < 65: signal = 1
+            elif macd < 0 and rsi > 35: signal = -1
+        
+        if signal == 1 and position is None:
+            position = {"prix": prix, "date": test_data[i].get("date", f"J{i}")}
+        elif signal == -1 and position is not None:
+            pnl_pct = (prix - position["prix"]) / position["prix"] * 100 - 0.2
+            capital_test *= (1 + pnl_pct / 100)
+            trades_test.append({"entree": position["prix"], "sortie": prix, "pnl_pct": pnl_pct})
+            position = None
+    
+    if position is not None:
+        prix_final = test_data[-1]["cloture"]
+        pnl_pct = (prix_final - position["prix"]) / position["prix"] * 100 - 0.2
+        capital_test *= (1 + pnl_pct / 100)
+        trades_test.append({"entree": position["prix"], "sortie": prix_final, "pnl_pct": pnl_pct})
+    
+    # Calculer statistiques
+    def calc_stats(trades, cap_initial=100.0):
+        if not trades:
+            return {"n": 0, "winrate": 0, "profit_factor": 0, "roi": 0, "max_dd": 0, "avg_win": 0, "avg_loss": 0, "sharpe": 0, "best": 0, "worst": 0}
+        
+        n = len(trades)
+        gains = [t["pnl_pct"] for t in trades if t["pnl_pct"] > 0]
+        pertes = [t["pnl_pct"] for t in trades if t["pnl_pct"] < 0]
+        n_g = len(gains)
+        n_p = len(pertes)
+        winrate = n_g / n * 100 if n > 0 else 0
+        sum_gains = sum(gains) if gains else 0
+        sum_pertes = abs(sum(pertes)) if pertes else 0.001
+        profit_factor = sum_gains / sum_pertes if sum_pertes > 0 else 0
+        roi = cap_initial - 100  # calcule plus bas
+        
+        # Max drawdown
+        cap = 100.0
+        pic = 100.0
+        max_dd = 0
+        for t in trades:
+            cap *= (1 + t["pnl_pct"] / 100)
+            if cap > pic: pic = cap
+            dd = (cap - pic) / pic * 100
+            if dd < max_dd: max_dd = dd
+        
+        roi = cap - 100
+        avg_win = sum(gains) / n_g if n_g > 0 else 0
+        avg_loss = sum(pertes) / n_p if n_p > 0 else 0
+        best = max(gains) if gains else 0
+        worst = min(pertes) if pertes else 0
+        
+        # Sharpe ratio (simplifie)
+        import statistics
+        all_pnl = [t["pnl_pct"] for t in trades]
+        if len(all_pnl) > 1:
+            std = statistics.stdev(all_pnl)
+            sharpe = (sum(all_pnl) / len(all_pnl)) / std if std > 0 else 0
+        else:
+            sharpe = 0
+        
+        return {"n": n, "winrate": winrate, "profit_factor": profit_factor, "roi": roi, "max_dd": max_dd, "avg_win": avg_win, "avg_loss": avg_loss, "sharpe": sharpe, "best": best, "worst": worst, "n_g": n_g, "n_p": n_p}
+    
+    stats_train = calc_stats(trades_train)
+    stats_test = calc_stats(trades_test)
+    
+    # Affichage
+    msg += "📊 PERIODE D'ENTRAINEMENT (70%):\n"
+    msg += f"  Trades: {stats_train['n']} ({stats_train.get('n_g',0)}G / {stats_train.get('n_p',0)}P)\n"
+    msg += f"  Winrate: {stats_train['winrate']:.1f}%\n"
+    msg += f"  Profit factor: {stats_train['profit_factor']:.2f}\n"
+    msg += f"  ROI: {stats_train['roi']:+.2f}%\n"
+    msg += f"  Max drawdown: {stats_train['max_dd']:.1f}%\n"
+    msg += f"  Sharpe ratio: {stats_train['sharpe']:.2f}\n"
+    msg += f"  Meilleur trade: {stats_train['best']:+.2f}%\n"
+    msg += f"  Pire trade: {stats_train['worst']:+.2f}%\n"
+    msg += f"  Gain moyen: {stats_train['avg_win']:+.2f}%\n"
+    msg += f"  Perte moyenne: {stats_train['avg_loss']:+.2f}%\n\n"
+    
+    msg += "📊 PERIODE DE VALIDATION (30%):\n"
+    msg += f"  Trades: {stats_test['n']} ({stats_test.get('n_g',0)}G / {stats_test.get('n_p',0)}P)\n"
+    msg += f"  Winrate: {stats_test['winrate']:.1f}%\n"
+    msg += f"  Profit factor: {stats_test['profit_factor']:.2f}\n"
+    msg += f"  ROI: {stats_test['roi']:+.2f}%\n"
+    msg += f"  Max drawdown: {stats_test['max_dd']:.1f}%\n"
+    msg += f"  Sharpe ratio: {stats_test['sharpe']:.2f}\n\n"
+    
+    # Verdict walk-forward
+    msg += "━" * 40 + "\n"
+    msg += "🔍 ANALYSE WALK-FORWARD:\n"
+    
+    if stats_train['n'] == 0 or stats_test['n'] == 0:
+        msg += "  ⚠️ Pas assez de trades pour conclure\n"
+    else:
+        # Comparaison train vs test
+        ecart_winrate = abs(stats_train['winrate'] - stats_test['winrate'])
+        ecart_roi = abs(stats_train['roi'] - stats_test['roi'])
+        
+        if ecart_winrate < 15 and ecart_roi < 20:
+            msg += "  ✅ STRATEGIE ROBUSTE - Performance stable entre train et test\n"
+            msg += f"     Ecart winrate: {ecart_winrate:.1f}% (stable)\n"
+            msg += f"     Ecart ROI: {ecart_roi:.1f}% (stable)\n"
+        elif ecart_winrate < 25:
+            msg += "  🟡 STRATEGIE MOYENNE - Performance degradée en validation\n"
+            msg += f"     Ecart winrate: {ecart_winrate:.1f}%\n"
+            msg += f"     Ecart ROI: {ecart_roi:.1f}%\n"
+        else:
+            msg += "  🔴 STRATEGIE NON ROBUSTE - Surapprentissage detecté\n"
+            msg += f"     Ecart winrate: {ecart_winrate:.1f}% (trop grand)\n"
+            msg += f"     Ecart ROI: {ecart_roi:.1f}% (trop grand)\n"
+            msg += "     → La strategie ne generalise pas bien\n"
+    
+    # Recommandation
+    msg += "\n💡 RECOMMANDATION:\n"
+    if stats_train['winrate'] > 55 and stats_train['profit_factor'] > 1.3 and stats_test['winrate'] > 45:
+        msg += "  🟢 Strategie VALIDEE - peut etre deployee en live\n"
+    elif stats_train['winrate'] > 45:
+        msg += "  🟡 Strategie MOYENNE - a optimiser avant deployment\n"
+    else:
+        msg += "  🔴 Strategie FAIBLE - a revoir ou abandonner\n"
+    
+    # Comparer toutes les strategies
+    msg += "\n" + "━" * 40 + "\n"
+    msg += "📋 COMPARAISON STRATEGIES (quick scan):\n"
+    
+    strategies = ["momentum", "mean_reversion", "breakout", "rsi_extreme", "macd"]
+    resultats = []
+    for strat in strategies:
+        # Quick backtest sur training
+        trades_s = []
+        pos = None
+        for i in range(20, len(train_data)):
+            cl = [b["cloture"] for b in train_data[:i+1]]
+            p = cl[-1]
+            sma20 = sum(cl[-20:]) / 20 if len(cl) >= 20 else p
+            sma50 = sum(cl[-50:]) / 50 if len(cl) >= 50 else sma20
+            g = [cl[j] - cl[j-1] for j in range(-14, 0) if j >= -len(cl) and cl[j] > cl[j-1]]
+            pe = [cl[j-1] - cl[j] for j in range(-14, 0) if j >= -len(cl) and cl[j] < cl[j-1]]
+            ag = sum(g) / 14 if g else 0
+            ap = sum(pe) / 14 if pe else 0.001
+            r = 100 - (100 / (1 + (ag / ap if ap > 0 else 100)))
+            sig = 0
+            if strat == "momentum":
+                if sma20 > sma50 and p > sma20 and r < 65: sig = 1
+                elif p < sma20 and r > 65: sig = -1
+            elif strat == "mean_reversion":
+                if r < 30: sig = 1
+                elif r > 70: sig = -1
+            elif strat == "breakout":
+                hs = [b["haut"] for b in train_data[:i+1]]
+                bs = [b["bas"] for b in train_data[:i+1]]
+                if len(hs) >= 20:
+                    if p > max(hs[-20:]) * 0.99: sig = 1
+                    elif p < min(bs[-20:]) * 1.01: sig = -1
+            elif strat == "rsi_extreme":
+                if r < 25: sig = 1
+                elif r > 75: sig = -1
+            elif strat == "macd":
+                e12 = sum(cl[-12:]) / 12 if len(cl) >= 12 else p
+                e26 = sum(cl[-26:]) / 26 if len(cl) >= 26 else p
+                m = e12 - e26
+                if m > 0 and r < 65: sig = 1
+                elif m < 0 and r > 35: sig = -1
+            if sig == 1 and pos is None:
+                pos = p
+            elif sig == -1 and pos is not None:
+                pnl = (p - pos) / pos * 100 - 0.2
+                trades_s.append(pnl)
+                pos = None
+        if pos is not None:
+            pnl = (train_data[-1]["cloture"] - pos) / pos * 100 - 0.2
+            trades_s.append(pnl)
+        
+        if trades_s:
+            n_s = len(trades_s)
+            wr = len([t for t in trades_s if t > 0]) / n_s * 100
+            roi_s = 1
+            for t in trades_s:
+                roi_s *= (1 + t / 100)
+            roi_s = (roi_s - 1) * 100
+            resultats.append((strat, n_s, wr, roi_s))
+    
+    resultats.sort(key=lambda x: x[3], reverse=True)
+    for strat, n_s, wr, roi_s in resultats:
+        emoji = "🟢" if roi_s > 5 else "🟡" if roi_s > 0 else "🔴"
+        msg += f"  {emoji} {strat:<16} {n_s:>3} trades  WR:{wr:>5.1f}%  ROI:{roi_s:>+7.1f}%\n"
+    
+    # Enregistrer en memoire
+    memoire_ajouter("backtest", f"Backtest {symbole} {strategie} {jours}j: WR={stats_train['winrate']:.0f}% PF={stats_train['profit_factor']:.1f} ROI={stats_train['roi']:+.1f}% Sharpe={stats_train['sharpe']:.2f}", [symbole.replace("USDT",""), strategie, "backtest"])
     
     return msg
 
