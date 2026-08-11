@@ -6478,11 +6478,24 @@ def auto_ajuster_strategies():
         resultats = {}
         trades_par_strat = {}  # Stocker les trades pour walk-forward
         # Recuperer les donnees historiques une seule fois par crypto
+        # Appel direct CoinGecko (market_chart - donnees quotidiennes 90j)
+        bougies = []
         try:
-            from indicateurs import historique_ohlcv_long
-            bougies = historique_ohlcv_long(sym, "1d", 90)
+            from indicateurs import COINGECKO_MAP
+            coin_id = COINGECKO_MAP.get(sym.replace("USDT", "").lower(), sym.replace("USDT", "").lower())
         except:
-            bougies = []
+            coin_id = sym.replace("USDT", "").lower()
+        try:
+            import urllib.request
+            url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=eur&days=90&interval=daily"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode())
+            prices = data.get("prices", [])
+            bougies = [{"temps": int(p[0]), "ouverture": p[1], "haut": p[1],
+                       "bas": p[1], "cloture": p[1], "volume": 0} for p in prices]
+        except Exception:
+            pass
         if not bougies or len(bougies) < 30:
             msg += "  ⚠ Donnees insuffisantes\n\n"
             continue
