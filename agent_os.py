@@ -1662,6 +1662,17 @@ def handle_message(text, user_name="User"):
             send_telegram(result)
         return result or ""
     
+    # === BACKTEST AVANCE (doit etre avant le backtest rapide) ===
+    if text_lower.startswith("backtest avance") or text_lower.startswith("bt avance"):
+        parts = text_stripped.split()
+        symbole = parts[2].upper() + "USDT" if len(parts) > 2 and not parts[2].upper().endswith("USDT") else (parts[2].upper() if len(parts) > 2 else "BTCUSDT")
+        strategie = parts[3] if len(parts) > 3 else "momentum"
+        jours = int(parts[4]) if len(parts) > 4 and parts[4].isdigit() else 90
+        send_telegram(f"🔬 Backtest avance {symbole} {strategie} {jours}j...")
+        result = backtest_avance(symbole, strategie, jours)
+        send_telegram(result[:4000])
+        return result
+    
     # === BACKTEST RAPIDE ===
     if text_lower.startswith("backtest"):
         parts = text_stripped.split(None, 2)
@@ -1884,17 +1895,6 @@ def handle_message(text, user_name="User"):
         sujet = text_stripped.split(None, 1)[1] if len(text_stripped.split(None, 1)) > 1 else "cryptocurrency trading"
         send_telegram(f"📚 Recherche academique: {sujet}...")
         result = recherche_academique(sujet, 5)
-        send_telegram(result[:4000])
-        return result
-    
-    # === BACKTEST AVANCE ===
-    if text_lower.startswith("backtest avance") or text_lower.startswith("bt avance"):
-        parts = text_stripped.split()
-        symbole = parts[2].upper() + "USDT" if len(parts) > 2 and not parts[2].upper().endswith("USDT") else (parts[2].upper() if len(parts) > 2 else "BTCUSDT")
-        strategie = parts[3] if len(parts) > 3 else "momentum"
-        jours = int(parts[4]) if len(parts) > 4 and parts[4].isdigit() else 90
-        send_telegram(f"🔬 Backtest avance {symbole} {strategie} {jours}j...")
-        result = backtest_avance(symbole, strategie, jours)
         send_telegram(result[:4000])
         return result
     
