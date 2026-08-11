@@ -147,16 +147,22 @@ def send_telegram(message, parse_mode="HTML"):
             if len(message) > 4000:
                 parts = [message[i:i+4000] for i in range(0, len(message), 4000)]
                 for part in parts:
+                    payload = {"chat_id": TELEGRAM_CHAT, "text": part}
+                    if parse_mode:
+                        payload["parse_mode"] = parse_mode
                     requests.post(
                         f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-                        json={"chat_id": TELEGRAM_CHAT, "text": part, "parse_mode": parse_mode},
+                        json=payload,
                         timeout=10
                     )
                     time.sleep(0.3)
             else:
+                payload = {"chat_id": TELEGRAM_CHAT, "text": message}
+                if parse_mode:
+                    payload["parse_mode"] = parse_mode
                 r = requests.post(
                     f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-                    json={"chat_id": TELEGRAM_CHAT, "text": message, "parse_mode": parse_mode},
+                    json=payload,
                     timeout=10
                 )
                 if r.status_code == 200:
