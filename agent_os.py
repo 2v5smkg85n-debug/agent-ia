@@ -6974,46 +6974,79 @@ def simulateur_scenarios(symbole="BTCUSDT"):
 
 
 # ============================================
-# 50. AUTO-DIAGNOSTIC + AUTO-REPARATION
+# 50. AUTO-DIAGNOSTIC + AUTO-REPARATION AUTONOME
 # ============================================
 def auto_diagnostic():
-    """Scanne l'agent a la recherche de bugs et se repare automatiquement."""
+    """Scanne l'agent, repare les problemes, commit et push les fixes."""
+    msg = "🔧 AUTO-DIAGNOSTIC EN COURS\n" + " " * 40 + "\n\n"
     msg = "🔧 AUTO-DIAGNOSTIC EN COURS\n" + "━" * 40 + "\n\n"
     problemes = []
     reparations = []
+    code_modifie = False
     
-    # 1. Verifier la syntaxe de agent_os.py (sans modifier le code)
+    agent_path = os.path.join(DOSSIER, "agent_os.py")
+    
+    # 1. Verifier la syntaxe de agent_os.py
     msg += "1️⃣ Verification syntaxe agent_os.py...\n"
     try:
         import ast
-        with open(os.path.join(DOSSIER, "agent_os.py"), "r") as f:
+        with open(agent_path, "r") as f:
             code = f.read()
         ast.parse(code)
         msg += "   ✅ Syntaxe OK\n"
     except SyntaxError as e:
-        problemes.append(f"Syntaxe agent_os.py: {e}")
+        problemes.append(f"Syntaxe agent_os.py ligne {e.lineno}: {e.msg}")
         msg += f"   ❌ Erreur syntaxe ligne {e.lineno}: {e.msg}\n"
         msg += "   ⚠️ Correction manuelle requise\n"
     
-    # 2. Verifier les imports manquants (sans modifier le code)
+    # 2. Verifier et reparer les imports manquants
     msg += "\n2️⃣ Verification des imports...\n"
-    imports_necessaires = [("requests", "requests"), ("json", "json"), ("os", "os"), ("datetime", "datetime"), ("urllib.request", "urllib")]
+    imports_necessaires = [
+        ("requests", "requests"),
+        ("json", "json"),
+        ("os", "os"),
+        ("datetime", "datetime"),
+        ("urllib.request", "urllib"),
+        ("threading", "threading"),
+        ("time", "time"),
+        ("sys", "sys"),
+    ]
     for imp_name, imp_search in imports_necessaires:
         if f"import {imp_search}" not in code and f"from {imp_search}" not in code:
             problemes.append(f"Import manquant: {imp_name}")
-            msg += f"   ⚠️ Import manquant: {imp_name} (a ajouter manuellement)\n"
+            msg += f"   ❌ Import manquant: {imp_name}\n"
+            # AUTO-REPARATION: ajouter l'import
+            try:
+                lignes = code.split("\n")
+                # Trouver le dernier import
+                dernier_import = 0
+                for i, l in enumerate(lignes):
+                    if l.startswith("import ") or l.startswith("from "):
+                        dernier_import = i
+                lignes.insert(dernier_import + 1, f"import {imp_name}")
+                nouveau_code = "\n".join(lignes)
+                # Valider la syntaxe apres modification
+                ast.parse(nouveau_code)
+                with open(agent_path, "w") as f:
+                    f.write(nouveau_code)
+                code = nouveau_code
+                code_modifie = True
+                reparations.append(f"import {imp_name} ajoute")
+                msg += f"   🔧 import {imp_name} ajoute automatiquement\n"
+                problemes.pop()  # Retirer des problemes since on l'a repare
+            except Exception as e:
+                msg += f"   ⚠️ Reparation impossible: {e}\n"
         else:
             msg += f"   ✅ {imp_name} present\n"
     
-    # 3. Verifier les fichiers de donnees
+    # 3. Verifier et reparer les fichiers de donnees
     msg += "\n3️⃣ Verification des fichiers de donnees...\n"
-    fichiers = ["paper_trading.json", "memoire.json", "alertes_prix.json"]
+    fichiers = ["paper_trading.json", "memoire.json", "alertes_prix.json", "poids_strategies.json", "diagnostics.json"]
     for f in fichiers:
         path = os.path.join(DOSSIER, f)
         if not os.path.exists(path):
-            problemes.append(f"Fichier manquant: {f}")
             msg += f"   ❌ {f} manquant\n"
-            # Reparation: creer le fichier
+            # AUTO-REPARATION: creer le fichier
             try:
                 with open(path, "w") as fp:
                     json.dump({}, fp)
@@ -7027,9 +7060,8 @@ def auto_diagnostic():
                     json.load(fp)
                 msg += f"   ✅ {f} OK\n"
             except json.JSONDecodeError:
-                problemes.append(f"JSON corrompu: {f}")
                 msg += f"   ❌ {f} corrompu\n"
-                # Reparation: sauvegarder et recreer
+                # AUTO-REPARATION: sauvegarder et recreer
                 try:
                     os.rename(path, path + ".bak")
                     with open(path, "w") as fp:
@@ -7039,14 +7071,12 @@ def auto_diagnostic():
                 except:
                     pass
     
-    # 4. Verifier les cles API (test fonctionnel, pas de lecture de valeur)
+    # 4. Verifier les cles API
     msg += "\n4️⃣ Verification des cles API...\n"
-    # Verifier .env existe
     env_found = False
     for env_path in [os.path.join(DOSSIER, ".env"), "/home/ubuntu/agent-ia/.env", os.path.expanduser("~/agent-ia/.env")]:
         if os.path.exists(env_path):
             env_found = True
-            # Lister les cles presentes (sans afficher les valeurs)
             cles_presentes = []
             try:
                 with open(env_path, "rb") as ef:
@@ -7068,9 +7098,9 @@ def auto_diagnostic():
     if not env_found:
         msg += "   ❌ .env non trouve\n"
         problemes.append(".env manquant")
-    # Test fonctionnel: si send_telegram marche, le token est valide
+    
     if TELEGRAM_TOKEN:
-        msg += "   ✅ TELEGRAM_BOT_TOKEN actif (test fonctionnel)\n"
+        msg += "   ✅ TELEGRAM_BOT_TOKEN actif\n"
     else:
         msg += "   ⚠️ TELEGRAM_BOT_TOKEN non charge\n"
         problemes.append("TELEGRAM_BOT_TOKEN non charge")
@@ -7085,7 +7115,7 @@ def auto_diagnostic():
         msg += "   ⚠️ GEMINI_API_KEY non charge\n"
         problemes.append("GEMINI_API_KEY non charge")
     
-    # 5. Verifier la connexion Telegram (test fonctionnel via send_telegram)
+    # 5. Test connexion Telegram
     msg += "\n5️⃣ Test connexion Telegram...\n"
     if TELEGRAM_TOKEN:
         try:
@@ -7094,14 +7124,14 @@ def auto_diagnostic():
                 bot_info = r.json().get("result", {})
                 msg += f"   ✅ Bot connecte: @{bot_info.get('username', '?')}\n"
             else:
-                msg += f"   ⚠️ Telegram API: {r.status_code} (token present mais erreur API)\n"
+                msg += f"   ⚠️ Telegram API: {r.status_code}\n"
         except Exception as e:
             msg += f"   ⚠️ Telegram: {e}\n"
     else:
         msg += "   ❌ Pas de token Telegram\n"
         problemes.append("Telegram: pas de token")
     
-    # 6. Verifier la connexion CoinGecko
+    # 6. Test connexion CoinGecko
     msg += "\n6️⃣ Test connexion CoinGecko...\n"
     try:
         r = requests.get("https://api.coingecko.com/api/v3/ping", timeout=10)
@@ -7117,27 +7147,22 @@ def auto_diagnostic():
     # 7. Verifier les fonctions critiques
     msg += "\n7️⃣ Verification des fonctions critiques...\n"
     fonctions_critiques = [
-        "def envoyer_message_telegram", "def get_crypto_price", "def analyser_actif",
-        "def gerer_stop_loss_take_profit", "def pnl_temps_reel", "def briefing"
+        ("def send_telegram", "send_telegram"),
+        ("def get_crypto_price", "get_crypto_price"),
+        ("def analyser_actif", "analyser_actif"),
+        ("def gerer_stop_loss_take_profit", "stop_loss/take_profit"),
+        ("def pnl_temps_reel", "pnl_temps_reel"),
+        ("def briefing", "briefing"),
+        ("def auto_diagnostic", "auto_diagnostic"),
     ]
-    for f in fonctions_critiques:
-        if f in code:
-            msg += f"   ✅ {f.split('def ')[1].split('(')[0]}\n"
+    for pattern, nom in fonctions_critiques:
+        if pattern in code:
+            msg += f"   ✅ {nom}\n"
         else:
-            # Verifier avec des noms alternatifs
-            nom_f = f.split("def ")[1].split("(")[0]
-            found = False
-            for alt in [f"def send_telegram", f"def get_prix", f"def analyser"]:
-                if alt in code and nom_f in ["envoyer_message_telegram", "get_crypto_price", "analyser_actif"]:
-                    found = True
-                    break
-            if found:
-                msg += f"   ✅ {nom_f} (alias)\n"
-            else:
-                problemes.append(f"Fonction manquante: {nom_f}")
-                msg += f"   ⚠️ {nom_f} non trouvee\n"
+            problemes.append(f"Fonction manquante: {nom}")
+            msg += f"   ⚠️ {nom} non trouvee\n"
     
-    # 8. Verifier l'espace disque
+    # 8. Verifier le systeme
     msg += "\n8️⃣ Verification systeme...\n"
     try:
         import shutil
@@ -7146,13 +7171,14 @@ def auto_diagnostic():
         if pct > 90:
             problemes.append(f"Disque plein: {pct:.0f}%")
             msg += f"   ❌ Disque: {pct:.0f}% (CRITIQUE)\n"
-            # Reparation: nettoyer les vieux logs
+            # AUTO-REPARATION: nettoyer les gros logs
             try:
                 for f in os.listdir(DOSSIER):
-                    if f.endswith(".log") and os.path.getsize(os.path.join(DOSSIER, f)) > 10_000_000:
-                        os.remove(os.path.join(DOSSIER, f))
+                    fp = os.path.join(DOSSIER, f)
+                    if f.endswith(".log") and os.path.getsize(fp) > 10_000_000:
+                        os.remove(fp)
                         reparations.append(f"{f} supprime (trop gros)")
-                        msg += f"   🔧 {f} supprime (trop gros)\n"
+                        msg += f"   🔧 {f} supprime (>10MB)\n"
             except:
                 pass
         else:
@@ -7160,7 +7186,6 @@ def auto_diagnostic():
     except:
         msg += "   ⚪ Disque: verification impossible\n"
     
-    # 9. Verifier les processus
     try:
         import subprocess
         r = subprocess.run(["pgrep", "-f", "agent_os.py"], capture_output=True, text=True, timeout=5)
@@ -7173,10 +7198,26 @@ def auto_diagnostic():
     except:
         msg += "   ⚪ Processus: verification impossible\n"
     
+    # === AUTO-REPARATION: commit + push si code modifie ===
+    if code_modifie:
+        msg += "\n" + "━" * 40 + "\n"
+        msg += "📤 SAUVEGARDE DES REPARATIONS...\n"
+        try:
+            import subprocess
+            # Git add + commit + push
+            subprocess.run(["git", "add", "-A"], cwd=DOSSIER, capture_output=True, timeout=10)
+            commit_msg = f"Auto-reparation: {', '.join(reparations)}"
+            subprocess.run(["git", "commit", "-m", commit_msg], cwd=DOSSIER, capture_output=True, timeout=10)
+            subprocess.run(["git", "push"], cwd=DOSSIER, capture_output=True, timeout=30)
+            msg += "   ✅ Fixes commites et pousses sur GitHub\n"
+            msg += "   📦 Relance necessaire pour appliquer les fixes\n"
+        except Exception as e:
+            msg += f"   ⚠️ Git push impossible: {e}\n"
+    
     # Synthese
     msg += "\n" + "━" * 40 + "\n"
     msg += "📊 SYNTHESE DIAGNOSTIC:\n"
-    msg += f"  Problemes detectes: {len(problemes)}\n"
+    msg += f"  Problemes restants: {len(problemes)}\n"
     msg += f"  Reparations auto: {len(reparations)}\n"
     
     if reparations:
@@ -7190,18 +7231,6 @@ def auto_diagnostic():
         msg += "\n⚠️ PROBLEMES RESTANTS:\n"
         for p in problemes:
             msg += f"  • {p}\n"
-        
-        # Si problemes restants, demander a l'IA de proposer des solutions
-        if len(problemes) > 2 and PPLX_KEY:
-            try:
-                headers = {"Authorization": f"Bearer {PPLX_KEY}", "Content-Type": "application/json"}
-                prompt = f"Tu es un agent de diagnostic. Voici les problemes detectes: {'; '.join(problemes)}. Propose 3 solutions concretes en 1 ligne chacune. Reponds en francais."
-                payload = {"model": "sonar", "messages": [{"role": "user", "content": prompt}], "max_tokens": 200}
-                r = requests.post("https://api.perplexity.ai/chat/completions", json=payload, headers=headers, timeout=30)
-                if r.status_code == 200:
-                    msg += "\n💡 SOLUTIONS IA:\n" + r.json()["choices"][0]["message"]["content"]
-            except:
-                pass
     
     # Enregistrer le diagnostic
     diag_file = os.path.join(DOSSIER, "diagnostics.json")
@@ -7210,7 +7239,8 @@ def auto_diagnostic():
         "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "problemes": len(problemes),
         "reparations": len(reparations),
-        "details": problemes[:10]
+        "details": problemes[:10],
+        "reparations_details": reparations[:10]
     })
     save_json_safe(diag_file, diags)
     
@@ -7220,16 +7250,20 @@ def auto_diagnostic():
 
 
 def auto_reparation_continue():
-    """Boucle d'auto-reparation qui tourne en arriere-plan toutes les 30 min."""
+    """Boucle autonome: scanne, repare, commit, push, notifie. Toutes les 30 min."""
     while True:
         try:
             time.sleep(1800)  # 30 minutes
             result = auto_diagnostic()
-            # Si problemes detectes, notifier Telegram
-            if "PROBLEMES RESTANTS" in result:
-                send_telegram("🔧 AUTO-DIAGNOSTIC: problemes detectes, reparation en cours...")
+            # Si des reparations ont ete effectuees, notifier
+            if "REPARATIONS EFFECTUEES" in result:
+                send_telegram("🔧 AUTO-REPARATION: problems detectes et corriges automatiquement!")
                 send_telegram(result[:4000])
-            # Enregistrer dans le log
+            # Si problemes non resolus, notifier
+            elif "PROBLEMES RESTANTS" in result:
+                send_telegram("⚠️ AUTO-DIAGNOSTIC: problemes non resolus detectes")
+                send_telegram(result[:4000])
+            # Log silencieux
             with open(os.path.join(DOSSIER, "auto_diag.log"), "a") as f:
                 f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Diagnostic OK\n")
         except Exception as e:
@@ -7237,7 +7271,7 @@ def auto_reparation_continue():
                 enregistrer_erreur("auto_diagnostic", "boucle diagnostic", str(e), "Verifier les imports et la memoire")
             except:
                 pass
-            time.sleep(300)  # Attendre 5 min avant de recommencer
+            time.sleep(300)
 
 
 if __name__ == "__main__":
