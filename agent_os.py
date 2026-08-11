@@ -30,6 +30,8 @@ import tempfile
 import traceback
 import signal
 import ast
+import urllib.request
+import urllib.error
 
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, DOSSIER)
@@ -6995,13 +6997,13 @@ def auto_diagnostic():
     
     # 2. Verifier les imports manquants (sans modifier le code)
     msg += "\n2️⃣ Verification des imports...\n"
-    imports_necessaires = ["requests", "json", "os", "datetime", "urllib.request"]
-    for imp in imports_necessaires:
-        if f"import {imp}" not in code and f"from {imp}" not in code:
-            problemes.append(f"Import manquant: {imp}")
-            msg += f"   ⚠️ Import manquant: {imp} (a ajouter manuellement)\n"
+    imports_necessaires = [("requests", "requests"), ("json", "json"), ("os", "os"), ("datetime", "datetime"), ("urllib.request", "urllib")]
+    for imp_name, imp_search in imports_necessaires:
+        if f"import {imp_search}" not in code and f"from {imp_search}" not in code:
+            problemes.append(f"Import manquant: {imp_name}")
+            msg += f"   ⚠️ Import manquant: {imp_name} (a ajouter manuellement)\n"
         else:
-            msg += f"   ✅ {imp} present\n"
+            msg += f"   ✅ {imp_name} present\n"
     
     # 3. Verifier les fichiers de donnees
     msg += "\n3️⃣ Verification des fichiers de donnees...\n"
