@@ -3883,8 +3883,10 @@ def comprendre_message(texte):
         "prix", "memoire", "profil", "souviens", "cherche", "oublie", "stats",
         "code-seul", "rapport", "auto-ameliorer", "planifie", "taches",
         "alertes", "alerte", "comparatif", "graph", "backtest",
-        "pnl", "mtf", "sentiment", "apprentissage", "correlations",
-        "prevision", "forecast"
+        "pnl", "mtf", "apprentissage", "correlations",
+        "prevision", "forecast",
+        "ajuster", "divergence", "pattern", "scenario", "simule",
+        "diagnostic", "diag", "sante", "repare"
     ]
     premiere_mot = texte_lower.split()[0] if texte_lower.split() else ""
     for cmd in commandes_connues:
