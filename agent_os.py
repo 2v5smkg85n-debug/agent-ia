@@ -6468,9 +6468,11 @@ def auto_ajuster_strategies():
     cryptos = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "AVAXUSDT", "LINKUSDT"]
     strategies = ["momentum", "mean_reversion", "breakout", "rsi_extreme", "macd"]
     
+    print("[AUTO-AJUSTER] Debut de la fonction")
     ajustements = 0
     for sym in cryptos:
       try:
+        print(f"[AUTO-AJUSTER] Debut {sym}...")
         nom = NOMS.get(sym, sym)
         msg += f"📊 {nom}:\n"
         
@@ -6504,7 +6506,9 @@ def auto_ajuster_strategies():
             pass
         if not bougies or len(bougies) < 30:
             msg += "  ⚠ Donnees insuffisantes\n\n"
+            print(f"[AUTO-AJUSTER] {sym}: donnees insuffisantes ({len(bougies) if bougies else 0} bougies)")
             continue
+        print(f"[AUTO-AJUSTER] {sym}: {len(bougies)} bougies recuperees")
         # Pre-calculer les donnees une seule fois (optimisation)
         clotures_all = [b["cloture"] for b in bougies]
         hauts_all = [b["haut"] for b in bougies]
@@ -6653,6 +6657,7 @@ def auto_ajuster_strategies():
                 else:
                     msg += f"  ⚪ {strat:<16} 0.05 (pas de donnees)\n"
         msg += "\n"
+        print(f"[AUTO-AJUSTER] {sym} termine")
       except Exception as _e:
         import traceback
         msg += f"  ❌ Erreur {sym}: {_e}\n\n"
@@ -6662,8 +6667,8 @@ def auto_ajuster_strategies():
     poids["dernier_ajustement"] = datetime.now().strftime("%Y-%m-%d %H:%M")
     save_json_safe(strat_file, poids)
     
+    print("[AUTO-AJUSTER] Fonction terminee, envoi du resultat")
     msg += "━" * 40 + "\n"
-    msg += f"✅ {ajustements} ajustement(s) effectue(s)\n"
     msg += f"📁 Poids sauvegardes dans poids_strategies.json\n"
     msg += "\n💡 Protections anti-surapprentissage:\n"
     msg += "  • Min 3 trades pour ajuster | Plafond 0.70 | Plancher 0.05\n"
