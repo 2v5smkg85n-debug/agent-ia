@@ -6497,13 +6497,14 @@ def auto_ajuster_strategies():
             import urllib.request
             url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=eur&days=90&interval=daily"
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode())
             prices = data.get("prices", [])
             bougies = [{"temps": int(p[0]), "ouverture": p[1], "haut": p[1],
                        "bas": p[1], "cloture": p[1], "volume": 0} for p in prices]
         except Exception:
             pass
+        time.sleep(1)  # Anti rate-limit CoinGecko
         if not bougies or len(bougies) < 30:
             msg += "  ⚠ Donnees insuffisantes\n\n"
             print(f"[AUTO-AJUSTER] {sym}: donnees insuffisantes ({len(bougies) if bougies else 0} bougies)")
