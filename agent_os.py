@@ -6534,34 +6534,128 @@ def auto_ajuster_strategies():
                 roi = (roi - 1) * 100
                 resultats[strat] = {"wr": wr, "roi": roi, "n": len(trades)}
         
-        # Calculer les poids (base sur ROI)
+        # Calculer les poids avec protection anti-surapprentissage
         if resultats:
+            # Parametres anti-surapprentissage
+            MIN_TRADES = 3          # Minimum de trades pour ajuster
+            MAX_POIDS = 0.70        # Plafond (garde diversification)
+            MIN_POIDS = 0.05        # Plancher (garde diversification)
+            MAX_DELTA = 0.30        # Changement max par ajustement
+            
             total_roi = sum(max(r["roi"], 0) for r in resultats.values()) or 1
             for strat in strategies:
                 if strat in resultats:
                     r = resultats[strat]
-                    # Poids = ROI positif normalise (0 a 1)
-                    poids_calc = max(r["roi"], 0) / total_roi if total_roi > 0 else 0
-                    # Penaliser les strategies perdantes
+                    ancien_poids = poids.get("strategies", {}).get(f"{sym}_{strat}", 0.20)
+                    
+                    # PROTECTION 1: Minimum de trades
+                    if r["n"] < MIN_TRADES:
+                        nouveau_poids = ancien_poids  # Garder l'ancien poids
+                        msg += f"  ⚪ {strat:<16} {ancien_poids:.2f} (WR:{r['wr']:.0f}% ROI:{r['roi']:+.1f}% | {r['n']} trades < {MIN_TRADES} min)\n"
+                        poids.setdefault("strategies", {})[f"{sym}_{strat}"] = nouveau_poids
+                        continue
+                    
+                    # PROTECTION 2: Walk-forward (split 70/30 des trades)
+                    split_idx = int(len(trades) * 0.7) if 'trades' in dir() else int(r["n"] * 0.7)
+                    # Recalculer les trades pour le split
+                    trades_strat = []
+                    pos = None
+                    for i in range(20, len(bougies)):
+                        cl = [b["cloture"] for b in bougies[:i+1]]
+                        p = cl[-1]
+                        sma20 = sum(cl[-20:]) / 20 if len(cl) >= 20 else p
+                        sma50 = sum(cl[-50:]) / 50 if len(cl) >= 50 else sma20
+                        g = [cl[j] - cl[j-1] for j in range(-14, 0) if j >= -len(cl) and cl[j] > cl[j-1]]
+                        pe = [cl[j-1] - cl[j] for j in range(-14, 0) if j >= -len(cl) and cl[j] < cl[j-1]]
+                        ag = sum(g) / 14 if g else 0
+                        ap = sum(pe) / 14 if pe else 0.001
+                        rsi_v = 100 - (100 / (1 + (ag / ap if ap > 0 else 100)))
+                        sig = 0
+                        if strat == "momentum":
+                            if (sma20 > sma50 or p > sma20) and rsi_v < 70 and rsi_v > 30: sig = 1
+                            elif (p < sma20 or rsi_v > 70): sig = -1
+                        elif strat == "mean_reversion":
+                            if rsi_v < 30: sig = 1
+                            elif rsi_v > 70: sig = -1
+                        elif strat == "breakout":
+                            hs = [b["haut"] for b in bougies[:i+1]]
+                            bs = [b["bas"] for b in bougies[:i+1]]
+                            if len(hs) >= 20:
+                                if p > max(hs[-20:]) * 0.99: sig = 1
+                                elif p < min(bs[-20:]) * 1.01: sig = -1
+                        elif strat == "rsi_extreme":
+                            if rsi_v < 25: sig = 1
+                            elif rsi_v > 75: sig = -1
+                        elif strat == "macd":
+                            e12 = sum(cl[-12:]) / 12 if len(cl) >= 12 else p
+                            e26 = sum(cl[-26:]) / 26 if len(cl) >= 26 else p
+                            m = e12 - e26
+                            if m > 0 and rsi_v < 65: sig = 1
+                            elif m < 0 and rsi_v > 35: sig = -1
+                        if sig == 1 and pos is None:
+                            pos = p
+                        elif sig == -1 and pos is not None:
+                            pnl = (p - pos) / pos * 100 - 0.2
+                            trades_strat.append(pnl)
+                            pos = None
+                    if pos is not None:
+                        pnl = (bougies[-1]["cloture"] - pos) / pos * 100 - 0.2
+                        trades_strat.append(pnl)
+                    
+                    # Split walk-forward
+                    split_t = int(len(trades_strat) * 0.7) if len(trades_strat) >= 4 else len(trades_strat)
+                    train_trades = trades_strat[:split_t]
+                    test_trades = trades_strat[split_t:]
+                    
+                    train_roi = 1
+                    for t in train_trades:
+                        train_roi *= (1 + t / 100)
+                    train_roi = (train_roi - 1) * 100
+                    
+                    test_roi = 1
+                    for t in test_trades:
+                        test_roi *= (1 + t / 100)
+                    test_roi = (test_roi - 1) * 100 if test_trades else 0
+                    
+                    # PROTECTION 3: Consistance train/test
+                    consistent = (train_roi > 0 and test_roi >= 0) or (train_roi > 0 and not test_trades)
+                    
+                    # PROTECTION 4: Facteur de confiance (plus de trades = plus de confiance)
+                    confiance = min(r["n"] / 10, 1.0)  # 1.0 a 10+ trades
+                    
+                    # Calcul du poids cible
                     if r["roi"] < 0:
-                        poids_calc = 0
-                    # Bonus si winrate > 55%
-                    if r["wr"] > 55:
-                        poids_calc *= 1.2
+                        poids_cible = MIN_POIDS
+                    else:
+                        poids_cible = max(r["roi"], 0) / total_roi if total_roi > 0 else 0
+                        poids_cible = min(poids_cible, MAX_POIDS)
+                        # Penaliser si non consistent
+                        if not consistent:
+                            poids_cible *= 0.5
+                        # Bonus si winrate > 55%
+                        if r["wr"] > 55:
+                            poids_cible = min(poids_cible * 1.15, MAX_POIDS)
+                        # Appliquer facteur de confiance
+                        poids_cible = MIN_POIDS + (poids_cible - MIN_POIDS) * confiance
+                        poids_cible = max(MIN_POIDS, min(poids_cible, MAX_POIDS))
                     
-                    ancien_poids = poids.get("strategies", {}).get(f"{sym}_{strat}", 0.2)
-                    nouveau_poids = round(min(poids_calc, 1.0), 2)
+                    # PROTECTION 5: Changement progressif (max MAX_DELTA par ajustement)
+                    delta = poids_cible - ancien_poids
+                    delta = max(-MAX_DELTA, min(MAX_DELTA, delta))
+                    nouveau_poids = round(ancien_poids + delta, 2)
+                    nouveau_poids = max(MIN_POIDS, min(nouveau_poids, MAX_POIDS))
                     
-                    if abs(ancien_poids - nouveau_poids) > 0.05:
+                    if abs(ancien_poids - nouveau_poids) > 0.02:
                         ajustements += 1
                         emoji = "🟢" if nouveau_poids > ancien_poids else "🔴"
-                        msg += f"  {emoji} {strat:<16} {ancien_poids:.2f} → {nouveau_poids:.2f} (WR:{r['wr']:.0f}% ROI:{r['roi']:+.1f}%)\n"
+                        consistance_emoji = "✓" if consistent else "⚠"
+                        msg += f"  {emoji} {strat:<16} {ancien_poids:.2f} → {nouveau_poids:.2f} (WR:{r['wr']:.0f}% ROI:{r['roi']:+.1f}% {r['n']}t {consistance_emoji})\n"
                     else:
-                        msg += f"  ⚪ {strat:<16} {nouveau_poids:.2f} (WR:{r['wr']:.0f}% ROI:{r['roi']:+.1f}%)\n"
+                        msg += f"  ⚪ {strat:<16} {nouveau_poids:.2f} (WR:{r['wr']:.0f}% ROI:{r['roi']:+.1f}% {r['n']}t)\n"
                     
                     poids.setdefault("strategies", {})[f"{sym}_{strat}"] = nouveau_poids
                 else:
-                    msg += f"  ⚪ {strat:<16} 0.00 (pas de donnees)\n"
+                    msg += f"  ⚪ {strat:<16} 0.05 (pas de donnees)\n"
         msg += "\n"
     
     # Sauvegarder
@@ -6571,8 +6665,11 @@ def auto_ajuster_strategies():
     msg += "━" * 40 + "\n"
     msg += f"✅ {ajustements} ajustement(s) effectue(s)\n"
     msg += f"📁 Poids sauvegardes dans poids_strategies.json\n"
-    msg += "\n💡 Les strategies gagnantes sont renforcees, les perdantes reduites a 0.\n"
-    msg += "L'agent utilisera ces poids pour ses futures decisions de trading."
+    msg += "\n💡 Protections anti-surapprentissage:\n"
+    msg += "  • Min 3 trades pour ajuster | Plafond 0.70 | Plancher 0.05\n"
+    msg += "  • Walk-forward 70/30 | Changement max ±0.30 par ajustement\n"
+    msg += "  • Facteur de confiance selon nb de trades\n"
+    msg += "  ✓ = strategie consistante (train+test positifs) | ⚠ = surapprentissage suspecte"
     
     memoire_ajouter("ajustement", f"Auto-ajustement: {ajustements} strategies modifiees sur {len(cryptos)} cryptos", ["strategies", "auto_ajustement"])
     
