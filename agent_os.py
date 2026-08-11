@@ -7047,30 +7047,51 @@ def auto_diagnostic():
     
     # 4. Verifier les cles API
     msg += "\n4️⃣ Verification des cles API...\n"
-    # Lire les cles depuis les variables globales (deja chargees par load_dotenv)
-    cles = {
-        "TELEGRAM_BOT_TOKEN": globals().get("TELEGRAM_TOKEN", "") or os.getenv("TELEGRAM_BOT_TOKEN", ""),
-        "PPLX_API_KEY": globals().get("PPLX_KEY", "") or os.getenv("PPLX_API_KEY", ""),
-        "GEMINI_API_KEY": globals().get("GEMINI_KEY", "") or os.getenv("GEMINI_API_KEY", ""),
-    }
-    # Fallback: lire .env directement si toujours vide
-    if not cles["TELEGRAM_BOT_TOKEN"] or not cles["PPLX_API_KEY"] or not cles["GEMINI_API_KEY"]:
+    # Lire les cles: 1) variables globales 2) os.getenv 3) .env direct
+    tg_tok = ""
+    pplx_k = ""
+    gem_k = ""
+    try:
+        tg_tok = TELEGRAM_TOKEN
+    except:
+        pass
+    try:
+        pplx_k = PPLX_KEY
+    except:
+        pass
+    try:
+        gem_k = GEMINI_KEY
+    except:
+        pass
+    tg_tok = tg_tok or os.getenv("TELEGRAM_BOT_TOKEN", "")
+    pplx_k = pplx_k or os.getenv("PPLX_API_KEY", "")
+    gem_k = gem_k or os.getenv("GEMINI_API_KEY", "")
+    # Fallback: lire .env directement
+    if not tg_tok or not pplx_k or not gem_k:
         try:
-            env_direct = {}
-            env_path = os.path.join(DOSSIER, ".env")
-            if not os.path.exists(env_path):
-                env_path = os.path.expanduser("~/agent-ia/.env")
-            with open(env_path) as f:
-                for line in f:
-                    line = line.strip()
-                    if "=" in line and not line.startswith("#"):
-                        k, v = line.split("=", 1)
-                        env_direct[k.strip()] = v.strip().strip('"').strip("'")
-            cles["TELEGRAM_BOT_TOKEN"] = cles["TELEGRAM_BOT_TOKEN"] or env_direct.get("TELEGRAM_BOT_TOKEN", "")
-            cles["PPLX_API_KEY"] = cles["PPLX_API_KEY"] or env_direct.get("PPLX_API_KEY", "")
-            cles["GEMINI_API_KEY"] = cles["GEMINI_API_KEY"] or env_direct.get("GEMINI_API_KEY", "")
+            for env_path in [os.path.join(DOSSIER, ".env"), "/home/ubuntu/agent-ia/.env", os.path.expanduser("~/agent-ia/.env")]:
+                if os.path.exists(env_path):
+                    with open(env_path) as f:
+                        for line in f:
+                            line = line.strip()
+                            if "=" in line and not line.startswith("#"):
+                                k, v = line.split("=", 1)
+                                k = k.strip()
+                                v = v.strip().strip('"').strip("'")
+                                if k == "TELEGRAM_BOT_TOKEN" and not tg_tok:
+                                    tg_tok = v
+                                elif k == "PPLX_API_KEY" and not pplx_k:
+                                    pplx_k = v
+                                elif k == "GEMINI_API_KEY" and not gem_k:
+                                    gem_k = v
+                    break
         except:
             pass
+    cles = {
+        "TELEGRAM_BOT_TOKEN": tg_tok,
+        "PPLX_API_KEY": pplx_k,
+        "GEMINI_API_KEY": gem_k,
+    }
     for nom_cle, val in cles.items():
         if not val:
             problemes.append(f"Cle API manquante: {nom_cle}")
@@ -7082,15 +7103,6 @@ def auto_diagnostic():
     msg += "\n5️⃣ Test connexion Telegram...\n"
     try:
         token_tg = cles.get("TELEGRAM_BOT_TOKEN", "")
-        if not token_tg:
-            try:
-                with open(os.path.join(DOSSIER, ".env")) as f:
-                    for line in f:
-                        if "TELEGRAM_BOT_TOKEN" in line and "=" in line and not line.strip().startswith("#"):
-                            token_tg = line.split("=", 1)[1].strip().strip('"').strip("'")
-                            break
-            except:
-                pass
         r = requests.get(f"https://api.telegram.org/bot{token_tg}/getMe", timeout=10)
         if r.status_code == 200:
             bot_info = r.json().get("result", {})
