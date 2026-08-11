@@ -6480,11 +6480,17 @@ def auto_ajuster_strategies():
         # Recuperer les donnees historiques une seule fois par crypto
         # Appel direct CoinGecko (market_chart - donnees quotidiennes 90j)
         bougies = []
-        try:
-            from indicateurs import COINGECKO_MAP
-            coin_id = COINGECKO_MAP.get(sym.replace("USDT", "").lower(), sym.replace("USDT", "").lower())
-        except:
-            coin_id = sym.replace("USDT", "").lower()
+        # Mapping direct symbole -> CoinGecko coin_id
+        _COINGECKO_IDS = {
+            "BTCUSDT": "bitcoin", "ETHUSDT": "ethereum", "SOLUSDT": "solana",
+            "BNBUSDT": "binancecoin", "AVAXUSDT": "avalanche-2",
+            "LINKUSDT": "chainlink", "XRPUSDT": "ripple", "DOGEUSDT": "dogecoin",
+            "ARBUSDT": "arbitrum", "NEARUSDT": "near", "FETUSDT": "fetch-ai",
+            "RNDRUSDT": "render-token", "LDOUSDT": "lido-dao", "AAVEUSDT": "aave",
+            "PENDLEUSDT": "pendle", "INJUSDT": "injective-protocol",
+            "SUIUSDT": "sui", "APTUSDT": "aptos",
+        }
+        coin_id = _COINGECKO_IDS.get(sym, sym.replace("USDT", "").lower())
         try:
             import urllib.request
             url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=eur&days=90&interval=daily"
