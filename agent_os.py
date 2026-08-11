@@ -162,14 +162,18 @@ def send_telegram(message, parse_mode="HTML"):
                 if r.status_code == 200:
                     return True
                 # Si erreur de parse_mode, renvoie en texte simple
-                if r.status_code == 400 and attempt == 1:
-                    requests.post(
+                if r.status_code == 400 and parse_mode:
+                    r2 = requests.post(
                         f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
                         json={"chat_id": TELEGRAM_CHAT, "text": message[:4000]},
                         timeout=10
                     )
-                    return True
-            return True
+                    return r2.status_code == 200
+                print(f"[TELEGRAM] HTTP {r.status_code}: {r.text[:200]}")
+                if attempt < 2:
+                    time.sleep(2)
+                    continue
+                return False
         except requests.exceptions.Timeout:
             print(f"[TELEGRAM] Timeout tentative {attempt+1}/3")
             time.sleep(2)
@@ -1694,7 +1698,9 @@ def handle_message(text, user_name="User"):
     if text_lower in ["ajuster", "auto-ajuster", "ajuste", "ajustement", "poids strategies"]:
         send_telegram("🧠 Auto-ajustement des strategies...")
         result = auto_ajuster_strategies()
-        send_telegram(result[:4000])
+        print(f"[AUTO-AJUSTER] Resultat: {len(result)} chars")
+        ok = send_telegram(result, parse_mode=None)
+        print(f"[AUTO-AJUSTER] Telegram envoye: {ok}")
         return result
     
     # === DIVERGENCES + PATTERNS ===
