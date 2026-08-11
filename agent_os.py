@@ -6771,9 +6771,9 @@ def sentiment_temps_reel(symbole="BTCUSDT"):
                 msg += "🟣 PERPLEXITY (news + social):\n"
                 msg += reponse + "\n\n"
                 
-                # Extraire score
+                # Extraire score (supporte formats: "score: -2", "Score : +6", "score sentiment : -2/10")
                 import re
-                match = re.search(r'score[:\s]*(-?\d+)', reponse, re.IGNORECASE)
+                match = re.search(r'score[^\d]*([+-]?\d+)', reponse, re.IGNORECASE)
                 if match:
                     score_total += int(match.group(1))
                     sources_count += 1
@@ -6793,7 +6793,7 @@ def sentiment_temps_reel(symbole="BTCUSDT"):
                 msg += reponse + "\n\n"
                 
                 import re
-                match = re.search(r'score[:\s]*(-?\d+)', reponse, re.IGNORECASE)
+                match = re.search(r'score[^\d]*([+-]?\d+)', reponse, re.IGNORECASE)
                 if match:
                     score_total += int(match.group(1))
                     sources_count += 1
