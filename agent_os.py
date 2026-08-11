@@ -6473,15 +6473,16 @@ def auto_ajuster_strategies():
         # Quick backtest pour chaque strategie
         resultats = {}
         trades_par_strat = {}  # Stocker les trades pour walk-forward
+        # Recuperer les donnees historiques une seule fois par crypto
+        try:
+            from indicateurs import historique_ohlcv_long
+            bougies = historique_ohlcv_long(sym, "1d", 180)
+        except:
+            bougies = []
+        if not bougies or len(bougies) < 30:
+            msg += "  ⚠ Donnees insuffisantes\n\n"
+            continue
         for strat in strategies:
-            try:
-                from indicateurs import historique_ohlcv_long
-                bougies = historique_ohlcv_long(sym, "1d", 180)
-            except:
-                bougies = []
-            if not bougies or len(bougies) < 30:
-                continue
-            
             # Simuler la strategie
             trades = []
             pos = None
