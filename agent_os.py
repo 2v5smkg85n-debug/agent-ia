@@ -1673,6 +1673,40 @@ def handle_message(text, user_name="User"):
         send_telegram(result[:4000])
         return result
     
+    # === AUTO-AJUSTEMENT STRATEGIES ===
+    if text_lower in ["ajuster", "auto-ajuster", "ajuste", "ajustement", "poids strategies"]:
+        send_telegram("🧠 Auto-ajustement des strategies...")
+        result = auto_ajuster_strategies()
+        send_telegram(result[:4000])
+        return result
+    
+    # === DIVERGENCES + PATTERNS ===
+    if text_lower.startswith("divergence") or text_lower.startswith("pattern") or text_lower.startswith("technique "):
+        parts = text_stripped.split(None, 1)
+        symbole = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
+        send_telegram(f"🔍 Analyse technique {symbole}...")
+        result = detecter_divergences(symbole)
+        send_telegram(result[:4000])
+        return result
+    
+    # === SENTIMENT TEMPS REEL ===
+    if text_lower.startswith("sentiment"):
+        parts = text_stripped.split(None, 1)
+        symbole = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
+        send_telegram(f"📰 Sentiment temps reel {symbole}...")
+        result = sentiment_temps_reel(symbole)
+        send_telegram(result[:4000])
+        return result
+    
+    # === SIMULATEUR SCENARIOS ===
+    if text_lower.startswith("scenario") or text_lower.startswith("simule") or text_lower.startswith("simulation"):
+        parts = text_stripped.split(None, 1)
+        symbole = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
+        send_telegram(f"🔮 Simulation scenarios {symbole}...")
+        result = simulateur_scenarios(symbole)
+        send_telegram(result[:4000])
+        return result
+    
     # === BACKTEST RAPIDE ===
     if text_lower.startswith("backtest"):
         parts = text_stripped.split(None, 2)
@@ -2003,6 +2037,12 @@ def handle_message(text, user_name="User"):
   backtest avance ETH mean_reversion 180 - 6 mois
   bt avance SOL breakout 90 - Version courte
   Strategies: momentum, mean_reversion, breakout, rsi_extreme, macd
+
+🧠 INTELLIGENCE SUPERIEURE:
+  ajuster - Auto-ajuste les poids des strategies selon les backtests
+  divergence BTC - Detecte divergences + patterns chartistes
+  sentiment BTC - Sentiment temps reel (news + social + communaute)
+  scenario BTC - Simulateur de scenarios futurs avec probabilites
 
 ━━━━━━━━━━━━━━━━━━━━
 L'agent apprend de chaque interaction."""
@@ -6372,6 +6412,532 @@ def backtest_avance(symbole="BTCUSDT", strategie="momentum", jours=90):
     
     # Enregistrer en memoire
     memoire_ajouter("backtest", f"Backtest {symbole} {strategie} {jours}j: WR={stats_train['winrate']:.0f}% PF={stats_train['profit_factor']:.1f} ROI={stats_train['roi']:+.1f}% Sharpe={stats_train['sharpe']:.2f}", [symbole.replace("USDT",""), strategie, "backtest"])
+    
+    return msg
+
+
+
+
+# ============================================
+# 46. AUTO-AJUSTEMENT DES STRATEGIES
+# ============================================
+def auto_ajuster_strategies():
+    """Analyse les backtests et ajuste automatiquement les poids des strategies par crypto."""
+    from indicateurs import NOMS
+    
+    # Fichier de configuration des strategies
+    strat_file = os.path.join(DOSSIER, "poids_strategies.json")
+    poids = load_json_safe(strat_file, {"strategies": {}})
+    
+    msg = "🧠 AUTO-AJUSTEMENT DES STRATEGIES\n" + "━" * 40 + "\n\n"
+    
+    cryptos = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "AVAXUSDT", "LINKUSDT"]
+    strategies = ["momentum", "mean_reversion", "breakout", "rsi_extreme", "macd"]
+    
+    ajustements = 0
+    for sym in cryptos:
+        nom = NOMS.get(sym, sym)
+        msg += f"📊 {nom}:\n"
+        
+        # Quick backtest pour chaque strategie
+        resultats = {}
+        for strat in strategies:
+            try:
+                from indicateurs import historique_ohlcv_long
+                bougies = historique_ohlcv_long(sym, "1d", 180)
+            except:
+                bougies = []
+            if not bougies or len(bougies) < 30:
+                continue
+            
+            # Simuler la strategie
+            trades = []
+            pos = None
+            for i in range(20, len(bougies)):
+                cl = [b["cloture"] for b in bougies[:i+1]]
+                p = cl[-1]
+                sma20 = sum(cl[-20:]) / 20 if len(cl) >= 20 else p
+                sma50 = sum(cl[-50:]) / 50 if len(cl) >= 50 else sma20
+                g = [cl[j] - cl[j-1] for j in range(-14, 0) if j >= -len(cl) and cl[j] > cl[j-1]]
+                pe = [cl[j-1] - cl[j] for j in range(-14, 0) if j >= -len(cl) and cl[j] < cl[j-1]]
+                ag = sum(g) / 14 if g else 0
+                ap = sum(pe) / 14 if pe else 0.001
+                r = 100 - (100 / (1 + (ag / ap if ap > 0 else 100)))
+                sig = 0
+                if strat == "momentum":
+                    if (sma20 > sma50 or p > sma20) and r < 70 and r > 30: sig = 1
+                    elif (p < sma20 or r > 70): sig = -1
+                elif strat == "mean_reversion":
+                    if r < 30: sig = 1
+                    elif r > 70: sig = -1
+                elif strat == "breakout":
+                    hs = [b["haut"] for b in bougies[:i+1]]
+                    bs = [b["bas"] for b in bougies[:i+1]]
+                    if len(hs) >= 20:
+                        if p > max(hs[-20:]) * 0.99: sig = 1
+                        elif p < min(bs[-20:]) * 1.01: sig = -1
+                elif strat == "rsi_extreme":
+                    if r < 25: sig = 1
+                    elif r > 75: sig = -1
+                elif strat == "macd":
+                    e12 = sum(cl[-12:]) / 12 if len(cl) >= 12 else p
+                    e26 = sum(cl[-26:]) / 26 if len(cl) >= 26 else p
+                    m = e12 - e26
+                    if m > 0 and r < 65: sig = 1
+                    elif m < 0 and r > 35: sig = -1
+                if sig == 1 and pos is None:
+                    pos = p
+                elif sig == -1 and pos is not None:
+                    pnl = (p - pos) / pos * 100 - 0.2
+                    trades.append(pnl)
+                    pos = None
+            if pos is not None:
+                pnl = (bougies[-1]["cloture"] - pos) / pos * 100 - 0.2
+                trades.append(pnl)
+            
+            if trades:
+                wr = len([t for t in trades if t > 0]) / len(trades) * 100
+                roi = 1
+                for t in trades:
+                    roi *= (1 + t / 100)
+                roi = (roi - 1) * 100
+                resultats[strat] = {"wr": wr, "roi": roi, "n": len(trades)}
+        
+        # Calculer les poids (base sur ROI)
+        if resultats:
+            total_roi = sum(max(r["roi"], 0) for r in resultats.values()) or 1
+            for strat in strategies:
+                if strat in resultats:
+                    r = resultats[strat]
+                    # Poids = ROI positif normalise (0 a 1)
+                    poids_calc = max(r["roi"], 0) / total_roi if total_roi > 0 else 0
+                    # Penaliser les strategies perdantes
+                    if r["roi"] < 0:
+                        poids_calc = 0
+                    # Bonus si winrate > 55%
+                    if r["wr"] > 55:
+                        poids_calc *= 1.2
+                    
+                    ancien_poids = poids.get("strategies", {}).get(f"{sym}_{strat}", 0.2)
+                    nouveau_poids = round(min(poids_calc, 1.0), 2)
+                    
+                    if abs(ancien_poids - nouveau_poids) > 0.05:
+                        ajustements += 1
+                        emoji = "🟢" if nouveau_poids > ancien_poids else "🔴"
+                        msg += f"  {emoji} {strat:<16} {ancien_poids:.2f} → {nouveau_poids:.2f} (WR:{r['wr']:.0f}% ROI:{r['roi']:+.1f}%)\n"
+                    else:
+                        msg += f"  ⚪ {strat:<16} {nouveau_poids:.2f} (WR:{r['wr']:.0f}% ROI:{r['roi']:+.1f}%)\n"
+                    
+                    poids.setdefault("strategies", {})[f"{sym}_{strat}"] = nouveau_poids
+                else:
+                    msg += f"  ⚪ {strat:<16} 0.00 (pas de donnees)\n"
+        msg += "\n"
+    
+    # Sauvegarder
+    poids["dernier_ajustement"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+    save_json_safe(strat_file, poids)
+    
+    msg += "━" * 40 + "\n"
+    msg += f"✅ {ajustements} ajustement(s) effectue(s)\n"
+    msg += f"📁 Poids sauvegardes dans poids_strategies.json\n"
+    msg += "\n💡 Les strategies gagnantes sont renforcees, les perdantes reduites a 0.\n"
+    msg += "L'agent utilisera ces poids pour ses futures decisions de trading."
+    
+    memoire_ajouter("ajustement", f"Auto-ajustement: {ajustements} strategies modifiees sur {len(cryptos)} cryptos", ["strategies", "auto_ajustement"])
+    
+    return msg
+
+
+# ============================================
+# 47. DETECTION DIVERGENCES + PATTERNS CHARTISTES
+# ============================================
+def detecter_divergences(symbole="BTCUSDT"):
+    """Detecte les divergences (prix vs RSI) et les patterns chartistes."""
+    from indicateurs import historique_ohlcv, NOMS
+    nom = NOMS.get(symbole, symbole)
+    bougies = historique_ohlcv(symbole, "1d", 50)
+    if not bougies or len(bougies) < 30:
+        return f"Pas assez de donnees pour {symbole}"
+    
+    msg = f"🔍 ANALYSE TECHNIQUE - {nom}\n" + "━" * 40 + "\n\n"
+    
+    clotures = [b["cloture"] for b in bougies]
+    hauts = [b["haut"] for b in bougies]
+    bas = [b["bas"] for b in bougies]
+    prix = clotures[-1]
+    
+    # RSI sur 14 periodes
+    def calc_rsi(cl, periode=14):
+        if len(cl) < periode:
+            return 50
+        gains = [cl[j] - cl[j-1] for j in range(-periode, 0) if cl[j] > cl[j-1]]
+        pertes = [cl[j-1] - cl[j] for j in range(-periode, 0) if cl[j] < cl[j-1]]
+        ag = sum(gains) / periode if gains else 0
+        ap = sum(pertes) / periode if pertes else 0.001
+        return 100 - (100 / (1 + (ag / ap if ap > 0 else 100)))
+    
+    # === DIVERGENCES ===
+    msg += "📉 DIVERGENCES:\n"
+    
+    # Divergence haussiere: prix fait un plus bas, RSI fait un plus haut
+    # Divergence baissiere: prix fait un plus haut, RSI fait un plus bas
+    lookback = 20
+    if len(clotures) >= lookback:
+        prix_recents = clotures[-lookback:]
+        rsi_recents = [calc_rsi(clotures[:-(lookback-i)]) for i in range(lookback)]
+        
+        # Trouver les extremes
+        prix_min_idx = prix_recents.index(min(prix_recents))
+        prix_max_idx = prix_recents.index(max(prix_recents))
+        
+        # Divergence haussiere (prix bas + RSI haut)
+        if prix_recents[prix_min_idx] < prix_recents[0] * 0.98:  # prix a baisse
+            rsi_at_min = rsi_recents[prix_min_idx] if prix_min_idx < len(rsi_recents) else 50
+            rsi_now = calc_rsi(clotures)
+            if rsi_now > rsi_at_min + 5:
+                msg += "  🟢 DIVERGENCE HAUSSIERE detectee!\n"
+                msg += f"     Prix: plus bas il y a {lookback - prix_min_idx}j, RSI remonte\n"
+                msg += "     → Signal d'achat potentiel (retournement haussier)\n"
+            else:
+                msg += "  ⚪ Aucune divergence haussiere\n"
+        else:
+            msg += "  ⚪ Pas de divergence haussiere (prix stable)\n"
+        
+        # Divergence baissiere (prix haut + RSI bas)
+        if prix_recents[prix_max_idx] > prix_recents[0] * 1.02:  # prix a monte
+            rsi_at_max = rsi_recents[prix_max_idx] if prix_max_idx < len(rsi_recents) else 50
+            rsi_now = calc_rsi(clotures)
+            if rsi_now < rsi_at_max - 5:
+                msg += "  🔴 DIVERGENCE BAISSIERE detectee!\n"
+                msg += f"     Prix: plus haut il y a {lookback - prix_max_idx}j, RSI descend\n"
+                msg += "     → Signal de vente potentiel (retournement baissier)\n"
+            else:
+                msg += "  ⚪ Aucune divergence baissiere\n"
+        else:
+            msg += "  ⚪ Pas de divergence baissiere (prix stable)\n"
+    
+    # === PATTERNS CHARTISTES ===
+    msg += "\n🎨 PATTERNS CHARTISTES:\n"
+    
+    if len(bougies) >= 10:
+        # Double top (deux pics consecutifs proches)
+        pics = []
+        for i in range(2, len(hauts) - 2):
+            if hauts[i] > hauts[i-1] and hauts[i] > hauts[i+1] and hauts[i] > hauts[i-2] and hauts[i] > hauts[i+2]:
+                pics.append((i, hauts[i]))
+        
+        if len(pics) >= 2:
+            ecart = abs(pics[-1][1] - pics[-2][1]) / pics[-2][1] * 100
+            if ecart < 3:  # pics proches = double top
+                msg += "  🔴 DOUBLE TOP detecte!\n"
+                msg += f"     Deux pics a {pics[-2][1]:.2f} et {pics[-1][1]:.2f} (ecart {ecart:.1f}%)\n"
+                msg += "     → Signal baissier (echec de cassure)\n"
+            else:
+                msg += "  ⚪ Pas de double top\n"
+        else:
+            msg += "  ⚪ Pas de double top\n"
+        
+        # Double bottom (deux creux consecutifs proches)
+        creux = []
+        for i in range(2, len(bas) - 2):
+            if bas[i] < bas[i-1] and bas[i] < bas[i+1] and bas[i] < bas[i-2] and bas[i] < bas[i+2]:
+                creux.append((i, bas[i]))
+        
+        if len(creux) >= 2:
+            ecart = abs(creux[-1][1] - creux[-2][1]) / creux[-2][1] * 100
+            if ecart < 3:
+                msg += "  🟢 DOUBLE BOTTOM detecte!\n"
+                msg += f"     Deux creux a {creux[-2][1]:.2f} et {creux[-1][1]:.2f} (ecart {ecart:.1f}%)\n"
+                msg += "     → Signal haussier (rebond attendu)\n"
+            else:
+                msg += "  ⚪ Pas de double bottom\n"
+        else:
+            msg += "  ⚪ Pas de double bottom\n"
+        
+        # Head and shoulders (trois pics: gauche < centre > droite)
+        if len(pics) >= 3:
+            g, c, d = pics[-3], pics[-2], pics[-1]
+            if c[1] > g[1] and c[1] > d[1] and abs(g[1] - d[1]) / c[1] * 100 < 5:
+                msg += "  🔴 HEAD AND SHOULDERS detecte!\n"
+                msg += f"     Tete: {c[1]:.2f}, epaules: {g[1]:.2f} / {d[1]:.2f}\n"
+                msg += "     → Signal baissier fort (retournement de tendance)\n"
+        
+        # Bougie englobante (marubozu)
+        dernier = bougies[-1]
+        corps = abs(dernier["cloture"] - dernier["ouverture"])
+        mèche_haut = dernier["haut"] - max(dernier["cloture"], dernier["ouverture"])
+        mèche_bas = min(dernier["cloture"], dernier["ouverture"]) - dernier["bas"]
+        if corps > 0 and (mèche_haut + mèche_bas) / corps < 0.3:
+            if dernier["cloture"] > dernier["ouverture"]:
+                msg += "  🟢 BOUGIE ENGLOBANTE HAUSSIERE (marubozu vert)\n"
+                msg += "     → Fort momentum acheteur\n"
+            else:
+                msg += "  🔴 BOUGIE ENGLOBANTE BAISSIERE (marubozu rouge)\n"
+                msg += "     → Fort momentum vendeur\n"
+        
+        # Doji (indecision)
+        if corps > 0 and corps / (dernier["haut"] - dernier["bas"]) < 0.1:
+            msg += "  🟡 DOJI detecte\n"
+            msg += "     → Indecision du marche, retournement possible\n"
+        
+        # Bollinger squeeze (compression)
+        if len(clotures) >= 20:
+            sma20 = sum(clotures[-20:]) / 20
+            import statistics
+            std = statistics.stdev(clotures[-20:])
+            bande_haute = sma20 + 2 * std
+            bande_basse = sma20 - 2 * std
+            largeur_bande = (bande_haute - bande_basse) / sma20 * 100
+            if largeur_bande < 10:
+                msg += "  🟡 BOLLINGER SQUEEZE detecte\n"
+                msg += f"     Largeur des bandes: {largeur_bande:.1f}% (compression)\n"
+                msg += "     → Fort mouvement imminent (direction a confirmer)\n"
+    
+    # Synthese
+    msg += "\n" + "━" * 40 + "\n"
+    msg += "🎯 SYNTHESE:\n"
+    rsi_actuel = calc_rsi(clotures)
+    msg += f"  RSI: {rsi_actuel:.0f} | Prix: {prix:.4f} EUR\n"
+    
+    signaux_haussiers = msg.count("🟢")
+    signaux_baissiers = msg.count("🔴")
+    
+    if signaux_haussiers > signaux_baissiers:
+        msg += f"  → Signal global: HAUSSIER ({signaux_haussiers} signaux positifs vs {signaux_baissiers} negatifs)\n"
+    elif signaux_baissiers > signaux_haussiers:
+        msg += f"  → Signal global: BAISSIER ({signaux_baissiers} signaux negatifs vs {signaux_haussiers} positifs)\n"
+    else:
+        msg += f"  → Signal global: NEUTRE ({signaux_haussiers} vs {signaux_baissiers})\n"
+    
+    memoire_ajouter("analyse", f"Divergences/patterns {symbole}: {signaux_haussiers}H vs {signaux_baissiers}B", [symbole.replace("USDT",""), "divergence", "pattern"])
+    
+    return msg
+
+
+# ============================================
+# 48. SENTIMENT TEMPS REEL (Twitter/Reddit/News)
+# ============================================
+def sentiment_temps_reel(symbole="BTCUSDT"):
+    """Analyse le sentiment temps reel depuis plusieurs sources."""
+    from indicateurs import NOMS
+    nom = NOMS.get(symbole, symbole)
+    base = symbole.replace("USDT", "")
+    
+    msg = f"📰 SENTIMENT TEMPS REEL - {nom}\n" + "━" * 40 + "\n\n"
+    
+    # 1. Sentiment via Perplexity (news + social)
+    score_total = 0
+    sources_count = 0
+    
+    if PPLX_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {PPLX_KEY}", "Content-Type": "application/json"}
+            prompt = f"Analyse le sentiment actuel du marche pour {nom} ({base}). Cherche les news recentes, le sentiment Twitter/Reddit, et les opinions d'experts. Donnes: 1) Score sentiment -10 a +10 2) 3 points cles (1 ligne chacun) 3) Tendance sociale (positif/negatif/neutre) 4) Sources principales. Reponds en francais, sois concis."
+            payload = {"model": "sonar", "messages": [{"role": "user", "content": prompt}], "max_tokens": 400}
+            r = requests.post("https://api.perplexity.ai/chat/completions", json=payload, headers=headers, timeout=30)
+            if r.status_code == 200:
+                reponse = r.json()["choices"][0]["message"]["content"]
+                msg += "🟣 PERPLEXITY (news + social):\n"
+                msg += reponse + "\n\n"
+                
+                # Extraire score
+                import re
+                match = re.search(r'score[:\s]*(-?\d+)', reponse, re.IGNORECASE)
+                if match:
+                    score_total += int(match.group(1))
+                    sources_count += 1
+        except Exception as e:
+            msg += f"🟣 PERPLEXITY: Erreur ({e})\n\n"
+    
+    # 2. Sentiment via Gemini (autre perspective)
+    if GEMINI_KEY:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={GEMINI_KEY}"
+            prompt = f"Analyse le sentiment du marche crypto pour {nom} ({base}). Donnes: 1) Score -10 a +10 2) Sentiment general (positif/negatif/neutre) 3) 2 facteurs qui influencent le sentiment actuellement. Reponds en francais, sois concis."
+            payload = {"contents": [{"parts": [{"text": prompt}]}]}
+            r = requests.post(url, json=payload, timeout=30)
+            if r.status_code == 200:
+                reponse = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+                msg += "🔵 GEMINI (sentiment):\n"
+                msg += reponse + "\n\n"
+                
+                import re
+                match = re.search(r'score[:\s]*(-?\d+)', reponse, re.IGNORECASE)
+                if match:
+                    score_total += int(match.group(1))
+                    sources_count += 1
+        except Exception as e:
+            msg += f"🔵 GEMINI: Erreur ({e})\n\n"
+    
+    # 3. Sentiment CoinGecko (community votes)
+    try:
+        from indicateurs import COINGECKO_MAP
+        coin_id = COINGECKO_MAP.get(base.lower(), base.lower())
+        url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+        
+        sentiment_up = data.get("sentiment_votes_up_percentage", 0)
+        sentiment_down = data.get("sentiment_votes_down_percentage", 0)
+        if sentiment_up or sentiment_down:
+            msg += "📊 COINGECKO (communaute):\n"
+            msg += f"  👍 {sentiment_up:.0f}% positif | 👎 {sentiment_down:.0f}% negatif\n"
+            score_cg = int((sentiment_up - sentiment_down) / 10)
+            score_total += score_cg
+            sources_count += 1
+            msg += f"  Score: {score_cg:+d}/10\n\n"
+    except:
+        msg += "📊 COINGECKO: indisponible\n\n"
+    
+    # Synthese
+    msg += "━" * 40 + "\n"
+    msg += "🔀 SYNTHESE SENTIMENT:\n"
+    if sources_count > 0:
+        score_moyen = score_total / sources_count
+        msg += f"  Score moyen: {score_moyen:+.1f}/10 ({sources_count} sources)\n"
+        if score_moyen > 3:
+            msg += "  🟢 Sentiment TRES POSITIF - favorise les achats\n"
+        elif score_moyen > 1:
+            msg += "  🟡 Sentiment LEGEREMENT POSITIF - prudence mais tendance acheteuse\n"
+        elif score_moyen < -3:
+            msg += "  🔴 Sentiment TRES NEGATIF - eviter les achats, considerer la vente\n"
+        elif score_moyen < -1:
+            msg += "  🟠 Sentiment NEGATIF - prudence, attendre\n"
+        else:
+            msg += "  ⚪ Sentiment NEUTRE - attendre une direction claire\n"
+    else:
+        msg += "  Sources indisponibles\n"
+    
+    memoire_ajouter("sentiment", f"Sentiment {symbole}: score {score_moyen if sources_count else 'N/A'} ({sources_count} sources)", [base, "sentiment"])
+    
+    return msg
+
+
+# ============================================
+# 49. SIMULATEUR DE SCENARIOS
+# ============================================
+def simulateur_scenarios(symbole="BTCUSDT"):
+    """Genere des scenarios futurs avec probabilites."""
+    from indicateurs import historique_ohlcv, NOMS
+    import math
+    
+    nom = NOMS.get(symbole, symbole)
+    bougies = historique_ohlcv(symbole, "1d", 90)
+    if not bougies or len(bougies) < 30:
+        return f"Pas assez de donnees pour {symbole}"
+    
+    clotures = [b["cloture"] for b in bougies]
+    prix = clotures[-1]
+    
+    # Calculer la volatilite historique
+    rendements = [(clotures[i] - clotures[i-1]) / clotures[i-1] for i in range(1, len(clotures)) if clotures[i-1] > 0]
+    import statistics
+    vol_daily = statistics.stdev(rendements) if len(rendements) > 2 else 0.02
+    vol_monthly = vol_daily * math.sqrt(30)
+    
+    # RSI
+    gains = [clotures[j] - clotures[j-1] for j in range(-14, 0) if clotures[j] > clotures[j-1]]
+    pertes = [clotures[j-1] - clotures[j] for j in range(-14, 0) if clotures[j] < clotures[j-1]]
+    avg_gain = sum(gains) / 14 if gains else 0
+    avg_perte = sum(pertes) / 14 if pertes else 0.001
+    rsi = 100 - (100 / (1 + (avg_gain / avg_perte if avg_perte > 0 else 100)))
+    
+    # Tendance
+    sma20 = sum(clotures[-20:]) / 20
+    sma50 = sum(clotures[-50:]) / 50
+    tendance = "haussiere" if sma20 > sma50 else "baissiere" if sma20 < sma50 else "neutre"
+    
+    msg = f"🔮 SIMULATEUR DE SCENARIOS - {nom}\n" + "━" * 40 + "\n\n"
+    msg += f"📊 Etat actuel:\n"
+    msg += f"  Prix: {prix:.4f} EUR\n"
+    msg += f"  RSI: {rsi:.0f}\n"
+    msg += f"  Tendance: {tendance}\n"
+    msg += f"  Volatilite: {vol_daily*100:.1f}%/jour | {vol_monthly*100:.1f}%/mois\n\n"
+    
+    # Scenarios a 7 jours
+    msg += "📅 SCENARIOS A 7 JOURS:\n\n"
+    
+    # Scenario 1: haussier (+1 vol mensuelle)
+    prix_haut = prix * (1 + vol_monthly * 0.5)
+    prob_haut = 25 if tendance == "haussiere" else 15 if tendance == "baissiere" else 20
+    msg += f"  🟢 SCENARIO HAUSSIER ({prob_haut}% probabilite):\n"
+    msg += f"     Prix cible: {prix_haut:.4f} EUR (+{(prix_haut/prix-1)*100:.1f}%)\n"
+    msg += f"     Condition: momentum maintenu + volume positif\n"
+    msg += f"     Action: holder / acheter sur retracement\n\n"
+    
+    # Scenario 2: neutre
+    prix_neutre = prix * (1 + vol_daily * 2)
+    prob_neutre = 40 if tendance == "neutre" else 35
+    msg += f"  🟡 SCENARIO NEUTRE ({prob_neutre}% probabilite):\n"
+    msg += f"     Prix cible: {prix_neutre:.4f} EUR (+{(prix_neutre/prix-1)*100:.1f}%)\n"
+    msg += f"     Condition: range, pas de direction claire\n"
+    msg += f"     Action: attendre, trader les bandes\n\n"
+    
+    # Scenario 3: baissier
+    prix_bas = prix * (1 - vol_monthly * 0.5)
+    prob_bas = 35 if tendance == "baissiere" else 25 if tendance == "haussiere" else 30
+    msg += f"  🔴 SCENARIO BAISSIER ({prob_bas}% probabilite):\n"
+    msg += f"     Prix cible: {prix_bas:.4f} EUR ({(prix_bas/prix-1)*100:+.1f}%)\n"
+    msg += f"     Condition: cassure support + volume vendeur\n"
+    msg += f"     Action: vendre / stop-loss serre\n\n"
+    
+    # Scenario 4: extreme (pump/dump)
+    prix_pump = prix * (1 + vol_monthly * 1.5)
+    prix_dump = prix * (1 - vol_monthly * 1.5)
+    prob_extreme = 100 - prob_haut - prob_neutre - prob_bas
+    if prob_extreme < 0:
+        prob_extreme = 5
+    msg += f"  ⚡ SCENARIO EXTREME ({prob_extreme:.0f}% probabilite):\n"
+    msg += f"     Pump: {prix_pump:.4f} EUR (+{(prix_pump/prix-1)*100:.1f}%)\n"
+    msg += f"     Dump: {prix_dump:.4f} EUR ({(prix_dump/prix-1)*100:+.1f}%)\n"
+    msg += f"     Condition: evenement inattendu (news, whale)\n"
+    msg += f"     Action: ne pas paniquer, proteger le capital\n\n"
+    
+    # Niveaux cles
+    msg += "━" * 40 + "\n"
+    msg += "🎯 NIVEAUX CLES A SURVEILLER:\n"
+    
+    # Support et resistance
+    if len(bougies) >= 20:
+        support = min(b["bas"] for b in bougies[-20:])
+        resistance = max(b["haut"] for b in bougies[-20:])
+        msg += f"  Support 20j: {support:.4f} EUR ({(support/prix-1)*100:+.1f}%)\n"
+        msg += f"  Resistance 20j: {resistance:.4f} EUR ({(resistance/prix-1)*100:+.1f}%)\n"
+    
+    # Stop-loss suggere
+    sl = prix * (1 - vol_monthly * 0.3)
+    tp = prix * (1 + vol_monthly * 0.5)
+    msg += f"  Stop-loss suggere: {sl:.4f} EUR (-{(1-sl/prix)*100:.1f}%)\n"
+    msg += f"  Take-profit suggere: {tp:.4f} EUR (+{(tp/prix-1)*100:.1f}%)\n"
+    
+    # Ratio risque/rendement
+    risque = prix - sl
+    rendement = tp - prix
+    ratio = rendement / risque if risque > 0 else 0
+    msg += f"  Ratio risque/rendement: 1:{ratio:.1f}\n"
+    
+    if ratio > 2:
+        msg += "  🟢 Bon ratio - trade rentable\n"
+    elif ratio > 1:
+        msg += "  🟡 Ratio moyen - prudence\n"
+    else:
+        msg += "  🔴 Mauvais ratio - risque trop eleve\n"
+    
+    # Verdict IA
+    msg += "\n" + "━" * 40 + "\n"
+    if PPLX_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {PPLX_KEY}", "Content-Type": "application/json"}
+            prompt = f"Tu es un analyste crypto. {nom} est a {prix:.4f} EUR, RSI {rsi:.0f}, tendance {tendance}, volatilite {vol_daily*100:.1f}%/jour. Scenarios: haussier {prob_haut}%, neutre {prob_neutre}%, baissier {prob_bas}%. Quel scenario est le plus probable selon toi et pourquoi? Reponds en 3 lignes en francais."
+            payload = {"model": "sonar", "messages": [{"role": "user", "content": prompt}], "max_tokens": 200}
+            r = requests.post("https://api.perplexity.ai/chat/completions", json=payload, headers=headers, timeout=30)
+            if r.status_code == 200:
+                msg += "🧠 VERDICT IA:\n" + r.json()["choices"][0]["message"]["content"]
+        except:
+            pass
+    
+    memoire_ajouter("scenario", f"Scenarios {symbole}: {prob_haut}%H / {prob_neutre}%N / {prob_bas}%B", [symbole.replace("USDT",""), "scenario"])
     
     return msg
 
