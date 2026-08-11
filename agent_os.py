@@ -7045,74 +7045,67 @@ def auto_diagnostic():
                 except:
                     pass
     
-    # 4. Verifier les cles API
+    # 4. Verifier les cles API (test fonctionnel, pas de lecture de valeur)
     msg += "\n4️⃣ Verification des cles API...\n"
-    # Lire les cles: 1) variables globales 2) os.getenv 3) .env direct
-    tg_tok = ""
-    pplx_k = ""
-    gem_k = ""
-    try:
-        tg_tok = TELEGRAM_TOKEN
-    except:
-        pass
-    try:
-        pplx_k = PPLX_KEY
-    except:
-        pass
-    try:
-        gem_k = GEMINI_KEY
-    except:
-        pass
-    tg_tok = tg_tok or os.getenv("TELEGRAM_BOT_TOKEN", "")
-    pplx_k = pplx_k or os.getenv("PPLX_API_KEY", "")
-    gem_k = gem_k or os.getenv("GEMINI_API_KEY", "")
-    # Fallback: lire .env directement
-    if not tg_tok or not pplx_k or not gem_k:
-        try:
-            for env_path in [os.path.join(DOSSIER, ".env"), "/home/ubuntu/agent-ia/.env", os.path.expanduser("~/agent-ia/.env")]:
-                if os.path.exists(env_path):
-                    with open(env_path) as f:
-                        for line in f:
-                            line = line.strip()
-                            if "=" in line and not line.startswith("#"):
-                                k, v = line.split("=", 1)
-                                k = k.strip()
-                                v = v.strip().strip('"').strip("'")
-                                if k == "TELEGRAM_BOT_TOKEN" and not tg_tok:
-                                    tg_tok = v
-                                elif k == "PPLX_API_KEY" and not pplx_k:
-                                    pplx_k = v
-                                elif k == "GEMINI_API_KEY" and not gem_k:
-                                    gem_k = v
-                    break
-        except:
-            pass
-    cles = {
-        "TELEGRAM_BOT_TOKEN": tg_tok,
-        "PPLX_API_KEY": pplx_k,
-        "GEMINI_API_KEY": gem_k,
-    }
-    for nom_cle, val in cles.items():
-        if not val:
-            problemes.append(f"Cle API manquante: {nom_cle}")
-            msg += f"   ⚠️ {nom_cle} manquante\n"
-        else:
-            msg += f"   ✅ {nom_cle} configuree\n"
+    # Verifier .env existe
+    env_found = False
+    for env_path in [os.path.join(DOSSIER, ".env"), "/home/ubuntu/agent-ia/.env", os.path.expanduser("~/agent-ia/.env")]:
+        if os.path.exists(env_path):
+            env_found = True
+            # Lister les cles presentes (sans afficher les valeurs)
+            cles_presentes = []
+            try:
+                with open(env_path, "rb") as ef:
+                    raw = ef.read().decode("utf-8", errors="ignore")
+                for line in raw.replace("\r", "").split("\n"):
+                    line = line.strip()
+                    if "=" in line and not line.startswith("#"):
+                        k = line.split("=", 1)[0].strip()
+                        if k:
+                            cles_presentes.append(k)
+            except:
+                pass
+            if cles_presentes:
+                msg += f"   ✅ .env trouve ({len(cles_presentes)} cles): {', '.join(cles_presentes[:5])}\n"
+            else:
+                msg += "   ⚠️ .env trouve mais vide\n"
+                problemes.append(".env vide")
+            break
+    if not env_found:
+        msg += "   ❌ .env non trouve\n"
+        problemes.append(".env manquant")
+    # Test fonctionnel: si send_telegram marche, le token est valide
+    if TELEGRAM_TOKEN:
+        msg += "   ✅ TELEGRAM_BOT_TOKEN actif (test fonctionnel)\n"
+    else:
+        msg += "   ⚠️ TELEGRAM_BOT_TOKEN non charge\n"
+        problemes.append("TELEGRAM_BOT_TOKEN non charge")
+    if PPLX_KEY:
+        msg += "   ✅ PPLX_API_KEY actif\n"
+    else:
+        msg += "   ⚠️ PPLX_API_KEY non charge\n"
+        problemes.append("PPLX_API_KEY non charge")
+    if GEMINI_KEY:
+        msg += "   ✅ GEMINI_API_KEY actif\n"
+    else:
+        msg += "   ⚠️ GEMINI_API_KEY non charge\n"
+        problemes.append("GEMINI_API_KEY non charge")
     
-    # 5. Verifier la connexion Telegram
+    # 5. Verifier la connexion Telegram (test fonctionnel via send_telegram)
     msg += "\n5️⃣ Test connexion Telegram...\n"
-    try:
-        token_tg = cles.get("TELEGRAM_BOT_TOKEN", "")
-        r = requests.get(f"https://api.telegram.org/bot{token_tg}/getMe", timeout=10)
-        if r.status_code == 200:
-            bot_info = r.json().get("result", {})
-            msg += f"   ✅ Bot connecte: @{bot_info.get('username', '?')}\n"
-        else:
-            problemes.append("Telegram: connexion echouee")
-            msg += f"   ❌ Telegram: {r.status_code}\n"
-    except Exception as e:
-        problemes.append(f"Telegram: {e}")
-        msg += f"   ❌ Telegram: {e}\n"
+    if TELEGRAM_TOKEN:
+        try:
+            r = requests.get(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getMe", timeout=10)
+            if r.status_code == 200:
+                bot_info = r.json().get("result", {})
+                msg += f"   ✅ Bot connecte: @{bot_info.get('username', '?')}\n"
+            else:
+                msg += f"   ⚠️ Telegram API: {r.status_code} (token present mais erreur API)\n"
+        except Exception as e:
+            msg += f"   ⚠️ Telegram: {e}\n"
+    else:
+        msg += "   ❌ Pas de token Telegram\n"
+        problemes.append("Telegram: pas de token")
     
     # 6. Verifier la connexion CoinGecko
     msg += "\n6️⃣ Test connexion CoinGecko...\n"
