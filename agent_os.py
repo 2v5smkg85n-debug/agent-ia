@@ -6476,26 +6476,44 @@ def auto_ajuster_strategies():
         # Recuperer les donnees historiques une seule fois par crypto
         try:
             from indicateurs import historique_ohlcv_long
-            bougies = historique_ohlcv_long(sym, "1d", 180)
+            bougies = historique_ohlcv_long(sym, "1d", 90)
         except:
             bougies = []
         if not bougies or len(bougies) < 30:
             msg += "  ⚠ Donnees insuffisantes\n\n"
             continue
+        # Pre-calculer les donnees une seule fois (optimisation)
+        clotures_all = [b["cloture"] for b in bougies]
+        hauts_all = [b["haut"] for b in bougies]
+        bas_all = [b["bas"] for b in bougies]
+        # Pre-calculer RSI, SMA20, SMA50, EMA12, EMA26 pour chaque jour
+        indicateurs_jour = []
+        for i in range(len(clotures_all)):
+            cl = clotures_all[:i+1]
+            p = cl[-1]
+            sma20 = sum(cl[-20:]) / 20 if len(cl) >= 20 else p
+            sma50 = sum(cl[-50:]) / 50 if len(cl) >= 50 else sma20
+            g = [cl[j] - cl[j-1] for j in range(-14, 0) if j >= -len(cl) and cl[j] > cl[j-1]]
+            pe = [cl[j-1] - cl[j] for j in range(-14, 0) if j >= -len(cl) and cl[j] < cl[j-1]]
+            ag = sum(g) / 14 if g else 0
+            ap = sum(pe) / 14 if pe else 0.001
+            rsi = 100 - (100 / (1 + (ag / ap if ap > 0 else 100)))
+            e12 = sum(cl[-12:]) / 12 if len(cl) >= 12 else p
+            e26 = sum(cl[-26:]) / 26 if len(cl) >= 26 else p
+            macd_val = e12 - e26
+            indicateurs_jour.append({"p": p, "sma20": sma20, "sma50": sma50, "rsi": rsi, "macd": macd_val})
+        
         for strat in strategies:
             # Simuler la strategie
             trades = []
             pos = None
             for i in range(20, len(bougies)):
-                cl = [b["cloture"] for b in bougies[:i+1]]
-                p = cl[-1]
-                sma20 = sum(cl[-20:]) / 20 if len(cl) >= 20 else p
-                sma50 = sum(cl[-50:]) / 50 if len(cl) >= 50 else sma20
-                g = [cl[j] - cl[j-1] for j in range(-14, 0) if j >= -len(cl) and cl[j] > cl[j-1]]
-                pe = [cl[j-1] - cl[j] for j in range(-14, 0) if j >= -len(cl) and cl[j] < cl[j-1]]
-                ag = sum(g) / 14 if g else 0
-                ap = sum(pe) / 14 if pe else 0.001
-                r = 100 - (100 / (1 + (ag / ap if ap > 0 else 100)))
+                ind = indicateurs_jour[i]
+                p = ind["p"]
+                sma20 = ind["sma20"]
+                sma50 = ind["sma50"]
+                r = ind["rsi"]
+                m = ind["macd"]
                 sig = 0
                 if strat == "momentum":
                     if (sma20 > sma50 or p > sma20) and r < 70 and r > 30: sig = 1
@@ -6504,18 +6522,13 @@ def auto_ajuster_strategies():
                     if r < 30: sig = 1
                     elif r > 70: sig = -1
                 elif strat == "breakout":
-                    hs = [b["haut"] for b in bougies[:i+1]]
-                    bs = [b["bas"] for b in bougies[:i+1]]
-                    if len(hs) >= 20:
-                        if p > max(hs[-20:]) * 0.99: sig = 1
-                        elif p < min(bs[-20:]) * 1.01: sig = -1
+                    if i >= 20:
+                        if p > max(hauts_all[i-20:i]) * 0.99: sig = 1
+                        elif p < min(bas_all[i-20:i]) * 1.01: sig = -1
                 elif strat == "rsi_extreme":
                     if r < 25: sig = 1
                     elif r > 75: sig = -1
                 elif strat == "macd":
-                    e12 = sum(cl[-12:]) / 12 if len(cl) >= 12 else p
-                    e26 = sum(cl[-26:]) / 26 if len(cl) >= 26 else p
-                    m = e12 - e26
                     if m > 0 and r < 65: sig = 1
                     elif m < 0 and r > 35: sig = -1
                 if sig == 1 and pos is None:
