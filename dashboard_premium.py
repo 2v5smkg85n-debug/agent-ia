@@ -155,6 +155,175 @@ def service_status(name):
     except:
         return "unknown"
 
+def build_positions_chart(d):
+    """Genere une page avec un graphique visuel des positions + TP/SL."""
+    positions = d.get("positions", [])
+    liquidites = d.get("liquidites", 0)
+    capital_initial = d.get("capital_initial", 1000)
+    
+    # Prix temps reel
+    syms = [p.get("symbole", "") for p in positions]
+    prix_tr = get_prix_batch(syms) if syms else {}
+    
+    TAKE_PROFIT_PCT = 2.0
+    STOP_LOSS_PCT = 1.5
+    EXTEND_TP_PCT = 4.0
+    
+    cards_html = ""
+    total_valeur = 0
+    total_pnl = 0
+    
+    for p in positions:
+        sym = p.get("symbole", "")
+        nom = NOMS.get(sym, sym)
+        prix_entree = p.get("prix_entree", 0)
+        quantite = p.get("quantite", 0)
+        montant = p.get("montant", 0)
+        date_ouv = p.get("date_ouverture", "?")
+        strategie = p.get("strategie", p.get("source", "?"))
+        
+        p_data = prix_tr.get(sym, {})
+        prix_actuel = p_data.get("prix", 0)
+        var_24h = p_data.get("var_24h", 0)
+        prix_disponible = prix_actuel > 0
+        if not prix_disponible:
+            prix_actuel = prix_entree
+        
+        valeur_actuelle = prix_actuel * quantite if prix_disponible else montant
+        pnl_eur = (valeur_actuelle - montant) if prix_disponible else 0
+        pnl_pct = (pnl_eur / montant * 100) if montant > 0 and prix_disponible else 0
+        
+        total_valeur += valeur_actuelle
+        total_pnl += pnl_eur
+        
+        # TP/SL levels
+        tp_price = prix_entree * (1 + TAKE_PROFIT_PCT / 100)
+        sl_price = prix_entree * (1 - STOP_LOSS_PCT / 100)
+        tp_ext_price = prix_entree * (1 + EXTEND_TP_PCT / 100)
+        
+        # Distance to TP/SL in %
+        dist_tp = ((tp_price - prix_actuel) / prix_actuel * 100) if prix_actuel > 0 else 0
+        dist_sl = ((prix_actuel - sl_price) / prix_actuel * 100) if prix_actuel > 0 else 0
+        
+        # Bar position (0 = SL, 100 = TP extended)
+        range_total = tp_ext_price - sl_price
+        bar_pos = ((prix_actuel - sl_price) / range_total * 100) if range_total > 0 else 50
+        bar_pos = max(0, min(100, bar_pos))
+        bar_entry = ((prix_entree - sl_price) / range_total * 100) if range_total > 0 else 50
+        bar_entry = max(0, min(100, bar_entry))
+        bar_tp = ((tp_price - sl_price) / range_total * 100) if range_total > 0 else 50
+        
+        pnl_color = "#4ade80" if pnl_pct >= 0 else "#f87171"
+        emoji = "🟢" if pnl_pct >= 0 else "🔴"
+        
+        var_text = f"{var_24h:+.1f}%" if prix_disponible and var_24h is not None else "N/A"
+        
+        cards_html += f"""
+        <div class="pos-card">
+          <div class="pos-header">
+            <span class="pos-emoji">{emoji}</span>
+            <span class="pos-name">{esc(nom)}</span>
+            <span class="pos-pnl" style="color:{pnl_color}">{pnl_eur:+.2f}€ ({pnl_pct:+.1f}%)</span>
+          </div>
+          <div class="pos-info">
+            <span>Entree: {prix_entree:.4f}€</span>
+            <span>Actuel: {prix_actuel:.4f}€</span>
+            <span>24h: {var_text}</span>
+            <span>Qty: {quantite:.6f}</span>
+          </div>
+          <div class="pos-bar-container">
+            <div class="pos-bar-track">
+              <div class="pos-bar-zone sl-zone" style="width:{bar_entry}%"></div>
+              <div class="pos-bar-zone tp-zone" style="left:{bar_entry}%;width:{bar_tp - bar_entry}%"></div>
+              <div class="pos-bar-zone ext-zone" style="left:{bar_tp}%;width:{100 - bar_tp}%"></div>
+              <div class="pos-marker entry-marker" style="left:{bar_entry}%" title="Entree">E</div>
+              <div class="pos-marker tp-marker" style="left:{bar_tp}%" title="Take Profit">TP</div>
+              <div class="pos-marker current-marker" style="left:{bar_pos}%" title="Prix actuel">●</div>
+              <div class="pos-marker sl-marker" style="left:0%" title="Stop Loss">SL</div>
+              <div class="pos-marker tpext-marker" style="left:100%" title="TP Extended">TP+</div>
+            </div>
+          </div>
+          <div class="pos-labels">
+            <span class="sl-label">SL: {sl_price:.4f}€ (-{STOP_LOSS_PCT}%)</span>
+            <span class="dist-label">Distance TP: {dist_tp:+.1f}% | SL: {dist_sl:.1f}%</span>
+            <span class="tp-label">TP: {tp_price:.4f}€ (+{TAKE_PROFIT_PCT}%)</span>
+          </div>
+          <div class="pos-footer">
+            <span>📊 {esc(strategie)}</span>
+            <span>📅 {esc(date_ouv)}</span>
+          </div>
+        </div>"""
+    
+    total_capital = liquidites + total_valeur
+    perf_pct = ((total_capital - capital_initial) / capital_initial * 100) if capital_initial > 0 else 0
+    perf_color = "#4ade80" if perf_pct >= 0 else "#f87171"
+    
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="30">
+<title>Positions Live - Agent IA</title>
+<style>
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSystemFont,sans-serif; padding:12px; }}
+.header {{ text-align:center; padding:12px 0; border-bottom:1px solid #30363d; margin-bottom:16px; }}
+.header h1 {{ font-size:20px; color:#58a6ff; }}
+.header .stats {{ display:flex; justify-content:center; gap:20px; margin-top:8px; flex-wrap:wrap; }}
+.header .stat {{ font-size:14px; }}
+.header .stat-value {{ font-weight:bold; }}
+.pos-card {{ background:#161b22; border:1px solid #30363d; border-radius:12px; padding:12px; margin-bottom:12px; }}
+.pos-header {{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }}
+.pos-name {{ font-weight:bold; font-size:16px; }}
+.pos-pnl {{ font-weight:bold; font-size:16px; }}
+.pos-info {{ display:flex; gap:12px; font-size:12px; color:#8b949e; margin-bottom:10px; flex-wrap:wrap; }}
+.pos-bar-container {{ padding:8px 0; }}
+.pos-bar-track {{ position:relative; height:32px; background:#21262d; border-radius:8px; overflow:hidden; }}
+.pos-bar-zone {{ position:absolute; height:100%; top:0; }}
+.sl-zone {{ background:rgba(248,113,113,0.15); left:0; }}
+.tp-zone {{ background:rgba(74,222,128,0.15); }}
+.ext-zone {{ background:rgba(59,130,246,0.1); }}
+.pos-marker {{ position:absolute; top:50%; transform:translate(-50%,-50%); font-size:10px; font-weight:bold; z-index:2; white-space:nowrap; }}
+.entry-marker {{ color:#fbbf24; }}
+.tp-marker {{ color:#4ade80; }}
+.current-marker {{ color:#fff; font-size:16px; text-shadow:0 0 4px #000; }}
+.sl-marker {{ color:#f87171; left:8px !important; }}
+.tpext-marker {{ color:#60a5fa; right:8px !important; left:auto !important; transform:none; }}
+.pos-labels {{ display:flex; justify-content:space-between; font-size:11px; margin-top:4px; }}
+.sl-label {{ color:#f87171; }}
+.dist-label {{ color:#8b949e; }}
+.tp-label {{ color:#4ade80; }}
+.pos-footer {{ display:flex; justify-content:space-between; font-size:11px; color:#8b949e; margin-top:8px; padding-top:8px; border-top:1px solid #30363d; }}
+.legend {{ display:flex; gap:16px; justify-content:center; margin:16px 0; font-size:12px; flex-wrap:wrap; }}
+.legend-item {{ display:flex; align-items:center; gap:4px; }}
+.legend-dot {{ width:12px; height:12px; border-radius:3px; }}
+.back-link {{ text-align:center; margin-top:16px; }}
+.back-link a {{ color:#58a6ff; text-decoration:none; font-size:14px; }}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>📊 Positions Live - TP/SL</h1>
+  <div class="stats">
+    <div class="stat">Capital: <span class="stat-value" style="color:#58a6ff">{total_capital:.2f}€</span></div>
+    <div class="stat">PnL: <span class="stat-value" style="color:{perf_color}">{total_pnl:+.2f}€ ({perf_pct:+.1f}%)</span></div>
+    <div class="stat">Positions: <span class="stat-value">{len(positions)}</span></div>
+    <div class="stat">Liquidites: <span class="stat-value">{liquidites:.2f}€</span></div>
+  </div>
+</div>
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#f87171"></div> Stop Loss</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div> Entree</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#4ade80"></div> Take Profit</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div> TP Extended</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fff"></div> Prix actuel</div>
+</div>
+{cards_html}
+<div class="back-link"><a href="/?token={TOKEN}">← Retour Dashboard</a></div>
+</body>
+</html>"""
+
 def build_premium_page(d):
     cap_init = float(d.get("capital_initial", 1000))
     liq = float(d.get("liquidites", 0))
@@ -435,6 +604,18 @@ class Handler(BaseHTTPRequestHandler):
                         out = f.read()
                 else:
                     out = '<html><body style="background:#0d1117;color:#e6edf3;font-family:sans-serif;padding:20px"><h2>Aucun rapport genere</h2><p>Envoie "rapport pdf" sur Telegram pour generer un rapport.</p></body></html>'
+            except Exception as e:
+                out = f"<html><body style='background:#0d1117;color:#e6edf3;font-family:sans-serif;padding:20px'><h2>Erreur</h2><pre>{html.escape(str(e))}</pre></body></html>"
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(out.encode())
+            return
+        # Route /positions : graphique visuel des positions avec TP/SL
+        if parsed.path == '/positions':
+            try:
+                d = json.load(open(DATA_FILE))
+                out = build_positions_chart(d)
             except Exception as e:
                 out = f"<html><body style='background:#0d1117;color:#e6edf3;font-family:sans-serif;padding:20px'><h2>Erreur</h2><pre>{html.escape(str(e))}</pre></body></html>"
             self.send_response(200)
