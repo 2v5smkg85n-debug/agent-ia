@@ -276,14 +276,15 @@ def build_positions_chart(d):
         
         if candles:
             charts_js += f"""
-            (function() {{
+            setTimeout(function() {{
                 var container = document.getElementById('chart_{idx}');
                 if (!container) return;
+                var w = container.offsetWidth || (window.innerWidth - 28);
                 if (typeof LightweightCharts === 'undefined') {{ container.innerHTML = '<div style=\"display:flex;align-items:center;justify-content:center;height:100%;color:#8b949e;font-size:12px\">Graphique indisponible</div>'; container.style.height='40px'; return; }}
                 var chart = LightweightCharts.createChart(container, {{
                     layout: {{ background: {{ color: '#161b22' }}, textColor: '#8b949e' }},
                     grid: {{ vertLines: {{ color: '#21262d' }}, horzLines: {{ color: '#21262d' }} }},
-                    width: container.offsetWidth, height: 200, timeScale: {{ borderColor: '#30363d' }},
+                    width: w, height: 200, timeScale: {{ borderColor: '#30363d' }},
                     rightPriceScale: {{ borderColor: '#30363d' }},
                     crosshair: {{ mode: 0 }},
                 }});
@@ -298,7 +299,8 @@ def build_positions_chart(d):
                 series.createPriceLine({{ price: {prix_entree}, color: '#fbbf24', lineWidth: 1, lineStyle: 1, title: 'Entree' }});
                 series.createPriceLine({{ price: {tp_ext_price}, color: '#60a5fa', lineWidth: 1, lineStyle: 3, title: 'TP+ +{EXTEND_TP_PCT}%' }});
                 chart.timeScale().fitContent();
-            }})();
+                window.addEventListener('resize', function() {{ chart.applyOptions({{ width: container.offsetWidth || (window.innerWidth - 28) }}); }});
+            }}, 100);
             """
         else:
             charts_js += f"document.getElementById('chart_{idx}').innerHTML = '<div style=\"display:flex;align-items:center;justify-content:center;height:100%;color:#8b949e;font-size:12px\">📊 Donnees OHLC indisponibles (rate limit)</div>'; document.getElementById('chart_{idx}').style.height='40px';\n"
