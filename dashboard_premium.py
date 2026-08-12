@@ -155,25 +155,47 @@ def service_status(name):
     except:
         return "unknown"
 
+def get_ohlc_batch(symboles):
+    """Récupère les bougies OHLC pour plusieurs cryptos via CoinGecko."""
+    result = {}
+    for sym in symboles:
+        base = sym.replace("USDT", "")
+        cg_id = COINGECKO_MAP.get(base, base.lower())
+        try:
+            url = f"https://api.coingecko.com/api/v3/coins/{cg_id}/ohlc?vs_currency=eur&days=7"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+            # Format: [[timestamp, open, high, low, close], ...]
+            candles = []
+            for c in data:
+                candles.append({"time": c[0]//1000, "open": c[1], "high": c[2], "low": c[3], "close": c[4]})
+            result[sym] = candles
+        except:
+            pass
+        time.sleep(0.5)
+    return result
+
 def build_positions_chart(d):
-    """Genere une page avec un graphique visuel des positions + TP/SL."""
+    """Genere une page avec graphiques en chandeliers + TP/SL en temps reel."""
     positions = d.get("positions", [])
     liquidites = d.get("liquidites", 0)
     capital_initial = d.get("capital_initial", 1000)
     
-    # Prix temps reel
     syms = [p.get("symbole", "") for p in positions]
     prix_tr = get_prix_batch(syms) if syms else {}
+    ohlc_data = get_ohlc_batch(syms) if syms else {}
     
     TAKE_PROFIT_PCT = 2.0
     STOP_LOSS_PCT = 1.5
     EXTEND_TP_PCT = 4.0
     
     cards_html = ""
+    charts_js = ""
     total_valeur = 0
     total_pnl = 0
     
-    for p in positions:
+    for idx, p in enumerate(positions):
         sym = p.get("symbole", "")
         nom = NOMS.get(sym, sym)
         prix_entree = p.get("prix_entree", 0)
@@ -196,27 +218,18 @@ def build_positions_chart(d):
         total_valeur += valeur_actuelle
         total_pnl += pnl_eur
         
-        # TP/SL levels
         tp_price = prix_entree * (1 + TAKE_PROFIT_PCT / 100)
         sl_price = prix_entree * (1 - STOP_LOSS_PCT / 100)
         tp_ext_price = prix_entree * (1 + EXTEND_TP_PCT / 100)
-        
-        # Distance to TP/SL in %
         dist_tp = ((tp_price - prix_actuel) / prix_actuel * 100) if prix_actuel > 0 else 0
         dist_sl = ((prix_actuel - sl_price) / prix_actuel * 100) if prix_actuel > 0 else 0
         
-        # Bar position (0 = SL, 100 = TP extended)
-        range_total = tp_ext_price - sl_price
-        bar_pos = ((prix_actuel - sl_price) / range_total * 100) if range_total > 0 else 50
-        bar_pos = max(0, min(100, bar_pos))
-        bar_entry = ((prix_entree - sl_price) / range_total * 100) if range_total > 0 else 50
-        bar_entry = max(0, min(100, bar_entry))
-        bar_tp = ((tp_price - sl_price) / range_total * 100) if range_total > 0 else 50
-        
         pnl_color = "#4ade80" if pnl_pct >= 0 else "#f87171"
         emoji = "🟢" if pnl_pct >= 0 else "🔴"
-        
         var_text = f"{var_24h:+.1f}%" if prix_disponible and var_24h is not None else "N/A"
+        
+        candles = ohlc_data.get(sym, [])
+        candles_json = json.dumps(candles) if candles else "[]"
         
         cards_html += f"""
         <div class="pos-card">
@@ -231,28 +244,43 @@ def build_positions_chart(d):
             <span>24h: {var_text}</span>
             <span>Qty: {quantite:.6f}</span>
           </div>
-          <div class="pos-bar-container">
-            <div class="pos-bar-track">
-              <div class="pos-bar-zone sl-zone" style="width:{bar_entry}%"></div>
-              <div class="pos-bar-zone tp-zone" style="left:{bar_entry}%;width:{bar_tp - bar_entry}%"></div>
-              <div class="pos-bar-zone ext-zone" style="left:{bar_tp}%;width:{100 - bar_tp}%"></div>
-              <div class="pos-marker entry-marker" style="left:{bar_entry}%" title="Entree">E</div>
-              <div class="pos-marker tp-marker" style="left:{bar_tp}%" title="Take Profit">TP</div>
-              <div class="pos-marker current-marker" style="left:{bar_pos}%" title="Prix actuel">●</div>
-              <div class="pos-marker sl-marker" style="left:0%" title="Stop Loss">SL</div>
-              <div class="pos-marker tpext-marker" style="left:100%" title="TP Extended">TP+</div>
-            </div>
-          </div>
+          <div id="chart_{idx}" class="chart-container"></div>
           <div class="pos-labels">
-            <span class="sl-label">SL: {sl_price:.4f}€ (-{STOP_LOSS_PCT}%)</span>
-            <span class="dist-label">Distance TP: {dist_tp:+.1f}% | SL: {dist_sl:.1f}%</span>
-            <span class="tp-label">TP: {tp_price:.4f}€ (+{TAKE_PROFIT_PCT}%)</span>
+            <span class="sl-label">🟥 SL: {sl_price:.4f}€ (-{STOP_LOSS_PCT}%)</span>
+            <span class="dist-label">TP: {dist_tp:+.1f}% | SL: {dist_sl:.1f}%</span>
+            <span class="tp-label">🟩 TP: {tp_price:.4f}€ (+{TAKE_PROFIT_PCT}%)</span>
           </div>
           <div class="pos-footer">
             <span>📊 {esc(strategie)}</span>
             <span>📅 {esc(date_ouv)}</span>
           </div>
         </div>"""
+        
+        if candles:
+            charts_js += f"""
+            (function() {{
+                var chart = LightweightCharts.createChart(document.getElementById('chart_{idx}'), {{
+                    layout: {{ background: {{ color: '#161b22' }}, textColor: '#8b949e' }},
+                    grid: {{ vertLines: {{ color: '#21262d' }}, horzLines: {{ color: '#21262d' }} }},
+                    width: '100%', height: 200, timeScale: {{ borderColor: '#30363d' }},
+                    rightPriceScale: {{ borderColor: '#30363d' }},
+                    crosshair: {{ mode: 0 }},
+                }});
+                var series = chart.addCandlestickSeries({{
+                    upColor: '#4ade80', downColor: '#f87171',
+                    borderUpColor: '#4ade80', borderDownColor: '#f87171',
+                    wickUpColor: '#4ade80', wickDownColor: '#f87171',
+                }});
+                series.setData({candles_json});
+                // Lignes TP/SL/Entry
+                series.createPriceLine({{ price: {tp_price:.6f}, color: '#4ade80', lineWidth: 1, lineStyle: 2, title: 'TP +{TAKE_PROFIT_PCT}%' }});
+                series.createPriceLine({{ price: {sl_price:.6f}, color: '#f87171', lineWidth: 1, lineStyle: 2, title: 'SL -{STOP_LOSS_PCT}%' }});
+                series.createPriceLine({{ price: {prix_entree:.6f}, color: '#fbbf24', lineWidth: 1, lineStyle: 1, title: 'Entree' }});
+                series.createPriceLine({{ price: {tp_ext_price:.6f}, color: '#60a5fa', lineWidth: 1, lineStyle: 3, title: 'TP+ +{EXTEND_TP_PCT}%' }});
+                chart.timeScale().fitContent();
+                window.addEventListener('resize', function() {{ chart.applyOptions({{ width: document.getElementById('chart_{idx}').offsetWidth }}); }});
+            }})();
+            """
     
     total_capital = liquidites + total_valeur
     perf_pct = ((total_capital - capital_initial) / capital_initial * 100) if capital_initial > 0 else 0
@@ -263,8 +291,9 @@ def build_positions_chart(d):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="refresh" content="30">
+<meta http-equiv="refresh" content="60">
 <title>Positions Live - Agent IA</title>
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 <style>
 * {{ margin:0; padding:0; box-sizing:border-box; }}
 body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSystemFont,sans-serif; padding:12px; }}
@@ -277,19 +306,8 @@ body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSys
 .pos-header {{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }}
 .pos-name {{ font-weight:bold; font-size:16px; }}
 .pos-pnl {{ font-weight:bold; font-size:16px; }}
-.pos-info {{ display:flex; gap:12px; font-size:12px; color:#8b949e; margin-bottom:10px; flex-wrap:wrap; }}
-.pos-bar-container {{ padding:8px 0; }}
-.pos-bar-track {{ position:relative; height:32px; background:#21262d; border-radius:8px; overflow:hidden; }}
-.pos-bar-zone {{ position:absolute; height:100%; top:0; }}
-.sl-zone {{ background:rgba(248,113,113,0.15); left:0; }}
-.tp-zone {{ background:rgba(74,222,128,0.15); }}
-.ext-zone {{ background:rgba(59,130,246,0.1); }}
-.pos-marker {{ position:absolute; top:50%; transform:translate(-50%,-50%); font-size:10px; font-weight:bold; z-index:2; white-space:nowrap; }}
-.entry-marker {{ color:#fbbf24; }}
-.tp-marker {{ color:#4ade80; }}
-.current-marker {{ color:#fff; font-size:16px; text-shadow:0 0 4px #000; }}
-.sl-marker {{ color:#f87171; left:8px !important; }}
-.tpext-marker {{ color:#60a5fa; right:8px !important; left:auto !important; transform:none; }}
+.pos-info {{ display:flex; gap:12px; font-size:12px; color:#8b949e; margin-bottom:8px; flex-wrap:wrap; }}
+.chart-container {{ width:100%; height:200px; margin:8px 0; border-radius:8px; overflow:hidden; }}
 .pos-labels {{ display:flex; justify-content:space-between; font-size:11px; margin-top:4px; }}
 .sl-label {{ color:#f87171; }}
 .dist-label {{ color:#8b949e; }}
@@ -317,10 +335,12 @@ body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSys
   <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div> Entree</div>
   <div class="legend-item"><div class="legend-dot" style="background:#4ade80"></div> Take Profit</div>
   <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div> TP Extended</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#fff"></div> Prix actuel</div>
 </div>
 {cards_html}
 <div class="back-link"><a href="/?token={TOKEN}">← Retour Dashboard</a></div>
+<script>
+{charts_js}
+</script>
 </body>
 </html>"""
 
