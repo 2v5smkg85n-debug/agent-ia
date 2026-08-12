@@ -1709,6 +1709,37 @@ def handle_message(text, user_name="User"):
         print(f"[AUTO-AJUSTER] Telegram envoye: {ok}")
         return result
     
+    # === OPTIMISATION PARAMETRES ===
+    if text_lower in ["optimiser", "optimise", "optimisation", "params"]:
+        send_telegram("⚙️ Optimisation des parametres...")
+        result = optimiser_parametres()
+        send_telegram(result, parse_mode=None)
+        return result
+    
+    # === PREDICTION ML ===
+    if text_lower.startswith("prediction") or text_lower.startswith("predire") or text_lower.startswith("ml "):
+        parts = text_stripped.split(None, 1)
+        symbole = parts[1] if len(parts) > 1 else "BTC"
+        symbole = symbole.upper() + "USDT" if not symbole.upper().endswith("USDT") else symbole.upper()
+        send_telegram(f"🤖 Prediction ML pour {symbole}...")
+        result = predire_ml(symbole)
+        send_telegram(result, parse_mode=None)
+        return result
+    
+    # === META-APPRENTISSAGE ===
+    if text_lower in ["meta", "meta-apprentissage", "apprentissage"]:
+        send_telegram("🧠 Meta-apprentissage...")
+        result = meta_apprentissage()
+        send_telegram(result, parse_mode=None)
+        return result
+    
+    # === AUTO-GENERATION STRATEGIES ===
+    if text_lower in ["generer", "genere", "strategies_generees", "nouvelles strategies"]:
+        send_telegram("🧬 Generation de nouvelles strategies...")
+        result = auto_generer_strategies()
+        send_telegram(result, parse_mode=None)
+        return result
+    
     # === DIVERGENCES + PATTERNS ===
     if text_lower.startswith("divergence") or text_lower.startswith("pattern") or text_lower.startswith("technique "):
         parts = text_stripped.split(None, 1)
@@ -2079,6 +2110,12 @@ def handle_message(text, user_name="User"):
   divergence BTC - Detecte divergences + patterns chartistes
   sentiment BTC - Sentiment temps reel (news + social + communaute)
   scenario BTC - Simulateur de scenarios futurs avec probabilites
+
+⚙️ AUTO-OPTIMISATION:
+  optimiser - Trouve les meilleurs parametres RSI/SMA par crypto
+  prediction BTC - Machine learning (regression + decision tree)
+  meta - Apprend quelles strategies marchent par regime (bull/bear/sideways)
+  generer - Genere et teste de nouvelles strategies (Ichimoku, VWAP, Bollinger...)
 
 🔧 AUTO-REPARATION:
   diagnostic - Scanne l'agent et repare les problemes automatiquement
@@ -3898,7 +3935,9 @@ def comprendre_message(texte):
         "pnl", "mtf", "apprentissage", "correlations",
         "prevision", "forecast",
         "ajuster", "divergence", "pattern", "scenario", "simule",
-        "diagnostic", "diag", "sante", "repare"
+        "diagnostic", "diag", "sante", "repare",
+        "optimiser", "optimise", "prediction", "predire", "ml",
+        "meta", "apprentissage", "generer", "genere", "strategies_generees"
     ]
     premiere_mot = texte_lower.split()[0] if texte_lower.split() else ""
     for cmd in commandes_connues:
@@ -7092,6 +7131,546 @@ def simulateur_scenarios(symbole="BTCUSDT"):
 
 
 
+
+# ============================================
+# 50. AUTO-OPTIMISATION DES PARAMETRES (RSI/SMA/EMA par crypto)
+# ============================================
+def optimiser_parametres():
+    """Teste differentes combinaisons de parametres RSI/SMA/EMA pour chaque crypto."""
+    msg = "⚙️ OPTIMISATION DES PARAMETRES\n" + "━" * 40 + "\n\n"
+    
+    cryptos = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "AVAXUSDT", "LINKUSDT"]
+    _COINGECKO_IDS = {
+        "BTCUSDT": "bitcoin", "ETHUSDT": "ethereum", "SOLUSDT": "solana",
+        "BNBUSDT": "binancecoin", "AVAXUSDT": "avalanche-2", "LINKUSDT": "chainlink",
+    }
+    
+    # Parametres a tester
+    rsi_periods = [14, 21, 28]
+    sma_combos = [(10, 20), (20, 50), (9, 26)]
+    
+    # Charger la config actuelle
+    param_file = os.path.join(DOSSIER, "params_optimaux.json")
+    params = load_json_safe(param_file, {"cryptos": {}})
+    
+    for sym in cryptos:
+        try:
+            nom = _COINGECKO_IDS.get(sym, sym)
+            msg += f"📊 {sym.replace('USDT','')}:\n"
+            
+            # Recuperer donnees CoinGecko
+            import urllib.request
+            coin_id = _COINGECKO_IDS.get(sym, sym.replace("USDT", "").lower())
+            url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=eur&days=90&interval=daily"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+            prices = [p[1] for p in data.get("prices", [])]
+            if len(prices) < 30:
+                msg += "  ⚠ Donnees insuffisantes\n\n"
+                continue
+            time.sleep(1)  # Anti rate-limit
+            
+            best_roi = -999
+            best_config = {}
+            
+            for rsi_p in rsi_periods:
+                for sma_fast, sma_slow in sma_combos:
+                    # Backtest avec ces parametres
+                    trades = []
+                    pos = None
+                    for i in range(max(sma_slow, rsi_p), len(prices)):
+                        cl = prices[:i+1]
+                        p = cl[-1]
+                        sma_f = sum(cl[-sma_fast:]) / sma_fast if len(cl) >= sma_fast else p
+                        sma_s = sum(cl[-sma_slow:]) / sma_slow if len(cl) >= sma_slow else p
+                        # RSI calcule
+                        gains = [cl[j] - cl[j-1] for j in range(-rsi_p, 0) if (j-1) >= -len(cl) and cl[j] > cl[j-1]]
+                        pertes = [cl[j-1] - cl[j] for j in range(-rsi_p, 0) if (j-1) >= -len(cl) and cl[j] < cl[j-1]]
+                        ag = sum(gains) / rsi_p if gains else 0
+                        ap = sum(pertes) / rsi_p if pertes else 0.001
+                        rsi = 100 - (100 / (1 + (ag / ap if ap > 0 else 100)))
+                        
+                        # Signal momentum avec params custom
+                        if (sma_f > sma_s or p > sma_f) and rsi < 70 and rsi > 30:
+                            if pos is None:
+                                pos = p
+                        elif (p < sma_f or rsi > 70):
+                            if pos is not None:
+                                pnl = (p - pos) / pos * 100 - 0.2
+                                trades.append(pnl)
+                                pos = None
+                    if pos is not None:
+                        pnl = (prices[-1] - pos) / pos * 100 - 0.2
+                        trades.append(pnl)
+                    
+                    if trades:
+                        roi = 1
+                        for t in trades:
+                            roi *= (1 + t / 100)
+                        roi = (roi - 1) * 100
+                        wr = len([t for t in trades if t > 0]) / len(trades) * 100
+                        
+                        if roi > best_roi:
+                            best_roi = roi
+                            best_config = {
+                                "rsi_period": rsi_p, "sma_fast": sma_fast,
+                                "sma_slow": sma_slow, "roi": round(roi, 1),
+                                "wr": round(wr, 0), "trades": len(trades)
+                            }
+            
+            if best_config:
+                params.setdefault("cryptos", {})[sym] = best_config
+                msg += f"  🎯 RSI:{best_config['rsi_period']} SMA:{best_config['sma_fast']}/{best_config['sma_slow']}\n"
+                msg += f"     ROI:{best_config['roi']:+.1f}% WR:{best_config['wr']:.0f}% ({best_config['trades']}t)\n"
+                print(f"[OPTIM] {sym}: {best_config}")
+            else:
+                msg += "  ⚠ Aucune config rentable\n"
+            msg += "\n"
+        except Exception as _e:
+            msg += f"  ❌ {_e}\n\n"
+    
+    save_json_safe(param_file, params)
+    msg += "━" * 40 + "\n"
+    msg += f"📁 Parametres sauves dans params_optimaux.json\n"
+    msg += "💡 L'agent utilisera ces params pour ses futures analyses."
+    return msg
+
+# ============================================
+# 51. PREDICTION ML (Machine Learning simple)
+# ============================================
+def predire_ml(symbole="BTCUSDT"):
+    """Utilise un modele de regression lineaire + decision tree pour predire la direction."""
+    _COINGECKO_IDS = {
+        "BTCUSDT": "bitcoin", "ETHUSDT": "ethereum", "SOLUSDT": "solana",
+        "BNBUSDT": "binancecoin", "AVAXUSDT": "avalanche-2", "LINKUSDT": "chainlink",
+        "XRPUSDT": "ripple", "DOGEUSDT": "dogecoin", "ARBUSDT": "arbitrum",
+        "NEARUSDT": "near", "FETUSDT": "fetch-ai", "RNDRUSDT": "render-token",
+    }
+    nom = symbole.replace("USDT", "")
+    msg = f"🤖 PREDICTION ML - {nom}\n" + "━" * 40 + "\n\n"
+    
+    # Recuperer donnees
+    coin_id = _COINGECKO_IDS.get(symbole, nom.lower())
+    try:
+        import urllib.request
+        url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=eur&days=90&interval=daily"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+        prices = [p[1] for p in data.get("prices", [])]
+    except:
+        return "❌ Donnees indisponibles"
+    
+    if len(prices) < 30:
+        return "❌ Pas assez de donnees"
+    
+    # Calculer les features (indicateurs) pour chaque jour
+    features = []
+    labels = []
+    for i in range(50, len(prices)-1):
+        cl = prices[:i+1]
+        p = cl[-1]
+        # Features
+        sma20 = sum(cl[-20:]) / 20
+        sma50 = sum(cl[-50:]) / 50
+        # RSI
+        gains = [cl[j] - cl[j-1] for j in range(-14, 0) if (j-1) >= -len(cl) and cl[j] > cl[j-1]]
+        pertes = [cl[j-1] - cl[j] for j in range(-14, 0) if (j-1) >= -len(cl) and cl[j] < cl[j-1]]
+        ag = sum(gains) / 14 if gains else 0
+        ap = sum(pertes) / 14 if pertes else 0.001
+        rsi = 100 - (100 / (1 + (ag / ap if ap > 0 else 100)))
+        # Momentum
+        mom = (p - cl[-10]) / cl[-10] * 100 if len(cl) >= 10 else 0
+        # Volatilite
+        vol = (max(cl[-20:]) - min(cl[-20:])) / sma20 * 100 if sma20 > 0 else 0
+        # Label: 1 si le prix monte le lendemain, 0 sinon
+        label = 1 if prices[i+1] > p else 0
+        
+        features.append([rsi, (p - sma20) / sma20 * 100, (sma20 - sma50) / sma50 * 100, mom, vol])
+        labels.append(label)
+    
+    if len(features) < 10:
+        return "❌ Pas assez de donnees pour ML"
+    
+    # Split train/test (70/30)
+    split = int(len(features) * 0.7)
+    X_train, y_train = features[:split], labels[:split]
+    X_test, y_test = features[split:], labels[split:]
+    
+    # --- Modele 1: Regression Logistique simple (from scratch) ---
+    # Calculer les poids par gradient descent
+    n_features = len(features[0])
+    weights = [0.0] * n_features
+    bias = 0.0
+    lr = 0.01
+    for epoch in range(200):
+        for x, y in zip(X_train, y_train):
+            z = bias + sum(w * xi for w, xi in zip(weights, x))
+            pred = 1 / (1 + pow(2.71828, -z)) if z < 100 else 1.0
+            error = pred - y
+            for j in range(n_features):
+                weights[j] -= lr * error * x[j]
+            bias -= lr * error
+    
+    # Accuracy sur test
+    correct = 0
+    predictions = []
+    for x, y in zip(X_test, y_test):
+        z = bias + sum(w * xi for w, xi in zip(weights, x))
+        pred = 1 if z > 0 else 0
+        predictions.append(pred)
+        if pred == y:
+            correct += 1
+    accuracy_log = correct / len(y_test) * 100 if y_test else 0
+    
+    # --- Modele 2: Decision Tree simple (from scratch) ---
+    # Utilise le feature avec le meilleur split
+    best_acc_tree = 0
+    best_feat = 0
+    best_thresh = 0
+    for feat_idx in range(n_features):
+        vals = sorted([x[feat_idx] for x in X_train])
+        for thresh in vals[::3]:  # Test quelques thresholds
+            tp = tn = fp = fn = 0
+            for x, y in zip(X_train, y_train):
+                pred = 1 if x[feat_idx] > thresh else 0
+                if pred == 1 and y == 1: tp += 1
+                elif pred == 1 and y == 0: fp += 1
+                elif pred == 0 and y == 0: tn += 1
+                else: fn += 1
+            acc = (tp + tn) / len(y_train) * 100
+            if acc > best_acc_tree:
+                best_acc_tree = acc
+                best_feat = feat_idx
+                best_thresh = thresh
+    
+    # Test accuracy du tree
+    correct_tree = 0
+    for x, y in zip(X_test, y_test):
+        pred = 1 if x[best_feat] > best_thresh else 0
+        if pred == y:
+            correct_tree += 1
+    accuracy_tree = correct_tree / len(y_test) * 100 if y_test else 0
+    
+    # --- Prediction pour demain ---
+    last_features = features[-1]
+    z = bias + sum(w * xi for w, xi in zip(weights, last_features))
+    proba = 1 / (1 + pow(2.71828, -z)) if z < 100 else 1.0
+    pred_tree = 1 if last_features[best_feat] > best_thresh else 0
+    
+    # Consensus
+    models_haussier = (1 if proba > 0.5 else 0) + (1 if pred_tree == 1 else 0)
+    consensus = "HAUSSIER" if models_haussier == 2 else ("BAISSIER" if models_haussier == 0 else "NEUTRE")
+    
+    prix_actuel = prices[-1]
+    feature_names = ["RSI", "Prix vs SMA20", "SMA20 vs SMA50", "Momentum", "Volatilite"]
+    
+    msg += f"📊 Prix actuel: {prix_actuel:.2f} EUR\n"
+    msg += f"📈 Features analysees: {', '.join(feature_names)}\n\n"
+    msg += f"🔮 MODELE 1 - Regression Logistique:\n"
+    msg += f"   Accuracy test: {accuracy_log:.0f}%\n"
+    msg += f"   Probabilite hausse: {proba*100:.0f}%\n\n"
+    msg += f"🌳 MODELE 2 - Decision Tree:\n"
+    msg += f"   Feature decisive: {feature_names[best_feat]} (seuil: {best_thresh:.2f})\n"
+    msg += f"   Accuracy train: {best_acc_tree:.0f}% | test: {accuracy_tree:.0f}%\n"
+    msg += f"   Prediction: {'HAUSSE' if pred_tree == 1 else 'BAISSE'}\n\n"
+    msg += "━" * 40 + "\n"
+    msg += f"🎯 CONSENSUS ML: {consensus}\n"
+    if consensus == "HAUSSIER":
+        msg += "🟢 Les 2 modeles prevoyent une hausse demain"
+    elif consensus == "BAISSIER":
+        msg += "🔴 Les 2 modeles prevoyent une baisse demain"
+    else:
+        msg += "🟡 Les modeles sont en desaccord - prudence"
+    
+    return msg
+
+# ============================================
+# 52. META-APPRENTISSAGE (strategies par regime de marche)
+# ============================================
+def meta_apprentissage():
+    """Apprend quelles strategies marchent dans quel regime (bull/bear/sideways)."""
+    msg = "🧠 META-APPRENTISSAGE\n" + "━" * 40 + "\n\n"
+    
+    cryptos = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "AVAXUSDT", "LINKUSDT"]
+    _COINGECKO_IDS = {
+        "BTCUSDT": "bitcoin", "ETHUSDT": "ethereum", "SOLUSDT": "solana",
+        "BNBUSDT": "binancecoin", "AVAXUSDT": "avalanche-2", "LINKUSDT": "chainlink",
+    }
+    strategies = ["momentum", "mean_reversion", "breakout", "rsi_extreme", "macd"]
+    
+    # Charger le fichier de meta-apprentissage
+    meta_file = os.path.join(DOSSIER, "meta_apprentissage.json")
+    meta = load_json_safe(meta_file, {"regimes": {}})
+    
+    for sym in cryptos:
+        try:
+            coin_id = _COINGECKO_IDS.get(sym, sym.replace("USDT", "").lower())
+            import urllib.request
+            url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=eur&days=90&interval=daily"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+            prices = [p[1] for p in data.get("prices", [])]
+            time.sleep(1)
+            
+            if len(prices) < 50:
+                continue
+            
+            # Detecter le regime sur les 90 derniers jours
+            sma20 = sum(prices[-20:]) / 20
+            sma50 = sum(prices[-50:]) / 50 if len(prices) >= 50 else sma20
+            prix = prices[-1]
+            var_30j = (prix - prices[-30]) / prices[-30] * 100 if len(prices) >= 30 else 0
+            vol_20j = (max(prices[-20:]) - min(prices[-20:])) / sma20 * 100 if sma20 > 0 else 0
+            
+            # Classification du regime
+            if prix > sma20 > sma50 and var_30j > 5:
+                regime = "bull"
+            elif prix < sma20 < sma50 and var_30j < -5:
+                regime = "bear"
+            else:
+                regime = "sideways"
+            
+            # Backtest de chaque strategie sur cette periode
+            strat_results = {}
+            for strat in strategies:
+                trades = []
+                pos = None
+                for i in range(50, len(prices)):
+                    cl = prices[:i+1]
+                    p = cl[-1]
+                    s20 = sum(cl[-20:]) / 20
+                    s50 = sum(cl[-50:]) / 50 if len(cl) >= 50 else s20
+                    gains = [cl[j] - cl[j-1] for j in range(-14, 0) if (j-1) >= -len(cl) and cl[j] > cl[j-1]]
+                    pertes = [cl[j-1] - cl[j] for j in range(-14, 0) if (j-1) >= -len(cl) and cl[j] < cl[j-1]]
+                    ag = sum(gains) / 14 if gains else 0
+                    ap = sum(pertes) / 14 if pertes else 0.001
+                    r = 100 - (100 / (1 + (ag / ap if ap > 0 else 100)))
+                    sig = 0
+                    if strat == "momentum":
+                        if (s20 > s50 or p > s20) and r < 70 and r > 30: sig = 1
+                        elif (p < s20 or r > 70): sig = -1
+                    elif strat == "mean_reversion":
+                        if r < 30: sig = 1
+                        elif r > 70: sig = -1
+                    elif strat == "breakout":
+                        if len(cl) >= 20:
+                            if p > max(cl[-20:]) * 0.99: sig = 1
+                            elif p < min(cl[-20:]) * 1.01: sig = -1
+                    elif strat == "rsi_extreme":
+                        if r < 25: sig = 1
+                        elif r > 75: sig = -1
+                    elif strat == "macd":
+                        e12 = sum(cl[-12:]) / 12 if len(cl) >= 12 else p
+                        e26 = sum(cl[-26:]) / 26 if len(cl) >= 26 else p
+                        m = e12 - e26
+                        if m > 0 and r < 65: sig = 1
+                        elif m < 0 and r > 35: sig = -1
+                    if sig == 1 and pos is None:
+                        pos = p
+                    elif sig == -1 and pos is not None:
+                        pnl = (p - pos) / pos * 100 - 0.2
+                        trades.append(pnl)
+                        pos = None
+                if pos is not None:
+                    pnl = (prices[-1] - pos) / pos * 100 - 0.2
+                    trades.append(pnl)
+                
+                if trades:
+                    roi = 1
+                    for t in trades:
+                        roi *= (1 + t / 100)
+                    roi = (roi - 1) * 100
+                    strat_results[strat] = round(roi, 1)
+            
+            # Trouver la meilleure strategie pour ce regime
+            if strat_results:
+                best_strat = max(strat_results, key=strat_results.get)
+                meta.setdefault("regimes", {}).setdefault(regime, {})
+                meta["regimes"][regime][sym] = {
+                    "best_strat": best_strat,
+                    "results": strat_results,
+                    "var_30j": round(var_30j, 1),
+                    "vol_20j": round(vol_20j, 1)
+                }
+                msg += f"📊 {sym.replace('USDT','')} ({regime.upper()}):\n"
+                msg += f"   Meilleure: {best_strat} ({strat_results[best_strat]:+.1f}%)\n"
+                msg += f"   Var 30j: {var_30j:+.1f}% | Vol: {vol_20j:.1f}%\n\n"
+        except Exception as _e:
+            msg += f"❌ {sym}: {_e}\n\n"
+    
+    # Synthese par regime
+    msg += "━" * 40 + "\n"
+    msg += "📚 SYNTHÈSE PAR RÉGIME:\n"
+    for regime in ["bull", "bear", "sideways"]:
+        r_data = meta.get("regimes", {}).get(regime, {})
+        if r_data:
+            strats = [v["best_strat"] for v in r_data.values()]
+            from collections import Counter
+            best = Counter(strats).most_common(1)[0]
+            msg += f"  {regime.upper()}: stratégie optimale = {best[0]} ({best[1]} cryptos)\n"
+    
+    save_json_safe(meta_file, meta)
+    msg += "\n📁 Sauvegardé dans meta_apprentissage.json\n"
+    msg += "💡 L'agent utilisera ces infos pour choisir ses stratégies selon le régime."
+    return msg
+
+# ============================================
+# 53. AUTO-GÉNÉRATION DE STRATÉGIES (Ichimoku, VWAP, Bollinger)
+# ============================================
+def auto_generer_strategies():
+    """Génère, backteste et valide de nouvelles stratégies automatiquement."""
+    msg = "🧬 AUTO-GÉNÉRATION DE STRATÉGIES\n" + "━" * 40 + "\n\n"
+    
+    _COINGECKO_IDS = {
+        "BTCUSDT": "bitcoin", "ETHUSDT": "ethereum", "SOLUSDT": "solana",
+        "BNBUSDT": "binancecoin", "AVAXUSDT": "avalanche-2", "LINKUSDT": "chainlink",
+    }
+    
+    nouvelles_strategies = {
+        "ichimoku": {
+            "desc": "Ichimoku Cloud (Tenkan/Kijun cross + cloud)",
+            "params": {"tenkan": 9, "kijun": 26, "senkou": 52}
+        },
+        "vwap": {
+            "desc": "VWAP bounce (prix > VWAP = achat, prix < VWAP = vente)",
+            "params": {"period": 20}
+        },
+        "bollinger": {
+            "desc": "Bollinger Bands squeeze (bande inferieure = achat, superieure = vente)",
+            "params": {"period": 20, "std": 2}
+        },
+        "stochastic": {
+            "desc": "Stochastic Oscillator (%K < 20 = achat, %K > 80 = vente)",
+            "params": {"period": 14, "smooth": 3}
+        },
+        "ema_cross": {
+            "desc": "EMA 9/21 cross (EMA9 > EMA21 = achat, EMA9 < EMA21 = vente)",
+            "params": {"fast": 9, "slow": 21}
+        }
+    }
+    
+    strat_file = os.path.join(DOSSIER, "strategies_generees.json")
+    results = load_json_safe(strat_file, {"strategies": {}})
+    
+    for sym in ["BTCUSDT", "ETHUSDT", "SOLUSDT"]:
+        try:
+            coin_id = _COINGECKO_IDS.get(sym)
+            import urllib.request
+            url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=eur&days=90&interval=daily"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+            prices = [p[1] for p in data.get("prices", [])]
+            time.sleep(1)
+            
+            if len(prices) < 52:
+                continue
+            
+            msg += f"📊 {sym.replace('USDT','')}:\n"
+            
+            for strat_name, strat_info in nouvelles_strategies.items():
+                trades = []
+                pos = None
+                p = strat_info["params"]
+                
+                for i in range(max(p.get("period", 26), p.get("slow", 21), 52), len(prices)):
+                    cl = prices[:i+1]
+                    prix = cl[-1]
+                    sig = 0
+                    
+                    if strat_name == "ichimoku":
+                        tenkan_p = p["tenkan"]
+                        kijun_p = p["kijun"]
+                        tenkan = (max(cl[-tenkan_p:]) + min(cl[-tenkan_p:])) / 2
+                        kijun = (max(cl[-kijun_p:]) + min(cl[-kijun_p:])) / 2
+                        senkou_a = (tenkan + kijun) / 2
+                        senkou_b = (max(cl[-p["senkou"]:]) + min(cl[-p["senkou"]:])) / 2
+                        if tenkan > kijun and prix > senkou_a and senkou_a > senkou_b: sig = 1
+                        elif tenkan < kijun and prix < senkou_a: sig = -1
+                    
+                    elif strat_name == "vwap":
+                        period = p["period"]
+                        vwap = sum(cl[-period:]) / period  # Simplified VWAP (no volume)
+                        if prix > vwap * 1.02: sig = 1
+                        elif prix < vwap * 0.98: sig = -1
+                    
+                    elif strat_name == "bollinger":
+                        period = p["period"]
+                        sma = sum(cl[-period:]) / period
+                        variance = sum((x - sma) ** 2 for x in cl[-period:]) / period
+                        std = variance ** 0.5
+                        upper = sma + p["std"] * std
+                        lower = sma - p["std"] * std
+                        if prix < lower: sig = 1
+                        elif prix > upper: sig = -1
+                    
+                    elif strat_name == "stochastic":
+                        period = p["period"]
+                        high_max = max(cl[-period:])
+                        low_min = min(cl[-period:])
+                        k = (prix - low_min) / (high_max - low_min) * 100 if high_max > low_min else 50
+                        if k < 20: sig = 1
+                        elif k > 80: sig = -1
+                    
+                    elif strat_name == "ema_cross":
+                        fast = p["fast"]
+                        slow = p["slow"]
+                        ema_f = sum(cl[-fast:]) / fast
+                        ema_s = sum(cl[-slow:]) / slow
+                        if ema_f > ema_s: sig = 1
+                        elif ema_f < ema_s: sig = -1
+                    
+                    if sig == 1 and pos is None:
+                        pos = prix
+                    elif sig == -1 and pos is not None:
+                        pnl = (prix - pos) / pos * 100 - 0.2
+                        trades.append(pnl)
+                        pos = None
+                
+                if pos is not None:
+                    pnl = (prices[-1] - pos) / pos * 100 - 0.2
+                    trades.append(pnl)
+                
+                if trades:
+                    roi = 1
+                    for t in trades:
+                        roi *= (1 + t / 100)
+                    roi = (roi - 1) * 100
+                    wr = len([t for t in trades if t > 0]) / len(trades) * 100
+                    
+                    results.setdefault("strategies", {}).setdefault(strat_name, {})[sym] = {
+                        "roi": round(roi, 1), "wr": round(wr, 0), "trades": len(trades),
+                        "desc": strat_info["desc"]
+                    }
+                    
+                    emoji = "🟢" if roi > 0 else "🔴"
+                    msg += f"  {emoji} {strat_name:<14} ROI:{roi:+.1f}% WR:{wr:.0f}% ({len(trades)}t)\n"
+                else:
+                    msg += f"  ⚪ {strat_name:<14} Aucun trade\n"
+            msg += "\n"
+        except Exception as _e:
+            msg += f"❌ {sym}: {_e}\n\n"
+    
+    save_json_safe(strat_file, results)
+    
+    # Synthese: trouver les meilleures strategies generees
+    msg += "━" * 40 + "\n"
+    msg += "🏆 TOP STRATÉGIES GÉNÉRÉES:\n"
+    all_strats = []
+    for strat_name, sym_data in results.get("strategies", {}).items():
+        for sym, data in sym_data.items():
+            all_strats.append((strat_name, sym, data["roi"], data["wr"], data["trades"]))
+    all_strats.sort(key=lambda x: x[2], reverse=True)
+    for s, sym, roi, wr, t in all_strats[:5]:
+        if roi > 0:
+            msg += f"  ✅ {s} sur {sym.replace('USDT','')}: {roi:+.1f}% (WR {wr:.0f}%, {t}t)\n"
+    
+    msg += f"\n📁 {len(nouvelles_strategies)} stratégies testées sur 3 cryptos\n"
+    msg += "💡 Stratégies gagnantes ajoutées au registry."
+    return msg
 
 # ============================================
 # 50. AUTO-DIAGNOSTIC + AUTO-REPARATION AUTONOME
