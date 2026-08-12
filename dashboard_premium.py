@@ -200,7 +200,7 @@ def build_positions_chart(d):
         nom = NOMS.get(sym, sym)
         prix_entree = p.get("prix_entree", 0)
         quantite = p.get("quantite", 0)
-        montant = p.get("montant", 0)
+        montant = p.get("montant_eur", p.get("montant", 0))
         date_ouv = p.get("date_ouverture", "?")
         strategie = p.get("strategie", p.get("source", "?"))
         
@@ -259,10 +259,12 @@ def build_positions_chart(d):
         if candles:
             charts_js += f"""
             (function() {{
-                var chart = LightweightCharts.createChart(document.getElementById('chart_{idx}'), {{
+                var container = document.getElementById('chart_{idx}');
+                if (!container) return;
+                var chart = LightweightCharts.createChart(container, {{
                     layout: {{ background: {{ color: '#161b22' }}, textColor: '#8b949e' }},
                     grid: {{ vertLines: {{ color: '#21262d' }}, horzLines: {{ color: '#21262d' }} }},
-                    width: '100%', height: 200, timeScale: {{ borderColor: '#30363d' }},
+                    width: container.offsetWidth, height: 200, timeScale: {{ borderColor: '#30363d' }},
                     rightPriceScale: {{ borderColor: '#30363d' }},
                     crosshair: {{ mode: 0 }},
                 }});
@@ -272,13 +274,12 @@ def build_positions_chart(d):
                     wickUpColor: '#4ade80', wickDownColor: '#f87171',
                 }});
                 series.setData({candles_json});
-                // Lignes TP/SL/Entry
-                series.createPriceLine({{ price: {tp_price:.6f}, color: '#4ade80', lineWidth: 1, lineStyle: 2, title: 'TP +{TAKE_PROFIT_PCT}%' }});
-                series.createPriceLine({{ price: {sl_price:.6f}, color: '#f87171', lineWidth: 1, lineStyle: 2, title: 'SL -{STOP_LOSS_PCT}%' }});
-                series.createPriceLine({{ price: {prix_entree:.6f}, color: '#fbbf24', lineWidth: 1, lineStyle: 1, title: 'Entree' }});
-                series.createPriceLine({{ price: {tp_ext_price:.6f}, color: '#60a5fa', lineWidth: 1, lineStyle: 3, title: 'TP+ +{EXTEND_TP_PCT}%' }});
+                series.createPriceLine({{ price: {tp_price}, color: '#4ade80', lineWidth: 1, lineStyle: 2, title: 'TP +{TAKE_PROFIT_PCT}%' }});
+                series.createPriceLine({{ price: {sl_price}, color: '#f87171', lineWidth: 1, lineStyle: 2, title: 'SL -{STOP_LOSS_PCT}%' }});
+                series.createPriceLine({{ price: {prix_entree}, color: '#fbbf24', lineWidth: 1, lineStyle: 1, title: 'Entree' }});
+                series.createPriceLine({{ price: {tp_ext_price}, color: '#60a5fa', lineWidth: 1, lineStyle: 3, title: 'TP+ +{EXTEND_TP_PCT}%' }});
                 chart.timeScale().fitContent();
-                window.addEventListener('resize', function() {{ chart.applyOptions({{ width: document.getElementById('chart_{idx}').offsetWidth }}); }});
+                window.addEventListener('resize', function() {{ chart.applyOptions({{ width: container.offsetWidth }}); }});
             }})();
             """
     
