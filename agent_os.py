@@ -6738,7 +6738,7 @@ def auto_ajuster_strategies():
                        "bas": p[1], "cloture": p[1], "volume": 0} for p in prices]
         except Exception:
             pass
-        time.sleep(1)  # Anti rate-limit CoinGecko
+        time.sleep(3)  # Anti rate-limit CoinGecko
         if not bougies or len(bougies) < 30:
             msg += "  ⚠ Donnees insuffisantes\n\n"
             print(f"[AUTO-AJUSTER] {sym}: donnees insuffisantes ({len(bougies) if bougies else 0} bougies)")
@@ -7352,7 +7352,7 @@ def optimiser_parametres():
             if len(prices) < 30:
                 msg += "  ⚠ Donnees insuffisantes\n\n"
                 continue
-            time.sleep(1)  # Anti rate-limit
+            time.sleep(3)  # Anti rate-limit
             
             best_roi = -999
             best_config = {}
@@ -7435,15 +7435,24 @@ def predire_ml(symbole="BTCUSDT"):
     
     # Recuperer donnees
     coin_id = _COINGECKO_IDS.get(symbole, nom.lower())
+    prices = []
     try:
         import urllib.request
         url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=eur&days=90&interval=daily"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode())
         prices = [p[1] for p in data.get("prices", [])]
-    except:
-        return "❌ Donnees indisponibles"
+    except Exception as e:
+        # Fallback: essayer l'API simple/ohlc
+        try:
+            url2 = f"https://api.coingecko.com/api/v3/coins/{coin_id}/ohlc?vs_currency=eur&days=90"
+            req2 = urllib.request.Request(url2, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req2, timeout=15) as resp2:
+                data2 = json.loads(resp2.read().decode())
+            prices = [c[4] for c in data2]  # close price
+        except Exception as e2:
+            return f"❌ Donnees indisponibles (CoinGecko: {e})"
     
     if len(prices) < 30:
         return "❌ Pas assez de donnees"
@@ -7596,7 +7605,7 @@ def meta_apprentissage():
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode())
             prices = [p[1] for p in data.get("prices", [])]
-            time.sleep(1)
+            time.sleep(3)  # Anti rate-limit
             
             if len(prices) < 50:
                 continue
@@ -7747,7 +7756,7 @@ def auto_generer_strategies():
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode())
             prices = [p[1] for p in data.get("prices", [])]
-            time.sleep(1)
+            time.sleep(3)  # Anti rate-limit
             
             if len(prices) < 52:
                 continue
