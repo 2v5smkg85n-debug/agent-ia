@@ -295,7 +295,7 @@ def build_positions_chart(d):
             chart_html = '<div style="display:flex;align-items:center;justify-content:center;height:40px;color:#8b949e;font-size:12px">📊 Donnees indisponibles</div>'
         
         cards_html += f"""
-        <div class="pos-card">
+        <div class="pos-card" data-sym="{sym}">
           <div class="pos-header">
             <span class="pos-emoji">{emoji}</span>
             <span class="pos-name">{esc(nom)}</span>
@@ -303,8 +303,8 @@ def build_positions_chart(d):
           </div>
           <div class="pos-info">
             <span>Entree: {prix_entree:.4f}€</span>
-            <span>Actuel: {prix_actuel:.4f}€</span>
-            <span>24h: {var_text}</span>
+            <span>Actuel: <span class="actuel-val">{prix_actuel:.4f}€</span></span>
+            <span class="var-val">24h: {var_text}</span>
             <span>Qty: {quantite:.6f}</span>
           </div>
           <div class="chart-container">{chart_html}</div>
@@ -328,7 +328,7 @@ def build_positions_chart(d):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="refresh" content="60">
+<meta http-equiv="refresh" content="120">
 <title>Positions Live - Agent IA</title>
 <style>
 * {{ margin:0; padding:0; box-sizing:border-box; }}
@@ -360,11 +360,12 @@ body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSys
 <div class="header">
   <h1>📊 Positions Live - TP/SL</h1>
   <div class="stats">
-    <div class="stat">Capital: <span class="stat-value" style="color:#58a6ff">{total_capital:.2f}€</span></div>
-    <div class="stat">PnL: <span class="stat-value" style="color:{perf_color}">{total_pnl:+.2f}€ ({perf_pct:+.1f}%)</span></div>
+    <div class="stat">Capital: <span class="stat-value" id="capital-val" style="color:#58a6ff">{total_capital:.2f}€</span></div>
+    <div class="stat">PnL: <span class="stat-value" id="pnl-total" style="color:{perf_color}">{total_pnl:+.2f}€ ({perf_pct:+.1f}%)</span></div>
     <div class="stat">Positions: <span class="stat-value">{len(positions)}</span></div>
     <div class="stat">Liquidites: <span class="stat-value">{liquidites:.2f}€</span></div>
   </div>
+  <div style="text-align:center;font-size:10px;color:#8b949e;margin-top:4px"><span id="live-ts">MAJ: --:--:--</span> | 🔴 Live 5s</div>
 </div>
 <div class="legend">
   <div class="legend-item"><div class="legend-dot" style="background:#f87171"></div> Stop Loss</div>
@@ -374,6 +375,52 @@ body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSys
 </div>
 {cards_html}
 <div class="back-link"><a href="/?token={TOKEN}">← Retour Dashboard</a></div>
+<script>
+var TOKEN = '{TOKEN}';
+function updateLive() {{
+  fetch('/api/prices?token=' + TOKEN + '&t=' + Date.now())
+  .then(function(r) {{ return r.json(); }})
+  .then(function(data) {{
+    if (!data.positions) return;
+    var totalVal = 0, totalPnl = 0;
+    data.positions.forEach(function(p) {{
+      var card = document.querySelector('[data-sym="' + p.sym + '"]');
+      if (!card) return;
+      var elPrix = card.querySelector('.actuel-val');
+      var elPnl = card.querySelector('.pos-pnl');
+      var elVar = card.querySelector('.var-val');
+      var elDot = card.querySelector('.price-dot');
+      if (elPrix) elPrix.textContent = p.prix.toFixed(4) + '€';
+      if (elPnl) {{
+        var sign = p.pnl >= 0 ? '+' : '';
+        elPnl.textContent = sign + p.pnl.toFixed(2) + '€ (' + sign + p.pnl_pct.toFixed(1) + '%)';
+        elPnl.style.color = p.pnl >= 0 ? '#4ade80' : '#f87171';
+      }}
+      if (elVar) {{
+        elVar.textContent = '24h: ' + (p.var24h >= 0 ? '+' : '') + p.var24h.toFixed(1) + '%';
+      }}
+      totalVal += p.prix * 0 + (p.pnl > -9999 ? p.pnl : 0);
+      totalPnl += p.pnl;
+    }});
+    var elCap = document.getElementById('capital-val');
+    var elPnlT = document.getElementById('pnl-total');
+    var liq = data.liquidites || 0;
+    if (elCap) {{
+      var cap = liq + totalVal + (totalPnl > -9999 ? 0 : 0);
+      elCap.textContent = (liq + 1000 + totalPnl).toFixed(2) + '€';
+    }}
+    if (elPnlT) {{
+      var pct = (totalPnl / 1000 * 100).toFixed(1);
+      elPnlT.textContent = (totalPnl >= 0 ? '+' : '') + totalPnl.toFixed(2) + '€ (' + (totalPnl >= 0 ? '+' : '') + pct + '%)';
+      elPnlT.style.color = totalPnl >= 0 ? '#4ade80' : '#f87171';
+    }}
+    document.getElementById('live-ts').textContent = 'MAJ: ' + new Date().toLocaleTimeString('fr-FR');
+  }})
+  .catch(function(e) {{ console.log('fetch error', e); }});
+}}
+setInterval(updateLive, 5000);
+setTimeout(updateLive, 2000);
+</script>
 </body>
 </html>"""
 
@@ -663,6 +710,45 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
             self.wfile.write(out.encode())
+            return
+        # Route /api/prices : JSON prix temps reel pour update live
+        if parsed.path == '/api/prices':
+            try:
+                d = json.load(open(DATA_FILE))
+                positions = d.get("positions", [])
+                syms = [p.get("symbole", "") for p in positions]
+                prix_tr = get_prix_batch(syms) if syms else {}
+                result = {"positions": [], "liquidites": d.get("liquidites", 0), "ts": int(time.time())}
+                for p in positions:
+                    sym = p.get("symbole", "")
+                    prix_entree = p.get("prix_entree", 0)
+                    quantite = p.get("quantite", 0)
+                    montant = p.get("montant_eur", 0)
+                    p_data = prix_tr.get(sym, {})
+                    prix_actuel = p_data.get("prix", 0)
+                    var_24h = p_data.get("var_24h", 0)
+                    prix_disponible = prix_actuel > 0
+                    if not prix_disponible:
+                        prix_actuel = prix_entree
+                    valeur = prix_actuel * quantite if prix_disponible else montant
+                    pnl_eur = (valeur - montant) if prix_disponible else 0
+                    pnl_pct = (pnl_eur / montant * 100) if montant > 0 and prix_disponible else 0
+                    tp = prix_entree * 1.02
+                    sl = prix_entree * 0.985
+                    result["positions"].append({
+                        "sym": sym, "prix": prix_actuel, "pnl": round(pnl_eur, 2),
+                        "pnl_pct": round(pnl_pct, 1), "var24h": var_24h,
+                        "tp": tp, "sl": sl, "entry": prix_entree,
+                        "tp_pct": 2.0, "sl_pct": 1.5,
+                    })
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(result).encode())
+            except Exception as e:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode())
             return
         # Route /positions : graphique visuel des positions avec TP/SL
         if parsed.path == '/positions':
