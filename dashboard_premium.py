@@ -377,46 +377,57 @@ body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSys
 <div class="back-link"><a href="/?token={TOKEN}">← Retour Dashboard</a></div>
 <script>
 var TOKEN = '{TOKEN}';
+var iframe = document.createElement('iframe');
+iframe.style.display = 'none';
+iframe.src = '/api/prices?token=' + TOKEN + '&t=' + Date.now();
+document.body.appendChild(iframe);
+function reloadIframe() {{
+  iframe.src = '/api/prices?token=' + TOKEN + '&t=' + Date.now();
+}}
 function updateLive() {{
-  var url = '/api/prices?token=' + TOKEN + '&t=' + Date.now();
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', url, true);
-  xhr.timeout = 8000;
-  xhr.onreadystatechange = function() {{
-    if (xhr.readyState != 4) return;
-    if (xhr.status != 200) {{ document.getElementById('live-ts').textContent = 'MAJ: erreur ' + xhr.status; return; }}
-    try {{
-      var data = JSON.parse(xhr.responseText);
-    }} catch(e) {{ document.getElementById('live-ts').textContent = 'MAJ: parse error'; return; }}
-    if (!data.positions) return;
-    var totalPnl = 0;
-    data.positions.forEach(function(p) {{
-      var card = document.querySelector('[data-sym="' + p.sym + '"]');
-      if (!card) return;
-      var elPrix = card.querySelector('.actuel-val');
-      var elPnl = card.querySelector('.pos-pnl');
-      var elVar = card.querySelector('.var-val');
-      if (elPrix) elPrix.textContent = p.prix.toFixed(4) + '€';
-      if (elPnl) {{
-        var sign = p.pnl >= 0 ? '+' : '';
-        elPnl.textContent = sign + p.pnl.toFixed(2) + '€ (' + sign + p.pnl_pct.toFixed(1) + '%)';
-        elPnl.style.color = p.pnl >= 0 ? '#4ade80' : '#f87171';
+  try {{
+    var url = '/api/prices?token=' + TOKEN + '&t=' + Date.now();
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.timeout = 8000;
+    xhr.onreadystatechange = function() {{
+      if (xhr.readyState != 4) return;
+      if (xhr.status != 200) {{ document.getElementById('live-ts').textContent = 'MAJ: erreur ' + xhr.status; return; }}
+      try {{
+        var data = JSON.parse(xhr.responseText);
+      }} catch(e) {{ document.getElementById('live-ts').textContent = 'MAJ: parse error'; return; }}
+      if (!data.positions) return;
+      var totalPnl = 0;
+      data.positions.forEach(function(p) {{
+        var card = document.querySelector('[data-sym="' + p.sym + '"]');
+        if (!card) return;
+        var elPrix = card.querySelector('.actuel-val');
+        var elPnl = card.querySelector('.pos-pnl');
+        var elVar = card.querySelector('.var-val');
+        if (elPrix) elPrix.textContent = p.prix.toFixed(4) + '€';
+        if (elPnl) {{
+          var sign = p.pnl >= 0 ? '+' : '';
+          elPnl.textContent = sign + p.pnl.toFixed(2) + '€ (' + sign + p.pnl_pct.toFixed(1) + '%)';
+          elPnl.style.color = p.pnl >= 0 ? '#4ade80' : '#f87171';
+        }}
+        if (elVar) elVar.textContent = '24h: ' + (p.var24h >= 0 ? '+' : '') + p.var24h.toFixed(1) + '%';
+        totalPnl += p.pnl;
+      }});
+      var liq = data.liquidites || 0;
+      var elCap = document.getElementById('capital-val');
+      var elPnlT = document.getElementById('pnl-total');
+      if (elCap) elCap.textContent = (liq + 1000 + totalPnl).toFixed(2) + '€';
+      if (elPnlT) {{
+        var pct = (totalPnl / 1000 * 100).toFixed(1);
+        elPnlT.textContent = (totalPnl >= 0 ? '+' : '') + totalPnl.toFixed(2) + '€ (' + (totalPnl >= 0 ? '+' : '') + pct + '%)';
+        elPnlT.style.color = totalPnl >= 0 ? '#4ade80' : '#f87171';
       }}
-      if (elVar) elVar.textContent = '24h: ' + (p.var24h >= 0 ? '+' : '') + p.var24h.toFixed(1) + '%';
-      totalPnl += p.pnl;
-    }});
-    var liq = data.liquidites || 0;
-    var elCap = document.getElementById('capital-val');
-    var elPnlT = document.getElementById('pnl-total');
-    if (elCap) elCap.textContent = (liq + 1000 + totalPnl).toFixed(2) + '€';
-    if (elPnlT) {{
-      var pct = (totalPnl / 1000 * 100).toFixed(1);
-      elPnlT.textContent = (totalPnl >= 0 ? '+' : '') + totalPnl.toFixed(2) + '€ (' + (totalPnl >= 0 ? '+' : '') + pct + '%)';
-      elPnlT.style.color = totalPnl >= 0 ? '#4ade80' : '#f87171';
-    }}
-    document.getElementById('live-ts').textContent = 'MAJ: ' + new Date().toLocaleTimeString('fr-FR');
-  }};
-  xhr.send();
+      document.getElementById('live-ts').textContent = 'MAJ: ' + new Date().toLocaleTimeString('fr-FR') + ' ✓';
+    }};
+    xhr.send();
+  }} catch(e) {{
+    document.getElementById('live-ts').textContent = 'MAJ: ' + new Date().toLocaleTimeString('fr-FR') + ' (refresh)';
+  }}
 }}
 setInterval(updateLive, 5000);
 setTimeout(updateLive, 1500);
