@@ -294,7 +294,7 @@ def build_positions_chart(d):
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="refresh" content="60">
 <title>Positions Live - Agent IA</title>
-<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 <style>
 * {{ margin:0; padding:0; box-sizing:border-box; }}
 body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSystemFont,sans-serif; padding:12px; }}
@@ -340,7 +340,14 @@ body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSys
 {cards_html}
 <div class="back-link"><a href="/?token={TOKEN}">← Retour Dashboard</a></div>
 <script>
+if (typeof LightweightCharts === 'undefined') {{
+  document.querySelectorAll('.chart-container').forEach(function(el) {{
+    el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8b949e;font-size:12px">📊 Graphique indisponible (library non chargee)</div>';
+    el.style.height = '60px';
+  }});
+}} else {{
 {charts_js}
+}}
 </script>
 </body>
 </html>"""
