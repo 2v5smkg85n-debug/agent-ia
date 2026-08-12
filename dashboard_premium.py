@@ -205,7 +205,7 @@ def build_premium_page(d):
         bar_width = min(abs(pnl_pct) * 10, 100)
         pnl_text = f"{pnl_eur:+.2f}€ ({pnl_pct:+.1f}%)" if prix_disponible else "N/A (prix indisponible)"
         prix_actuel_text = f"{prix_actuel:.4f}€" if prix_disponible else "N/A"
-        var_text = f"{var_24h:+.1f}%" if prix_disponible else "N/A"
+        var_text = f"{var_24h:+.1f}%" if prix_disponible and var_24h is not None else "N/A"
         
         positions_html += f"""
         <div class="pos-card" onclick="this.classList.toggle('expanded')">
