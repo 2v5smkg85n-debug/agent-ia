@@ -75,6 +75,10 @@ except Exception:
 # ============================================
 PPLX_KEY = os.getenv("PPLX_API_KEY", "")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
+CLAUDE_KEY = os.getenv("CLAUDE_API_KEY", "")
+DEEPSEEK_KEY = os.getenv("DEEPSEEK_API_KEY", "")
+GROK_KEY = os.getenv("XAI_API_KEY", "")
+MISTRAL_KEY = os.getenv("MISTRAL_API_KEY", "")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT = os.getenv("TELEGRAM_CHAT_ID", "")
 TELEGRAM_CHAT_ID = TELEGRAM_CHAT  # alias
@@ -1709,6 +1713,16 @@ def handle_message(text, user_name="User"):
         print(f"[AUTO-AJUSTER] Telegram envoye: {ok}")
         return result
     
+    # === CONSEIL MULTI-IA ===
+    if text_lower.startswith("conseil") or text_lower.startswith("avis "):
+        parts = text_stripped.split(None, 1)
+        symbole = parts[1] if len(parts) > 1 else "BTC"
+        symbole = symbole.upper() + "USDT" if not symbole.upper().endswith("USDT") else symbole.upper()
+        send_telegram(f"🎯 Conseil multi-IA pour {symbole}...")
+        result = conseil_multi_ia(symbole)
+        send_telegram(result, parse_mode=None)
+        return result
+    
     # === OPTIMISATION PARAMETRES ===
     if text_lower in ["optimiser", "optimise", "optimisation", "params"]:
         send_telegram("⚙️ Optimisation des parametres...")
@@ -2112,6 +2126,7 @@ def handle_message(text, user_name="User"):
   scenario BTC - Simulateur de scenarios futurs avec probabilites
 
 ⚙️ AUTO-OPTIMISATION:
+  conseil BTC - Interroge 6 IA (Perplexity/Gemini/Claude/DeepSeek/Grok/Mistral)
   optimiser - Trouve les meilleurs parametres RSI/SMA par crypto
   prediction BTC - Machine learning (regression + decision tree)
   meta - Apprend quelles strategies marchent par regime (bull/bear/sideways)
@@ -3937,7 +3952,8 @@ def comprendre_message(texte):
         "ajuster", "divergence", "pattern", "scenario", "simule",
         "diagnostic", "diag", "sante", "repare",
         "optimiser", "optimise", "prediction", "predire", "ml",
-        "meta", "apprentissage", "generer", "genere", "strategies_generees"
+        "meta", "apprentissage", "generer", "genere", "strategies_generees",
+        "conseil", "avis"
     ]
     premiere_mot = texte_lower.split()[0] if texte_lower.split() else ""
     for cmd in commandes_connues:
@@ -6020,6 +6036,51 @@ def multi_modeles_analyse(symbole="BTCUSDT", question=""):
     else:
         msg += "🟠 CLAUDE: Cle API non configuree (ANTHROPIC_API_KEY)\n\n"
     
+    # Modele 5: DeepSeek
+    _DEEPSEEK_KEY = DEEPSEEK_KEY or os.environ.get("DEEPSEEK_API_KEY", "")
+    if _DEEPSEEK_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {_DEEPSEEK_KEY}", "Content-Type": "application/json"}
+            payload = {"model": "deepseek-chat", "messages": [{"role": "user", "content": f"{question}\nContexte: {contexte}\nReponds en francais en 3 lignes max."}], "max_tokens": 200}
+            r = requests.post("https://api.deepseek.com/v1/chat/completions", json=payload, headers=headers, timeout=30)
+            if r.status_code == 200:
+                reponses["DeepSeek"] = r.json()["choices"][0]["message"]["content"]
+                msg += f"🔴 DEEPSEEK (chat):\n{reponses['DeepSeek']}\n\n"
+        except Exception as e:
+            msg += f"🔴 DEEPSEEK: Erreur ({e})\n\n"
+    else:
+        msg += "🔴 DEEPSEEK: Cle API non configuree (DEEPSEEK_API_KEY)\n\n"
+    
+    # Modele 6: Grok (xAI)
+    _GROK_KEY = GROK_KEY or os.environ.get("XAI_API_KEY", "")
+    if _GROK_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {_GROK_KEY}", "Content-Type": "application/json"}
+            payload = {"model": "grok-beta", "messages": [{"role": "user", "content": f"{question}\nContexte: {contexte}\nReponds en francais en 3 lignes max."}], "max_tokens": 200}
+            r = requests.post("https://api.x.ai/v1/chat/completions", json=payload, headers=headers, timeout=30)
+            if r.status_code == 200:
+                reponses["Grok"] = r.json()["choices"][0]["message"]["content"]
+                msg += f"⚫ GROK (xAI):\n{reponses['Grok']}\n\n"
+        except Exception as e:
+            msg += f"⚫ GROK: Erreur ({e})\n\n"
+    else:
+        msg += "⚫ GROK: Cle API non configuree (XAI_API_KEY)\n\n"
+    
+    # Modele 7: Mistral
+    _MISTRAL_KEY = MISTRAL_KEY or os.environ.get("MISTRAL_API_KEY", "")
+    if _MISTRAL_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {_MISTRAL_KEY}", "Content-Type": "application/json"}
+            payload = {"model": "mistral-small-latest", "messages": [{"role": "user", "content": f"{question}\nContexte: {contexte}\nReponds en francais en 3 lignes max."}], "max_tokens": 200}
+            r = requests.post("https://api.mistral.ai/v1/chat/completions", json=payload, headers=headers, timeout=30)
+            if r.status_code == 200:
+                reponses["Mistral"] = r.json()["choices"][0]["message"]["content"]
+                msg += f"🟡 MISTRAL (small):\n{reponses['Mistral']}\n\n"
+        except Exception as e:
+            msg += f"🟡 MISTRAL: Erreur ({e})\n\n"
+    else:
+        msg += "🟡 MISTRAL: Cle API non configuree (MISTRAL_API_KEY)\n\n"
+    
     # Synthese
     msg += "━" * 40 + "\n"
     msg += f"🔀 SYNTHESE ({len(reponses)} modeles):\n"
@@ -6027,7 +6088,7 @@ def multi_modeles_analyse(symbole="BTCUSDT", question=""):
     import re
     scores = {}
     for nom_ia, rep in reponses.items():
-        match = re.search(r'score[:\s]*(-?\d+)', rep, re.IGNORECASE)
+        match = re.search(r'score[^\d]*([+-]?\d+)', rep, re.IGNORECASE)
         if match:
             scores[nom_ia] = int(match.group(1))
     
@@ -6051,6 +6112,128 @@ def multi_modeles_analyse(symbole="BTCUSDT", question=""):
     
     return msg
 
+
+# ============================================
+# 43b. CONSEIL MULTI-IA (7 IA croisees pour decision de trading)
+# ============================================
+def conseil_multi_ia(symbole="BTCUSDT"):
+    """Interroge toutes les IA disponibles et donne un conseil consolide."""
+    _COINGECKO_IDS = {
+        "BTCUSDT": "bitcoin", "ETHUSDT": "ethereum", "SOLUSDT": "solana",
+        "BNBUSDT": "binancecoin", "AVAXUSDT": "avalanche-2", "LINKUSDT": "chainlink",
+    }
+    nom = symbole.replace("USDT", "")
+    
+    # Recuperer prix actuel via CoinGecko
+    prix = 0
+    var_24h = 0
+    try:
+        coin_id = _COINGECKO_IDS.get(symbole, nom.lower())
+        import urllib.request
+        url = f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies=eur&include_24hr_change=true"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+        if coin_id in data:
+            prix = data[coin_id]["eur"]
+            var_24h = data[coin_id].get("eur_24h_change", 0)
+    except:
+        pass
+    
+    msg = f"🎯 CONSEIL MULTI-IA - {nom}\n" + "━" * 40 + "\n\n"
+    msg += f"📊 Prix: {prix:.2f} EUR | Var 24h: {var_24h:+.1f}%\n\n"
+    
+    prompt = f"Tu es un analyste crypto expert. Analyse {nom} a {prix:.2f} EUR (var 24h: {var_24h:+.1f}%). Donne: 1) Score -10 a +10 (-10=vente extreme, +10=achat extreme) 2) Action (ACHETER/VENDRE/ATTENDRE) 3) Raison principale en 1 phrase. Reponds en francais en 3 lignes max."
+    
+    reponses = {}
+    scores = {}
+    actions = {}
+    
+    ia_emojis = {"Perplexity": "🟣", "Gemini": "🔵", "Claude": "🟠", "DeepSeek": "🔴", "Grok": "⚫", "Mistral": "🟡"}
+    
+    # Perplexity
+    if PPLX_KEY:
+        try:
+            r = requests.post("https://api.perplexity.ai/chat/completions", json={"model": "sonar", "messages": [{"role": "user", "content": prompt}], "max_tokens": 200}, headers={"Authorization": f"Bearer {PPLX_KEY}", "Content-Type": "application/json"}, timeout=30)
+            if r.status_code == 200:
+                rep = r.json()["choices"][0]["message"]["content"]; reponses["Perplexity"] = rep
+                msg += f"🟣 PERPLEXITY:\n{rep}\n\n"
+        except Exception as e: msg += f"🟣 PERPLEXITY: Erreur\n\n"
+    
+    # Gemini
+    if GEMINI_KEY:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={GEMINI_KEY}"
+            r = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=30)
+            if r.status_code == 200:
+                rep = r.json()["candidates"][0]["content"]["parts"][0]["text"]; reponses["Gemini"] = rep
+                msg += f"🔵 GEMINI:\n{rep}\n\n"
+        except: msg += f"🔵 GEMINI: Erreur\n\n"
+    
+    # Claude
+    if CLAUDE_KEY:
+        try:
+            r = requests.post("https://api.anthropic.com/v1/messages", json={"model": "claude-3-5-sonnet-20241022", "max_tokens": 200, "messages": [{"role": "user", "content": prompt}]}, headers={"x-api-key": CLAUDE_KEY, "Content-Type": "application/json", "anthropic-version": "2023-06-01"}, timeout=30)
+            if r.status_code == 200:
+                rep = r.json()["content"][0]["text"]; reponses["Claude"] = rep
+                msg += f"🟠 CLAUDE:\n{rep}\n\n"
+        except: msg += f"🟠 CLAUDE: Erreur\n\n"
+    
+    # DeepSeek
+    if DEEPSEEK_KEY:
+        try:
+            r = requests.post("https://api.deepseek.com/v1/chat/completions", json={"model": "deepseek-chat", "messages": [{"role": "user", "content": prompt}], "max_tokens": 200}, headers={"Authorization": f"Bearer {DEEPSEEK_KEY}", "Content-Type": "application/json"}, timeout=30)
+            if r.status_code == 200:
+                rep = r.json()["choices"][0]["message"]["content"]; reponses["DeepSeek"] = rep
+                msg += f"🔴 DEEPSEEK:\n{rep}\n\n"
+        except: msg += f"🔴 DEEPSEEK: Erreur\n\n"
+    
+    # Grok
+    if GROK_KEY:
+        try:
+            r = requests.post("https://api.x.ai/v1/chat/completions", json={"model": "grok-beta", "messages": [{"role": "user", "content": prompt}], "max_tokens": 200}, headers={"Authorization": f"Bearer {GROK_KEY}", "Content-Type": "application/json"}, timeout=30)
+            if r.status_code == 200:
+                rep = r.json()["choices"][0]["message"]["content"]; reponses["Grok"] = rep
+                msg += f"⚫ GROK:\n{rep}\n\n"
+        except: msg += f"⚫ GROK: Erreur\n\n"
+    
+    # Mistral
+    if MISTRAL_KEY:
+        try:
+            r = requests.post("https://api.mistral.ai/v1/chat/completions", json={"model": "mistral-small-latest", "messages": [{"role": "user", "content": prompt}], "max_tokens": 200}, headers={"Authorization": f"Bearer {MISTRAL_KEY}", "Content-Type": "application/json"}, timeout=30)
+            if r.status_code == 200:
+                rep = r.json()["choices"][0]["message"]["content"]; reponses["Mistral"] = rep
+                msg += f"🟡 MISTRAL:\n{rep}\n\n"
+        except: msg += f"🟡 MISTRAL: Erreur\n\n"
+    
+    # Synthese
+    import re
+    for ia_name, rep in reponses.items():
+        match = re.search(r'score[^\d]*([+-]?\d+)', rep, re.IGNORECASE)
+        if match: scores[ia_name] = int(match.group(1))
+        if "ACHETER" in rep.upper() or "ACHAT" in rep.upper(): actions[ia_name] = "ACHETER"
+        elif "VENDRE" in rep.upper() or "VENTE" in rep.upper(): actions[ia_name] = "VENDRE"
+        else: actions[ia_name] = "ATTENDRE"
+    
+    msg += "━" * 40 + "\n"
+    msg += f"🔀 CONSEIL CONSOLIDE ({len(reponses)} IA):\n\n"
+    
+    if scores:
+        score_moyen = sum(scores.values()) / len(scores)
+        msg += f"  Score moyen: {score_moyen:+.1f}/10\n"
+        for ia, s in sorted(scores.items(), key=lambda x: x[1], reverse=True):
+            msg += f"    {ia_emojis.get(ia, '⚪')} {ia}: {s:+d}/10 ({actions.get(ia, '?')})\n"
+        action_counts = {}
+        for a in actions.values(): action_counts[a] = action_counts.get(a, 0) + 1
+        vote = max(action_counts, key=action_counts.get) if action_counts else "ATTENDRE"
+        msg += f"\n  Vote action: {vote} ({action_counts.get(vote, 0)}/{len(actions)})\n"
+        if score_moyen > 3: msg += "  🟢 VERDICT: ACHETER - consensus haussier"
+        elif score_moyen < -3: msg += "  🔴 VERDICT: VENDRE - consensus baissier"
+        else: msg += "  🟡 VERDICT: ATTENDRE - pas de signal clair"
+    else:
+        msg += "  ⚠ Impossible d'extraire les scores"
+    
+    return msg
 
 # ============================================
 # 44. RECHERCHE ACADEMIQUE (papers de recherche)
