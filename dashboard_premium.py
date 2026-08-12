@@ -156,9 +156,24 @@ def service_status(name):
         return "unknown"
 
 def get_ohlc_batch(symboles):
-    """Récupère les bougies OHLC pour plusieurs cryptos via CoinGecko."""
+    """Récupère les bougies OHLC pour plusieurs cryptos via CoinGecko (avec cache)."""
     result = {}
-    for sym in symboles:
+    # Cache local 5min
+    cache = {}
+    try:
+        with open("/tmp/ohlc_cache.json") as f:
+            cache = json.load(f)
+    except:
+        pass
+    cache_age = time.time() - cache.get("timestamp", 0)
+    if cache_age < 300 and cache.get("data", {}):
+        cached = cache["data"]
+        for sym in symboles:
+            if sym in cached:
+                result[sym] = cached[sym]
+    # Fetch seulement les manquants (max 6 par requete pour eviter rate limit)
+    to_fetch = [s for s in symboles if s not in result][:6]
+    for sym in to_fetch:
         base = sym.replace("USDT", "")
         cg_id = COINGECKO_MAP.get(base, base.lower())
         try:
@@ -166,14 +181,17 @@ def get_ohlc_batch(symboles):
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode())
-            # Format: [[timestamp, open, high, low, close], ...]
-            candles = []
-            for c in data:
-                candles.append({"time": c[0]//1000, "open": c[1], "high": c[2], "low": c[3], "close": c[4]})
+            candles = [{"time": c[0]//1000, "open": c[1], "high": c[2], "low": c[3], "close": c[4]} for c in data]
             result[sym] = candles
         except:
             pass
-        time.sleep(0.5)
+        time.sleep(1.5)
+    # Sauver cache
+    try:
+        with open("/tmp/ohlc_cache.json", "w") as f:
+            json.dump({"timestamp": time.time(), "data": result}, f)
+    except:
+        pass
     return result
 
 def build_positions_chart(d):
@@ -261,6 +279,7 @@ def build_positions_chart(d):
             (function() {{
                 var container = document.getElementById('chart_{idx}');
                 if (!container) return;
+                if (typeof LightweightCharts === 'undefined') {{ container.innerHTML = '<div style=\"display:flex;align-items:center;justify-content:center;height:100%;color:#8b949e;font-size:12px\">Graphique indisponible</div>'; container.style.height='40px'; return; }}
                 var chart = LightweightCharts.createChart(container, {{
                     layout: {{ background: {{ color: '#161b22' }}, textColor: '#8b949e' }},
                     grid: {{ vertLines: {{ color: '#21262d' }}, horzLines: {{ color: '#21262d' }} }},
@@ -279,9 +298,10 @@ def build_positions_chart(d):
                 series.createPriceLine({{ price: {prix_entree}, color: '#fbbf24', lineWidth: 1, lineStyle: 1, title: 'Entree' }});
                 series.createPriceLine({{ price: {tp_ext_price}, color: '#60a5fa', lineWidth: 1, lineStyle: 3, title: 'TP+ +{EXTEND_TP_PCT}%' }});
                 chart.timeScale().fitContent();
-                window.addEventListener('resize', function() {{ chart.applyOptions({{ width: container.offsetWidth }}); }});
             }})();
             """
+        else:
+            charts_js += f"document.getElementById('chart_{idx}').innerHTML = '<div style=\"display:flex;align-items:center;justify-content:center;height:100%;color:#8b949e;font-size:12px\">📊 Donnees OHLC indisponibles (rate limit)</div>'; document.getElementById('chart_{idx}').style.height='40px';\n"
     
     total_capital = liquidites + total_valeur
     perf_pct = ((total_capital - capital_initial) / capital_initial * 100) if capital_initial > 0 else 0
@@ -340,14 +360,7 @@ body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSys
 {cards_html}
 <div class="back-link"><a href="/?token={TOKEN}">← Retour Dashboard</a></div>
 <script>
-if (typeof LightweightCharts === 'undefined') {{
-  document.querySelectorAll('.chart-container').forEach(function(el) {{
-    el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8b949e;font-size:12px">📊 Graphique indisponible (library non chargee)</div>';
-    el.style.height = '60px';
-  }});
-}} else {{
 {charts_js}
-}}
 </script>
 </body>
 </html>"""
