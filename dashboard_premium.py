@@ -328,7 +328,7 @@ def build_positions_chart(d):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="refresh" content="120">
+<meta http-equiv="refresh" content="10">
 <title>Positions Live - Agent IA</title>
 <style>
 * {{ margin:0; padding:0; box-sizing:border-box; }}
@@ -365,7 +365,7 @@ body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSys
     <div class="stat">Positions: <span class="stat-value">{len(positions)}</span></div>
     <div class="stat">Liquidites: <span class="stat-value">{liquidites:.2f}€</span></div>
   </div>
-  <div style="text-align:center;font-size:10px;color:#8b949e;margin-top:4px"><span id="live-ts">MAJ: --:--:--</span> | 🔴 Live 5s</div>
+  <div style="text-align:center;font-size:10px;color:#8b949e;margin-top:4px"><span id="live-ts">MAJ: {time.strftime('%H:%M:%S')}</span> | 🔴 Live 10s</div>
 </div>
 <div class="legend">
   <div class="legend-item"><div class="legend-dot" style="background:#f87171"></div> Stop Loss</div>
