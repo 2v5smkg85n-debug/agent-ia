@@ -249,6 +249,51 @@ def build_positions_chart(d):
         candles = ohlc_data.get(sym, [])
         candles_json = json.dumps(candles) if candles else "[]"
         
+        if candles and len(candles) > 1:
+            # SVG candlestick chart
+            candle_count = len(candles)
+            chart_w = 340
+            chart_h = 180
+            padding = 30
+            all_prices = []
+            for c in candles:
+                all_prices.extend([c["high"], c["low"]])
+            all_prices.extend([tp_price, sl_price, prix_entree, tp_ext_price])
+            pmin = min(all_prices) * 0.995
+            pmax = max(all_prices) * 1.005
+            prange = pmax - pmin if pmax > pmin else 1
+            tmin = candles[0]["time"]
+            tmax = candles[-1]["time"]
+            trange = tmax - tmin if tmax > tmin else 1
+            def sx(t):
+                return padding + (t - tmin) / trange * (chart_w - padding - 10)
+            def sy(p):
+                return chart_h - 10 - (p - pmin) / prange * (chart_h - 20)
+            candle_w = max(2, (chart_w - padding - 10) / candle_count * 0.6)
+            svg_parts = [f'<svg viewBox="0 0 {chart_w} {chart_h}" style="width:100%;max-width:400px;height:180px">']
+            svg_parts.append(f'<rect width="{chart_w}" height="{chart_h}" fill="#161b22" rx="6"/>')
+            for i in range(4):
+                y = 10 + i * (chart_h - 20) / 3
+                svg_parts.append(f'<line x1="{padding}" y1="{y:.0f}" x2="{chart_w-10}" y2="{y:.0f}" stroke="#21262d" stroke-width="0.5"/>')
+            for pline, pcolor, plabel, pdash in [(tp_price, "#4ade80", "TP", "4"), (sl_price, "#f87171", "SL", "4"), (prix_entree, "#fbbf24", "E", "2"), (tp_ext_price, "#60a5fa", "TP+", "6")]:
+                yy = sy(pline)
+                if 5 < yy < chart_h - 5:
+                    svg_parts.append(f'<line x1="{padding}" y1="{yy:.1f}" x2="{chart_w-10}" y2="{yy:.1f}" stroke="{pcolor}" stroke-width="1" stroke-dasharray="{pdash}"/>')
+                    svg_parts.append(f'<text x="{chart_w-12}" y="{yy-3:.0f}" fill="{pcolor}" font-size="8" text-anchor="end">{plabel}</text>')
+            for c in candles:
+                x = sx(c["time"])
+                is_up = c["close"] >= c["open"]
+                cc = "#4ade80" if is_up else "#f87171"
+                svg_parts.append(f'<line x1="{x:.1f}" y1="{sy(c["high"]):.1f}" x2="{x:.1f}" y2="{sy(c["low"]):.1f}" stroke="{cc}" stroke-width="1"/>')
+                bt = min(sy(c["open"]), sy(c["close"]))
+                bh = max(1, abs(sy(c["close"]) - sy(c["open"])))
+                svg_parts.append(f'<rect x="{x-candle_w/2:.1f}" y="{bt:.1f}" width="{candle_w:.1f}" height="{bh:.1f}" fill="{cc}"/>')
+            svg_parts.append(f'<circle cx="{sx(tmax):.1f}" cy="{sy(prix_actuel):.1f}" r="3" fill="#fff" stroke="#000" stroke-width="1"/>')
+            svg_parts.append('</svg>')
+            chart_html = ''.join(svg_parts)
+        else:
+            chart_html = '<div style="display:flex;align-items:center;justify-content:center;height:40px;color:#8b949e;font-size:12px">📊 Donnees indisponibles</div>'
+        
         cards_html += f"""
         <div class="pos-card">
           <div class="pos-header">
@@ -262,7 +307,7 @@ def build_positions_chart(d):
             <span>24h: {var_text}</span>
             <span>Qty: {quantite:.6f}</span>
           </div>
-          <div id="chart_{idx}" class="chart-container"></div>
+          <div class="chart-container">{chart_html}</div>
           <div class="pos-labels">
             <span class="sl-label">🟥 SL: {sl_price:.4f}€ (-{STOP_LOSS_PCT}%)</span>
             <span class="dist-label">TP: {dist_tp:+.1f}% | SL: {dist_sl:.1f}%</span>
@@ -273,37 +318,6 @@ def build_positions_chart(d):
             <span>📅 {esc(date_ouv)}</span>
           </div>
         </div>"""
-        
-        if candles:
-            charts_js += f"""
-            setTimeout(function() {{
-                var container = document.getElementById('chart_{idx}');
-                if (!container) return;
-                var w = container.offsetWidth || (window.innerWidth - 28);
-                if (typeof LightweightCharts === 'undefined') {{ container.innerHTML = '<div style=\"display:flex;align-items:center;justify-content:center;height:100%;color:#8b949e;font-size:12px\">Graphique indisponible</div>'; container.style.height='40px'; return; }}
-                var chart = LightweightCharts.createChart(container, {{
-                    layout: {{ background: {{ color: '#161b22' }}, textColor: '#8b949e' }},
-                    grid: {{ vertLines: {{ color: '#21262d' }}, horzLines: {{ color: '#21262d' }} }},
-                    width: w, height: 200, timeScale: {{ borderColor: '#30363d' }},
-                    rightPriceScale: {{ borderColor: '#30363d' }},
-                    crosshair: {{ mode: 0 }},
-                }});
-                var series = chart.addCandlestickSeries({{
-                    upColor: '#4ade80', downColor: '#f87171',
-                    borderUpColor: '#4ade80', borderDownColor: '#f87171',
-                    wickUpColor: '#4ade80', wickDownColor: '#f87171',
-                }});
-                series.setData({candles_json});
-                series.createPriceLine({{ price: {tp_price}, color: '#4ade80', lineWidth: 1, lineStyle: 2, title: 'TP +{TAKE_PROFIT_PCT}%' }});
-                series.createPriceLine({{ price: {sl_price}, color: '#f87171', lineWidth: 1, lineStyle: 2, title: 'SL -{STOP_LOSS_PCT}%' }});
-                series.createPriceLine({{ price: {prix_entree}, color: '#fbbf24', lineWidth: 1, lineStyle: 1, title: 'Entree' }});
-                series.createPriceLine({{ price: {tp_ext_price}, color: '#60a5fa', lineWidth: 1, lineStyle: 3, title: 'TP+ +{EXTEND_TP_PCT}%' }});
-                chart.timeScale().fitContent();
-                window.addEventListener('resize', function() {{ chart.applyOptions({{ width: container.offsetWidth || (window.innerWidth - 28) }}); }});
-            }}, 100);
-            """
-        else:
-            charts_js += f"document.getElementById('chart_{idx}').innerHTML = '<div style=\"display:flex;align-items:center;justify-content:center;height:100%;color:#8b949e;font-size:12px\">📊 Donnees OHLC indisponibles (rate limit)</div>'; document.getElementById('chart_{idx}').style.height='40px';\n"
     
     total_capital = liquidites + total_valeur
     perf_pct = ((total_capital - capital_initial) / capital_initial * 100) if capital_initial > 0 else 0
@@ -316,7 +330,6 @@ def build_positions_chart(d):
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="refresh" content="60">
 <title>Positions Live - Agent IA</title>
-<script src="https://cdn.jsdelivr.net/npm/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 <style>
 * {{ margin:0; padding:0; box-sizing:border-box; }}
 body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSystemFont,sans-serif; padding:12px; }}
@@ -361,9 +374,6 @@ body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSys
 </div>
 {cards_html}
 <div class="back-link"><a href="/?token={TOKEN}">← Retour Dashboard</a></div>
-<script>
-{charts_js}
-</script>
 </body>
 </html>"""
 
