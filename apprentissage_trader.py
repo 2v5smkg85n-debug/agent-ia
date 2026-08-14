@@ -187,23 +187,25 @@ def get_recommandations():
         "total_trades": learning.get("total_trades", 0),
     }
 
-    # Strategies a eviter (win rate < 40%)
+    # Strategies a eviter (win rate < 30% avec au moins 5 trades)
     for strat, stats in learning.get("stats_strategies", {}).items():
-        if stats.get("n", 0) >= 3 and stats.get("win_rate", 0) < 40:
+        if stats.get("n", 0) >= 5 and stats.get("win_rate", 0) < 30:
             recs["strategies_a_eviter"].append(strat)
         elif stats.get("n", 0) >= 3 and stats.get("win_rate", 0) >= 60 and stats.get("pnl_total", 0) > 0:
             recs["strategies_a_privilegier"].append(strat)
 
-    # Cryptos a eviter (win rate < 40%)
+    # Cryptos a eviter (win rate < 25% avec au moins 5 trades)
     for sym, stats in learning.get("stats_par_crypto", {}).items():
-        if stats.get("n", 0) >= 3 and stats.get("win_rate", 0) < 40:
+        if stats.get("n", 0) >= 5 and stats.get("win_rate", 0) < 25:
             recs["cryptos_a_eviter"].append(sym)
         elif stats.get("n", 0) >= 3 and stats.get("win_rate", 0) >= 60 and stats.get("pnl_total", 0) > 0:
             recs["cryptos_a_privilegier"].append(sym)
 
-    # TP/SL optimaux
-    recs["tp_optimal"] = learning.get("tp_optimal_par_crypto", {})
-    recs["sl_optimal"] = learning.get("sl_optimal_par_crypto", {})
+    # TP/SL optimaux par crypto (seulement si au moins 3 trades)
+    for sym, stats in learning.get("stats_par_crypto", {}).items():
+        if stats.get("n", 0) >= 3:
+            recs["tp_optimal"][sym] = stats.get("meilleur_tp", 3.0)
+            recs["sl_optimal"][sym] = stats.get("meilleur_sl", 1.5)
 
     # Heures favorables
     for heure, stats in learning.get("stats_horaires", {}).items():
