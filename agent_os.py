@@ -248,6 +248,10 @@ def ask_perplexity(prompt, model="sonar", temperature=0.3, timeout=15):
             _response_cache[cache_key] = result
             return result
         print(f"[PERPLEXITY] HTTP {r.status_code}: {r.text[:200]}")
+        # Fallback: essaie Gemini si Perplexity en erreur (401, 429, 500...)
+        gemini_resp = ask_gemini(prompt)
+        if gemini_resp:
+            return gemini_resp
         return f"Erreur API (HTTP {r.status_code})"
     except requests.exceptions.Timeout:
         print("[PERPLEXITY] Timeout")
@@ -1755,7 +1759,7 @@ def handle_message(text, user_name="User"):
         return result
     
     # === APPRENTISSAGE TRADER ===
-    if text_lower in ["learning", "apprentissage", "apprendre", "analyse trades"]:
+    if text_lower in ["learning", "apprentissage", "apprendre", "analyse trades", "analyse trade", "analyse des trade", "analyse des trades"]:
         send_telegram("🧠 Analyse des trades pour apprentissage...")
         try:
             import apprentissage_trader as ap
@@ -3993,7 +3997,8 @@ def comprendre_message(texte):
         "diagnostic", "diag", "sante", "repare",
         "optimiser", "optimise", "prediction", "predire", "ml",
         "meta", "apprentissage", "generer", "genere", "strategies_generees",
-        "conseil", "avis", "traderpro", "pro"
+        "conseil", "avis", "traderpro", "pro",
+        "learning", "apprendre", "analyse trades", "analyse trade", "analyse des trade", "analyse des trades"
     ]
     premiere_mot = texte_lower.split()[0] if texte_lower.split() else ""
     for cmd in commandes_connues:
