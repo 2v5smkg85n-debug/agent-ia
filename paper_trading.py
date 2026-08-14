@@ -1299,13 +1299,17 @@ def tick():
                         sig["tp_optimal_pro"] = params_pro["tp"]
                     if params_pro.get("sl"):
                         sig["sl_optimal_pro"] = params_pro["sl"]
-                    # Filtrer: seulement ACHAT et ACHAT_FORT
-                    if reco_pro in ["ACHAT", "ACHAT_FORT"]:
+                    # Filtrer: laisse passer ACHAT, ACHAT_FORT et ATTENDRE (neutre)
+                    # Bloque seulement NE_PAS_ACHETER et VENTE (score tres negatif)
+                    if reco_pro in ["ACHAT", "ACHAT_FORT", "ATTENDRE"]:
                         if reco_pro == "ACHAT_FORT":
                             sig["score"] = sig.get("score", 0) + 3  # boost score
                             print(f"  [PRO] {sym}: ACHAT_FORT (score {score_pro:+.1f})")
-                        else:
+                        elif reco_pro == "ACHAT":
+                            sig["score"] = sig.get("score", 0) + 1  # petit boost
                             print(f"  [PRO] {sym}: ACHAT (score {score_pro:+.1f})")
+                        else:
+                            print(f"  [PRO] {sym}: NEUTRE - laisse passer (score {score_pro:+.1f})")
                         signaux_pro.append(sig)
                     else:
                         print(f"  [PRO] {sym}: SKIP - {reco_pro} (score {score_pro:+.1f})")

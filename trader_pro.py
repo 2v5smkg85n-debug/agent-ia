@@ -236,14 +236,14 @@ def score_opportunite(symbole, prix_actuel):
         tp_dynamique = 3.0
         sl_dynamique = 1.5
 
-    # Recommandation
+    # Recommandation (seuils assouplis pour ne pas tout bloquer)
     if score_total >= 4:
         reco = "ACHAT_FORT"
-    elif score_total >= 2:
+    elif score_total >= 1.5:
         reco = "ACHAT"
-    elif score_total >= 0:
-        reco = "ATTENDRE"
-    elif score_total >= -2:
+    elif score_total >= -1.5:
+        reco = "ATTENDRE"  # neutre - laisse passer mais sans boost
+    elif score_total >= -3:
         reco = "NE_PAS_ACHETER"
     else:
         reco = "VENTE"
