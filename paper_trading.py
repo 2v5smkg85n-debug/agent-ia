@@ -1179,6 +1179,15 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
             print(f"  [BOUGIES] Apprentissage enregistré pour {position['symbole']}")
     except Exception:
         pass
+    # === APPRENTISSAGE TRADER: analyser le trade ferme pour apprendre ===
+    try:
+        import apprentissage_trader as ap
+        trades = pf.get("trades_fermes", [])
+        if trades and len(trades) % 3 == 0:  # analyse tous les 3 trades
+            ap.analyser_trades(trades)
+            print(f"  [LEARNING] Apprentissage mis a jour ({len(trades)} trades analyses)")
+    except Exception as e:
+        print(f"  [LEARNING] Erreur: {e}")
 
 # ============================================
 # CYCLE PRINCIPAL
@@ -1256,6 +1265,12 @@ def tick():
             signaux_ia = analyser_signaux_ia(prix)
             tous_signaux = signaux_ia
         if tous_signaux:
+            # === APPRENTISSAGE: filtrer les signaux avec l'apprentissage ===
+            try:
+                import apprentissage_trader as ap
+                tous_signaux = ap.filtrer_signaux_avec_apprentissage(tous_signaux)
+            except Exception as e:
+                print(f"    Apprentissage indisponible: {e}")
             print(f"\n{len(tous_signaux)} signal(s) d'achat detecte(s)")
             # Phase 3: filtre ML - confirme les signaux via le modele predictif
             # Seuls les signaux confirmes par le ML (sur les actifs avec edge) sont gardes

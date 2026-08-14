@@ -1754,6 +1754,24 @@ def handle_message(text, user_name="User"):
         send_telegram(result, parse_mode=None)
         return result
     
+    # === APPRENTISSAGE TRADER ===
+    if text_lower in ["learning", "apprentissage", "apprendre", "analyse trades"]:
+        send_telegram("🧠 Analyse des trades pour apprentissage...")
+        try:
+            import apprentissage_trader as ap
+            d = os.path.join(DOSSIER, "paper_trading.json")
+            pf = json.load(open(d))
+            trades = pf.get("trades_fermes", [])
+            if trades:
+                ap.analyser_trades(trades)
+                rapport = ap.rapport_learning()
+                send_telegram(rapport[:4000], parse_mode=None)
+            else:
+                send_telegram("Aucun trade ferme a analyser encore.")
+        except Exception as e:
+            send_telegram(f"Erreur apprentissage: {e}")
+        return "", ""
+    
     # === DIVERGENCES + PATTERNS ===
     if text_lower.startswith("divergence") or text_lower.startswith("pattern") or text_lower.startswith("technique "):
         parts = text_stripped.split(None, 1)
