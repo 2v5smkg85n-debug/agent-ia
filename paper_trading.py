@@ -1286,11 +1286,11 @@ def tick():
                 signaux_pro = []
                 for sig in tous_signaux:
                     sym = sig.get("symbole", "")
-                    prix = sig.get("prix_entree", 0)
-                    if not sym or not prix:
+                    prix_sig = sig.get("prix_entree", 0)
+                    if not sym or not prix_sig:
                         signaux_pro.append(sig)
                         continue
-                    score_pro, details_pro, reco_pro, params_pro = tp_module.score_opportunite(sym, prix)
+                    score_pro, details_pro, reco_pro, params_pro = tp_module.score_opportunite(sym, prix_sig)
                     sig["score_pro"] = score_pro
                     sig["score_pro_details"] = details_pro
                     sig["reco_pro"] = reco_pro
