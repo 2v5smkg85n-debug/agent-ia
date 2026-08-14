@@ -690,9 +690,177 @@ th{{color:var(--muted);font-size:11px;text-transform:uppercase}}
 </div>
 
 <div class="footer">
-  Agent IA Trading v2 · 37+ commandes Telegram · Auto-refresh 30s · Donnees CoinGecko temps reel
+  <a href="/learning?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🧠 Apprentissage</a> · <a href="/positions?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📊 Positions Live</a> · <a href="/rapport?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📄 Rapport</a>
+  <br>Agent IA Trading v2 · Auto-refresh 30s · Donnees CoinGecko temps reel
 </div>
 </body></html>"""
+
+def build_learning_page():
+    """Genere la page d'apprentissage du trader avec stats et recommandations."""
+    try:
+        import apprentissage_trader as ap
+        # Analyser les trades fermes en temps reel
+        try:
+            pf = json.load(open(DATA_FILE))
+            trades = pf.get("trades_fermes", [])
+            if trades:
+                ap.analyser_trades(trades)
+        except Exception:
+            pass
+        learning = ap.charger_learning()
+        recs = ap.get_recommandations()
+    except Exception as e:
+        return f"<html><body style='background:#0d1117;color:#e6edf3;font-family:sans-serif;padding:20px'><h2>Erreur apprentissage</h2><pre>{html.escape(str(e))}</pre></body></html>"
+
+    total_trades = learning.get("total_trades", 0)
+    total_gagnants = learning.get("total_gagnants", 0)
+    total_perdants = learning.get("total_perdants", 0)
+    win_rate = learning.get("win_rate_global", 0)
+    pnl_total = learning.get("pnl_total", 0)
+    derniere_analyse = learning.get("derniere_analyse", "jamais")
+
+    # Stats par strategie
+    strats = sorted(learning.get("stats_strategies", {}).items(), key=lambda x: x[1].get("pnl_total", 0), reverse=True)
+    strats_html = ""
+    for strat, s in strats[:15]:
+        n = s.get("n", 0)
+        wr = s.get("win_rate", 0)
+        pnl = s.get("pnl_total", 0)
+        couleur = "#4ade80" if pnl > 0 else "#f87171"
+        wr_color = "#4ade80" if wr >= 60 else ("#fbbf24" if wr >= 40 else "#f87171")
+        strats_html += f"""
+        <div class="lr-row">
+          <span class="lr-name">{html.escape(strat)}</span>
+          <span class="lr-n">{n} trades</span>
+          <span class="lr-wr" style="color:{wr_color}">WR {wr:.0f}%</span>
+          <span class="lr-pnl" style="color:{couleur}">{pnl:+.2f}€</span>
+        </div>"""
+
+    # Stats par crypto
+    cryptos = sorted(learning.get("stats_par_crypto", {}).items(), key=lambda x: x[1].get("pnl_total", 0), reverse=True)
+    cryptos_html = ""
+    for sym, s in cryptos[:15]:
+        n = s.get("n", 0)
+        wr = s.get("win_rate", 0)
+        pnl = s.get("pnl_total", 0)
+        tp_opt = s.get("meilleur_tp", 2.0)
+        sl_opt = s.get("meilleur_sl", 1.5)
+        couleur = "#4ade80" if pnl > 0 else "#f87171"
+        wr_color = "#4ade80" if wr >= 60 else ("#fbbf24" if wr >= 40 else "#f87171")
+        cryptos_html += f"""
+        <div class="lr-row">
+          <span class="lr-name">{html.escape(sym)}</span>
+          <span class="lr-n">{n} trades</span>
+          <span class="lr-wr" style="color:{wr_color}">WR {wr:.0f}%</span>
+          <span class="lr-pnl" style="color:{couleur}">{pnl:+.2f}€</span>
+          <span class="lr-tpsl">TP {tp_opt:.1f}% / SL {sl_opt:.1f}%</span>
+        </div>"""
+
+    # Heures favorables
+    heures = sorted(learning.get("stats_horaires", {}).items(), key=lambda x: x[1].get("pnl_total", 0), reverse=True)
+    heures_html = ""
+    for heure, s in heures[:10]:
+        n = s.get("n", 0)
+        wr = s.get("win_rate", 0)
+        pnl = s.get("pnl_total", 0)
+        couleur = "#4ade80" if pnl > 0 else "#f87171"
+        wr_color = "#4ade80" if wr >= 60 else ("#fbbf24" if wr >= 40 else "#f87171")
+        heures_html += f"""
+        <div class="lr-row">
+          <span class="lr-name">{heure}h</span>
+          <span class="lr-n">{n} trades</span>
+          <span class="lr-wr" style="color:{wr_color}">WR {wr:.0f}%</span>
+          <span class="lr-pnl" style="color:{couleur}">{pnl:+.2f}€</span>
+        </div>"""
+
+    # Recommandations
+    a_eviter = recs.get("strategies_a_eviter", []) + recs.get("cryptos_a_eviter", [])
+    a_privilegier = recs.get("strategies_a_privilegier", []) + recs.get("cryptos_a_privilegier", [])
+    eviter_html = "<div class='lr-muted'>Aucune exclusion pour le moment</div>" if not a_eviter else ""
+    for item in a_eviter:
+        eviter_html += f"<div class='lr-badge bad'>{html.escape(item)}</div>"
+    priv_html = "<div class='lr-muted'>Aucun pattern gagnant identifie</div>" if not a_privilegier else ""
+    for item in a_privilegier:
+        priv_html += f"<div class='lr-badge ok'>{html.escape(item)}</div>"
+
+    pnl_color = "#4ade80" if pnl_total >= 0 else "#f87171"
+    wr_color = "#4ade80" if win_rate >= 50 else "#f87171"
+
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="30">
+<title>Apprentissage - Agent IA</title>
+<style>
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSystemFont,sans-serif; padding:12px; }}
+.header {{ text-align:center; padding:12px 0; border-bottom:1px solid #30363d; margin-bottom:16px; }}
+.header h1 {{ font-size:20px; color:#58a6ff; }}
+.cards {{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:16px; }}
+.card {{ background:#161b22; border:1px solid #30363d; border-radius:10px; padding:12px; text-align:center; }}
+.card .lbl {{ font-size:11px; color:#8b949e; }}
+.card .val {{ font-size:22px; font-weight:bold; }}
+.section {{ background:#161b22; border:1px solid #30363d; border-radius:10px; padding:12px; margin-bottom:12px; }}
+.section h2 {{ font-size:14px; color:#58a6ff; margin-bottom:8px; }}
+.lr-row {{ display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #21262d; font-size:13px; }}
+.lr-row:last-child {{ border-bottom:none; }}
+.lr-name {{ font-weight:bold; min-width:80px; }}
+.lr-n {{ color:#8b949e; font-size:11px; min-width:60px; }}
+.lr-wr {{ font-weight:bold; min-width:60px; }}
+.lr-pnl {{ font-weight:bold; min-width:80px; text-align:right; }}
+.lr-tpsl {{ color:#8b949e; font-size:10px; min-width:100px; text-align:right; }}
+.lr-badge {{ display:inline-block; padding:4px 10px; border-radius:12px; font-size:12px; margin:2px; }}
+.lr-badge.ok {{ background:rgba(74,222,128,0.15); color:#4ade80; }}
+.lr-badge.bad {{ background:rgba(248,113,113,0.15); color:#f87171; }}
+.lr-muted {{ color:#8b949e; font-size:12px; padding:8px 0; }}
+.back-link {{ text-align:center; margin-top:16px; }}
+.back-link a {{ color:#58a6ff; text-decoration:none; font-size:14px; }}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🧠 Apprentissage Trader</h1>
+  <div style="font-size:10px;color:#8b949e;margin-top:4px">Derniere analyse: {html.escape(derniere_analyse)} · Auto-refresh 30s</div>
+</div>
+
+<div class="cards">
+  <div class="card"><div class="lbl">Trades analyses</div><div class="val" style="color:#58a6ff">{total_trades}</div></div>
+  <div class="card"><div class="lbl">Win Rate</div><div class="val" style="color:{wr_color}">{win_rate:.1f}%</div></div>
+  <div class="card"><div class="lbl">Gagnants</div><div class="val" style="color:#4ade80">{total_gagnants}</div></div>
+  <div class="card"><div class="lbl">Perdants</div><div class="val" style="color:#f87171">{total_perdants}</div></div>
+</div>
+<div class="card" style="margin-bottom:16px"><div class="lbl">PnL Total Appris</div><div class="val" style="color:{pnl_color}">{pnl_total:+.2f}€</div></div>
+
+<div class="section">
+  <h2>✅ A Privilegier</h2>
+  {priv_html}
+</div>
+
+<div class="section">
+  <h2>🚫 A Eviter</h2>
+  {eviter_html}
+</div>
+
+<div class="section">
+  <h2>📊 Strategies</h2>
+  {strats_html if strats_html else '<div class="lr-muted">Aucune donnee</div>'}
+</div>
+
+<div class="section">
+  <h2>💰 Cryptos</h2>
+  {cryptos_html if cryptos_html else '<div class="lr-muted">Aucune donnee</div>'}
+</div>
+
+<div class="section">
+  <h2>🕐 Heures Favorables</h2>
+  {heures_html if heures_html else '<div class="lr-muted">Aucune donnee</div>'}
+</div>
+
+<div class="back-link"><a href="/?token={TOKEN}">← Dashboard</a> · <a href="/positions?token={TOKEN}">Positions Live →</a></div>
+</body>
+</html>"""
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -760,6 +928,17 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": str(e)}).encode())
+            return
+        # Route /learning : page d'apprentissage du trader
+        if parsed.path == '/learning':
+            try:
+                out = build_learning_page()
+            except Exception as e:
+                out = f"<html><body style='background:#0d1117;color:#e6edf3;font-family:sans-serif;padding:20px'><h2>Erreur</h2><pre>{html.escape(str(e))}</pre></body></html>"
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(out.encode())
             return
         # Route /positions : graphique visuel des positions avec TP/SL
         if parsed.path == '/positions':
