@@ -44,21 +44,21 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 # ============================================
 CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
-MAX_POSITIONS = 15             # 15 positions pour maximiser le nombre de trades
-FENETRE_CORRELATION_MIN = 30     # anti-double-exposition: bloque 2e entree sur actif ouvert <30min
-MAX_POS_PAR_ACTIF = 2           # max positions par actif (differentes strategies)
-RISK_PAR_TRADE = 0.065         # 6.5% du capital par trade (15 positions, ~60EUR chacune)
-INTERVALLE_BOUCLE = 1800       # 30 min (anti-churn : avant 15 min = trop de trades -> frais)
+MAX_POSITIONS = 8              # 8 positions max (concentration = meilleurs trades)
+FENETRE_CORRELATION_MIN = 60    # anti-double-exposition: bloque 2e entree sur actif ouvert <60min
+MAX_POS_PAR_ACTIF = 1          # 1 position par actif (pas de pyramiding risqué)
+RISK_PAR_TRADE = 0.04          # 4% du capital par trade (8 positions, ~50EUR chacune)
+INTERVALLE_BOUCLE = 600        # 10 min (plus réactif pour attraper les mouvements)
 # RISK MANAGEMENT AVANCE
-MAX_TRADES_PAR_JOUR = 20       # limite anti-churn: max 20 trades par jour
-PERTE_JOUR_MAX_PCT = 3.0      # stop trading si -3% en une journee
-CIRCUIT_BREAKER_CONSECUTIF = 3 # pause apres 3 pertes consecutives
+MAX_TRADES_PAR_JOUR = 10       # limite: max 10 trades par jour (qualité > quantité)
+PERTE_JOUR_MAX_PCT = 2.0      # stop trading si -2% en une journee
+CIRCUIT_BREAKER_CONSECUTIF = 2 # pause apres 2 pertes consecutives (plus prudent)
 DRAWDOWN_REDUCTION_SEUIL = 0.95 # si capital < 95% du initial, reduit positions de 50%
-COMPOUND_AUTOMATIQUE = True    # reinvestir automatiquement les gains dans le capital
-HEURES_FAIBLE_LIQUIDITE = [(3, 6)] # pas de trades entre 3h-6h UTC
-# Seuilles serres pour trading actif (prise de benefice frequente)
-TAKE_PROFIT_PCT = 2.0  # PROFIT_BOOST_V1           # +1.5% -> encaisse le benefice
-STOP_LOSS_PCT = 1.5             # -1.5% -> coupe la perte
+COMPOUND_AUTOMATIQUE = True
+HEURES_FAIBLE_LIQUIDITE = [(2, 6)] # pas de trades entre 2h-6h UTC
+# Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
+TAKE_PROFIT_PCT = 3.0          # +3% (laisse les gagnants courir)
+STOP_LOSS_PCT = 1.5            # -1.5% (coupe les pertes vite)
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
 # est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
 # Idee utilisateur + valide par backtest elargi (9 marches, 30 trades, plateau a tp_ext=4).
@@ -1183,11 +1183,20 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
     try:
         import apprentissage_trader as ap
         trades = pf.get("trades_fermes", [])
-        if trades and len(trades) % 3 == 0:  # analyse tous les 3 trades
+        if trades and len(trades) % 3 == 0:
             ap.analyser_trades(trades)
             print(f"  [LEARNING] Apprentissage mis a jour ({len(trades)} trades analyses)")
     except Exception as e:
         print(f"  [LEARNING] Erreur: {e}")
+    # === TRADER PRO: apprendre du resultat du trade ===
+    try:
+        import trader_pro as tp_module
+        score_pro = position.get("score_pro", 0)
+        if score_pro != 0:
+            tp_module.apprendre_erreur(position["symbole"], score_pro, gain, position.get("facteurs_pro", {}))
+            print(f"  [PRO] Apprentissage: {position['symbole']} resultat={gain:+.2f}€ (score initial {score_pro:+.1f})")
+    except Exception as e:
+        print(f"  [PRO] Erreur apprentissage: {e}")
 
 # ============================================
 # CYCLE PRINCIPAL
@@ -1271,6 +1280,38 @@ def tick():
                 tous_signaux = ap.filtrer_signaux_avec_apprentissage(tous_signaux)
             except Exception as e:
                 print(f"    Apprentissage indisponible: {e}")
+            # === TRADER PRO: score multi-facteurs comme un pro ===
+            try:
+                import trader_pro as tp_module
+                signaux_pro = []
+                for sig in tous_signaux:
+                    sym = sig.get("symbole", "")
+                    prix = sig.get("prix_entree", 0)
+                    if not sym or not prix:
+                        signaux_pro.append(sig)
+                        continue
+                    score_pro, details_pro, reco_pro, params_pro = tp_module.score_opportunite(sym, prix)
+                    sig["score_pro"] = score_pro
+                    sig["score_pro_details"] = details_pro
+                    sig["reco_pro"] = reco_pro
+                    # Ajuster TP/SL selon volatilite
+                    if params_pro.get("tp"):
+                        sig["tp_optimal_pro"] = params_pro["tp"]
+                    if params_pro.get("sl"):
+                        sig["sl_optimal_pro"] = params_pro["sl"]
+                    # Filtrer: seulement ACHAT et ACHAT_FORT
+                    if reco_pro in ["ACHAT", "ACHAT_FORT"]:
+                        if reco_pro == "ACHAT_FORT":
+                            sig["score"] = sig.get("score", 0) + 3  # boost score
+                            print(f"  [PRO] {sym}: ACHAT_FORT (score {score_pro:+.1f})")
+                        else:
+                            print(f"  [PRO] {sym}: ACHAT (score {score_pro:+.1f})")
+                        signaux_pro.append(sig)
+                    else:
+                        print(f"  [PRO] {sym}: SKIP - {reco_pro} (score {score_pro:+.1f})")
+                tous_signaux = signaux_pro
+            except Exception as e:
+                print(f"    Trader pro indisponible: {e}")
             print(f"\n{len(tous_signaux)} signal(s) d'achat detecte(s)")
             # Phase 3: filtre ML - confirme les signaux via le modele predictif
             # Seuls les signaux confirmes par le ML (sur les actifs avec edge) sont gardes

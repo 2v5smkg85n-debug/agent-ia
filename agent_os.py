@@ -1772,6 +1772,28 @@ def handle_message(text, user_name="User"):
             send_telegram(f"Erreur apprentissage: {e}")
         return "", ""
     
+    # === TRADER PRO ===
+    if text_lower in ["traderpro", "trader pro", "pro", "score pro"]:
+        send_telegram("🎯 Analyse trader pro en cours...")
+        try:
+            import trader_pro as tp_mod
+            rapport = tp_mod.rapport_trader_pro()
+            # Score sur top 5 cryptos
+            cryptos = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"]
+            lignes = [rapport, "\n=== SCORES LIVE ==="]
+            for sym in cryptos:
+                try:
+                    score, details, reco, params = tp_mod.score_opportunite(sym, 0)
+                    emoji = "🟢" if reco in ["ACHAT", "ACHAT_FORT"] else ("🔴" if "VENTE" in reco else "🟡")
+                    lignes.append(f"{emoji} {sym}: {reco} (score {score:+.1f}) TP={params.get('tp',0):.1f}% SL={params.get('sl',0):.1f}%")
+                except Exception:
+                    pass
+                time.sleep(2)
+            send_telegram("\n".join(lignes)[:4000], parse_mode=None)
+        except Exception as e:
+            send_telegram(f"Erreur trader pro: {e}")
+        return "", ""
+    
     # === DIVERGENCES + PATTERNS ===
     if text_lower.startswith("divergence") or text_lower.startswith("pattern") or text_lower.startswith("technique "):
         parts = text_stripped.split(None, 1)
@@ -3971,7 +3993,7 @@ def comprendre_message(texte):
         "diagnostic", "diag", "sante", "repare",
         "optimiser", "optimise", "prediction", "predire", "ml",
         "meta", "apprentissage", "generer", "genere", "strategies_generees",
-        "conseil", "avis"
+        "conseil", "avis", "traderpro", "pro"
     ]
     premiere_mot = texte_lower.split()[0] if texte_lower.split() else ""
     for cmd in commandes_connues:
