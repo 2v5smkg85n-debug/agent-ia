@@ -48,9 +48,17 @@ def sauver_scores(data):
 
 
 def get_prix_historique(symbole, jours=14):
-    """Recupere l'historique des prix via CoinGecko."""
+    """Recupere l'historique des prix via CoinGecko avec cache."""
     base = symbole.replace("USDT", "")
     cg_id = COINGECKO_MAP.get(base, base.lower())
+    # Cache simple en memoire
+    cache_key = f"{cg_id}_{jours}"
+    if not hasattr(get_prix_historique, '_cache'):
+        get_prix_historique._cache = {}
+    if cache_key in get_prix_historique._cache:
+        cached = get_prix_historique._cache[cache_key]
+        if time.time() - cached[0] < 300:  # cache 5 min
+            return cached[1]
     try:
         import urllib.request
         url = f"https://api.coingecko.com/api/v3/coins/{cg_id}/market_chart?vs_currency=eur&days={jours}"
@@ -58,8 +66,13 @@ def get_prix_historique(symbole, jours=14):
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode())
         prices = [p[1] for p in data.get("prices", [])]
+        get_prix_historique._cache[cache_key] = (time.time(), prices)
+        time.sleep(1)  # anti rate-limit
         return prices
     except Exception:
+        # Si erreur API, retourne le cache expire s'il existe
+        if cache_key in get_prix_historique._cache:
+            return get_prix_historique._cache[cache_key][1]
         return []
 
 
@@ -190,7 +203,7 @@ def score_opportunite(symbole, prix_actuel):
     scores = charger_scores()
     prix_histo = get_prix_historique(symbole)
     if len(prix_histo) < 5:
-        return 0, "Donnees insuffisantes", "SKIP", {}
+        return 0, "Donnees insuffisantes", "ATTENDRE", {"tp": 3.0, "sl": 1.5, "vol": 0}
 
     facteurs = {}
     details = []
