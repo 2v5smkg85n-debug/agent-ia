@@ -1856,7 +1856,7 @@ def handle_message(text, user_name="User"):
         return "", ""
 
     # === SCAN WEB GLOBAL ===
-    if text_lower in ["web", "scan web", "web global", "world", "monde"]:
+    if text_lower.startswith("web") or text_lower in ["scan web", "web global", "world", "monde"]:
         parts = text_stripped.split(None, 1)
         sym = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
         send_telegram(f"🌍 Scan web global {sym}...\n(10 sources: news, Twitter, Reddit, GitHub, order book, DeFi, stablecoins, futures)")
@@ -1873,7 +1873,7 @@ def handle_message(text, user_name="User"):
         return "", ""
 
     # === AUTO-EVOLUTION ===
-    if text_lower in ["evolue", "evolution", "genome", "strategies", "auto evolution"]:
+    if text_lower in ["evolue", "evolution", "genome", "strategies", "auto evolution"] or text_lower.startswith("evolue") or text_lower.startswith("genome") or text_lower.startswith("strategies"):
         send_telegram("🧬 Evolution du bot en cours...\n(Algorithme genetique + IA + memoire)")
         try:
             import auto_evolution as ae
@@ -1888,7 +1888,7 @@ def handle_message(text, user_name="User"):
         return "", ""
 
     # === FORCER L'EVOLUTION ===
-    if text_lower in ["force evolution", "force evolue", "mutate", "muter"]:
+    if text_lower in ["force evolution", "force evolue", "mutate", "muter"] or text_lower.startswith("mutate") or text_lower.startswith("muter"):
         send_telegram("🧬 Evolution forcee lancee...")
         try:
             import auto_evolution as ae
