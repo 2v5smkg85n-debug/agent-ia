@@ -1855,6 +1855,33 @@ def handle_message(text, user_name="User"):
             send_telegram(f"Erreur amelioration: {e}")
         return "", ""
 
+    # === AUTO-EVOLUTION ===
+    if text_lower in ["evolue", "evolution", "genome", "strategies", "auto evolution"]:
+        send_telegram("🧬 Evolution du bot en cours...\n(Algorithme genetique + IA + memoire)")
+        try:
+            import auto_evolution as ae
+            rapport = ae.rapport_evolution()
+            if len(rapport) > 4000:
+                send_telegram(rapport[:4000], parse_mode=None)
+                send_telegram(rapport[4000:8000], parse_mode=None)
+            else:
+                send_telegram(rapport[:4000], parse_mode=None)
+        except Exception as e:
+            send_telegram(f"Erreur evolution: {e}")
+        return "", ""
+
+    # === FORCER L'EVOLUTION ===
+    if text_lower in ["force evolution", "force evolue", "mutate", "muter"]:
+        send_telegram("🧬 Evolution forcee lancee...")
+        try:
+            import auto_evolution as ae
+            rapport = ae.evolution_complete()
+            msg = "🧬 EVOLUTION COMPLETE\n\n" + rapport[:3000]
+            send_telegram(msg, parse_mode=None)
+        except Exception as e:
+            send_telegram(f"Erreur: {e}")
+        return "", ""
+
     # === SUPER INTELLIGENCE ===
     if text_lower in ["super", "super intel", "analyse", "analyse ia", "deep", "deep analyse"]:
         parts = text_stripped.split(None, 1)
@@ -4140,7 +4167,8 @@ def comprendre_message(texte):
         "ameliorer", "amelioration", "optimise", "evolue",
         "intel", "intelligence", "regime", "sentiment", "fear", "greed",
         "backtest",
-        "super", "deep", "news", "whale", "onchain"
+        "super", "deep", "news", "whale", "onchain",
+        "evolue", "evolution", "genome", "strategies", "mutate", "muter"
     ]
     premiere_mot = texte_lower.split()[0] if texte_lower.split() else ""
     for cmd in commandes_connues:

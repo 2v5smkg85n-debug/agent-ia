@@ -1229,6 +1229,38 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
             print(f"  [MAITRES] Strategies ameliorees: {ameliorations}")
     except Exception as e:
         print(f"  [MAITRES] Erreur amelioration: {e}")
+    # === AUTO-EVOLUTION: memoriser le trade dans la memoire profonde ===
+    try:
+        import auto_evolution as ae
+        conditions = {
+            "score_maitres": position.get("score_maitres", 0),
+            "intel_score": position.get("intel_score", 0),
+            "mtf_confirmation": 1 if position.get("mtf_confirmation") == "CONFIRME_ACHAT" else 0,
+            "fear_greed": position.get("intel_fg", 50),
+        }
+        ae.memoriser_trade(
+            symbole=position["symbole"],
+            strategie=position.get("strategie", ""),
+            gain=gain,
+            gain_pct=gain_pct,
+            conditions=conditions,
+            pattern_bougie=position.get("pattern_bougie", ""),
+            regime=position.get("intel_regime", ""),
+            fear_greed=position.get("intel_fg", 50),
+        )
+        # Mettre a jour le fitness de la strategie dans le genome
+        genome = ae.charger_genome()
+        strat_nom = position.get("strategie", "")
+        for s in genome.get("strategies", []):
+            if s.get("nom", "") in strat_nom or strat_nom in s.get("nom", ""):
+                s["trades"] += 1
+                if gain > 0:
+                    s["gagnants"] += 1
+                s["pnl"] += gain
+                break
+        ae.sauver_genome(genome)
+    except Exception as e:
+        print(f"  [EVOL] Erreur memoire: {e}")
 
 # ============================================
 # CYCLE PRINCIPAL
@@ -1469,6 +1501,32 @@ def tick():
     pf["dernier_tick"] = datetime.now().strftime("%Y-%m-%d %H:%M")
     sauver_portefeuille(pf)
     afficher_solde(pf, prix)
+    # === AUTO-EVOLUTION: toutes les 6h, lancer l'evolution complete ===
+    try:
+        evol_data = json.load(open(os.path.join(DOSSIER, "auto_evolution.json")))
+        derniere = evol_data.get("derniere_evolution", "")
+        if derniere:
+            dt_derniere = datetime.strptime(derniere, "%Y-%m-%d %H:%M")
+            if (datetime.now() - dt_derniere).total_seconds() >= 6 * 3600:  # 6h
+                import auto_evolution as ae
+                rapport = ae.evolution_complete()
+                print(f"\n  [EVOL] Evolution complete lancee:")
+                for line in rapport.split("\n")[:5]:
+                    print(f"    {line}")
+        else:
+            # Premiere evolution
+            import auto_evolution as ae
+            ae.evolution_complete()
+            print("\n  [EVOL] Premiere evolution lancee")
+    except FileNotFoundError:
+        try:
+            import auto_evolution as ae
+            ae.evolution_complete()
+            print("\n  [EVOL] Premiere evolution lancee")
+        except Exception as e:
+            print(f"\n  [EVOL] Erreur: {e}")
+    except Exception as e:
+        print(f"\n  [EVOL] Erreur evolution: {e}")
 
 # ============================================
 # AFFICHAGE
