@@ -1197,6 +1197,16 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
             print(f"  [PRO] Apprentissage: {position['symbole']} resultat={gain:+.2f}€ (score initial {score_pro:+.1f})")
     except Exception as e:
         print(f"  [PRO] Erreur apprentissage: {e}")
+    # === MASTER TRADERS: apprendre du resultat du trade ===
+    try:
+        import master_traders as mt
+        score_mt = position.get("score_maitres", 0)
+        if score_mt != 0:
+            votes = {k: v for k, v in position.items() if k.startswith("vote_")}
+            mt.apprendre_trade(position["symbole"], score_mt, gain, votes or None)
+            print(f"  [MAITRES] Apprentissage: {position['symbole']} resultat={gain:+.2f}€ (consensus {score_mt:+.2f})")
+    except Exception as e:
+        print(f"  [MAITRES] Erreur apprentissage: {e}")
 
 # ============================================
 # CYCLE PRINCIPAL
@@ -1294,19 +1304,16 @@ def tick():
                     sig["score_pro"] = score_pro
                     sig["score_pro_details"] = details_pro
                     sig["reco_pro"] = reco_pro
-                    # Ajuster TP/SL selon volatilite
                     if params_pro.get("tp"):
                         sig["tp_optimal_pro"] = params_pro["tp"]
                     if params_pro.get("sl"):
                         sig["sl_optimal_pro"] = params_pro["sl"]
-                    # Filtrer: laisse passer ACHAT, ACHAT_FORT et ATTENDRE (neutre)
-                    # Bloque seulement NE_PAS_ACHETER et VENTE (score tres negatif)
                     if reco_pro in ["ACHAT", "ACHAT_FORT", "ATTENDRE"]:
                         if reco_pro == "ACHAT_FORT":
-                            sig["score"] = sig.get("score", 0) + 3  # boost score
+                            sig["score"] = sig.get("score", 0) + 3
                             print(f"  [PRO] {sym}: ACHAT_FORT (score {score_pro:+.1f})")
                         elif reco_pro == "ACHAT":
-                            sig["score"] = sig.get("score", 0) + 1  # petit boost
+                            sig["score"] = sig.get("score", 0) + 1
                             print(f"  [PRO] {sym}: ACHAT (score {score_pro:+.1f})")
                         else:
                             print(f"  [PRO] {sym}: NEUTRE - laisse passer (score {score_pro:+.1f})")
@@ -1316,6 +1323,38 @@ def tick():
                 tous_signaux = signaux_pro
             except Exception as e:
                 print(f"    Trader pro indisponible: {e}")
+            # === MASTER TRADERS: consensus des 10 plus grands traders ===
+            try:
+                import master_traders as mt
+                signaux_maitres = []
+                for sig in tous_signaux:
+                    sym = sig.get("symbole", "")
+                    if not sym:
+                        signaux_maitres.append(sig)
+                        continue
+                    score_mt, details_mt, reco_mt, extra_mt = mt.consensus_maitres(sym)
+                    sig["score_maitres"] = score_mt
+                    sig["reco_maitres"] = reco_mt
+                    sig["patterns_bougies"] = extra_mt.get("patterns", "")
+                    # Le consensus des maitres ajuste le score
+                    if reco_mt == "ACHAT_FORT":
+                        sig["score"] = sig.get("score", 0) + 4
+                        print(f"  [MAITRES] {sym}: ACHAT_FORT (consensus {score_mt:+.2f}) - {extra_mt.get('patterns','')}")
+                    elif reco_mt == "ACHAT":
+                        sig["score"] = sig.get("score", 0) + 2
+                        print(f"  [MAITRES] {sym}: ACHAT (consensus {score_mt:+.2f})")
+                    elif reco_mt == "ATTENDRE":
+                        print(f"  [MAITRES] {sym}: NEUTRE (consensus {score_mt:+.2f})")
+                    elif reco_mt == "NE_PAS_ACHETER":
+                        print(f"  [MAITRES] {sym}: SKIP - {reco_mt} (consensus {score_mt:+.2f})")
+                        continue
+                    else:  # VENTE
+                        print(f"  [MAITRES] {sym}: SKIP - {reco_mt} (consensus {score_mt:+.2f})")
+                        continue
+                    signaux_maitres.append(sig)
+                tous_signaux = signaux_maitres
+            except Exception as e:
+                print(f"    Master traders indisponible: {e}")
             print(f"\n{len(tous_signaux)} signal(s) d'achat detecte(s)")
             # Phase 3: filtre ML - confirme les signaux via le modele predictif
             # Seuls les signaux confirmes par le ML (sur les actifs avec edge) sont gardes

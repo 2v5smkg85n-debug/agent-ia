@@ -1782,7 +1782,6 @@ def handle_message(text, user_name="User"):
         try:
             import trader_pro as tp_mod
             rapport = tp_mod.rapport_trader_pro()
-            # Score sur top 5 cryptos
             cryptos = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"]
             lignes = [rapport, "\n=== SCORES LIVE ==="]
             for sym in cryptos:
@@ -1796,6 +1795,34 @@ def handle_message(text, user_name="User"):
             send_telegram("\n".join(lignes)[:4000], parse_mode=None)
         except Exception as e:
             send_telegram(f"Erreur trader pro: {e}")
+        return "", ""
+    
+    # === MASTER TRADERS ===
+    if text_lower in ["maitres", "maitre", "traders", "top traders", "consensus"]:
+        send_telegram("🏆 Consensus des 10 maitres traders en cours...")
+        try:
+            import master_traders as mt
+            rapport = mt.rapport_maitres()
+            cryptos = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "LINKUSDT", "BNBUSDT"]
+            lignes = [rapport, "\n=== CONSENSUS LIVE ==="]
+            for sym in cryptos:
+                try:
+                    score, details, reco, extra = mt.consensus_maitres(sym)
+                    emoji = "🟢" if reco in ["ACHAT", "ACHAT_FORT"] else ("🔴" if "VENTE" in reco else "🟡")
+                    patterns = extra.get("patterns", "")
+                    lignes.append(f"{emoji} {sym}: {reco} (consensus {score:+.2f})")
+                    if patterns:
+                        lignes.append(f"   Bougies: {patterns[:80]}")
+                    # Top 3 votes
+                    top3 = sorted(details.items(), key=lambda x: x[1]["score"], reverse=True)[:3]
+                    votes_str = ", ".join(f"{n.split()[0]}:{d['score']:+d}" for n, d in top3)
+                    lignes.append(f"   Top votes: {votes_str}")
+                except Exception as e:
+                    lignes.append(f"❌ {sym}: erreur {e}")
+                time.sleep(3)
+            send_telegram("\n".join(lignes)[:4000], parse_mode=None)
+        except Exception as e:
+            send_telegram(f"Erreur maitres: {e}")
         return "", ""
     
     # === DIVERGENCES + PATTERNS ===
@@ -3998,7 +4025,8 @@ def comprendre_message(texte):
         "optimiser", "optimise", "prediction", "predire", "ml",
         "meta", "apprentissage", "generer", "genere", "strategies_generees",
         "conseil", "avis", "traderpro", "pro",
-        "learning", "apprendre", "analyse trades", "analyse trade", "analyse des trade", "analyse des trades"
+        "learning", "apprendre", "analyse trades", "analyse trade", "analyse des trade", "analyse des trades",
+        "maitres", "maitre", "traders", "consensus"
     ]
     premiere_mot = texte_lower.split()[0] if texte_lower.split() else ""
     for cmd in commandes_connues:
