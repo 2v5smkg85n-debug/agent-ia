@@ -1855,6 +1855,23 @@ def handle_message(text, user_name="User"):
             send_telegram(f"Erreur amelioration: {e}")
         return "", ""
 
+    # === SCAN WEB GLOBAL ===
+    if text_lower in ["web", "scan web", "web global", "world", "monde"]:
+        parts = text_stripped.split(None, 1)
+        sym = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
+        send_telegram(f"🌍 Scan web global {sym}...\n(10 sources: news, Twitter, Reddit, GitHub, order book, DeFi, stablecoins, futures)")
+        try:
+            import web_global as wg
+            rapport = wg.rapport_web_global(sym)
+            if len(rapport) > 4000:
+                send_telegram(rapport[:4000], parse_mode=None)
+                send_telegram(rapport[4000:8000], parse_mode=None)
+            else:
+                send_telegram(rapport[:4000], parse_mode=None)
+        except Exception as e:
+            send_telegram(f"Erreur web global: {e}")
+        return "", ""
+
     # === AUTO-EVOLUTION ===
     if text_lower in ["evolue", "evolution", "genome", "strategies", "auto evolution"]:
         send_telegram("🧬 Evolution du bot en cours...\n(Algorithme genetique + IA + memoire)")
@@ -4168,7 +4185,8 @@ def comprendre_message(texte):
         "intel", "intelligence", "regime", "sentiment", "fear", "greed",
         "backtest",
         "super", "deep", "news", "whale", "onchain",
-        "evolue", "evolution", "genome", "strategies", "mutate", "muter"
+        "evolue", "evolution", "genome", "strategies", "mutate", "muter",
+        "web", "world", "monde"
     ]
     premiere_mot = texte_lower.split()[0] if texte_lower.split() else ""
     for cmd in commandes_connues:

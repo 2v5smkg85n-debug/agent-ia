@@ -1479,6 +1479,27 @@ def tick():
                     tous_signaux = [s for s in tous_signaux if s.get("score", 0) > -900]
             except Exception as e:
                 print(f"    Super intelligence indisponible: {e}")
+            # === WEB GLOBAL: 10 sources mondiales (news, Twitter, Reddit, order book, DeFi, etc) ===
+            try:
+                import web_global as wg
+                if tous_signaux:
+                    for sig in tous_signaux[:2]:  # top 2 signaux seulement (limite API)
+                        sym = sig.get("symbole", "")
+                        if not sym:
+                            continue
+                        wg_info = wg.score_web_global(sym)
+                        wg_score = wg_info.get("score_total", 0)
+                        sig["wg_score"] = wg_score
+                        sig["score"] = sig.get("score", 0) + wg_score * 0.3
+                        top = wg_info.get("top_sources", [])
+                        top_str = ", ".join(f"{k}={v:+.1f}" for k, v in top[:3]) if top else "neutre"
+                        print(f"  [WEB] {sym}: scan web global {wg_score:+.2f} ({top_str})")
+                        if wg_score <= -4:
+                            print(f"  [WEB] {sym}: SKIP - web global tres negatif")
+                            sig["score"] = -999
+                    tous_signaux = [s for s in tous_signaux if s.get("score", 0) > -900]
+            except Exception as e:
+                print(f"    Web global indisponible: {e}")
             print(f"\n{len(tous_signaux)} signal(s) d'achat detecte(s)")
             # Phase 3: filtre ML - confirme les signaux via le modele predictif
             # Seuls les signaux confirmes par le ML (sur les actifs avec edge) sont gardes
