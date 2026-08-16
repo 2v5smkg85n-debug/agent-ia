@@ -58,10 +58,10 @@ def sauver_master(data):
 
 
 def get_ohlc(symbole, jours=30):
-    """Recupere les bougies OHLC via CoinGecko."""
+    """Recupere les bougies OHLC via Binance (rapide, pas de rate-limit)."""
     base = symbole.replace("USDT", "")
-    cg_id = COINGECKO_MAP.get(base, base.lower())
-    cache_key = f"ohlc_{cg_id}_{jours}"
+    binance_sym = base + "USDT"
+    cache_key = f"ohlc_{base}_{jours}"
     if not hasattr(get_ohlc, '_cache'):
         get_ohlc._cache = {}
     if cache_key in get_ohlc._cache:
@@ -69,27 +69,42 @@ def get_ohlc(symbole, jours=30):
             return get_ohlc._cache[cache_key][1]
     try:
         import urllib.request
-        url = f"https://api.coingecko.com/api/v3/coins/{cg_id}/ohlc?vs_currency=eur&days={jours}"
+        interval = "1d" if jours >= 10 else "1h"
+        limit = min(jours, 30) if interval == "1d" else min(jours * 24, 500)
+        url = f"https://api.binance.com/api/v3/klines?symbol={binance_sym}&interval={interval}&limit={limit}"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode())
         bougies = []
         for b in data:
-            bougies.append({"ts": b[0], "open": b[1], "high": b[2], "low": b[3], "close": b[4]})
+            bougies.append({"ts": b[0], "open": float(b[1]), "high": float(b[2]), "low": float(b[3]), "close": float(b[4])})
         get_ohlc._cache[cache_key] = (time.time(), bougies)
-        time.sleep(1)
         return bougies
     except Exception:
-        if cache_key in get_ohlc._cache:
-            return get_ohlc._cache[cache_key][1]
-        return []
+        # Fallback CoinGecko
+        try:
+            cg_id = COINGECKO_MAP.get(base, base.lower())
+            url = f"https://api.coingecko.com/api/v3/coins/{cg_id}/ohlc?vs_currency=eur&days={jours}"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+            bougies = []
+            for b in data:
+                bougies.append({"ts": b[0], "open": b[1], "high": b[2], "low": b[3], "close": b[4]})
+            get_ohlc._cache[cache_key] = (time.time(), bougies)
+            time.sleep(1)
+            return bougies
+        except Exception:
+            if cache_key in get_ohlc._cache:
+                return get_ohlc._cache[cache_key][1]
+            return []
 
 
 def get_prix_histo(symbole, jours=30):
-    """Recupere l'historique des prix."""
+    """Recupere l'historique des prix via Binance (rapide, pas de rate-limit)."""
     base = symbole.replace("USDT", "")
-    cg_id = COINGECKO_MAP.get(base, base.lower())
-    cache_key = f"prix_{cg_id}_{jours}"
+    binance_sym = base + "USDT"
+    cache_key = f"prix_{base}_{jours}"
     if not hasattr(get_prix_histo, '_cache'):
         get_prix_histo._cache = {}
     if cache_key in get_prix_histo._cache:
@@ -97,18 +112,31 @@ def get_prix_histo(symbole, jours=30):
             return get_prix_histo._cache[cache_key][1]
     try:
         import urllib.request
-        url = f"https://api.coingecko.com/api/v3/coins/{cg_id}/market_chart?vs_currency=eur&days={jours}"
+        interval = "1d" if jours >= 10 else "1h"
+        limit = min(jours, 30) if interval == "1d" else min(jours * 24, 500)
+        url = f"https://api.binance.com/api/v3/klines?symbol={binance_sym}&interval={interval}&limit={limit}"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode())
-        prices = [p[1] for p in data.get("prices", [])]
+        prices = [float(b[4]) for b in data]  # close price de chaque bougie
         get_prix_histo._cache[cache_key] = (time.time(), prices)
-        time.sleep(1)
         return prices
     except Exception:
-        if cache_key in get_prix_histo._cache:
-            return get_prix_histo._cache[cache_key][1]
-        return []
+        # Fallback CoinGecko
+        try:
+            cg_id = COINGECKO_MAP.get(base, base.lower())
+            url = f"https://api.coingecko.com/api/v3/coins/{cg_id}/market_chart?vs_currency=eur&days={jours}"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+            prices = [p[1] for p in data.get("prices", [])]
+            get_prix_histo._cache[cache_key] = (time.time(), prices)
+            time.sleep(1)
+            return prices
+        except Exception:
+            if cache_key in get_prix_histo._cache:
+                return get_prix_histo._cache[cache_key][1]
+            return []
 
 
 # ============================================

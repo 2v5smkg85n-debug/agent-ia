@@ -1402,9 +1402,11 @@ def tick():
                     elif reco_mt == "NE_PAS_ACHETER":
                         print(f"  [MAITRES] {sym}: SKIP - {reco_mt} (consensus {score_mt:+.2f})")
                         continue
-                    else:  # VENTE
-                        print(f"  [MAITRES] {sym}: SKIP - {reco_mt} (consensus {score_mt:+.2f})")
+                    elif reco_mt == "VENTE":
+                        print(f"  [MAITRES] {sym}: SKIP - VENTE (consensus {score_mt:+.2f})")
                         continue
+                    else:  # Donnees insuffisantes ou erreur API - laisser passer
+                        print(f"  [MAITRES] {sym}: passe-temps (donnees insuffisantes)")
                     signaux_maitres.append(sig)
                 tous_signaux = signaux_maitres
             except Exception as e:
