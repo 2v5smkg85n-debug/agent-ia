@@ -944,6 +944,33 @@ def build_maitres_page():
         except Exception as e:
             cryptos_html += f"<div class='mt-crypto-card'><span>{sym}: erreur {html.escape(str(e))}</span></div>"
 
+    # Intelligence globale
+    intel_html = ""
+    try:
+        import intelligence_pro as ip
+        fg = ip.get_fear_greed()
+        fg_val = fg.get("value", 50)
+        fg_class = fg.get("classification", "Neutral")
+        fg_color = "#f87171" if fg_val < 25 else ("#fbbf24" if fg_val < 45 else ("#4ade80" if fg_val > 55 else "#8b949e"))
+        regime, regime_detail, regime_score = ip.regime_global()
+        regime_color = "#4ade80" if "BULL" in regime else ("#f87171" if "BEAR" in regime else "#fbbf24")
+        intel_html = f"""
+        <div class="mt-crypto-card">
+          <div class="mt-crypto-header">
+            <span class="mt-crypto-sym">Fear & Greed</span>
+            <span class="mt-crypto-reco" style="color:{fg_color}">{fg_val} - {fg_class}</span>
+          </div>
+        </div>
+        <div class="mt-crypto-card">
+          <div class="mt-crypto-header">
+            <span class="mt-crypto-sym">Regime marche</span>
+            <span class="mt-crypto-reco" style="color:{regime_color}">{regime}</span>
+          </div>
+          <div class="mt-patterns">{html.escape(regime_detail)}</div>
+        </div>"""
+    except Exception as e:
+        intel_html = f"<div class='mt-crypto-card'>Erreur: {html.escape(str(e))}</div>"
+
     return f"""<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -1007,6 +1034,11 @@ body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSys
 <div class="section">
   <h2>🎯 Consensus Live</h2>
   {cryptos_html}
+</div>
+
+<div class="section">
+  <h2>🧠 Intelligence Globale</h2>
+  {intel_html}
 </div>
 
 <div class="back-link"><a href="/?token={TOKEN}">← Dashboard</a> · <a href="/learning?token={TOKEN}">🧠 Apprentissage</a> · <a href="/positions?token={TOKEN}">📊 Positions</a></div>

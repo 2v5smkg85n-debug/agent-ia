@@ -942,7 +942,14 @@ def ouvrir_position(pf, signal, prix_actuel):
         "signal_raison": signal.get("raison", ""),
         "source": signal.get("source", ""),
         "strategie": signal.get("strategie") or signal.get("source") or "inconnu",
-        "pattern_bougie": _pattern_info
+        "pattern_bougie": _pattern_info,
+        # Intelligence pro
+        "tp_adaptatif": signal.get("tp_adaptatif"),
+        "sl_adaptatif": signal.get("sl_adaptatif"),
+        "intel_score": signal.get("intel_score"),
+        "intel_fg": signal.get("intel_fg"),
+        "intel_regime": signal.get("intel_regime"),
+        "mtf_confirmation": signal.get("mtf_confirmation"),
     }
     pf["positions"].append(position)
     print(f"  [ACHAT] {signal.get('nom',signal['symbole'])} ({signal.get('marche','?')}) @ {prix_actuel:.2f} | {montant:.2f} EUR | qty {quantite:.6f}")
@@ -991,8 +998,13 @@ def verifier_sorties(pf, prix_actuels):
             continue
         variation = (prix_actuel - prix_entree) / prix_entree * 100
         # Recupere le SL applicable (avant la detection de position piegee)
+        # Priorite: TP/SL adaptatif intelligence_pro > meta_tuning > constantes globales
+        _tp_adapt = pos.get("tp_adaptatif")
+        _sl_adapt = pos.get("sl_adaptatif")
         if os.getenv('SCALPING', '0') == '1':
             _tp_check, _sl_check = TAKE_PROFIT_PCT, STOP_LOSS_PCT
+        elif _tp_adapt and _sl_adapt:
+            _tp_check, _sl_check = _tp_adapt, _sl_adapt
         else:
             try:
                 from meta_tuning import tp_sl_actif
@@ -1007,6 +1019,8 @@ def verifier_sorties(pf, prix_actuels):
         # TP/SL: en mode scalping, les constantes globales priment sur meta_tuning
         if os.getenv('SCALPING', '0') == '1':
             _tp, _sl = TAKE_PROFIT_PCT, STOP_LOSS_PCT
+        elif _tp_adapt and _sl_adapt:
+            _tp, _sl = _tp_adapt, _sl_adapt
         else:
             try:
                 from meta_tuning import tp_sl_actif
@@ -1363,6 +1377,48 @@ def tick():
                 tous_signaux = signaux_maitres
             except Exception as e:
                 print(f"    Master traders indisponible: {e}")
+            # === INTELLIGENCE PRO: Fear&Greed, regime, multi-timeframe, correlation, TP/SL adaptatifs ===
+            try:
+                import intelligence_pro as ip
+                signaux_intel = []
+                fg = ip.get_fear_greed()
+                regime, regime_detail, regime_score = ip.regime_global()
+                ajustements_regime = ip.strategie_par_regime(regime)
+                print(f"  [INTEL] Fear&Greed: {fg.get('value',50)} ({fg.get('classification','')}) | Regime: {regime}")
+                for sig in tous_signaux:
+                    sym = sig.get("symbole", "")
+                    if not sym:
+                        signaux_intel.append(sig)
+                        continue
+                    # Multi-timeframe
+                    mtf_score, mtf_conf, mtf_scores, mtf_details = ip.analyse_multi_timeframe(sym)
+                    sig["mtf_score"] = mtf_score
+                    sig["mtf_confirmation"] = mtf_conf
+                    # Fear & Greed
+                    fg_score, fg_detail = ip.fear_greed_score()
+                    # TP/SL adaptatifs
+                    tp_adapt, sl_adapt = ip.tp_sl_adaptatifs(sig.get("score_maitres", 0), regime, fg.get("value", 50))
+                    sig["tp_adaptatif"] = tp_adapt
+                    sig["sl_adaptatif"] = sl_adapt
+                    # Diversification (correlation)
+                    div_ok, div_detail = ip.verifier_diversification(sym, pf.get("positions", []))
+                    if not div_ok:
+                        print(f"  [INTEL] {sym}: SKIP - {div_detail}")
+                        continue
+                    # Score intelligence
+                    bonus_intel = fg_score * 0.5 + regime_score * 1.0 + mtf_score * 1.5
+                    sig["score"] = sig.get("score", 0) + bonus_intel
+                    sig["intel_score"] = bonus_intel
+                    sig["intel_fg"] = fg.get("value", 50)
+                    sig["intel_regime"] = regime
+                    if mtf_conf == "CONFIRME_ACHAT":
+                        print(f"  [INTEL] {sym}: MTF confirme achat ({mtf_score:+.1f}), TP={tp_adapt}% SL={sl_adapt}%")
+                    elif mtf_conf == "CONFIRME_VENTE":
+                        print(f"  [INTEL] {sym}: MTF contredit (vente) - score reduit")
+                    signaux_intel.append(sig)
+                tous_signaux = signaux_intel
+            except Exception as e:
+                print(f"    Intelligence pro indisponible: {e}")
             print(f"\n{len(tous_signaux)} signal(s) d'achat detecte(s)")
             # Phase 3: filtre ML - confirme les signaux via le modele predictif
             # Seuls les signaux confirmes par le ML (sur les actifs avec edge) sont gardes

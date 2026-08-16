@@ -1854,7 +1854,33 @@ def handle_message(text, user_name="User"):
         except Exception as e:
             send_telegram(f"Erreur amelioration: {e}")
         return "", ""
-    
+
+    # === INTELLIGENCE PRO ===
+    if text_lower in ["intel", "intelligence", "regime", "sentiment", "fear", "greed"]:
+        send_telegram("🧠 Analyse intelligence globale...")
+        try:
+            import intelligence_pro as ip
+            parts = text_stripped.split(None, 1)
+            sym = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
+            rapport = ip.rapport_intelligence(sym)
+            send_telegram(rapport[:4000], parse_mode=None)
+        except Exception as e:
+            send_telegram(f"Erreur intelligence: {e}")
+        return "", ""
+
+    # === BACKTEST ===
+    if text_lower.startswith("backtest"):
+        parts = text_stripped.split(None, 1)
+        sym = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
+        send_telegram(f"⏳ Backtest des 10 maitres sur {sym}...")
+        try:
+            import intelligence_pro as ip
+            _, rapport = ip.backtester_maitres(sym)
+            send_telegram(rapport[:4000], parse_mode=None)
+        except Exception as e:
+            send_telegram(f"Erreur backtest: {e}")
+        return "", ""
+
     # === DIVERGENCES + PATTERNS ===
     if text_lower.startswith("divergence") or text_lower.startswith("pattern") or text_lower.startswith("technique "):
         parts = text_stripped.split(None, 1)
@@ -4057,7 +4083,9 @@ def comprendre_message(texte):
         "conseil", "avis", "traderpro", "pro",
         "learning", "apprendre", "analyse trades", "analyse trade", "analyse des trade", "analyse des trades",
         "maitres", "maitre", "traders", "consensus",
-        "ameliorer", "amelioration", "optimise", "evolue"
+        "ameliorer", "amelioration", "optimise", "evolue",
+        "intel", "intelligence", "regime", "sentiment", "fear", "greed",
+        "backtest"
     ]
     premiere_mot = texte_lower.split()[0] if texte_lower.split() else ""
     for cmd in commandes_connues:
