@@ -1419,6 +1419,34 @@ def tick():
                 tous_signaux = signaux_intel
             except Exception as e:
                 print(f"    Intelligence pro indisponible: {e}")
+            # === SUPER INTELLIGENCE: IA multi-modeles + news + on-chain + social + funding + macro ===
+            try:
+                import super_intelligence as si
+                # Analyse super-intelligence uniquement sur le top signal (pour eviter trop d'appels API)
+                if tous_signaux:
+                    # Trier par score et analyser le top 3
+                    tous_signaux.sort(key=lambda s: s.get("score", 0), reverse=True)
+                    for sig in tous_signaux[:3]:
+                        sym = sig.get("symbole", "")
+                        if not sym:
+                            continue
+                        si_info = si.score_super_intelligence(sym)
+                        si_score = si_info.get("score_total", 0)
+                        sig["si_score"] = si_score
+                        sig["si_verdict"] = "ACHAT" if si_score >= 1.5 else ("VENTE" if si_score <= -3 else "ATTENDRE")
+                        sig["score"] = sig.get("score", 0) + si_score * 0.5  # poids modere pour eviter de tout bloquer
+                        # Log detaille
+                        scores_detail = si_info.get("scores_detail", {})
+                        top_sources = sorted(scores_detail.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
+                        top_str = ", ".join(f"{k}={v:+.1f}" for k, v in top_sources)
+                        print(f"  [SI] {sym}: super-intelligence {si_score:+.2f} ({top_str})")
+                        if si_score <= -3:
+                            print(f"  [SI] {sym}: SKIP - super-intelligence tres negative")
+                            sig["score"] = -999  # marquer pour suppression
+                    # Retirer les signaux tres negatifs
+                    tous_signaux = [s for s in tous_signaux if s.get("score", 0) > -900]
+            except Exception as e:
+                print(f"    Super intelligence indisponible: {e}")
             print(f"\n{len(tous_signaux)} signal(s) d'achat detecte(s)")
             # Phase 3: filtre ML - confirme les signaux via le modele predictif
             # Seuls les signaux confirmes par le ML (sur les actifs avec edge) sont gardes

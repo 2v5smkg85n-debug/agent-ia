@@ -1855,6 +1855,60 @@ def handle_message(text, user_name="User"):
             send_telegram(f"Erreur amelioration: {e}")
         return "", ""
 
+    # === SUPER INTELLIGENCE ===
+    if text_lower in ["super", "super intel", "analyse", "analyse ia", "deep", "deep analyse"]:
+        parts = text_stripped.split(None, 1)
+        sym = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
+        send_telegram(f"🧠 Analyse super-intelligence {sym} en cours...\n(8 sources: IA, news, on-chain, patterns, social, funding, macro, VWAP)")
+        try:
+            import super_intelligence as si
+            rapport = si.rapport_super_intelligence(sym)
+            # Diviser en 2 messages si trop long
+            if len(rapport) > 4000:
+                send_telegram(rapport[:4000], parse_mode=None)
+                send_telegram(rapport[4000:8000], parse_mode=None)
+            else:
+                send_telegram(rapport[:4000], parse_mode=None)
+        except Exception as e:
+            send_telegram(f"Erreur super-intelligence: {e}")
+        return "", ""
+
+    # === NEWS ===
+    if text_lower.startswith("news"):
+        parts = text_stripped.split(None, 1)
+        sym = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
+        try:
+            import super_intelligence as si
+            news = si.get_crypto_news(sym)
+            if news:
+                msg = f"📰 News {sym}:\n\n"
+                for n in news[:5]:
+                    msg += f"• {n['title'][:80]}\n  ({n['source']}, {n['published']})\n\n"
+                send_telegram(msg[:4000], parse_mode=None)
+            else:
+                send_telegram(f"Aucune news pour {sym}")
+        except Exception as e:
+            send_telegram(f"Erreur news: {e}")
+        return "", ""
+
+    # === WHALE / ON-CHAIN ===
+    if text_lower.startswith("whale") or text_lower.startswith("onchain") or text_lower.startswith("on-chain"):
+        parts = text_stripped.split(None, 1)
+        sym = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
+        send_telegram(f"🐋 Metriques on-chain {sym}...")
+        try:
+            import super_intelligence as si
+            result = si.analyse_onchain(sym)
+            msg = f"🐋 ON-CHAIN {sym}\n\n"
+            msg += result.get("detail", "indisponible") + "\n"
+            metrics = result.get("metrics", {})
+            for k, v in metrics.items():
+                msg += f"  {k}: {v}\n"
+            send_telegram(msg[:4000], parse_mode=None)
+        except Exception as e:
+            send_telegram(f"Erreur on-chain: {e}")
+        return "", ""
+
     # === INTELLIGENCE PRO ===
     if text_lower in ["intel", "intelligence", "regime", "sentiment", "fear", "greed"]:
         send_telegram("🧠 Analyse intelligence globale...")
@@ -4085,7 +4139,8 @@ def comprendre_message(texte):
         "maitres", "maitre", "traders", "consensus",
         "ameliorer", "amelioration", "optimise", "evolue",
         "intel", "intelligence", "regime", "sentiment", "fear", "greed",
-        "backtest"
+        "backtest",
+        "super", "deep", "news", "whale", "onchain"
     ]
     premiere_mot = texte_lower.split()[0] if texte_lower.split() else ""
     for cmd in commandes_connues:

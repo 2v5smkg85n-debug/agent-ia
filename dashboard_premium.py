@@ -954,6 +954,38 @@ def build_maitres_page():
         fg_color = "#f87171" if fg_val < 25 else ("#fbbf24" if fg_val < 45 else ("#4ade80" if fg_val > 55 else "#8b949e"))
         regime, regime_detail, regime_score = ip.regime_global()
         regime_color = "#4ade80" if "BULL" in regime else ("#f87171" if "BEAR" in regime else "#fbbf24")
+
+        # Macro + funding
+        macro_html = ""
+        funding_html = ""
+        try:
+            import super_intelligence as si
+            macro = si.get_macro_indicators()
+            btc_dom = macro.get("btc_dominance", 0)
+            mc_change = macro.get("change_24h", 0)
+            mc_color = "#4ade80" if mc_change > 0 else "#f87171"
+            macro_html = f"""
+        <div class="mt-crypto-card">
+          <div class="mt-crypto-header">
+            <span class="mt-crypto-sym">BTC Dominance</span>
+            <span class="mt-crypto-reco" style="color:#58a6ff">{btc_dom:.1f}%</span>
+            <span class="mt-crypto-score" style="color:{mc_color}">{mc_change:+.1f}%</span>
+          </div>
+        </div>"""
+            funding = si.get_funding_rates("BTCUSDT")
+            f_rate = funding.get("rate_pct", 0)
+            f_color = "#4ade80" if f_rate < 0 else ("#f87171" if f_rate > 0.05 else "#8b949e")
+            funding_html = f"""
+        <div class="mt-crypto-card">
+          <div class="mt-crypto-header">
+            <span class="mt-crypto-sym">Funding Rate BTC</span>
+            <span class="mt-crypto-reco" style="color:{f_color}">{f_rate:+.4f}%</span>
+          </div>
+          <div class="mt-patterns">{html.escape(funding.get('detail', ''))}</div>
+        </div>"""
+        except Exception:
+            pass
+
         intel_html = f"""
         <div class="mt-crypto-card">
           <div class="mt-crypto-header">
@@ -967,7 +999,9 @@ def build_maitres_page():
             <span class="mt-crypto-reco" style="color:{regime_color}">{regime}</span>
           </div>
           <div class="mt-patterns">{html.escape(regime_detail)}</div>
-        </div>"""
+        </div>
+        {macro_html}
+        {funding_html}"""
     except Exception as e:
         intel_html = f"<div class='mt-crypto-card'>Erreur: {html.escape(str(e))}</div>"
 
