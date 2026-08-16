@@ -1824,6 +1824,36 @@ def handle_message(text, user_name="User"):
         except Exception as e:
             send_telegram(f"Erreur maitres: {e}")
         return "", ""
+
+    # === AMELIORATION DES STRATEGIES ===
+    if text_lower in ["ameliorer", "amelioration", "optimise", "optimise strategies", "evolue"]:
+        send_telegram("🧬 Amelioration des strategies des 10 maitres en cours...")
+        try:
+            import master_traders as mt
+            master, ameliorations = mt.ameliorer_strategies()
+            if ameliorations == "Pas assez de trades pour ameliorer (minimum 3)":
+                send_telegram(f"⚠️ {ameliorations}\n\nLe bot a besoin de plus de trades pour commencer a optimiser les strategies.")
+            elif ameliorations == "Aucune amelioration necessaire":
+                send_telegram("✅ Strategies deja optimales! Aucune amelioration necessaire.")
+            else:
+                rapport = "🧬 AMELIORATION DES STRATEGIES\n\n"
+                rapport += ameliorations + "\n\n"
+                rapport += f"Derniere optimisation: {master.get('derniere_amelioration', 'maintenant')}\n"
+                # Stats par maitre
+                stats = master.get("stats_par_maitre", {})
+                if stats:
+                    rapport += "\n--- Performance ---\n"
+                    for key, (nom, _) in mt.MAITRES.items():
+                        s = stats.get(key, {})
+                        n = s.get("n", 0)
+                        if n > 0:
+                            wr = s.get("win_rate", 0)
+                            pnl = s.get("pnl", 0)
+                            rapport += f"  {nom:25s} {n} trades, WR {wr:.0f}%, PnL {pnl:+.2f}EUR\n"
+                send_telegram(rapport[:4000], parse_mode=None)
+        except Exception as e:
+            send_telegram(f"Erreur amelioration: {e}")
+        return "", ""
     
     # === DIVERGENCES + PATTERNS ===
     if text_lower.startswith("divergence") or text_lower.startswith("pattern") or text_lower.startswith("technique "):
@@ -4026,7 +4056,8 @@ def comprendre_message(texte):
         "meta", "apprentissage", "generer", "genere", "strategies_generees",
         "conseil", "avis", "traderpro", "pro",
         "learning", "apprendre", "analyse trades", "analyse trade", "analyse des trade", "analyse des trades",
-        "maitres", "maitre", "traders", "consensus"
+        "maitres", "maitre", "traders", "consensus",
+        "ameliorer", "amelioration", "optimise", "evolue"
     ]
     premiere_mot = texte_lower.split()[0] if texte_lower.split() else ""
     for cmd in commandes_connues:

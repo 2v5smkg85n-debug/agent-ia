@@ -1207,6 +1207,14 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
             print(f"  [MAITRES] Apprentissage: {position['symbole']} resultat={gain:+.2f}€ (consensus {score_mt:+.2f})")
     except Exception as e:
         print(f"  [MAITRES] Erreur apprentissage: {e}")
+    # === MASTER TRADERS: ameliorer les parametres des strategies ===
+    try:
+        import master_traders as mt
+        _, ameliorations = mt.ameliorer_strategies()
+        if ameliorations and ameliorations != "Aucune amelioration necessaire":
+            print(f"  [MAITRES] Strategies ameliorees: {ameliorations}")
+    except Exception as e:
+        print(f"  [MAITRES] Erreur amelioration: {e}")
 
 # ============================================
 # CYCLE PRINCIPAL

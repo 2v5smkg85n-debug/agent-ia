@@ -890,6 +890,32 @@ def build_maitres_page():
     pnl_total = sum(h.get("gain", 0) for h in hist)
     pnl_color = "#4ade80" if pnl_total >= 0 else "#f87171"
 
+    # Performance et parametres par maitre
+    perf_html = ""
+    stats = master.get("stats_par_maitre", {})
+    params = master.get("params_maitres", {})
+    for key, (nom, _) in mt.MAITRES.items():
+        s = stats.get(key, {})
+        p = params.get(key, {})
+        n = s.get("n", 0)
+        wr = s.get("win_rate", 0)
+        pnl = s.get("pnl", 0)
+        wr_color = "#4ade80" if wr >= 60 else ("#fbbf24" if wr >= 40 else "#f87171") if n > 0 else "#8b949e"
+        pnl_color = "#4ade80" if pnl >= 0 else "#f87171"
+        p_str = ", ".join(f"{k}={v}" for k, v in p.items()) if p else "defaut"
+        perf_html += f"""
+        <div class="mt-row">
+          <span class="mt-name">{html.escape(nom)}</span>
+          <span style='font-size:11px;color:#8b949e;min-width:60px'>{n} trades</span>
+          <span class="mt-poids" style="color:{wr_color}">WR {wr:.0f}%</span>
+          <span class="mt-poids" style="color:{pnl_color}">{pnl:+.2f}€</span>
+        </div>
+        <div style='font-size:10px;color:#6e7681;padding:2px 0 6px 122px'>{html.escape(p_str)}</div>"""
+
+    derniere_amel = master.get("derniere_amelioration", "jamais")
+    if derniere_amel != "jamais":
+        perf_html += f"<div style='text-align:center;font-size:11px;color:#8b949e;margin-top:8px'>Derniere amelioration: {html.escape(derniere_amel)}</div>"
+
     # Scores live sur top cryptos
     cryptos = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "LINKUSDT", "DOGEUSDT", "AVAXUSDT"]
     cryptos_html = ""
@@ -971,6 +997,11 @@ body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSys
 <div class="section">
   <h2>📊 Poids des Maitres (apprentissage)</h2>
   {poids_html}
+</div>
+
+<div class="section">
+  <h2>📈 Performance & Parametres</h2>
+  {perf_html}
 </div>
 
 <div class="section">
