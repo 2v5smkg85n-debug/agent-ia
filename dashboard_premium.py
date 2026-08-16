@@ -690,7 +690,7 @@ th{{color:var(--muted);font-size:11px;text-transform:uppercase}}
 </div>
 
 <div class="footer">
-  <a href="/learning?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🧠 Apprentissage</a> · <a href="/positions?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📊 Positions Live</a> · <a href="/rapport?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📄 Rapport</a>
+  <a href="/maitres?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🏆 Maitres</a> · <a href="/learning?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🧠 Apprentissage</a> · <a href="/positions?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📊 Positions Live</a> · <a href="/rapport?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📄 Rapport</a>
   <br>Agent IA Trading v2 · Auto-refresh 30s · Donnees CoinGecko temps reel
 </div>
 </body></html>"""
@@ -862,6 +862,126 @@ body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSys
 </body>
 </html>"""
 
+def build_maitres_page():
+    """Genere la page du consensus des 10 maitres traders."""
+    try:
+        import master_traders as mt
+        master = mt.charger_master()
+    except Exception as e:
+        return f"<html><body style='background:#0d1117;color:#e6edf3;font-family:sans-serif;padding:20px'><h2>Erreur</h2><pre>{html.escape(str(e))}</pre></body></html>"
+
+    # Poids des maitres
+    poids_html = ""
+    for key, (nom, _) in mt.MAITRES.items():
+        poids = master.get("poids_traders", {}).get(key, 1.0)
+        barre_w = int(poids * 100)
+        couleur = "#4ade80" if poids > 1.0 else ("#f87171" if poids < 0.8 else "#8b949e")
+        poids_html += f"""
+        <div class="mt-row">
+          <span class="mt-name">{html.escape(nom)}</span>
+          <div class="mt-bar-bg"><div class="mt-bar-fill" style="width:{barre_w}%;background:{couleur}"></div></div>
+          <span class="mt-poids" style="color:{couleur}">{poids:.2f}</span>
+        </div>"""
+
+    # Historique
+    hist = master.get("trades_par_trader", {}).get("historique", [])
+    gagnants = [h for h in hist if h.get("gagnant")]
+    perdants = [h for h in hist if not h.get("gagnant")]
+    pnl_total = sum(h.get("gain", 0) for h in hist)
+    pnl_color = "#4ade80" if pnl_total >= 0 else "#f87171"
+
+    # Scores live sur top cryptos
+    cryptos = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "LINKUSDT", "DOGEUSDT", "AVAXUSDT"]
+    cryptos_html = ""
+    for sym in cryptos:
+        try:
+            score, details, reco, extra = mt.consensus_maitres(sym)
+            emoji = "🟢" if reco in ["ACHAT", "ACHAT_FORT"] else ("🔴" if "VENTE" in reco else "🟡")
+            reco_color = "#4ade80" if "ACHAT" in reco else ("#f87171" if "VENTE" in reco else "#fbbf24")
+            patterns = extra.get("patterns", "aucun")
+            # Top 3 votes
+            top3 = sorted(details.items(), key=lambda x: x[1]["score"], reverse=True)[:3]
+            votes_html = ""
+            for nom, d in top3:
+                v_color = "#4ade80" if d["score"] > 0 else ("#f87171" if d["score"] < 0 else "#8b949e")
+                votes_html += f"<span class='mt-vote' style='color:{v_color}'>{html.escape(nom.split()[0])} {d['score']:+d}</span>"
+            cryptos_html += f"""
+            <div class="mt-crypto-card">
+              <div class="mt-crypto-header">
+                <span class="mt-crypto-sym">{emoji} {sym}</span>
+                <span class="mt-crypto-reco" style="color:{reco_color}">{reco}</span>
+                <span class="mt-crypto-score">{score:+.2f}</span>
+              </div>
+              <div class="mt-patterns">Bougies: {html.escape(patterns[:100])}</div>
+              <div class="mt-votes">{votes_html}</div>
+            </div>"""
+        except Exception as e:
+            cryptos_html += f"<div class='mt-crypto-card'><span>{sym}: erreur {html.escape(str(e))}</span></div>"
+
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="60">
+<title>Maitres Traders - Agent IA</title>
+<style>
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSystemFont,sans-serif; padding:12px; }}
+.header {{ text-align:center; padding:12px 0; border-bottom:1px solid #30363d; margin-bottom:16px; }}
+.header h1 {{ font-size:20px; color:#58a6ff; }}
+.header .sub {{ font-size:10px; color:#8b949e; margin-top:4px; }}
+.cards {{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }}
+.card {{ background:#161b22; border:1px solid #30363d; border-radius:10px; padding:12px; text-align:center; }}
+.card .lbl {{ font-size:11px; color:#8b949e; }}
+.card .val {{ font-size:20px; font-weight:bold; }}
+.section {{ background:#161b22; border:1px solid #30363d; border-radius:10px; padding:12px; margin-bottom:12px; }}
+.section h2 {{ font-size:14px; color:#58a6ff; margin-bottom:8px; }}
+.mt-row {{ display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid #21262d; }}
+.mt-row:last-child {{ border-bottom:none; }}
+.mt-name {{ font-size:13px; font-weight:bold; min-width:120px; }}
+.mt-bar-bg {{ flex:1; height:8px; background:#21262d; border-radius:4px; overflow:hidden; }}
+.mt-bar-fill {{ height:100%; border-radius:4px; }}
+.mt-poids {{ font-size:13px; font-weight:bold; min-width:40px; text-align:right; }}
+.mt-crypto-card {{ background:#0d1117; border:1px solid #30363d; border-radius:8px; padding:10px; margin-bottom:8px; }}
+.mt-crypto-header {{ display:flex; justify-content:space-between; align-items:center; }}
+.mt-crypto-sym {{ font-weight:bold; font-size:14px; }}
+.mt-crypto-reco {{ font-size:12px; font-weight:bold; }}
+.mt-crypto-score {{ font-size:14px; font-weight:bold; color:#58a6ff; }}
+.mt-patterns {{ font-size:11px; color:#8b949e; margin-top:4px; }}
+.mt-votes {{ margin-top:4px; }}
+.mt-vote {{ display:inline-block; padding:2px 6px; border-radius:8px; font-size:11px; margin:1px; background:#161b22; }}
+.back-link {{ text-align:center; margin-top:16px; }}
+.back-link a {{ color:#58a6ff; text-decoration:none; font-size:14px; }}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🏆 Master Traders</h1>
+  <div class="sub">Consensus des 10 plus grands traders · Auto-refresh 60s</div>
+</div>
+
+<div class="cards">
+  <div class="card"><div class="lbl">Trades analyses</div><div class="val" style="color:#58a6ff">{len(hist)}</div></div>
+  <div class="card"><div class="lbl">Gagnants</div><div class="val" style="color:#4ade80">{len(gagnants)}</div></div>
+  <div class="card"><div class="lbl">Perdants</div><div class="val" style="color:#f87171">{len(perdants)}</div></div>
+</div>
+<div class="card" style="margin-bottom:16px"><div class="lbl">PnL Total Maitres</div><div class="val" style="color:{pnl_color}">{pnl_total:+.2f}€</div></div>
+
+<div class="section">
+  <h2>📊 Poids des Maitres (apprentissage)</h2>
+  {poids_html}
+</div>
+
+<div class="section">
+  <h2>🎯 Consensus Live</h2>
+  {cryptos_html}
+</div>
+
+<div class="back-link"><a href="/?token={TOKEN}">← Dashboard</a> · <a href="/learning?token={TOKEN}">🧠 Apprentissage</a> · <a href="/positions?token={TOKEN}">📊 Positions</a></div>
+</body>
+</html>"""
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -928,6 +1048,17 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": str(e)}).encode())
+            return
+        # Route /maitres : consensus des 10 maitres traders
+        if parsed.path == '/maitres':
+            try:
+                out = build_maitres_page()
+            except Exception as e:
+                out = f"<html><body style='background:#0d1117;color:#e6edf3;font-family:sans-serif;padding:20px'><h2>Erreur</h2><pre>{html.escape(str(e))}</pre></body></html>"
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(out.encode())
             return
         # Route /learning : page d'apprentissage du trader
         if parsed.path == '/learning':
