@@ -71,6 +71,10 @@ def get_prix_revolut(symbole):
     symbole_court = symbole.replace("USDT", "").replace("EUR", "").replace("USD", "")
     symbole_court = symbole_court.upper()
 
+    # Skip si dans la blacklist (n'existe pas sur Revolut X)
+    if symbole_court in BLACKLIST:
+        return 0
+
     # Verifier le cache
     cache_key = symbole_court
     if cache_key in _cache:
