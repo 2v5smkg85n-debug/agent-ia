@@ -153,12 +153,30 @@ def _historique_yahoo(symbole, intervalle, limite):
         return []
 
 
+# Cache intelligent pour les bougies Revolut X
+# TTL adapte selon l'intervalle: plus l'intervalle est long, plus le cache dure
+_CACHE_BOUGIES = {}  # cle: (symbole, intervalle) -> {"bougies": [...], "timestamp": float}
+
+_TTL_BOUGIES = {"1m": 60, "5m": 120, "15m": 300, "30m": 600, "1h": 900, "4h": 3600, "1d": 14400}
+
 def _historique_revolut(symbole, intervalle, limite):
-    """Recupere les chandeliers OHLCV depuis Revolut X (API publique, EUR)."""
+    """Recupere les chandeliers OHLCV depuis Revolut X (API publique, EUR).
+    Cache intelligent: 1h -> 15min, 4h -> 1h, 1d -> 4h."""
+    # Verifier le cache
+    cache_key = (symbole, intervalle)
+    ttl = _TTL_BOUGIES.get(intervalle, 300)
+    if cache_key in _CACHE_BOUGIES:
+        entry = _CACHE_BOUGIES[cache_key]
+        if _t.time() - entry["timestamp"] < ttl:
+            bougies = entry["bougies"]
+            return bougies[-limite:] if len(bougies) > limite else bougies
     try:
-        import prix_revolut as pr
         # Convertir le symbole bot en symbole Revolut X court
         symbole_court = symbole.replace("USDT", "").replace("EUR", "").replace("USD", "").upper()
+        # Skip si dans la blacklist Revolut X
+        import prix_revolut as pr
+        if symbole_court in pr.BLACKLIST:
+            return []
         # Convertir intervalle en minutes
         intervalles = {"1m": 1, "5m": 5, "15m": 15, "30m": 30, "1h": 60, "4h": 240, "1d": 1440}
         interval_min = intervalles.get(intervalle, 15)
@@ -184,6 +202,8 @@ def _historique_revolut(symbole, intervalle, limite):
                 "cloture": float(b["close"]),
                 "volume": float(b.get("volume", 0))
             })
+        # Mettre en cache
+        _CACHE_BOUGIES[cache_key] = {"bougies": bougies, "timestamp": _t.time()}
         return bougies[-limite:] if len(bougies) > limite else bougies
     except Exception as e:
         return []
