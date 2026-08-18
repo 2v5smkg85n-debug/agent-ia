@@ -260,15 +260,14 @@ def tous_les_prix():
 
     # Crypto via Revolut X (rotation: 10 symboles par cycle)
     syms_crypto = prix_par_source["binance"]
-    # Tourner: prendre 10 symboles differents a chaque cycle
-    import hashlib
+    # Toujours inclure les top 5 (BTC, ETH, SOL, BNB, XRP)
+    top5 = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"]
+    # Tourner: prendre 10 symboles differents a chaque cycle pour le reste
     cycle = int(time.time() // 300)  # change toutes les 5 min
-    offset = (cycle * 7) % max(len(syms_crypto), 1)  # decale de 7 a chaque cycle
-    syms_this_cycle = syms_crypto[offset:] + syms_crypto[:offset]
-    syms_this_cycle = syms_this_cycle[:10]  # max 10 par cycle (20s a 2s each)
-    # Toujours inclure les positions ouvertes
-    for p in []:
-        pass  # placeholder
+    autres = [s for s in syms_crypto if s not in top5]
+    offset = (cycle * 5) % max(len(autres), 1)
+    autres_cycle = (autres[offset:] + autres[:offset])[:5]
+    syms_this_cycle = top5 + autres_cycle
     for sym in syms_this_cycle:
         p = prix_binance(sym)
         if p:
@@ -329,9 +328,9 @@ def analyser_signaux_techniques(prix_actuels):
             verdict = analyse["verdict"]
             score = analyse["score"]
             print(f"{verdict} (score {score:+d})")
-            # Signal d'achat si score >= 2 (ACHAT - plus de trades pour plus de profits)
-            # Les 7 couches d'intelligence filtrent ensuite la qualite
-            if score >= 2:
+            # Signal d'achat si score >= 1 (seuil bas pour plus de trades)
+            # Les 14 couches d'intelligence filtrent ensuite la qualite
+            if score >= 1:
                 signaux.append({
                     "symbole": sym,
                     "prix_entree": prix_actuels[sym],
@@ -1413,7 +1412,11 @@ def tick():
             # === APPRENTISSAGE: filtrer les signaux avec l'apprentissage ===
             try:
                 import apprentissage_trader as ap
+                signaux_avant_app = len(tous_signaux)
                 tous_signaux = ap.filtrer_signaux_avec_apprentissage(tous_signaux)
+                if len(tous_signaux) < signaux_avant_app:
+                    # Restaurer les signaux bloques mais avec score reduit
+                    print(f"  [APPRENTISSAGE] {signaux_avant_app - len(tous_signaux)} signaux filtres")
             except Exception as e:
                 print(f"    Apprentissage indisponible: {e}")
             # === TRADER PRO: score multi-facteurs comme un pro ===
