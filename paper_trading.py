@@ -50,7 +50,7 @@ MAX_POS_PAR_ACTIF = 1          # 1 position par actif (pas de pyramiding risqué
 RISK_PAR_TRADE = 0.025         # 2.5% du capital par trade (positions reduites, gestion risque)
 INTERVALLE_BOUCLE = 600        # 10 min (plus réactif pour attraper les mouvements)
 # RISK MANAGEMENT AVANCE
-MAX_TRADES_PAR_JOUR = 10       # limite: max 10 trades par jour (qualité > quantité)
+MAX_TRADES_PAR_JOUR = 15       # limite: max 15 trades par jour (plus d'opportunites)
 PERTE_JOUR_MAX_PCT = 2.0      # stop trading si -2% en une journee
 CIRCUIT_BREAKER_CONSECUTIF = 2 # pause apres 2 pertes consecutives (plus prudent)
 DRAWDOWN_REDUCTION_SEUIL = 0.95 # si capital < 95% du initial, reduit positions de 50%
@@ -70,7 +70,7 @@ SORTIE_DUREE_MIN = 720          # ferme apres 12h si en gain (laisse le TP dynam
 STALE_DUREE_MAX = 240           # position stale apres 4h (libere le capital plus vite)
 # Seuil de gain minimum pour fermer par duree : doit couvrir les frais (0.2% AR) + une marge.
 # Fermer a +0.05% = perte nette (frais 0.2%). Donc on n'accepte que gain >= 0.30%.
-SEUIL_BENEFICE_MIN = 0.30       # 0.30% : couvre les 0.2% de frais + 0.1% de marge nette
+SEUIL_BENEFICE_MIN = 0.50       # 0.50% : couvre les 0.2% de frais + 0.3% de marge nette
 DUREE_PETIT_GAIN = 180        # gain 0.30-0.45%: respire 2h (était 90min) pour viser partial TP
 DUREE_GAIN_PROGRESS = 240    # gain 0.45-0.60%: respire 3h
 DUREE_GAGNANT_MAX = 360         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
@@ -318,9 +318,9 @@ def analyser_signaux_techniques(prix_actuels):
             verdict = analyse["verdict"]
             score = analyse["score"]
             print(f"{verdict} (score {score:+d})")
-            # Signal d'achat uniquement si score >= 3 (ACHAT fort seulement - win rate plus eleve)
-            # Les signaux faibles (score 1-2) sont ignores pour maximiser le win rate
-            if score >= 3:
+            # Signal d'achat si score >= 2 (ACHAT - plus de trades pour plus de profits)
+            # Les 7 couches d'intelligence filtrent ensuite la qualite
+            if score >= 2:
                 signaux.append({
                     "symbole": sym,
                     "prix_entree": prix_actuels[sym],
@@ -1116,8 +1116,13 @@ def verifier_sorties(pf, prix_actuels):
                         duree_min += DUREE_BONUS_STRATEGIE
                 # TIME-STOP STALE: position sous seuil depuis trop longtemps -> libère le capital
                 # (fixe les positions bloquées plates, ex EURUSD à 0% qui n atteint jamais +0.30%)
+                # ANTI-FRAIS: ne ferme pas si le gain net apres frais est negatif
+                # (frais 0.2% AR). Ferme seulement si variation > 0.2% ou perte > -1%
                 if age_min >= STALE_DUREE_MAX and variation < seuil_min:
-                    positions_a_fermer.append((pos, prix_actuel, f"TEMPS-stale ({variation:+.2f}%)", variation))
+                    if variation >= 0.2 or variation <= -1.0:
+                        positions_a_fermer.append((pos, prix_actuel, f"TEMPS-stale ({variation:+.2f}%)", variation))
+                    else:
+                        print(f"  [ANTI-FRAIS] {sym}: garde position ({variation:+.2f}%) - gain net apres frais negatif")
                 elif age_min >= duree_min and variation >= seuil_min:
                     positions_a_fermer.append((pos, prix_actuel, f"TEMPS+benefice ({variation:+.2f}%)", variation))
             except Exception:
