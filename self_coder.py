@@ -382,7 +382,25 @@ def auto_coder(description, contexte="", nom_fichier=None, mode="nouveau"):
     except Exception as e:
         return False, f"Écriture échouée: {e}", {}
 
-    # 9. Test post-deploiement
+    # 9. Installer les dependances manquantes (pandas, numpy, etc.)
+    try:
+        import re as _re
+        imports_trouves = _re.findall(r'^import\s+(\w+)', code, _re.MULTILINE)
+        imports_trouves += _re.findall(r'^from\s+(\w+)', code, _re.MULTILINE)
+        modules_pip = {"pandas": "pandas", "numpy": "numpy", "requests": "requests",
+                       "sklearn": "scikit-learn", "scipy": "scipy", "matplotlib": "matplotlib",
+                       "ta": "ta", "ccxt": "ccxt", "websocket": "websocket-client"}
+        for mod in imports_trouves:
+            if mod in modules_pip:
+                try:
+                    __import__(mod)
+                except ImportError:
+                    print(f"  [SELF-CODER] Installation de {modules_pip[mod]}...")
+                    subprocess.run(["pip", "install", modules_pip[mod]], capture_output=True, timeout=60)
+    except Exception as e:
+        print(f"  [SELF-CODER] Auto-install dependances: {e}")
+
+    # 10. Test post-deploiement
     try:
         result = subprocess.run(
             ["python3", "-c", f"import ast; ast.parse(open('{chemin_final}').read()); print('POST_OK')"],
