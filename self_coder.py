@@ -199,39 +199,38 @@ def restaurer_backup(backup_path, nom_fichier):
 
 
 def demander_ia_code(description, contexte=""):
-    """Demande a l'IA d'ecrire le code. Perplexity en priorite, Gemini en fallback."""
+    """Demande a l'IA d'ecrire le code. Gemini en priorite, Perplexity en fallback."""
     try:
         import urllib.request
 
-        prompt = f"""Tu es un expert Python. Écris le code pour: {description}
-
-Contexte: {contexte}
-
-RÈGLES STRICTES:
-1. Le code doit être en Python 3
-2. Ne pas utiliser os.system(), eval(), exec(), __import__()
-3. Ne pas accéder aux fichiers .env ou credentials
-4. Ne pas supprimer de fichiers
-5. Le code doit être complet et fonctionnel
-6. Inclure les imports nécessaires
-7. Ajouter des commentaires en français
-8. Gérer les erreurs avec try/except
-
-Réponds UNIQUEMENT avec le code Python, sans explication, sans citations, sans références.
-Ne mets PAS de [1], [2], [source] ou autres annotations.
-Le code doit commencer par #!/usr/bin/env python3"""
+        prompt = (
+            "Tu es un expert Python. Écris le code pour: " + str(description) + "\n\n"
+            "Contexte: " + str(contexte) + "\n\n"
+            "RÈGLES STRICTES:\n"
+            "1. Le code doit être en Python 3\n"
+            "2. Ne pas utiliser os.system(), eval(), exec(), __import__()\n"
+            "3. Ne pas accéder aux fichiers .env ou credentials\n"
+            "4. Ne pas supprimer de fichiers\n"
+            "5. Le code doit être complet et fonctionnel\n"
+            "6. Inclure les imports nécessaires\n"
+            "7. Ajouter des commentaires en français\n"
+            "8. Gérer les erreurs avec try/except\n\n"
+            "Réponds UNIQUEMENT avec le code Python, sans explication.\n"
+            "Le code doit commencer par #!/usr/bin/env python3"
+        )
 
         # 1. Gemini API (priorite - mieux pour generer du code)
         gemini_key = os.getenv("GEMINI_API_KEY", "")
         if gemini_key:
             try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
-                data = json.dumps({
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {"temperature": 0.7, "maxOutputTokens": 4096}
+                url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + gemini_key
+                prompt_court = prompt[:2000]
+                payload = json.dumps({
+                    "contents": [{"parts": [{"text": prompt_court}]}],
+                    "generationConfig": {"temperature": 0.7, "maxOutputTokens": 2048}
                 }).encode()
 
-                req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+                req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
                 with urllib.request.urlopen(req, timeout=45) as resp:
                     result = json.loads(resp.read())
                     code = result["candidates"][0]["content"]["parts"][0]["text"]
@@ -240,13 +239,14 @@ Le code doit commencer par #!/usr/bin/env python3"""
                         code = "#!/usr/bin/env python3\n" + code
                     return code, "gemini"
             except Exception as e_gemini:
-                print(f"  [SELF-CODER] Gemini échoué: {e_gemini}, fallback Perplexity...")
+                print("  [SELF-CODER] Gemini échoué: " + str(e_gemini) + ", fallback Perplexity...")
+                time.sleep(2)  # Attendre avant de reessayer pour eviter 429
 
         # 2. Perplexity API (fallback)
         pplx_key = os.getenv("PPLX_API_KEY", "")
         if pplx_key:
             url = "https://api.perplexity.ai/v1/sonar"
-            data = json.dumps({
+            payload = json.dumps({
                 "model": "sonar",
                 "messages": [{"role": "user", "content": prompt}],
                 "max_tokens": 2048,
@@ -254,9 +254,9 @@ Le code doit commencer par #!/usr/bin/env python3"""
                 "temperature": 0.7,
             }).encode()
 
-            req = urllib.request.Request(url, data=data, headers={
+            req = urllib.request.Request(url, data=payload, headers={
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {pplx_key}"
+                "Authorization": "Bearer " + pplx_key
             })
             with urllib.request.urlopen(req, timeout=45) as resp:
                 result = json.loads(resp.read())
@@ -270,7 +270,7 @@ Le code doit commencer par #!/usr/bin/env python3"""
 
         return None, "Aucune API IA disponible"
     except Exception as e:
-        return None, f"Erreur IA: {e}"
+        return None, "Erreur IA: " + str(e)
 
 
 def nettoyer_code_ia(code):
@@ -337,6 +337,7 @@ def auto_coder(description, contexte="", nom_fichier=None, mode="nouveau"):
         code, ia_source = demander_ia_code(description, contexte)
         if not code:
             print(f"  [SELF-CODER] Tentative {tentative+1} échouée: {ia_source}")
+            time.sleep(3)  # Attendre entre tentatives pour eviter 429
             continue
         # Nettoyer le code
         code = nettoyer_code_ia(code)
@@ -346,6 +347,7 @@ def auto_coder(description, contexte="", nom_fichier=None, mode="nouveau"):
             break
         print(f"  [SELF-CODER] Tentative {tentative+1}: code invalide ({msg_val[:50]}), retry...")
         code = None
+        time.sleep(3)
     
     if not code:
         return False, f"Échec génération IA après 3 tentatives: {ia_source}", {}
