@@ -282,12 +282,11 @@ def tous_les_prix():
             prix[sym] = p
         time.sleep(0.3)  # Yahoo peut bloquer si trop rapide
 
-    # Fallback pour les manquants
-    manquants = {s: MARCHES_PAPER[s]["nom"] for s in MARCHES_PAPER if s not in prix}
-    if manquants and disponible("perplexity"):
-        print(f"  [Fallback Perplexity pour {len(manquants)} symboles...]")
-        prix_fallback = prix_perplexity_fallback(manquants)
-        prix.update(prix_fallback)
+    # Plus de fallback Perplexity pour les prix (retournait de faux prix)
+    # Les symboles sans prix sont simplement ignores ce cycle
+    manquants = [s for s in MARCHES_PAPER if s not in prix]
+    if manquants:
+        print(f"  [Info] {len(manquants)} symboles sans prix ce cycle (rotation Revolut X)")
 
     return prix
 
