@@ -297,7 +297,7 @@ def build_positions_chart(d):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="refresh" content="10">
+<meta http-equiv="refresh" content="120">
 <title>Positions Live - Agent IA</title>
 <style>
 * {{ margin:0; padding:0; box-sizing:border-box; }}
@@ -400,7 +400,7 @@ function updateLive() {{
     document.getElementById('live-ts').textContent = 'MAJ: ' + new Date().toLocaleTimeString('fr-FR') + ' (refresh)';
   }}
 }}
-setInterval(updateLive, 5000);
+setInterval(updateLive, 30000);
 setTimeout(updateLive, 1500);
 </script>
 </body>
