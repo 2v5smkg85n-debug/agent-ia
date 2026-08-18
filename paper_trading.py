@@ -50,7 +50,7 @@ MAX_POS_PAR_ACTIF = 1          # 1 position par actif (pas de pyramiding risqué
 RISK_PAR_TRADE = 0.025         # 2.5% du capital par trade (positions reduites, gestion risque)
 INTERVALLE_BOUCLE = 600        # 10 min (plus réactif pour attraper les mouvements)
 # RISK MANAGEMENT AVANCE
-MAX_TRADES_PAR_JOUR = 15       # limite: max 15 trades par jour (plus d'opportunites)
+MAX_TRADES_PAR_JOUR = 30       # limite: max 30 trades par jour (plus de profits)
 PERTE_JOUR_MAX_PCT = 2.0      # stop trading si -2% en une journee
 CIRCUIT_BREAKER_CONSECUTIF = 2 # pause apres 2 pertes consecutives (plus prudent)
 DRAWDOWN_REDUCTION_SEUIL = 0.95 # si capital < 95% du initial, reduit positions de 50%
