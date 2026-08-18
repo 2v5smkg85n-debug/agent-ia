@@ -1563,6 +1563,57 @@ def tick():
                             sig["score"] -= 2  # penalite supplementaire
             except Exception as e:
                 print(f"    Consensus IA indisponible: {e}")
+            # === SENTIMENT SOCIAL: Reddit + Fear&Greed ===
+            try:
+                import sentiment_social as ss
+                if tous_signaux:
+                    ss_info = ss.score_sentiment_social()
+                    ss_score = ss_info.get("score_total", 0)
+                    for sig in tous_signaux:
+                        sig["ss_score"] = ss_score
+                        sig["score"] = sig.get("score", 0) + ss_score * 0.5
+                    print(f"  [SENTIMENT] Score social: {ss_score:+.2f} ({ss_info.get('verdict', '?')})")
+                    if ss_score <= -3:
+                        print(f"  [SENTIMENT] SKIP - sentiment tres bearish")
+                        tous_signaux = [s for s in tous_signaux if s.get("score", 0) > -900]
+                        for s in tous_signaux:
+                            s["score"] = -999 if s.get("score", 0) < 1 else s["score"]
+                        tous_signaux = [s for s in tous_signaux if s.get("score", 0) > -900]
+            except Exception as e:
+                print(f"    Sentiment social indisponible: {e}")
+            # === WHALE TRACKER: on-chain + Binance L/S ===
+            try:
+                import whale_tracker as wt
+                if tous_signaux:
+                    wt_info = wt.score_whale_onchain()
+                    wt_score = wt_info.get("score_total", 0)
+                    for sig in tous_signaux[:3]:
+                        sig["wt_score"] = wt_score
+                        sig["score"] = sig.get("score", 0) + wt_score * 0.4
+                    print(f"  [WHALE] Score on-chain: {wt_score:+.2f} ({wt_info.get('verdict', '?')})")
+            except Exception as e:
+                print(f"    Whale tracker indisponible: {e}")
+            # === MULTI-TIMEFRAME: 6 TF simultanes ===
+            try:
+                import multi_timeframe as mtf
+                if tous_signaux:
+                    for sig in tous_signaux[:3]:
+                        sym = sig.get("symbole", "")
+                        if not sym:
+                            continue
+                        mtf_info = mtf.score_multi_timeframe(sym)
+                        mtf_score = mtf_info.get("score_total", 0)
+                        mtf_consensus = mtf_info.get("consensus", False)
+                        sig["mtf_score"] = mtf_score
+                        sig["mtf_consensus"] = mtf_consensus
+                        sig["score"] = sig.get("score", 0) + mtf_score * 0.6
+                        if mtf_consensus and mtf_score > 0:
+                            print(f"  [MTF] {sym}: consensus haussier 4+TF (boost +{mtf_score * 0.6:.1f})")
+                        elif mtf_score <= -2:
+                            print(f"  [MTF] {sym}: multi-TF bearish, signal affaibli")
+                            sig["score"] -= 2
+            except Exception as e:
+                print(f"    Multi-timeframe indisponible: {e}")
             print(f"\n{len(tous_signaux)} signal(s) d'achat detecte(s)")
             # Phase 3: filtre ML - confirme les signaux via le modele predictif
             # Seuls les signaux confirmes par le ML (sur les actifs avec edge) sont gardes

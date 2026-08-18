@@ -1899,6 +1899,44 @@ def handle_message(text, user_name="User"):
             send_telegram(f"Erreur: {e}")
         return "", ""
 
+    # === SENTIMENT SOCIAL ===
+    if text_lower.startswith("sentiment") or text_lower.startswith("social"):
+        send_telegram("\U0001f4ac Scan sentiment social Reddit + Fear&Greed...")
+        try:
+            import sentiment_social as ss
+            rapport = ss.rapport_sentiment()
+            send_telegram(rapport, parse_mode=None)
+        except Exception as e:
+            send_telegram("Erreur sentiment: " + str(e))
+        return "", ""
+
+    # === WHALE TRACKER ===
+    if text_lower.startswith("whale") or text_lower.startswith("onchain"):
+        sym = text_stripped.split(None, 1)[1].upper() if len(text_stripped.split()) > 1 else None
+        send_telegram("\U0001f408 Scan whale + on-chain...")
+        try:
+            import whale_tracker as wt
+            rapport = wt.rapport_whale(sym)
+            send_telegram(rapport, parse_mode=None)
+        except Exception as e:
+            send_telegram("Erreur whale: " + str(e))
+        return "", ""
+
+    # === MULTI-TIMEFRAME ===
+    if text_lower.startswith("mtf") or text_lower.startswith("timeframe"):
+        parts = text_stripped.split(None, 1)
+        sym = parts[1].upper() if len(parts) > 1 else "BTC"
+        if not sym.endswith("USDT"):
+            sym = sym + "USDT"
+        send_telegram("\U0001f4ca Analyse multi-timeframe " + sym + " sur 6 TF...")
+        try:
+            import multi_timeframe as mtf
+            rapport = mtf.rapport_mtf(sym)
+            send_telegram(rapport, parse_mode=None)
+        except Exception as e:
+            send_telegram("Erreur MTF: " + str(e))
+        return "", ""
+
     # === CONSENSUS MULTI-IA ===
     if text_lower.startswith("consensus") or text_lower.startswith("consensus"):
         parts = text_stripped.split(None, 1)
