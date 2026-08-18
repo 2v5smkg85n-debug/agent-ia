@@ -1033,30 +1033,48 @@ def verifier_sorties(pf, prix_actuels):
         extend_actif = sym in EXTEND_CRYPTOS and variation >= EXTEND_SEUIL
         if extend_actif:
             _tp = EXTEND_TP_PCT
-        # === STOP SUIVEUR + TP DYNAMIQUE ===
-        # SL fixe au debut (-1%), trailing commence seulement apres +2%
-        # Avant +2%: SL fixe a -1% (laisse respirer)
-        # Apres +2%: SL suit a 2% sous le pic (plus de marge = moins de faux signaux)
+        # === STOP SUIVEUR PROGRESSIF + TP DYNAMIQUE ===
+        # Le trailing se rapproche du pic au fur et a mesure que le gain augmente
+        # Plus le trade gagne, plus le stop serre pour proteger les benefices
         _sl_regle = "fixe"
         _pic = pos.get("prix_peak", prix_entree)
         if prix_actuel > _pic:
             _pic = prix_actuel
             pos["prix_peak"] = _pic
         _var_pic = (_pic - prix_entree) / prix_entree * 100
-        if _var_pic >= 2.0:
-            # Trailing actif a 2% sous le pic (apres +2% seulement)
-            _sl_price = _pic * (1 - 2.0 / 100.0)
+        if _var_pic >= 6.0:
+            # Tres en profit: trail serre a 0.5% sous le pic (protege fortement)
+            _sl_price = _pic * (1 - 0.5 / 100.0)
+            _sl_regle = "suiveur-serre"
+        elif _var_pic >= 4.0:
+            # Bien en profit: trail a 1% sous le pic
+            _sl_price = _pic * (1 - 1.0 / 100.0)
+            _sl_regle = "suiveur-proche"
+        elif _var_pic >= 2.0:
+            # En profit: trail a 1.5% sous le pic
+            _sl_price = _pic * (1 - 1.5 / 100.0)
             _sl_regle = "suiveur"
+        elif _var_pic >= 0.5:
+            # Debut de profit: trail large a 2.5% sous le pic
+            _sl_price = _pic * (1 - 2.5 / 100.0)
+            _sl_regle = "suiveur-large"
         else:
-            # SL fixe a -1% au debut (laisse le trade respirer)
+            # SL fixe au debut (laisse respirer)
             _sl_price = prix_entree * (1 - _sl / 100.0)
-        # TP DYNAMIQUE: quand le prix atteint le TP, on le monte de +1% au lieu de fermer
+        # TP DYNAMIQUE PROGRESSIF: quand le prix atteint le TP, on le monte de plus en plus
         # Le trade court tant que la tendance haussiere continue
+        # Chaque palier monte le TP de plus en plus pour capturer les gros gains
         _tp_actuel = pos.get("tp_dynamique", _tp)
         if variation >= _tp_actuel:
-            _tp_actuel = _tp_actuel + 1.0  # monte le TP de +1%
+            # Plus le gain est eleve, plus le TP monte loin
+            if _tp_actuel >= 7.0:
+                _tp_actuel = _tp_actuel + 2.0  # +2% par palier au-dela de +7%
+            elif _tp_actuel >= 5.0:
+                _tp_actuel = _tp_actuel + 1.5  # +1.5% par palier au-dela de +5%
+            else:
+                _tp_actuel = _tp_actuel + 1.0  # +1% par palier au debut
             pos["tp_dynamique"] = _tp_actuel
-            print(f"  [TP-EXTEND] {sym}: TP monte a +{_tp_actuel:.1f}% (pic {_var_pic:+.1f}%)")
+            print(f"  [TP-EXTEND] {sym}: TP monte a +{_tp_actuel:.1f}% (pic {_var_pic:+.1f}%, stop {_sl_regle})")
         # Partial take-profit: encaisse 50% a +2.5%, le reste court indéfiniment
         if variation >= PARTIAL_TP_SEUIL and not pos.get("partiellement_clote"):
             fermer_position_partielle(pf, pos, prix_actuel, PARTIAL_FRACTION, "PARTIAL-TP", variation)
