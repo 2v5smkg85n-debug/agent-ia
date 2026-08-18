@@ -45,14 +45,14 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
 MAX_POSITIONS = 12             # 12 positions max (plus d'opportunites simultanees)
-FENETRE_CORRELATION_MIN = 60    # anti-double-exposition: bloque 2e entree sur actif ouvert <60min
+FENETRE_CORRELATION_MIN = 30    # anti-double-exposition: bloque 2e entree sur actif ouvert <30min
 MAX_POS_PAR_ACTIF = 1          # 1 position par actif (pas de pyramiding risqué)
 RISK_PAR_TRADE = 0.025         # 2.5% du capital par trade (positions reduites, gestion risque)
 INTERVALLE_BOUCLE = 300        # 5 min (plus reactif pour plus de trades)
 # RISK MANAGEMENT AVANCE
 MAX_TRADES_PAR_JOUR = 50       # limite: max 50 trades par jour (test accelere)
 PERTE_JOUR_MAX_PCT = 2.0      # stop trading si -2% en une journee
-CIRCUIT_BREAKER_CONSECUTIF = 2 # pause apres 2 pertes consecutives (plus prudent)
+CIRCUIT_BREAKER_CONSECUTIF = 3 # pause apres 3 pertes consecutives (plus de room)
 DRAWDOWN_REDUCTION_SEUIL = 0.95 # si capital < 95% du initial, reduit positions de 50%
 COMPOUND_AUTOMATIQUE = True
 HEURES_FAIBLE_LIQUIDITE = [(2, 6)] # pas de trades entre 2h-6h UTC
@@ -67,7 +67,7 @@ EXTEND_SEUIL = 0.5        # active l'extension a partir de +0.5% de gain
 EXTEND_TP_PCT = 4.0       # TP monte (2.0% -> 4.0%) une fois en profit
 EXTEND_DUREE_MAX = 480    # cap duree des positions extended (8h, vs 90min normal)
 SORTIE_DUREE_MIN = 720          # ferme apres 12h si en gain (laisse le TP dynamique travailler)
-STALE_DUREE_MAX = 240           # position stale apres 4h (libere le capital plus vite)
+STALE_DUREE_MAX = 180           # position stale apres 3h (libere le capital plus vite)
 # Seuil de gain minimum pour fermer par duree : doit couvrir les frais (0.2% AR) + une marge.
 # Fermer a +0.05% = perte nette (frais 0.2%). Donc on n'accepte que gain >= 0.30%.
 SEUIL_BENEFICE_MIN = 0.50       # 0.50% : couvre les 0.2% de frais + 0.3% de marge nette
@@ -75,11 +75,11 @@ DUREE_PETIT_GAIN = 180        # gain 0.30-0.45%: respire 2h (était 90min) pour 
 DUREE_GAIN_PROGRESS = 240    # gain 0.45-0.60%: respire 3h
 DUREE_GAGNANT_MAX = 360         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
 DUREE_BONUS_STRATEGIE = 60    # stratégie prouvée (live_n>=3, wr>=60%, pnl>0): +1h de respiration
-STALE_DUREE_MAX = 240           # position stale apres 4h (libere le capital plus vite)
-BREAKEVEN_SEUIL = 2.0      # +2.0% -> SL monte au breakeven (un gagnant reste un gagnant)
+STALE_DUREE_MAX = 180           # position stale apres 3h (libere le capital plus vite)
+BREAKEVEN_SEUIL = 1.5      # +1.5% -> SL monte au breakeven (protege les gains plus tot)
 TRAIL_ACTIF = 3.0          # +3.0% -> trailing stop derrière le pic
 TRAIL_PCT = 1.0            # trail 1.0% sous le pic (lock profit, laisse respirer)
-PARTIAL_TP_SEUIL = 0.8     # +1.0% -> encaisse une fraction du gain, garde le reste
+PARTIAL_TP_SEUIL = 1.5     # +1.5% -> encaisse une fraction du gain, garde le reste
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 
 # ============================================
