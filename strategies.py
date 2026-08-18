@@ -106,10 +106,24 @@ def ajouter_journal(entree):
     sauver(FICHIER_JOURNAL, journal)
 
 # ============================================
-# RECUPERATION PRIX CRYPTO (Binance, gratuit, sans cle)
+# RECUPERATION PRIX CRYPTO (Revolut X, EUR)
 # ============================================
 def prix_binance(symbole):
-    """Recupere le prix actuel d'une crypto via l'API publique Binance."""
+    """Recupere le prix actuel d'une crypto via Revolut X (EUR)."""
+    try:
+        import prix_revolut as pr
+        p = pr.get_prix_revolut(symbole)
+        if p > 0:
+            return {
+                "prix": p,
+                "variation24h": 0,
+                "volume24h": 0,
+                "haut24h": p,
+                "bas24h": p
+            }
+    except:
+        pass
+    # Fallback Binance
     try:
         r = requests.get(f"https://api.binance.com/api/v3/ticker/24hr?symbol={symbole}", timeout=15)
         d = r.json()

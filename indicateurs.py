@@ -87,11 +87,15 @@ def historique_ohlcv(symbole="BTCUSDT", intervalle="1h", limite=200):
         bougies = _historique_yahoo(symbole, intervalle, limite)
         if bougies:
             return bougies
-    # Crypto -> CoinGecko d'abord (Binance bloque depuis OVH)
+    # Crypto -> Revolut X d'abord (EUR, prix identiques a Revolut)
+    bougies = _historique_revolut(symbole, intervalle, limite)
+    if bougies and len(bougies) >= 20:
+        return bougies
+    # Fallback: CoinGecko
     bougies = _historique_coingecko(symbole, intervalle, limite)
     if bougies and len(bougies) >= 20:
         return bougies
-    # Fallback: Binance (au cas ou CoinGecko rate)
+    # Fallback: Binance (au cas ou)
     bougies = _historique_binance(symbole, intervalle, limite)
     if bougies:
         return bougies
@@ -148,6 +152,41 @@ def _historique_yahoo(symbole, intervalle, limite):
     except Exception:
         return []
 
+
+def _historique_revolut(symbole, intervalle, limite):
+    """Recupere les chandeliers OHLCV depuis Revolut X (API publique, EUR)."""
+    try:
+        import prix_revolut as pr
+        # Convertir le symbole bot en symbole Revolut X court
+        symbole_court = symbole.replace("USDT", "").replace("EUR", "").replace("USD", "").upper()
+        # Convertir intervalle en minutes
+        intervalles = {"1m": 1, "5m": 5, "15m": 15, "30m": 30, "1h": 60, "4h": 240, "1d": 1440}
+        interval_min = intervalles.get(intervalle, 15)
+        # Calculer since/until (limite * interval en ms)
+        now_ms = int(_t.time() * 1000)
+        since_ms = now_ms - (limite * interval_min * 60 * 1000)
+        url = (f"https://revx.revolut.com/api/1.0/public/candles/{symbole_court}-EUR"
+               f"?interval={interval_min}&since={since_ms}&until={now_ms}")
+        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+        if r.status_code != 200:
+            return []
+        data = r.json()
+        items = data.get("data", []) if isinstance(data, dict) else []
+        if not items:
+            return []
+        bougies = []
+        for b in items:
+            bougies.append({
+                "temps": b["start"],
+                "ouverture": float(b["open"]),
+                "haut": float(b["high"]),
+                "bas": float(b["low"]),
+                "cloture": float(b["close"]),
+                "volume": float(b.get("volume", 0))
+            })
+        return bougies[-limite:] if len(bougies) > limite else bougies
+    except Exception as e:
+        return []
 
 def _historique_binance(symbole, intervalle, limite):
     try:
@@ -270,7 +309,15 @@ def _historique_coingecko(symbole, intervalle, limite):
         return []
 
 def prix_actuel(symbole):
-    """Prix actuel via CoinGecko (Binance bloque depuis OVH)."""
+    """Prix actuel via Revolut X (EUR, identique a Revolut)."""
+    try:
+        import prix_revolut as pr
+        p = pr.get_prix_revolut(symbole)
+        if p > 0:
+            return p
+    except:
+        pass
+    # Fallback CoinGecko
     coin_id = COINGECKO_MAP.get(symbole)
     if coin_id:
         try:

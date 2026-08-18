@@ -239,7 +239,22 @@ _COINGECKO_ID = {
 _MOTS_PRIX = ["prix", "prix de", "combien coute", "cote combien", "vaut combien", "cours", "cours actuel", "cours du"]
 
 def _prix_binance_api(symbole):
-    """Recupere le prix temps reel via l'API publique Binance (peut etre bloque: 451)."""
+    """Recupere le prix temps reel via Revolut X (EUR, identique a Revolut)."""
+    try:
+        import prix_revolut as pr
+        p = pr.get_prix_revolut(symbole)
+        if p > 0:
+            return {
+                "symbole": symbole,
+                "prix": p,
+                "variation": 0,
+                "haut": p,
+                "bas": p,
+                "volume": 0,
+            }
+    except:
+        pass
+    # Fallback Binance
     try:
         url = f"https://api.binance.com/api/v3/ticker/24hr?symbol={symbole}"
         r = requests.get(url, timeout=10)

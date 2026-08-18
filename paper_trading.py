@@ -202,9 +202,11 @@ def initialiser():
 # RECUPERATION PRIX MULTI-SOURCES
 # ============================================
 def prix_binance(symbole):
+    """Prix via Revolut X (API publique, EUR). Remplace Binance."""
     try:
-        r = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={symbole}", timeout=10)
-        return float(r.json()["price"])
+        import prix_revolut as pr
+        p = pr.get_prix_revolut(symbole)
+        return p if p > 0 else None
     except:
         return None
 
@@ -252,16 +254,16 @@ def tous_les_prix():
     """Recupere tous les prix depuis toutes les sources."""
     prix = {}
     prix_par_source = {"binance": [], "yahoo": []}
-    # Groupe par source
+    # Groupe par source (binance = crypto via Revolut X maintenant)
     for sym, config in MARCHES_PAPER.items():
         prix_par_source[config["source"]].append(sym)
 
-    # Crypto via Binance
+    # Crypto via Revolut X
     for sym in prix_par_source["binance"]:
         p = prix_binance(sym)
         if p:
             prix[sym] = p
-        time.sleep(0.2)
+        time.sleep(0.5)  # Rate-limit Revolut X
 
     # Actions/Forex/Indices/Matieres via Yahoo
     for sym in prix_par_source["yahoo"]:
