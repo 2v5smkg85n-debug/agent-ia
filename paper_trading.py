@@ -776,7 +776,7 @@ def ouvrir_position(pf, signal, prix_actuel):
         print(f"  [SIZING erreur {e}] fallback 20% fixe")
         montant = pf["liquidites"] * RISK_PAR_TRADE
     # Plafonne au liquide dispo + plancher minimum 55EUR (15 positions x 60EUR)
-    montant = max(40, min(montant, pf["liquidites"]))
+    montant = max(80, min(montant, pf["liquidites"]))
     # FILTRE RÉGIME (méta-évolution): ajuste la taille selon le régime de marché.
     # En contagion baissière (crash), réduit la taille (floor ×0.10). Désactivable: REGIME_FILTER=0.
     if os.getenv("REGIME_FILTER", "1") != "0":
@@ -921,7 +921,7 @@ def ouvrir_position(pf, signal, prix_actuel):
         print(f"  [POIDS STRAT SIZE] stratégie faible (poids {_poids_strat:.2f}) -> x0.5 ({montant:.0f}EUR)")
     # Clamp de securite: un plugin bugue ne peut pas depasser le liquide ni aller negatif
     # PLANCHER MINIMUM 80EUR applique APRES tous les filtres (regime, sentiment, plugins)
-    montant = max(50, min(montant, pf["liquidites"]))
+    montant = max(80, min(montant, pf["liquidites"]))
     if pf["liquidites"] < 80:
         return False
     frais = montant * FRAIS_TRANSACTION
