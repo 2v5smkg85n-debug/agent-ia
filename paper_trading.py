@@ -44,13 +44,13 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 # ============================================
 CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
-MAX_POSITIONS = 8              # 8 positions max (concentration = meilleurs trades)
+MAX_POSITIONS = 12             # 12 positions max (plus d'opportunites simultanees)
 FENETRE_CORRELATION_MIN = 60    # anti-double-exposition: bloque 2e entree sur actif ouvert <60min
 MAX_POS_PAR_ACTIF = 1          # 1 position par actif (pas de pyramiding risqué)
 RISK_PAR_TRADE = 0.025         # 2.5% du capital par trade (positions reduites, gestion risque)
-INTERVALLE_BOUCLE = 600        # 10 min (plus réactif pour attraper les mouvements)
+INTERVALLE_BOUCLE = 300        # 5 min (plus reactif pour plus de trades)
 # RISK MANAGEMENT AVANCE
-MAX_TRADES_PAR_JOUR = 30       # limite: max 30 trades par jour (plus de profits)
+MAX_TRADES_PAR_JOUR = 50       # limite: max 50 trades par jour (test accelere)
 PERTE_JOUR_MAX_PCT = 2.0      # stop trading si -2% en une journee
 CIRCUIT_BREAKER_CONSECUTIF = 2 # pause apres 2 pertes consecutives (plus prudent)
 DRAWDOWN_REDUCTION_SEUIL = 0.95 # si capital < 95% du initial, reduit positions de 50%
