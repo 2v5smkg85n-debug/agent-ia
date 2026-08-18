@@ -343,7 +343,7 @@ body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSys
     <div class="stat">Positions: <span class="stat-value">{len(positions)}</span></div>
     <div class="stat">Liquidites: <span class="stat-value">{liquidites:.2f}€</span></div>
   </div>
-  <div style="text-align:center;font-size:10px;color:#8b949e;margin-top:4px"><span id="live-ts">MAJ: {time.strftime('%H:%M:%S')}</span> | 🔴 Live 10s</div>
+  <div style="text-align:center;font-size:10px;color:#8b949e;margin-top:4px"><span id="live-ts">MAJ: {time.strftime('%H:%M:%S')}</span> | 🔴 Live 30s</div>
 </div>
 <div class="legend">
   <div class="legend-item"><div class="legend-dot" style="background:#f87171"></div> Stop Loss</div>
