@@ -168,6 +168,44 @@ def get_prix_avec_variation(symbole):
     return {"prix": prix, "var_24h": var_24h}
 
 
+def get_candles_revolut(symbole, intervalle=15, nombre=20):
+    """
+    Recupere les bougies OHLC depuis Revolut X.
+    
+    Args:
+        symbole: symbole bot (ex: "BTCUSDT") ou court (ex: "BTC")
+        intervalle: intervalle en minutes (15 par defaut)
+        nombre: nombre de bougies a recuperer
+    
+    Returns:
+        liste de dict {"time", "open", "high", "low", "close"}
+    """
+    symbole_court = symbole.replace("USDT", "").replace("EUR", "").replace("USD", "")
+    symbole_court = symbole_court.upper()
+    if symbole_court in BLACKLIST:
+        return []
+    try:
+        now_ms = int(time.time() * 1000)
+        since_ms = now_ms - nombre * intervalle * 60 * 1000
+        url = f"https://revx.revolut.com/api/1.0/public/candles/{symbole_court}-EUR?interval={intervalle}&since={since_ms}&until={now_ms}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+        candles_raw = data.get("data", [])
+        candles = []
+        for c in candles_raw:
+            candles.append({
+                "time": int(c.get("start", 0)) // 1000,
+                "open": float(c.get("open", 0)),
+                "high": float(c.get("high", 0)),
+                "low": float(c.get("low", 0)),
+                "close": float(c.get("close", 0))
+            })
+        return candles[-nombre:]
+    except Exception as e:
+        return []
+
+
 def lister_symboles_disponibles():
     """Retourne la liste des symboles supportes."""
     return sorted(SYMBOLES_REVOLUT.keys())

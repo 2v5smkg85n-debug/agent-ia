@@ -146,20 +146,8 @@ def get_ohlc_batch(symboles):
         base = sym.replace("USDT", "")
         try:
             import prix_revolut as pr
-            prix_pr = pr.get_prix_revolut(base)
-            if prix_pr:
-                # Generer 7 points factices base sur le prix actuel pour le graphique
-                p = prix_pr
-                now_ms = int(time.time() * 1000)
-                candles = []
-                for i in range(7):
-                    t = now_ms - (7 - i) * 86400000  # 1 jour par bougie
-                    variance = p * 0.02 * ((-1) ** i)  # petite variation
-                    o = p + variance
-                    c = p + variance * 0.5
-                    h = max(o, c) * 1.005
-                    lo = min(o, c) * 0.995
-                    candles.append({"time": t // 1000, "open": o, "high": h, "low": lo, "close": c})
+            candles = pr.get_candles_revolut(base, intervalle=15, nombre=20)
+            if candles and len(candles) > 1:
                 result[sym] = candles
             time.sleep(2.0)
         except:
