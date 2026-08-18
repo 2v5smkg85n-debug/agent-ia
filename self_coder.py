@@ -217,10 +217,32 @@ RÈGLES STRICTES:
 7. Ajouter des commentaires en français
 8. Gérer les erreurs avec try/except
 
-Réponds UNIQUEMENT avec le code Python, sans explication.
+Réponds UNIQUEMENT avec le code Python, sans explication, sans citations, sans références.
+Ne mets PAS de [1], [2], [source] ou autres annotations.
 Le code doit commencer par #!/usr/bin/env python3"""
 
-        # 1. Perplexity API (cle valide)
+        # 1. Gemini API (priorite - mieux pour generer du code)
+        gemini_key = os.getenv("GEMINI_API_KEY", "")
+        if gemini_key:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
+                data = json.dumps({
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": 0.7, "maxOutputTokens": 4096}
+                }).encode()
+
+                req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=45) as resp:
+                    result = json.loads(resp.read())
+                    code = result["candidates"][0]["content"]["parts"][0]["text"]
+                    code = code.replace("```python", "").replace("```", "").strip()
+                    if not code.startswith("#!/usr/bin/env python3"):
+                        code = "#!/usr/bin/env python3\n" + code
+                    return code, "gemini"
+            except Exception as e_gemini:
+                print(f"  [SELF-CODER] Gemini échoué: {e_gemini}, fallback Perplexity...")
+
+        # 2. Perplexity API (fallback)
         pplx_key = os.getenv("PPLX_API_KEY", "")
         if pplx_key:
             url = "https://api.perplexity.ai/v1/sonar"
@@ -239,28 +261,12 @@ Le code doit commencer par #!/usr/bin/env python3"""
             with urllib.request.urlopen(req, timeout=45) as resp:
                 result = json.loads(resp.read())
                 code = result["choices"][0]["message"]["content"]
+                # Nettoyer les citations Perplexity [1], [2], etc.
+                code = re.sub(r'\[\d+\]', '', code)
                 code = code.replace("```python", "").replace("```", "").strip()
                 if not code.startswith("#!/usr/bin/env python3"):
                     code = "#!/usr/bin/env python3\n" + code
                 return code, "perplexity"
-
-        # 2. Gemini API (fallback)
-        gemini_key = os.getenv("GEMINI_API_KEY", "")
-        if gemini_key:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
-            data = json.dumps({
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 4096}
-            }).encode()
-
-            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=45) as resp:
-                result = json.loads(resp.read())
-                code = result["candidates"][0]["content"]["parts"][0]["text"]
-                code = code.replace("```python", "").replace("```", "").strip()
-                if not code.startswith("#!/usr/bin/env python3"):
-                    code = "#!/usr/bin/env python3\n" + code
-                return code, "gemini"
 
         return None, "Aucune API IA disponible"
     except Exception as e:
