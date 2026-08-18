@@ -1899,6 +1899,26 @@ def handle_message(text, user_name="User"):
             send_telegram(f"Erreur: {e}")
         return "", ""
 
+    # === CONSENSUS MULTI-IA ===
+    if text_lower.startswith("consensus") or text_lower.startswith("consensus"):
+        parts = text_stripped.split(None, 1)
+        sym = parts[1].upper() + "USDT" if len(parts) > 1 and not parts[1].upper().endswith("USDT") else (parts[1].upper() if len(parts) > 1 else "BTCUSDT")
+        send_telegram(f"\U0001f9e0 Consensus Multi-IA pour {sym}...\n(Perplexity + Gemini analysent en parallele)")
+        try:
+            import consensus_ia as ci
+            # Recuperer les prix depuis master_traders
+            try:
+                import master_traders as mt
+                prix_data = mt.get_prix_actuel(sym)
+                prix = prix_data if isinstance(prix_data, (int, float)) else 0
+            except Exception:
+                prix = 0
+            rapport = ci.rapport_consensus(sym, prix or 64000, 45, 63500, 62000, -1.5, 1000000000)
+            send_telegram(rapport, parse_mode=None)
+        except Exception as e:
+            send_telegram(f"Erreur consensus: {e}")
+        return "", ""
+
     # === SELF-CODER ===
     if text_lower.startswith("code") or text_lower in ["code-seul", "self-code", "auto-code"]:
         parts = text_stripped.split(None, 1)

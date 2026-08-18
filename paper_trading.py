@@ -1532,6 +1532,37 @@ def tick():
                     tous_signaux = [s for s in tous_signaux if s.get("score", 0) > -900]
             except Exception as e:
                 print(f"    Web global indisponible: {e}")
+            # === CONSENSUS MULTI-IA: Perplexity + Gemini votent ensemble ===
+            try:
+                import consensus_ia as ci
+                if tous_signaux:
+                    for sig in tous_signaux[:2]:  # top 2 signaux seulement (limite API)
+                        sym = sig.get("symbole", "")
+                        if not sym:
+                            continue
+                        # Recuperer les donnees du signal
+                        _prix = sig.get("prix_entree", 0)
+                        _rsi = sig.get("rsi", 50)
+                        _sma20 = sig.get("sma20", _prix)
+                        _sma50 = sig.get("sma50", _prix)
+                        _var = sig.get("variation_pct", 0)
+                        _vol = sig.get("volume", 0)
+                        # Consensus
+                        ci_result = ci.consensus_multi_ia(sym, _prix, _rsi, _sma20, _sma50, _var, _vol)
+                        ci_boost = ci_result.get("score_boost", 0)
+                        sig["ci_score"] = ci_boost
+                        sig["ci_consensus"] = ci_result.get("consensus", False)
+                        sig["ci_verdict"] = ci_result.get("verdict", "HOLD")
+                        sig["ci_conviction"] = ci_result.get("conviction", 0)
+                        # Appliquer le boost
+                        sig["score"] = sig.get("score", 0) + ci_boost
+                        if ci_result.get("consensus") and ci_result.get("verdict") == "ACHAT":
+                            print(f"  [CONSENSUS] {sym}: ACHAT confirme par 2 IA (boost +{ci_boost})")
+                        elif ci_result.get("verdict") == "VENTE":
+                            print(f"  [CONSENSUS] {sym}: VENTE signalee par IA (boost {ci_boost}) - signal affaibli")
+                            sig["score"] -= 2  # penalite supplementaire
+            except Exception as e:
+                print(f"    Consensus IA indisponible: {e}")
             print(f"\n{len(tous_signaux)} signal(s) d'achat detecte(s)")
             # Phase 3: filtre ML - confirme les signaux via le modele predictif
             # Seuls les signaux confirmes par le ML (sur les actifs avec edge) sont gardes
