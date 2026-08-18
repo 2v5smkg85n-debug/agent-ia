@@ -13,7 +13,7 @@ import os
 import time
 import urllib.request
 
-CACHE_TTL = 60  # 1 minute
+CACHE_TTL = 300  # 5 minutes (matche l'intervalle du bot)
 _cache = {}
 
 # Mapping symbole bot -> symbole Revolut X
@@ -32,7 +32,7 @@ SYMBOLES_REVOLUT = {
     "AAVEUSDT": "AAVE",
     "PENDLEUSDT": "PENDLE",
     "FETUSDT": "FET",
-    "RNDRUSDT": "RNDR",
+    "RNDRUSDT": "RENDER",
     "OCEANUSDT": "OCEAN",
     "APTUSDT": "APT",
     "MATICUSDT": "MATIC",
@@ -45,6 +45,12 @@ SYMBOLES_REVOLUT = {
     "LTCUSDT": "LTC",
     "ATOMUSDT": "ATOM",
     "SUIUSDT": "SUI",
+    "SEIUSDT": "SEI",
+    "TIAUSDT": "TIA",
+    "WIFUSDT": "WIF",
+    "FLOKIUSDT": "FLOKI",
+    "OPUSDT": "OP",
+    "INJUSDT": "INJ",
 }
 
 # Mapping inverse (symbole court -> symbole bot)
@@ -123,7 +129,7 @@ def get_prix_batch(symboles):
         if not sym:
             continue
         if i > 0:
-            time.sleep(0.5)  # Delai anti rate-limit
+            time.sleep(1.5)  # Delai anti rate-limit Revolut X
         prix = get_prix_revolut(sym)
         resultats[sym] = prix
     return resultats
