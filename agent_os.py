@@ -1037,16 +1037,16 @@ def trading_performance():
     liquidites = pf.get("liquidites", 0)
     
     # Stats détaillées
-    gagnes = sum(1 for t in trades if t.get("pnl", 0) > 0)
+    gagnes = sum(1 for t in trades if t.get("gain_eur", 0) > 0)
     perdus = len(trades) - gagnes
-    pnl_total = sum(t.get("pnl", 0) for t in trades)
+    pnl_total = sum(t.get("gain_eur", 0) for t in trades)
     wr = gagnes / len(trades) * 100 if trades else 0
     
     # PnL par stratégie
     pnl_strat = defaultdict(lambda: {"gagnes": 0, "perdus": 0, "pnl": 0})
     for t in trades:
         strat = t.get("strategie", "inconnu")
-        pnl = t.get("pnl", 0)
+        pnl = t.get("gain_eur", 0)
         if pnl > 0:
             pnl_strat[strat]["gagnes"] += 1
         else:
@@ -1057,7 +1057,7 @@ def trading_performance():
     pnl_actif = defaultdict(lambda: {"gagnes": 0, "perdus": 0, "pnl": 0})
     for t in trades:
         sym = t.get("symbole", "?")
-        pnl = t.get("pnl", 0)
+        pnl = t.get("gain_eur", 0)
         if pnl > 0:
             pnl_actif[sym]["gagnes"] += 1
         else:
@@ -1066,8 +1066,8 @@ def trading_performance():
     
     # Meilleur/worst trade
     if trades:
-        best = max(trades, key=lambda t: t.get("pnl", 0))
-        worst = min(trades, key=lambda t: t.get("pnl", 0))
+        best = max(trades, key=lambda t: t.get("gain_eur", 0))
+        worst = min(trades, key=lambda t: t.get("gain_eur", 0))
     else:
         best = worst = None
     
@@ -2714,14 +2714,14 @@ def autonomous_coder():
         capital = pt.get("capital_initial", 1000)
         liquidites = pt.get("liquidites", 0)
         positions = pt.get("positions", [])
-        trades = pt.get("trades", [])
+        trades = pt.get("trades_fermes", [])
         
         # Calcule les stats
         if trades:
-            gagnants = [t for t in trades if t.get("pnl", 0) > 0]
-            perdants = [t for t in trades if t.get("pnl", 0) < 0]
+            gagnants = [t for t in trades if t.get("gain_eur", 0) > 0]
+            perdants = [t for t in trades if t.get("gain_eur", 0) < 0]
             winrate = len(gagnants) / len(trades) * 100 if trades else 0
-            pnl_total = sum(t.get("pnl", 0) for t in trades)
+            pnl_total = sum(t.get("gain_eur", 0) for t in trades)
             
             analyse = f"""Capital: {capital}€ | Liquidites: {liquidites}€
 Positions ouvertes: {len(positions)}
@@ -2877,16 +2877,16 @@ def generate_report():
         rapport += f"Trades total: {len(trades_fermes)}\n"
         
         if trades_fermes:
-            gagnants = [t for t in trades_fermes if t.get("pnl", 0) > 0]
-            perdants = [t for t in trades_fermes if t.get("pnl", 0) < 0]
+            gagnants = [t for t in trades_fermes if t.get("gain_eur", 0) > 0]
+            perdants = [t for t in trades_fermes if t.get("gain_eur", 0) < 0]
             winrate = len(gagnants) / len(trades_fermes) * 100
-            pnl_total = sum(t.get("pnl", 0) for t in trades_fermes)
+            pnl_total = sum(t.get("gain_eur", 0) for t in trades_fermes)
             rapport += f"Winrate: {winrate:.1f}% ({len(gagnants)}G / {len(perdants)}P)\n"
             rapport += f"PnL realise: {pnl_total:+.2f} EUR\n"
             
             # Top stratégies
             from collections import Counter
-            strats = Counter(t.get("strategie", "?") for t in trades_fermes if t.get("pnl", 0) > 0)
+            strats = Counter(t.get("strategie", "?") for t in trades_fermes if t.get("gain_eur", 0) > 0)
             if strats:
                 rapport += f"\nTop strategies gagnantes:\n"
                 for s, n in strats.most_common(5):
@@ -2992,10 +2992,10 @@ def self_improve():
         positions = pt.get("positions", [])
         
         if trades:
-            gagnants = [t for t in trades if t.get("pnl", 0) > 0]
-            perdants = [t for t in trades if t.get("pnl", 0) < 0]
+            gagnants = [t for t in trades if t.get("gain_eur", 0) > 0]
+            perdants = [t for t in trades if t.get("gain_eur", 0) < 0]
             winrate = len(gagnants) / len(trades) * 100 if trades else 0
-            pnl_total = sum(t.get("pnl", 0) for t in trades)
+            pnl_total = sum(t.get("gain_eur", 0) for t in trades)
             
             rapport += f"  Trades: {len(trades)} | Winrate: {winrate:.1f}% | PnL: {pnl_total:+.2f}EUR\n"
             
@@ -3098,8 +3098,8 @@ def self_improve():
     try:
         # Apprend des trades gagnants/perdants
         if trades:
-            gagnants = [t for t in trades if t.get("pnl", 0) > 0]
-            perdants = [t for t in trades if t.get("pnl", 0) < 0]
+            gagnants = [t for t in trades if t.get("gain_eur", 0) > 0]
+            perdants = [t for t in trades if t.get("gain_eur", 0) < 0]
             
             if gagnants:
                 for t in gagnants[-3:]:  # 3 derniers gagnants
@@ -3426,7 +3426,7 @@ def generer_graphique_pnl():
     pnl_cumule = []
     total = 0
     for t in trades:
-        total += t.get("pnl", 0)
+        total += t.get("gain_eur", 0)
         pnl_cumule.append(total)
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(range(1, len(pnl_cumule) + 1), pnl_cumule, color='#4CAF50', linewidth=2, marker='o', markersize=3)
@@ -3893,7 +3893,7 @@ def apprentissage_auto_trades():
     stats_strategies = {}
     for t in trades_fermes:
         strat = t.get("strategie", "inconnu")
-        pnl = t.get("pnl", 0)
+        pnl = t.get("gain_eur", 0)
         if strat not in stats_strategies:
             stats_strategies[strat] = {"trades": 0, "gagnants": 0, "perdants": 0, "pnl_total": 0, "symboles": set()}
         stats_strategies[strat]["trades"] += 1
@@ -3923,7 +3923,7 @@ def apprentissage_auto_trades():
     stats_sources = {}
     for t in trades_fermes:
         source = t.get("source", "inconnu")
-        pnl = t.get("pnl", 0)
+        pnl = t.get("gain_eur", 0)
         if source not in stats_sources:
             stats_sources[source] = {"trades": 0, "pnl_total": 0}
         stats_sources[source]["trades"] += 1
@@ -5040,7 +5040,7 @@ def auto_evolution_code():
     # Verifier les trades perdants
     pt = load_json_safe(os.path.join(DOSSIER, "paper_trading.json"), {})
     trades_fermes = pt.get("trades_fermes", [])
-    perdants = [t for t in trades_fermes if t.get("pnl", 0) < 0]
+    perdants = [t for t in trades_fermes if t.get("gain_eur", 0) < 0]
     if len(perdants) > 3:
         faiblesses.append(f"{len(perdants)} trades perdants - strategie a ameliorer")
     # Verifier la memoire
@@ -5613,7 +5613,7 @@ def generer_rapport_pdf(type_rapport="complet"):
     lignes_fermes = ""
     for t in fermes[-15:]:
         sym = t.get("symbole", "?")
-        pnl = t.get("pnl", 0)
+        pnl = t.get("gain_eur", 0)
         raison = t.get("raison_fermeture", "?")
         date_f = t.get("date_fermeture", "?")
         color = "#4ade80" if pnl >= 0 else "#f87171"
