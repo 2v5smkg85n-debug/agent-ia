@@ -90,6 +90,14 @@ def get_prix_revolut(symbole):
         best_ask = float(asks[0]["price"])
         mid_price = (best_bid + best_ask) / 2
 
+        # Si le spread est trop large (>5%), le carnet est desequilibre
+        # On utilise le cote avec le plus de volume (generallement le bid)
+        spread_pct = abs(best_ask - best_bid) / best_bid if best_bid > 0 else 1
+        if spread_pct > 0.05:
+            # Carno anormal - utiliser le bid (prix realiste)
+            mid_price = best_bid
+            print("  [REVOLUT] Spread anormal pour " + symbole_court + ": bid=" + str(best_bid) + " ask=" + str(best_ask) + " -> utilise bid")
+
         # Mettre en cache
         _cache[cache_key] = {"prix": mid_price, "timestamp": time.time()}
 
