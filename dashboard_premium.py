@@ -398,6 +398,7 @@ function updateLive() {{
       }} catch(e) {{ document.getElementById('live-ts').textContent = 'MAJ: parse error'; return; }}
       if (!data.positions) return;
       var totalPnl = 0;
+      var totalVal = 0;
       data.positions.forEach(function(p) {{
         var card = document.querySelector('[data-sym="' + p.sym + '"]');
         if (!card) return;
@@ -412,11 +413,12 @@ function updateLive() {{
         }}
         if (elVar) elVar.textContent = '24h: ' + (p.var24h >= 0 ? '+' : '') + p.var24h.toFixed(1) + '%';
         totalPnl += p.pnl;
+        totalVal += (p.montant || 0) + (p.pnl || 0);
       }});
       var liq = data.liquidites || 0;
       var elCap = document.getElementById('capital-val');
       var elPnlT = document.getElementById('pnl-total');
-      if (elCap) elCap.textContent = (liq + 1000 + totalPnl).toFixed(2) + '€';
+      if (elCap) elCap.textContent = (liq + totalVal).toFixed(2) + '€';
       if (elPnlT) {{
         var pct = (totalPnl / 1000 * 100).toFixed(1);
         elPnlT.textContent = (totalPnl >= 0 ? '+' : '') + totalPnl.toFixed(2) + '€ (' + (totalPnl >= 0 ? '+' : '') + pct + '%)';
