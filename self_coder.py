@@ -267,6 +267,45 @@ Le code doit commencer par #!/usr/bin/env python3"""
         return None, f"Erreur IA: {e}"
 
 
+def nettoyer_code_ia(code):
+    """Nettoie le code genere par l'IA pour fix les erreurs courantes."""
+    # Supprimer le markdown
+    if "```python" in code:
+        code = code.split("```python", 1)[1]
+    if "```" in code:
+        code = code.rsplit("```", 1)[0]
+    code = code.strip()
+    
+    # Supprimer les lignes vides a la fin
+    lines = code.split("\n")
+    while lines and not lines[-1].strip():
+        lines.pop()
+    
+    # Fix les strings non terminees: si une ligne commence par # ou " et ne se termine pas correctement
+    cleaned = []
+    for line in lines:
+        # Si la ligne a un nombre impair de guillemets triples, essayer de fixer
+        if line.count('"""') % 2 != 0:
+            line = line + '"""'
+        cleaned.append(line)
+    
+    code = "\n".join(cleaned)
+    
+    # Essayer de parser: si erreur, tronquer a la derniere ligne complete
+    try:
+        ast.parse(code)
+    except SyntaxError as e:
+        # Tronquer a la ligne avant l'erreur
+        err_line = e.lineno or len(lines)
+        code = "\n".join(lines[:err_line-1])
+        try:
+            ast.parse(code)
+        except:
+            pass  # On a fait ce qu'on pouvait
+    
+    return code.strip()
+
+
 def auto_coder(description, contexte="", nom_fichier=None, mode="nouveau"):
     """Point d'entree principal: ecrit, teste et deploie du code."""
     # 1. Verifier le quota
@@ -284,11 +323,26 @@ def auto_coder(description, contexte="", nom_fichier=None, mode="nouveau"):
     if any(bl in nom_fichier for bl in BLACKLIST_FICHIERS):
         return False, f"Fichier {nom_fichier} interdit", {}
 
-    # 4. Demander a l'IA d'ecrire le code
+    # 4. Demander a l'IA d'ecrire le code (avec retry)
     print(f"  [SELF-CODER] Génération du code pour: {description[:80]}...")
-    code, ia_source = demander_ia_code(description, contexte)
+    code = None
+    ia_source = ""
+    for tentative in range(3):
+        code, ia_source = demander_ia_code(description, contexte)
+        if not code:
+            print(f"  [SELF-CODER] Tentative {tentative+1} échouée: {ia_source}")
+            continue
+        # Nettoyer le code
+        code = nettoyer_code_ia(code)
+        # Valider
+        valide, msg_val = valider_code(code, nom_fichier)
+        if valide:
+            break
+        print(f"  [SELF-CODER] Tentative {tentative+1}: code invalide ({msg_val[:50]}), retry...")
+        code = None
+    
     if not code:
-        return False, f"Échec génération IA: {ia_source}", {}
+        return False, f"Échec génération IA après 3 tentatives: {ia_source}", {}
 
     print(f"  [SELF-CODER] Code généré par {ia_source} ({len(code)} chars)")
 
