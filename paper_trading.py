@@ -568,7 +568,7 @@ def ouvrir_position(pf, signal, prix_actuel):
     if len(pf["positions"]) >= MAX_POSITIONS:
         return False
     # BLACKLIST STRATEGIES PERDANTES: momentum bloque (33% WR, pertes repetees)
-    _strat_blacklist = ["momentum", "macd_cross"]
+    _strat_blacklist = ["momentum"]
     _strat_signal = (signal.get("strategie", "") or "").lower()
     for _bl in _strat_blacklist:
         if _bl in _strat_signal:
