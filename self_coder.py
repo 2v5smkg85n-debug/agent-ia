@@ -236,7 +236,7 @@ Le code doit commencer par #!/usr/bin/env python3"""
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {pplx_key}"
             })
-            with urllib.request.urlopen(req, timeout=20) as resp:
+            with urllib.request.urlopen(req, timeout=45) as resp:
                 result = json.loads(resp.read())
                 code = result["choices"][0]["message"]["content"]
                 code = code.replace("```python", "").replace("```", "").strip()
@@ -254,7 +254,7 @@ Le code doit commencer par #!/usr/bin/env python3"""
             }).encode()
 
             req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=20) as resp:
+            with urllib.request.urlopen(req, timeout=45) as resp:
                 result = json.loads(resp.read())
                 code = result["candidates"][0]["content"]["parts"][0]["text"]
                 code = code.replace("```python", "").replace("```", "").strip()
