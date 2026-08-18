@@ -1031,9 +1031,9 @@ def trading_performance():
     except Exception:
         return "paper_trading.json non trouvé"
     
-    trades = pf.get("trades", [])
+    trades = pf.get("trades_fermes", [])
     positions = pf.get("positions", [])
-    capital = pf.get("capital", 0)
+    capital = pf.get("capital_initial", 0)
     liquidites = pf.get("liquidites", 0)
     
     # Stats détaillées
@@ -1602,7 +1602,7 @@ def handle_message(text, user_name="User"):
             capital = pt.get("capital_initial", "?")
             liquidites = pt.get("liquidites", "?")
             positions = len(pt.get("positions", []))
-            trades = len(pt.get("trades", []))
+            trades = len(pt.get("trades_fermes", []))
             msg += f"\n💰 Capital: {capital}€\n"
             msg += f"💵 Liquidites: {liquidites}€\n"
             msg += f"📊 Positions: {positions}\n"
@@ -2858,7 +2858,7 @@ def generate_report():
         capital = pt.get("capital_initial", 0)
         liquidites = pt.get("liquidites", 0)
         positions = pt.get("positions", [])
-        trades = pt.get("trades", [])
+        trades = pt.get("trades_fermes", [])
         trades_fermes = pt.get("trades_fermes", [])
         total_frais = pt.get("total_frais", 0)
         
