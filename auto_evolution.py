@@ -406,7 +406,7 @@ Format JSON strict:
 {{"nom": "...", "description": "...", "indicateur": "RSI/SMA/EMA/Bollinger/MACD/Volume/etc", "parametres": {{"periode": 14, "seuil": 30}}, "regle": "ACHAT quand ...", "action": "ACHAT"}}
 Reponds UNIQUEMENT avec le JSON."""
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
         payload = json.dumps({
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.7, "maxOutputTokens": 300}

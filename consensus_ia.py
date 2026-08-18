@@ -106,7 +106,7 @@ Volume: {volume}
 Réponds en JSON strictement avec ce format (sans autre texte):
 {{"verdict": "ACHAT" ou "VENTE" ou "HOLD", "conviction": 0-100, "raison": "explication courte en français"}}"""
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
         data = json.dumps({
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.3, "maxOutputTokens": 500}

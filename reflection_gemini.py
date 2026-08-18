@@ -32,7 +32,7 @@ LOG_FILE = os.path.join(DOSSIER, "reflection_log.jsonl")
 from dotenv import load_dotenv
 load_dotenv(os.path.join(DOSSIER, ".env"))
 GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_URL = (f"https://generativelanguage.googleapis.com/v1beta/models/"
               f"{GEMINI_MODEL}:generateContent?key={GEMINI_KEY}")
 ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")

@@ -10,7 +10,7 @@ print(f"Gemini key: {key[:10]}..." if key else "GEMINI_API_KEY: MISSING")
 if not key:
     exit()
 
-model = "gemini-2.0-flash"
+model = "gemini-2.5-flash"
 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
 
 print(f"\nTest API call to {model}...")
@@ -34,10 +34,10 @@ try:
 except Exception as e:
     print(f"Exception: {e}")
 
-# Test avec gemini-1.5-flash
-print(f"\nTest avec gemini-1.5-flash...")
+# Test avec gemini-2.5-flash
+print(f"\nTest avec gemini-2.5-flash...")
 try:
-    url2 = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}"
+    url2 = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
     r2 = requests.post(
         url2,
         headers={"Content-Type": "application/json"},

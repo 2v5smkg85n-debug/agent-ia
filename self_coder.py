@@ -225,7 +225,7 @@ Le code doit commencer par #!/usr/bin/env python3"""
         gemini_key = os.getenv("GEMINI_API_KEY", "")
         if gemini_key:
             try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
                 data = json.dumps({
                     "contents": [{"parts": [{"text": prompt}]}],
                     "generationConfig": {"temperature": 0.7, "maxOutputTokens": 4096}
