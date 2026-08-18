@@ -56,59 +56,28 @@ def fmt(x):
         return str(x)
 
 def get_prix_batch(symboles):
-    """Recupere les prix de plusieurs cryptos en une seule requete CoinGecko.
+    """Recupere les prix depuis Revolut X (API publique, en EUR).
     Utilise un cache local de 90s pour eviter les faux PnL quand l'API ne repond pas."""
-    # Charge le cache
+    try:
+        import prix_revolut as pr
+        resultats = pr.get_prix_batch(symboles)
+        # Formater comme l'ancien format CoinGecko
+        result = {}
+        for sym, prix in resultats.items():
+            result[sym] = {"prix": prix, "var_24h": 0}
+        if result:
+            return result
+    except Exception as e:
+        print("  [DASHBOARD] Prix Revolut X erreur: " + str(e))
+    
+    # Fallback: cache local
     cache = {}
     try:
         with open(CACHE_FILE) as f:
             cache = json.load(f)
     except:
         pass
-    
-    # Verifie si le cache est encore valide (< 90s)
-    cache_age = time.time() - cache.get("timestamp", 0)
-    if cache_age < 90 and cache.get("prix", {}):
-        # Cache valide - retourne les prix caches
-        return cache["prix"]
-    
-    # Cache expire ou vide - requete CoinGecko
-    ids = []
-    id_to_sym = {}
-    for sym in symboles:
-        base = sym.replace("USDT", "")
-        cg_id = COINGECKO_MAP.get(base, base.lower())
-        ids.append(cg_id)
-        id_to_sym[cg_id] = sym
-    try:
-        url = f"https://api.coingecko.com/api/v3/simple/price?ids={','.join(ids)}&vs_currencies=eur&include_24hr_change=true"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode())
-            result = {}
-            for cg_id, d in data.items():
-                sym = id_to_sym.get(cg_id, cg_id)
-                result[sym] = {
-                    "prix": d.get("eur", 0),
-                    "var_24h": d.get("eur_24h_change", 0)
-                }
-            # Si on a au moins 1 prix valide, on met a jour le cache
-            if result:
-                cache["prix"] = result
-                cache["timestamp"] = time.time()
-                try:
-                    with open(CACHE_FILE, "w") as f:
-                        json.dump(cache, f)
-                except:
-                    pass
-            return result
-    except Exception as e:
-        with open("dashboard_premium.log", "a") as f:
-            f.write(f"CoinGecko error: {e}\n")
-    # En cas d'erreur, retourne le cache meme s'il est vieux (mieux que prix_entree)
-    if cache.get("prix", {}):
-        return cache["prix"]
-    return {}
+    return cache.get("prix", {})
 
 def read_system():
     import shutil
