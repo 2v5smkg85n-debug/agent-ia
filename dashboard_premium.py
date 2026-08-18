@@ -219,7 +219,7 @@ def build_positions_chart(d):
             # SVG candlestick chart
             candle_count = len(candles)
             chart_w = 340
-            chart_h = 120
+            chart_h = 160
             padding = 30
             all_prices = []
             for c in candles:
@@ -235,8 +235,8 @@ def build_positions_chart(d):
                 return padding + (t - tmin) / trange * (chart_w - padding - 10)
             def sy(p):
                 return chart_h - 10 - (p - pmin) / prange * (chart_h - 20)
-            candle_w = max(2, (chart_w - padding - 10) / candle_count * 0.25)
-            svg_parts = [f'<svg viewBox="0 0 {chart_w} {chart_h}" style="width:100%;max-width:400px;height:120px">']
+            candle_w = max(3, (chart_w - padding - 10) / candle_count * 0.5)
+            svg_parts = [f'<svg viewBox="0 0 {chart_w} {chart_h}" style="width:100%;max-width:400px;height:160px">']
             svg_parts.append(f'<rect width="{chart_w}" height="{chart_h}" fill="#161b22" rx="6"/>')
             for i in range(4):
                 y = 10 + i * (chart_h - 20) / 3
