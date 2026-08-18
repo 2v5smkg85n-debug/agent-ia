@@ -47,7 +47,7 @@ FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 
 MAX_POSITIONS = 8              # 8 positions max (concentration = meilleurs trades)
 FENETRE_CORRELATION_MIN = 60    # anti-double-exposition: bloque 2e entree sur actif ouvert <60min
 MAX_POS_PAR_ACTIF = 1          # 1 position par actif (pas de pyramiding risqué)
-RISK_PAR_TRADE = 0.04          # 4% du capital par trade (8 positions, ~50EUR chacune)
+RISK_PAR_TRADE = 0.025         # 2.5% du capital par trade (positions reduites, gestion risque)
 INTERVALLE_BOUCLE = 600        # 10 min (plus réactif pour attraper les mouvements)
 # RISK MANAGEMENT AVANCE
 MAX_TRADES_PAR_JOUR = 10       # limite: max 10 trades par jour (qualité > quantité)
@@ -318,9 +318,9 @@ def analyser_signaux_techniques(prix_actuels):
             verdict = analyse["verdict"]
             score = analyse["score"]
             print(f"{verdict} (score {score:+d})")
-            # Signal d'achat uniquement si score >= 2 (ACHAT fort)
-            # Les signaux faibles (score 1) sont ignores pour maximiser le win rate
-            if score >= 2:
+            # Signal d'achat uniquement si score >= 3 (ACHAT fort seulement - win rate plus eleve)
+            # Les signaux faibles (score 1-2) sont ignores pour maximiser le win rate
+            if score >= 3:
                 signaux.append({
                     "symbole": sym,
                     "prix_entree": prix_actuels[sym],
@@ -776,7 +776,7 @@ def ouvrir_position(pf, signal, prix_actuel):
         print(f"  [SIZING erreur {e}] fallback 20% fixe")
         montant = pf["liquidites"] * RISK_PAR_TRADE
     # Plafonne au liquide dispo + plancher minimum 55EUR (15 positions x 60EUR)
-    montant = max(55, min(montant, pf["liquidites"]))
+    montant = max(40, min(montant, pf["liquidites"]))
     # FILTRE RÉGIME (méta-évolution): ajuste la taille selon le régime de marché.
     # En contagion baissière (crash), réduit la taille (floor ×0.10). Désactivable: REGIME_FILTER=0.
     if os.getenv("REGIME_FILTER", "1") != "0":
@@ -921,7 +921,7 @@ def ouvrir_position(pf, signal, prix_actuel):
         print(f"  [POIDS STRAT SIZE] stratégie faible (poids {_poids_strat:.2f}) -> x0.5 ({montant:.0f}EUR)")
     # Clamp de securite: un plugin bugue ne peut pas depasser le liquide ni aller negatif
     # PLANCHER MINIMUM 80EUR applique APRES tous les filtres (regime, sentiment, plugins)
-    montant = max(80, min(montant, pf["liquidites"]))
+    montant = max(50, min(montant, pf["liquidites"]))
     if pf["liquidites"] < 80:
         return False
     frais = montant * FRAIS_TRANSACTION
