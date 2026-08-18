@@ -146,7 +146,7 @@ def get_ohlc_batch(symboles):
         base = sym.replace("USDT", "")
         try:
             import prix_revolut as pr
-            prix_pr = pr.obtenir_prix(base)
+            prix_pr = pr.get_prix_revolut(base)
             if prix_pr:
                 # Generer 7 points factices base sur le prix actuel pour le graphique
                 p = prix_pr
