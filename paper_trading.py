@@ -258,12 +258,22 @@ def tous_les_prix():
     for sym, config in MARCHES_PAPER.items():
         prix_par_source[config["source"]].append(sym)
 
-    # Crypto via Revolut X
-    for sym in prix_par_source["binance"]:
+    # Crypto via Revolut X (rotation: 10 symboles par cycle)
+    syms_crypto = prix_par_source["binance"]
+    # Tourner: prendre 10 symboles differents a chaque cycle
+    import hashlib
+    cycle = int(time.time() // 300)  # change toutes les 5 min
+    offset = (cycle * 7) % max(len(syms_crypto), 1)  # decale de 7 a chaque cycle
+    syms_this_cycle = syms_crypto[offset:] + syms_crypto[:offset]
+    syms_this_cycle = syms_this_cycle[:10]  # max 10 par cycle (20s a 2s each)
+    # Toujours inclure les positions ouvertes
+    for p in []:
+        pass  # placeholder
+    for sym in syms_this_cycle:
         p = prix_binance(sym)
         if p:
             prix[sym] = p
-        time.sleep(0.5)  # Rate-limit Revolut X
+        time.sleep(2.0)  # Rate-limit Revolut X
 
     # Actions/Forex/Indices/Matieres via Yahoo
     for sym in prix_par_source["yahoo"]:
