@@ -59,29 +59,38 @@ def analyser_trade_ferme(trade):
 
 
 def analyser_trades(trades_fermes):
-    """Analyse TOUS les trades fermes pour extraire les patterns gagnants/perdants."""
+    """Analyse TOUS les trades fermes pour extraire les patterns gagnants/perdants.
+    Utilise un decay temporel: les 20 derniers trades comptent plus que les anciens."""
     if not trades_fermes:
         return {}
 
     learning = charger_learning()
     trades_analyses = []
 
-    # Stats accumulees
-    stats_strategies = defaultdict(lambda: {"n": 0, "gagnants": 0, "pnl_total": 0, "win_rate": 0})
+    # Stats accumulees avec decay temporel
+    stats_strategies = defaultdict(lambda: {"n": 0, "gagnants": 0, "pnl_total": 0, "win_rate": 0, "poids_recent": 0})
     stats_horaires = defaultdict(lambda: {"n": 0, "gagnants": 0, "pnl_total": 0})
     stats_par_regime = defaultdict(lambda: {"n": 0, "gagnants": 0, "pnl_total": 0})
     stats_par_crypto = defaultdict(lambda: {"n": 0, "gagnants": 0, "pnl_total": 0, "meilleur_tp": 2.0, "meilleur_sl": 1.5})
     stats_raison = defaultdict(lambda: {"n": 0, "gagnants": 0, "pnl_total": 0})
+    stats_jour_semaine = defaultdict(lambda: {"n": 0, "gagnants": 0, "pnl_total": 0})
+    stats_duree = {"court": {"n": 0, "gagnants": 0, "pnl_total": 0}, "moyen": {"n": 0, "gagnants": 0, "pnl_total": 0}, "long": {"n": 0, "gagnants": 0, "pnl_total": 0}}
 
-    for trade in trades_fermes:
+    _total = len(trades_fermes)
+    for idx, trade in enumerate(trades_fermes):
         t = analyser_trade_ferme(trade)
         trades_analyses.append(t)
+
+        # Decay temporel: les trades recents comptent 2x, les anciens 0.5x
+        _recency = idx / max(_total - 1, 1)  # 0 (vieux) -> 1 (recent)
+        _poids = 0.5 + _recency * 1.5  # 0.5x pour les vieux, 2x pour les recents
 
         # Stats par strategie
         strat = t["strategie"]
         s = stats_strategies[strat]
         s["n"] += 1
         s["pnl_total"] += t["gain_eur"]
+        s["poids_recent"] += _poids
         if t["gagnant"]:
             s["gagnants"] += 1
 
@@ -94,6 +103,13 @@ def analyser_trades(trades_fermes):
             h["pnl_total"] += t["gain_eur"]
             if t["gagnant"]:
                 h["gagnants"] += 1
+            # Stats par jour de semaine (0=lundi ... 6=dimanche)
+            jour = dt.weekday()
+            j = stats_jour_semaine[jour]
+            j["n"] += 1
+            j["pnl_total"] += t["gain_eur"]
+            if t["gagnant"]:
+                j["gagnants"] += 1
         except Exception:
             pass
 
@@ -112,6 +128,19 @@ def analyser_trades(trades_fermes):
             if t["gain_pct"] < -2:
                 c["meilleur_sl"] = min(c["meilleur_sl"], abs(t["gain_pct"]) * 0.8)
 
+        # Stats par duree (< 60min = court, 60-240 = moyen, > 240 = long)
+        duree = t.get("duree_min", 0) or 0
+        if duree < 60:
+            d = stats_duree["court"]
+        elif duree < 240:
+            d = stats_duree["moyen"]
+        else:
+            d = stats_duree["long"]
+        d["n"] += 1
+        d["pnl_total"] += t["gain_eur"]
+        if t["gagnant"]:
+            d["gagnants"] += 1
+
         # Stats par raison de fermeture
         r = stats_raison[t["raison_fermeture"][:20]]
         r["n"] += 1
@@ -128,6 +157,10 @@ def analyser_trades(trades_fermes):
         c["win_rate"] = (c["gagnants"] / c["n"] * 100) if c["n"] > 0 else 0
     for r in stats_raison.values():
         r["win_rate"] = (r["gagnants"] / r["n"] * 100) if r["n"] > 0 else 0
+    for j in stats_jour_semaine.values():
+        j["win_rate"] = (j["gagnants"] / j["n"] * 100) if j["n"] > 0 else 0
+    for d in stats_duree.values():
+        d["win_rate"] = (d["gagnants"] / d["n"] * 100) if d["n"] > 0 else 0
 
     # Identifier les patterns gagnants
     patterns_gagnants = {
@@ -159,6 +192,8 @@ def analyser_trades(trades_fermes):
     learning["stats_strategies"] = {k: v for k, v in stats_strategies.items()}
     learning["stats_horaires"] = {str(k): v for k, v in stats_horaires.items()}
     learning["stats_par_crypto"] = {k: v for k, v in stats_par_crypto.items()}
+    learning["stats_jour_semaine"] = {str(k): v for k, v in stats_jour_semaine.items()}
+    learning["stats_duree"] = stats_duree
     learning["tp_optimal_par_crypto"] = {k: v["meilleur_tp"] for k, v in stats_par_crypto.items()}
     learning["sl_optimal_par_crypto"] = {k: v["meilleur_sl"] for k, v in stats_par_crypto.items()}
     learning["derniere_analyse"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -187,18 +222,24 @@ def get_recommandations():
         "total_trades": learning.get("total_trades", 0),
     }
 
-    # Strategies a eviter (win rate < 30% avec au moins 5 trades)
+    # Strategies a eviter (win rate < 35% avec au moins 3 trades, OU pnl < -2EUR)
     for strat, stats in learning.get("stats_strategies", {}).items():
-        if stats.get("n", 0) >= 5 and stats.get("win_rate", 0) < 35:
+        _n = stats.get("n", 0)
+        _wr = stats.get("win_rate", 0)
+        _pnl = stats.get("pnl_total", 0)
+        if (_n >= 3 and _wr < 35) or (_n >= 5 and _pnl < -2):
             recs["strategies_a_eviter"].append(strat)
-        elif stats.get("n", 0) >= 3 and stats.get("win_rate", 0) >= 60 and stats.get("pnl_total", 0) > 0:
+        elif _n >= 3 and _wr >= 55 and _pnl > 0:
             recs["strategies_a_privilegier"].append(strat)
 
-    # Cryptos a eviter (win rate < 25% avec au moins 5 trades)
+    # Cryptos a eviter (win rate < 30% avec au moins 3 trades, OU pnl < -2EUR)
     for sym, stats in learning.get("stats_par_crypto", {}).items():
-        if stats.get("n", 0) >= 5 and stats.get("win_rate", 0) < 25:
+        _n = stats.get("n", 0)
+        _wr = stats.get("win_rate", 0)
+        _pnl = stats.get("pnl_total", 0)
+        if (_n >= 3 and _wr < 30) or (_n >= 5 and _pnl < -2):
             recs["cryptos_a_eviter"].append(sym)
-        elif stats.get("n", 0) >= 3 and stats.get("win_rate", 0) >= 60 and stats.get("pnl_total", 0) > 0:
+        elif _n >= 3 and _wr >= 55 and _pnl > 0:
             recs["cryptos_a_privilegier"].append(sym)
 
     # TP/SL optimaux par crypto (seulement si au moins 3 trades)
@@ -239,13 +280,14 @@ def filtrer_signaux_avec_apprentissage(signaux):
 
         # Booster le score des cryptos et strategies gagnantes
         if sym in recs["cryptos_a_privilegier"]:
-            signal["score"] = signal.get("score", 0) + 2
-            signal["meta_confiance"] = signal.get("meta_confiance", 0.5) + 0.2
-            print(f"  [LEARNING] BOOST {sym} — crypto gagnante (+2 score)")
+            signal["score"] = signal.get("score", 0) + 3
+            signal["meta_confiance"] = signal.get("meta_confiance", 0.5) + 0.3
+            print(f"  [LEARNING] BOOST {sym} — crypto gagnante (+3 score)")
 
         if strat in recs["strategies_a_privilegier"]:
-            signal["score"] = signal.get("score", 0) + 1
-            print(f"  [LEARNING] BOOST {strat} sur {sym} — strategie gagnante (+1 score)")
+            signal["score"] = signal.get("score", 0) + 2
+            signal["meta_confiance"] = signal.get("meta_confiance", 0.5) + 0.2
+            print(f"  [LEARNING] BOOST {strat} sur {sym} — strategie gagnante (+2 score)")
 
         # Ajuster le TP/SL selon l'apprentissage
         tp_opt = recs["tp_optimal"].get(sym)
