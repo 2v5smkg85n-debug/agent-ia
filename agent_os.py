@@ -1899,6 +1899,35 @@ def handle_message(text, user_name="User"):
             send_telegram(f"Erreur: {e}")
         return "", ""
 
+    # === SELF-CODER ===
+    if text_lower.startswith("code") or text_lower in ["code-seul", "self-code", "auto-code"]:
+        parts = text_stripped.split(None, 1)
+        if len(parts) > 1:
+            desc = parts[1]
+            send_telegram(f"🤖 Self-coder: génération de code pour: {desc[:80]}...\n(Sécurité: sandbox + rollback + quota)")
+            try:
+                import self_coder as sc
+                success, msg, details = sc.auto_coder(desc)
+                if success:
+                    rapport = f"🤖 SELF-CODER\n\n✅ Code déployé!\n"
+                    rapport += f"Fichier: {details.get('fichier', '?')}\n"
+                    rapport += f"IA: {details.get('ia_source', '?')}\n"
+                    rapport += f"Taille: {details.get('taille', 0)} chars\n"
+                    rapport += f"\nLe code a été testé en sandbox, validé, et poussé sur GitHub."
+                    send_telegram(rapport, parse_mode=None)
+                else:
+                    send_telegram(f"🤖 Self-coder échoué:\n❌ {msg}")
+            except Exception as e:
+                send_telegram(f"Erreur self-coder: {e}")
+        else:
+            try:
+                import self_coder as sc
+                rapport = sc.rapport_self_coder()
+                send_telegram(f"🤖 {rapport}", parse_mode=None)
+            except Exception as e:
+                send_telegram(f"Erreur: {e}")
+        return "", ""
+
     # === SUPER INTELLIGENCE ===
     if text_lower in ["super", "super intel", "analyse", "analyse ia", "deep", "deep analyse"]:
         parts = text_stripped.split(None, 1)
@@ -3073,6 +3102,7 @@ def self_improve():
     
     # 5. Actions correctives
     rapport += "\n[5] Actions correctives...\n"
+    _problemes_auto_coder = []
     if corrections:
         rapport += f"  {len(corrections)} probleme(s) detecte(s):\n"
         for i, c in enumerate(corrections, 1):
@@ -3088,10 +3118,25 @@ def self_improve():
                 )
                 rapport += f"     -> Solution: {solution[:100]}\n"
                 save_solution(c, solution, category="auto-improvement")
+                _problemes_auto_coder.append({"probleme": c, "solution": solution[:200]})
             except:
                 pass
     else:
         rapport += "  ✅ Aucun probleme detecte\n"
+    
+    # 5b. Self-coder: si des problemes sont detectes, tenter d'auto-coder un correctif
+    if _problemes_auto_coder:
+        rapport += "\n[5b] Self-coder...\n"
+        try:
+            import self_coder as sc
+            resultats = sc.auto_coder_probleme(_problemes_auto_coder)
+            for r in resultats:
+                if r["succes"]:
+                    rapport += f"  ✅ Auto-coder: {r['message']}\n"
+                else:
+                    rapport += f"  ❌ Auto-coder: {r['message'][:80]}\n"
+        except Exception as e:
+            rapport += f"  Self-coder indisponible: {e}\n"
     
     # 6. Apprentissage
     rapport += "\n[6] Apprentissage...\n"
