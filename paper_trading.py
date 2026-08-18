@@ -548,6 +548,13 @@ def _entree_bloquee_weekend(signal, maintenant=None):
 def ouvrir_position(pf, signal, prix_actuel):
     if len(pf["positions"]) >= MAX_POSITIONS:
         return False
+    # BLACKLIST STRATEGIES PERDANTES: momentum bloque (33% WR, pertes repetees)
+    _strat_blacklist = ["momentum"]
+    _strat_signal = (signal.get("strategie", "") or "").lower()
+    for _bl in _strat_blacklist:
+        if _bl in _strat_signal:
+            print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_bl}' bloquee")
+            return False
     # ANTI-DOUBLE-EXPOSITION: bloque une 2e entrée sur un actif déjà ouvert récemment
     # (2 stratégies sur le même actif au même moment = perte corrélée doublée quand ça chute)
     if os.getenv("ANTI_CORR", "1") != "0":
