@@ -33,7 +33,7 @@ MAX_FILE_SIZE = 50000  # 50KB max par fichier modifié
 # Fichiers que le bot ne peut JAMAIS modifier
 BLACKLIST_FICHIERS = [
     ".env",
-    "self_coder.py",      # ne peut pas se modifier lui-même
+    "self_coder.py",
     "self_coder_history.json",
     "self_coder_safety.json",
     "agent_memory.json",
@@ -59,7 +59,6 @@ BLACKLIST_PATTERNS = [
 
 
 def charger_safety():
-    """Charge l'état de sécurité."""
     try:
         with open(FICHIER_SAFETY) as f:
             return json.load(f)
@@ -93,7 +92,6 @@ def sauver_historique(hist):
 
 
 def verifier_quota():
-    """Vérifie qu'on n'a pas dépassé le quota quotidien."""
     safety = charger_safety()
     aujourd = datetime.now().strftime("%Y-%m-%d")
     if safety.get("date_reset") != aujourd:
@@ -106,40 +104,32 @@ def verifier_quota():
 
 
 def valider_code(code, nom_fichier):
-    """Valide le code généré: syntaxe + sécurité."""
-    # 1. Vérifier la syntaxe Python
     try:
         ast.parse(code)
     except SyntaxError as e:
         return False, f"Erreur de syntaxe: {e}"
 
-    # 2. Vérifier que le fichier n'est pas dans la blacklist
     nom_court = os.path.basename(nom_fichier)
     if nom_court in BLACKLIST_FICHIERS:
-        return False, f"Fichier {nom_court} interdit (blacklist sécurité)"
+        return False, f"Fichier {nom_court} interdit (blacklist securite)"
 
-    # 3. Vérifier les patterns dangereux
     for pattern in BLACKLIST_PATTERNS:
         if re.search(pattern, code, re.IGNORECASE):
-            return False, f"Pattern dangereux détecté: {pattern}"
+            return False, f"Pattern dangereux detecte: {pattern}"
 
-    # 4. Vérifier la taille
     if len(code) > MAX_FILE_SIZE:
         return False, f"Code trop volumineux ({len(code)} > {MAX_FILE_SIZE} chars)"
 
-    # 5. Vérifier que c'est bien du Python
     if not nom_fichier.endswith(".py"):
-        return False, "Seuls les fichiers .py sont autorisés"
+        return False, "Seuls les fichiers .py sont autorises"
 
     return True, "OK"
 
 
 def tester_dans_sandbox(code, nom_fichier, mode="nouveau"):
-    """Teste le code dans un sandbox isolé avant déploiement."""
     sandbox_dir = os.path.join(DOSSIER, "_sandbox_test")
     os.makedirs(sandbox_dir, exist_ok=True)
 
-    # Copier les dépendances essentielles
     for f in ["paper_trading.json", "learning_trader.json"]:
         src = os.path.join(DOSSIER, f)
         if os.path.exists(src):
@@ -148,35 +138,20 @@ def tester_dans_sandbox(code, nom_fichier, mode="nouveau"):
     sandbox_file = os.path.join(sandbox_dir, os.path.basename(nom_fichier))
 
     try:
-        # Écrire le code dans le sandbox
         with open(sandbox_file, "w") as f:
             f.write(code)
 
-        # Test 1: Import du module (vérifie qu'il compile et s'importe)
+        # Test 1: Syntaxe
         result = subprocess.run(
             ["python3", "-c", f"import ast; ast.parse(open('{sandbox_file}').read()); print('SYNTAX_OK')"],
             capture_output=True, text=True, timeout=10
         )
         if result.returncode != 0 or "SYNTAX_OK" not in result.stdout:
-            return False, f"Test syntaxe échoué: {result.stderr[:200]}"
+            return False, f"Test syntaxe echoue: {result.stderr[:200]}"
 
-        # Test 2: Import réel (vérifie que les dépendances existent)
-        if mode == "nouveau":
-            result = subprocess.run(
-                ["python3", "-c", f"import sys; sys.path.insert(0, '{sandbox_dir}'); import {os.path.basename(nom_fichier)[:-3]}; print('IMPORT_OK')"],
-                capture_output=True, text=True, timeout=15
-            )
-            if result.returncode != 0:
-                # L'import peut échouer si le module a des dépendances externes
-                # On accepte si c'est juste un warning, pas une erreur fatale
-                if "ModuleNotFoundError" in result.stderr or "ImportError" in result.stderr:
-                    return False, f"Import échoué: {result.stderr[:200]}"
-                # Sinon on continue (le module peut nécessiter des vars d'env)
-
-        # Test 3: Si c'est une fonction, vérifier qu'elle est callable
+        # Test 2: Structure
         result = subprocess.run(
             ["python3", "-c", f"""
-import sys; sys.path.insert(0, '{sandbox_dir}')
 import ast
 tree = ast.parse(open('{sandbox_file}').read())
 funcs = [n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
@@ -187,7 +162,7 @@ print("STRUCTURE_OK")
             capture_output=True, text=True, timeout=10
         )
         if "STRUCTURE_OK" not in result.stdout:
-            return False, f"Test structure échoué: {result.stderr[:200]}"
+            return False, f"Test structure echoue: {result.stderr[:200]}"
 
         return True, "Tests sandbox OK"
 
@@ -196,7 +171,6 @@ print("STRUCTURE_OK")
     except Exception as e:
         return False, f"Erreur sandbox: {e}"
     finally:
-        # Nettoyer le sandbox
         try:
             shutil.rmtree(sandbox_dir)
         except Exception:
@@ -204,7 +178,6 @@ print("STRUCTURE_OK")
 
 
 def creer_backup(nom_fichier):
-    """Crée une backup du fichier avant modification."""
     chemin = os.path.join(DOSSIER, nom_fichier)
     if not os.path.exists(chemin):
         return None
@@ -214,7 +187,6 @@ def creer_backup(nom_fichier):
 
 
 def restaurer_backup(backup_path, nom_fichier):
-    """Restaure la version précédente en cas d'échec."""
     chemin = os.path.join(DOSSIER, nom_fichier)
     if backup_path and os.path.exists(backup_path):
         shutil.copy2(backup_path, chemin)
@@ -227,15 +199,11 @@ def restaurer_backup(backup_path, nom_fichier):
 
 
 def demander_ia_code(description, contexte=""):
-    """Demande à l'IA (Gemini) d'écrire le code pour résoudre un problème."""
+    """Demande a l'IA d'ecrire le code. Perplexity en priorite, Gemini en fallback."""
     try:
         import urllib.request
-        import urllib.parse
 
-        # Essayer Gemini en premier
-        gemini_key = os.getenv("GEMINI_API_KEY", "")
-        if gemini_key:
-            prompt = f"""Tu es un expert Python. Écris le code pour: {description}
+        prompt = f"""Tu es un expert Python. Écris le code pour: {description}
 
 Contexte: {contexte}
 
@@ -252,33 +220,9 @@ RÈGLES STRICTES:
 Réponds UNIQUEMENT avec le code Python, sans explication.
 Le code doit commencer par #!/usr/bin/env python3"""
 
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
-            data = json.dumps({
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 4096}
-            }).encode()
-
-            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                result = json.loads(resp.read())
-                code = result["candidates"][0]["content"]["parts"][0]["text"]
-                # Nettoyer le markdown
-                code = code.replace("```python", "").replace("```", "").strip()
-                if code.startswith("#!/usr/bin/env python3"):
-                    return code, "gemini"
-                return "#!/usr/bin/env python3\n" + code, "gemini"
-
-        # Fallback: Perplexity API
+        # 1. Perplexity API (cle valide)
         pplx_key = os.getenv("PPLX_API_KEY", "")
         if pplx_key:
-            prompt = f"""Écris le code Python pour: {description}
-
-Contexte: {contexte}
-
-RÈGLES: Pas de os.system(), eval(), exec(). Pas d'accès aux .env. Code complet et fonctionnel. Commentaires en français. Gère les erreurs.
-
-Réponds UNIQUEMENT avec le code Python."""
-
             url = "https://api.perplexity.ai/v1/sonar"
             data = json.dumps({
                 "model": "sonar",
@@ -299,41 +243,47 @@ Réponds UNIQUEMENT avec le code Python."""
                     code = "#!/usr/bin/env python3\n" + code
                 return code, "perplexity"
 
+        # 2. Gemini API (fallback)
+        gemini_key = os.getenv("GEMINI_API_KEY", "")
+        if gemini_key:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
+            data = json.dumps({
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 4096}
+            }).encode()
+
+            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                result = json.loads(resp.read())
+                code = result["candidates"][0]["content"]["parts"][0]["text"]
+                code = code.replace("```python", "").replace("```", "").strip()
+                if not code.startswith("#!/usr/bin/env python3"):
+                    code = "#!/usr/bin/env python3\n" + code
+                return code, "gemini"
+
         return None, "Aucune API IA disponible"
     except Exception as e:
         return None, f"Erreur IA: {e}"
 
 
 def auto_coder(description, contexte="", nom_fichier=None, mode="nouveau"):
-    """
-    Point d'entrée principal: écrit, teste et déploie du code.
-
-    Args:
-        description: Ce que le code doit faire
-        contexte: Information additionnelle (problèmes détectés, etc.)
-        nom_fichier: Nom du fichier à créer/modifier (auto-généré si None)
-        mode: "nouveau" (créer) ou "modifier" (modifier existant)
-
-    Returns:
-        (success, message, details)
-    """
-    # 1. Vérifier le quota
+    """Point d'entree principal: ecrit, teste et deploie du code."""
+    # 1. Verifier le quota
     ok, quota_info = verifier_quota()
     if not ok:
         return False, quota_info, {}
 
-    # 2. Générer le nom de fichier si non fourni
+    # 2. Generer le nom de fichier si non fourni
     if not nom_fichier:
-        # Générer un nom basé sur la description
         mots = description.lower().replace("é", "e").replace("è", "e").split()[:3]
         nom_court = "_".join(mots).replace(".", "").replace(",", "").replace(":", "")
         nom_fichier = f"auto_{nom_court}.py"
 
-    # 3. Sécurité: vérifier le nom de fichier
+    # 3. Securite: verifier le nom de fichier
     if any(bl in nom_fichier for bl in BLACKLIST_FICHIERS):
         return False, f"Fichier {nom_fichier} interdit", {}
 
-    # 4. Demander à l'IA d'écrire le code
+    # 4. Demander a l'IA d'ecrire le code
     print(f"  [SELF-CODER] Génération du code pour: {description[:80]}...")
     code, ia_source = demander_ia_code(description, contexte)
     if not code:
@@ -341,7 +291,7 @@ def auto_coder(description, contexte="", nom_fichier=None, mode="nouveau"):
 
     print(f"  [SELF-CODER] Code généré par {ia_source} ({len(code)} chars)")
 
-    # 5. Valider le code (syntaxe + sécurité)
+    # 5. Valider le code
     valide, msg_val = valider_code(code, nom_fichier)
     if not valide:
         return False, f"Validation échouée: {msg_val}", {"code": code[:500]}
@@ -355,13 +305,13 @@ def auto_coder(description, contexte="", nom_fichier=None, mode="nouveau"):
 
     print(f"  [SELF-CODER] Tests sandbox OK")
 
-    # 7. Backup du fichier existant
+    # 7. Backup
     backup_path = None
     if mode == "modifier":
         backup_path = creer_backup(nom_fichier)
         print(f"  [SELF-CODER] Backup créé: {backup_path}")
 
-    # 8. Déploiement
+    # 8. Deploiement
     chemin_final = os.path.join(DOSSIER, nom_fichier)
     try:
         with open(chemin_final, "w") as f:
@@ -369,14 +319,13 @@ def auto_coder(description, contexte="", nom_fichier=None, mode="nouveau"):
     except Exception as e:
         return False, f"Écriture échouée: {e}", {}
 
-    # 9. Test post-déploiement (vérifie que le fichier est valide)
+    # 9. Test post-deploiement
     try:
         result = subprocess.run(
             ["python3", "-c", f"import ast; ast.parse(open('{chemin_final}').read()); print('POST_OK')"],
             capture_output=True, text=True, timeout=10
         )
         if "POST_OK" not in result.stdout:
-            # Rollback
             if backup_path:
                 restaurer_backup(backup_path, nom_fichier)
             return False, f"Post-déploiement échoué: {result.stderr[:200]}", {}
@@ -385,21 +334,7 @@ def auto_coder(description, contexte="", nom_fichier=None, mode="nouveau"):
             restaurer_backup(backup_path, nom_fichier)
         return False, f"Erreur post-test: {e}", {}
 
-    # 10. Vérification fonctionnelle (test d'import)
-    try:
-        result = subprocess.run(
-            ["python3", "-c", f"import sys; sys.path.insert(0, '{DOSSIER}'); import {nom_fichier[:-3]}; print('IMPORT_OK')"],
-            capture_output=True, text=True, timeout=15, cwd=DOSSIER
-        )
-        import_ok = "IMPORT_OK" in result.stdout
-        if not import_ok:
-            # Si l'import échoue, on garde quand même le fichier mais on log le warning
-            # (le module peut nécessiter des variables d'environnement ou des deps runtime)
-            print(f"  [SELF-CODER] Warning: import non trivial (peut nécessiter runtime): {result.stderr[:100]}")
-    except Exception:
-        pass  # Non bloquant
-
-    # 11. Nettoyer les backups anciens (garder max 10)
+    # 10. Nettoyer les backups anciens
     try:
         backups = sorted([f for f in os.listdir(DOSSIER) if f.startswith("_backup_")])
         for old in backups[:-10]:
@@ -407,14 +342,14 @@ def auto_coder(description, contexte="", nom_fichier=None, mode="nouveau"):
     except Exception:
         pass
 
-    # 12. Mettre à jour les compteurs
+    # 11. Mettre a jour les compteurs
     safety = charger_safety()
     safety["modifs_aujourdhui"] += 1
     safety["total_modifs"] += 1
     safety["modifs_reussies"] += 1
     sauver_safety(safety)
 
-    # 13. Logger dans l'historique
+    # 12. Logger
     hist = charger_historique()
     hist["modifications"].append({
         "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -429,9 +364,9 @@ def auto_coder(description, contexte="", nom_fichier=None, mode="nouveau"):
     })
     sauver_historique(hist)
 
-    print(f"  [SELF-CODER] ✅ Code déployé: {nom_fichier}")
+    print(f"  [SELF-CODER] Code déployé: {nom_fichier}")
 
-    # 14. Tenter git commit + push
+    # 13. Git commit + push
     try:
         subprocess.run(["git", "add", nom_fichier], cwd=DOSSIER, timeout=10)
         subprocess.run(
@@ -451,16 +386,7 @@ def auto_coder(description, contexte="", nom_fichier=None, mode="nouveau"):
 
 
 def auto_coder_probleme(problemes):
-    """
-    Déclenché par l'auto-amélioration quand des problèmes sont détectés.
-    Demande à l'IA d'écrire des correctifs pour chaque problème.
-
-    Args:
-        problemes: liste de dicts {probleme, solution}
-
-    Returns:
-        liste de résultats
-    """
+    """Declenche par l'auto-amelioration quand des problemes sont detectes."""
     resultats = []
     for p in problemes:
         desc = p.get("probleme", "")
@@ -468,12 +394,10 @@ def auto_coder_probleme(problemes):
         if not desc:
             continue
 
-        # Construire la description pour l'IA
         description = f"Corrige ce problème de trading bot: {desc}"
         if solution:
             description += f"\nSolution suggérée: {solution}"
 
-        # Limiter la longueur
         description = description[:500]
 
         succes, msg, details = auto_coder(
@@ -489,15 +413,13 @@ def auto_coder_probleme(problemes):
             "details": details,
         })
 
-        # Si échec, on continue avec le prochain problème
         if not succes:
-            print(f"  [SELF-CODER] ❌ Échec pour: {desc[:50]}")
+            print(f"  [SELF-CODER] Échec pour: {desc[:50]}")
 
     return resultats
 
 
 def rapport_self_coder():
-    """Génère un rapport du self-coder."""
     safety = charger_safety()
     hist = charger_historique()
 
