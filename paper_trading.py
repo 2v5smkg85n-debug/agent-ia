@@ -546,6 +546,15 @@ def _entree_bloquee_weekend(signal, maintenant=None):
     return _jour == 4 or _jour >= 5
 
 def ouvrir_position(pf, signal, prix_actuel):
+    # ANTI FLASH-CRASH: bloquer les nouveaux trades si circuit breaker actif
+    try:
+        import flash_crash as fc
+        if fc.circuit_breaker_actif():
+            _niveau = fc.get_niveau_protection()
+            print(f"  [FLASH] Circuit breaker actif (niveau {_niveau}) - trade bloque")
+            return False
+    except Exception:
+        pass
     if len(pf["positions"]) >= MAX_POSITIONS:
         return False
     # BLACKLIST STRATEGIES PERDANTES: momentum bloque (33% WR, pertes repetees)
@@ -784,6 +793,28 @@ def ouvrir_position(pf, signal, prix_actuel):
         montant = pf["liquidites"] * RISK_PAR_TRADE
     # Plafonne au liquide dispo + plancher minimum 55EUR (15 positions x 60EUR)
     montant = max(80, min(montant, pf["liquidites"]))
+    # KELLY OPTIMISATION: ajuste la taille selon le win rate et ratio gain/perte
+    try:
+        import kelly_optimise as kelly
+        montant_kelly = kelly.ajuster_taille_position(montant, pf["liquidites"])
+        if montant_kelly < montant:
+            print(f"  [KELLY] Taille ajustee: {montant:.0f} -> {montant_kelly:.0f} EUR (Kelly conservateur)")
+            montant = montant_kelly
+    except Exception:
+        pass
+    # FLASH-CRASH: reduire la taille si niveau de protection eleve
+    try:
+        import flash_crash as fc
+        _niveau_fc = fc.get_niveau_protection()
+        if _niveau_fc == 1:
+            montant = montant * 0.7  # Vigilance: -30%
+            print(f"  [FLASH] Niveau vigilance - taille reduite 30%")
+        elif _niveau_fc >= 2:
+            montant = 0  # Circuit breaker: pas de trade
+            print(f"  [FLASH] Circuit breaker niveau {_niveau_fc} - trade bloque")
+            return False
+    except Exception:
+        pass
     # FILTRE RÉGIME (méta-évolution): ajuste la taille selon le régime de marché.
     # En contagion baissière (crash), réduit la taille (floor ×0.10). Désactivable: REGIME_FILTER=0.
     if os.getenv("REGIME_FILTER", "1") != "0":

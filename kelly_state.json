@@ -1,0 +1,16 @@
+{
+  "dernier_calcul": {
+    "result": {
+      "win_rate": 0.556,
+      "gain_moyen": 0.31,
+      "perte_moyenne": 0.52,
+      "ratio": 0.58,
+      "nb_trades": 18,
+      "kelly_plein": 0,
+      "kelly_fractionnel": 0.0,
+      "risk_recommande": 0.01,
+      "verdict": "NEGATIF - Pas d'edge, reduire ou arreter"
+    },
+    "timestamp": "2026-08-18T15:33:13.910701"
+  }
+}

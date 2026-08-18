@@ -1899,6 +1899,28 @@ def handle_message(text, user_name="User"):
             send_telegram(f"Erreur: {e}")
         return "", ""
 
+    # === KELLY CRITERION ===
+    if text_lower.startswith("kelly"):
+        send_telegram("\U0001f9ee Calcul du critere de Kelly...")
+        try:
+            import kelly_optimise as kelly
+            rapport = kelly.rapport_kelly()
+            send_telegram(rapport, parse_mode=None)
+        except Exception as e:
+            send_telegram("Erreur Kelly: " + str(e))
+        return "", ""
+
+    # === FLASH CRASH ===
+    if text_lower.startswith("flash") or text_lower.startswith("crash"):
+        send_telegram("\U0001f6a8 Verification anti flash-crash...")
+        try:
+            import flash_crash as fc
+            rapport = fc.rapport_flash_crash()
+            send_telegram(rapport, parse_mode=None)
+        except Exception as e:
+            send_telegram("Erreur flash crash: " + str(e))
+        return "", ""
+
     # === SENTIMENT SOCIAL ===
     if text_lower.startswith("sentiment") or text_lower.startswith("social"):
         send_telegram("\U0001f4ac Scan sentiment social Reddit + Fear&Greed...")
