@@ -140,8 +140,8 @@ def get_ohlc_batch(symboles):
         for sym in symboles:
             if sym in cached:
                 result[sym] = cached[sym]
-    # Fetch les manquants via Revolut X (max 3 par requete pour eviter 429)
-    to_fetch = [s for s in symboles if s not in result][:3]
+    # Fetch les manquants via Revolut X (max 6 par requete avec cache persistant)
+    to_fetch = [s for s in symboles if s not in result][:6]
     for sym in to_fetch:
         base = sym.replace("USDT", "")
         try:
@@ -149,7 +149,7 @@ def get_ohlc_batch(symboles):
             candles = pr.get_candles_revolut(base, intervalle=15, nombre=20)
             if candles and len(candles) > 1:
                 result[sym] = candles
-            time.sleep(2.0)
+            time.sleep(3.0)  # Rate-limit Revolut X
         except:
             pass
     # Sauver cache
