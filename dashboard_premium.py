@@ -567,11 +567,11 @@ body{{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSy
 .header .live{{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}}
 .header .live::before{{content:"";width:8px;height:8px;border-radius:50%;background:var(--pos);animation:pulse 2s infinite}}
 @keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:0.3}}}}
-.cards{{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}}
+.cards{{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px}}
 .card{{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;transition:transform 0.2s}}
 .card:hover{{transform:translateY(-2px);border-color:var(--accent)}}
 .card .lbl{{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}}
-.card .val{{font-size:18px;font-weight:700}}
+.card .val{{font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
 .card .sub{{font-size:10px;color:var(--muted);margin-top:2px}}
 .card.pos .val{{color:var(--pos)}}
 .card.neg .val{{color:var(--neg)}}
