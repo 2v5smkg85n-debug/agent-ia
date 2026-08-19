@@ -358,7 +358,7 @@ function updateLive() {{
     xhr.timeout = 8000;
     xhr.onreadystatechange = function() {{
       if (xhr.readyState != 4) return;
-      if (xhr.status != 200) {{ document.getElementById('live-ts').textContent = 'MAJ: erreur ' + xhr.status; return; }}
+      if (xhr.status != 200) {{ document.getElementById('live-ts').textContent = 'MAJ: connexion...'; return; }}
       try {{
         var data = JSON.parse(xhr.responseText);
       }} catch(e) {{ document.getElementById('live-ts').textContent = 'MAJ: parse error'; return; }}
@@ -386,9 +386,10 @@ function updateLive() {{
       var elPnlT = document.getElementById('pnl-total');
       if (elCap) elCap.textContent = (liq + totalVal).toFixed(2) + '€';
       if (elPnlT) {{
-        var pct = (totalPnl / 1000 * 100).toFixed(1);
-        elPnlT.textContent = (totalPnl >= 0 ? '+' : '') + totalPnl.toFixed(2) + '€ (' + (totalPnl >= 0 ? '+' : '') + pct + '%)';
-        elPnlT.style.color = totalPnl >= 0 ? '#4ade80' : '#f87171';
+        var capTotal = liq + totalVal;
+        var pct = ((capTotal - 1000) / 1000 * 100).toFixed(1);
+        elPnlT.textContent = (totalPnl >= 0 ? '+' : '') + totalPnl.toFixed(2) + '€ (' + (parseFloat(pct) >= 0 ? '+' : '') + pct + '%)';
+        elPnlT.style.color = parseFloat(pct) >= 0 ? '#4ade80' : '#f87171';
       }}
       document.getElementById('live-ts').textContent = 'MAJ: ' + new Date().toLocaleTimeString('fr-FR') + ' ✓';
     }};
