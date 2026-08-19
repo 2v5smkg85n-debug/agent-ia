@@ -1694,6 +1694,7 @@ def _check_crypto_sl_rapide():
         _p = prix_binance(_s)
         if _p:
             prix[_s] = _p
+        time.sleep(3.0)  # Rate-limit Revolut X (evite 429)
     if not prix:
         return
     verifier_sorties(pf, prix)
