@@ -272,7 +272,7 @@ def tous_les_prix():
         p = prix_binance(sym)
         if p:
             prix[sym] = p
-        time.sleep(2.0)  # Rate-limit Revolut X
+        time.sleep(3.0)  # Rate-limit Revolut X
 
     # Actions/Forex/Indices/Matieres via Yahoo
     for sym in prix_par_source["yahoo"]:

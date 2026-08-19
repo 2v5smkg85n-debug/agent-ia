@@ -136,7 +136,7 @@ def get_prix_batch(symboles):
         if not sym:
             continue
         if i > 0:
-            time.sleep(1.5)  # Delai anti rate-limit Revolut X
+            time.sleep(3.0)  # Delai anti rate-limit Revolut X
         prix = get_prix_revolut(sym)
         resultats[sym] = prix
     return resultats
