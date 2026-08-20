@@ -58,7 +58,7 @@ COMPOUND_AUTOMATIQUE = True
 HEURES_FAIBLE_LIQUIDITE = [(2, 6)] # pas de trades entre 2h-6h UTC
 # Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
 TAKE_PROFIT_PCT = 3.0          # +3% (laisse les gagnants courir)
-STOP_LOSS_PCT = 1.5            # -1.5% (coupe les pertes vite)
+STOP_LOSS_PCT = 1.0            # -1.0% (reserre pour eviter SL-RETARD)
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
 # est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
 # Idee utilisateur + valide par backtest elargi (9 marches, 30 trades, plateau a tp_ext=4).
@@ -1691,7 +1691,12 @@ def _check_crypto_sl_rapide():
         return
     prix = {}
     for _s in _crypto_syms:
-        _p = prix_binance(_s)
+        _p = None
+        for _try in range(3):  # 3 tentatives en cas de 429
+            _p = prix_binance(_s)
+            if _p:
+                break
+            time.sleep(2.0)
         if _p:
             prix[_s] = _p
         time.sleep(3.0)  # Rate-limit Revolut X (evite 429)
