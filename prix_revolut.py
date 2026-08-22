@@ -60,12 +60,13 @@ SYMBOLES_REVOLUT = {
 SYMBOLES_BOT = {v: k for k, v in SYMBOLES_REVOLUT.items()}
 
 
-def get_prix_revolut(symbole):
+def get_prix_revolut(symbole, force_refresh=False):
     """
     Recupere le mid-price d'un symbole depuis Revolut X.
     
     Args:
         symbole: symbole bot (ex: "BTCUSDT") ou court (ex: "BTC")
+        force_refresh: bypass le cache (pour les check SL)
     
     Returns:
         prix (float) en EUR, ou 0 si erreur
@@ -78,9 +79,9 @@ def get_prix_revolut(symbole):
     if symbole_court in BLACKLIST:
         return 0
 
-    # Verifier le cache
+    # Verifier le cache (sauf si force_refresh)
     cache_key = symbole_court
-    if cache_key in _cache:
+    if not force_refresh and cache_key in _cache:
         if time.time() - _cache[cache_key]["timestamp"] < CACHE_TTL:
             return _cache[cache_key]["prix"]
 
@@ -119,6 +120,51 @@ def get_prix_revolut(symbole):
     except Exception as e:
         print("  [REVOLUT] Erreur prix " + symbole_court + ": " + str(e))
         return 0
+
+
+def _prix_coingecko(symbole_court):
+    """Fallback: recupere le prix via CoinGecko (API publique gratuite)."""
+    try:
+        # Mapping symbole -> id CoinGecko
+        mapping = {
+            "BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana",
+            "BNB": "binancecoin", "XRP": "ripple", "DOGE": "dogecoin",
+            "AVAX": "avalanche-2", "LINK": "chainlink", "ARB": "arbitrum",
+            "NEAR": "near", "LDO": "lido-dao", "AAVE": "aave",
+            "PENDLE": "pendle", "FET": "fetch-ai", "RENDER": "render-token",
+            "APT": "aptos", "UNI": "uniswap", "PEPE": "pepe",
+            "DOT": "polkadot", "ATOM": "cosmos", "SUI": "sui",
+            "SEI": "sei-network", "TIA": "celestia", "WIF": "dogwifcoin",
+            "FLOKI": "floki", "OP": "optimism", "INJ": "injective-protocol",
+        }
+        coin_id = mapping.get(symbole_court, "")
+        if not coin_id:
+            return 0
+        url = f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies=eur"
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "application/json"
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+        prix = data.get(coin_id, {}).get("eur", 0)
+        if prix > 0:
+            print(f"  [COINGECKO] Fallback {symbole_court}: {prix} EUR")
+        return prix
+    except Exception:
+        return 0
+
+
+def get_prix_secours(symbole):
+    """Prix avec fallback: Revolut X (force refresh) puis CoinGecko."""
+    symbole_court = symbole.replace("USDT", "").replace("EUR", "").replace("USD", "").upper()
+    # 1. Revolut X sans cache
+    prix = get_prix_revolut(symbole, force_refresh=True)
+    if prix and prix > 0:
+        return prix
+    # 2. Fallback CoinGecko
+    prix = _prix_coingecko(symbole_court)
+    return prix
 
 
 def get_prix_batch(symboles):

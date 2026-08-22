@@ -1689,17 +1689,18 @@ def _check_crypto_sl_rapide():
             _seen.add(_s)
     if not _crypto_syms:
         return
+    import prix_revolut as pr
     prix = {}
     for _s in _crypto_syms:
         _p = None
-        for _try in range(3):  # 3 tentatives en cas de 429
-            _p = prix_binance(_s)
-            if _p:
+        for _try in range(2):  # 2 tentatives
+            _p = pr.get_prix_secours(_s)
+            if _p and _p > 0:
                 break
             time.sleep(2.0)
-        if _p:
+        if _p and _p > 0:
             prix[_s] = _p
-        time.sleep(3.0)  # Rate-limit Revolut X (evite 429)
+        time.sleep(3.0)  # Rate-limit Revolut X
     if not prix:
         return
     verifier_sorties(pf, prix)
