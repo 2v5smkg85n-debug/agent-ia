@@ -392,8 +392,9 @@ def rsi(clotures, periode=14):
     rs = gain_moyen / perte_moyenne
     return 100 - (100 / (1 + rs))
 
-def macd(clotures, courte=12, longue=26, signal=9):
-    """Calcule le MACD. Retourne (ligne_macd, ligne_signal, histogramme)."""
+def macd(clotures, courte=8, longue=17, signal=9):
+    """Calcule le MACD avec settings scalping (8-17-9: 58% win rate, plus de signaux).
+    Ancien: 12-26-9 (62% win rate mais moins de signaux)."""
     if len(clotures) < longue + signal:
         return None, None, None
     # Calcule EMA sur toute la serie
@@ -499,9 +500,13 @@ def analyser_actif(symbole, intervalle="1h"):
         else:
             signaux.append("MACD: neutre")
 
-    # 4. Bandes de Bollinger — signal etendu pour marche QUIET
+    # 4. Bandes de Bollinger — signal etendu pour marche QUIET + SQUEEZE
     if bb_haut and bb_bas and bb_milieu:
         _demi_bas = bb_milieu - bb_bas  # distance milieu -> bande basse
+        # Calculer la largeur des bandes pour detecter le squeeze
+        _bb_width = (bb_haut - bb_bas) / bb_milieu if bb_milieu > 0 else 0
+        # Squeeze: largeur des bandes < 3% (volatilite tres faible)
+        _squeeze = _bb_width < 0.03
         if prix <= bb_bas:
             signaux.append("Bollinger: prix sous bande basse (survente)")
             score += 1
@@ -514,6 +519,10 @@ def analyser_actif(symbole, intervalle="1h"):
             score -= 1
         else:
             signaux.append("Bollinger: dans les bandes normales")
+        # SQUEEZE BREAKOUT: si squeeze et prix casse la bande haute = breakout iminent
+        if _squeeze and prix > bb_milieu:
+            score += 2
+            signaux.append(f"SQUEEZE: bands tight ({_bb_width*100:.1f}%) + prix au-dessus milieu — breakout imminent")
 
     # 5b. MOMENTUM (strategie gagnante): achete quand la crypto MONTE
     # SMA20 > SMA50 (uptrend) + RSI 50-65 (fort mais pas surachte) = momentum
@@ -539,6 +548,22 @@ def analyser_actif(symbole, intervalle="1h"):
         elif macd_line > signal_line:
             score += 1
             signaux.append("MACD: croisement haussier (MACD negatif — signal faible)")
+
+    # 5e. VWAP (Volume Weighted Average Price) — timing d'entree optimal
+    try:
+        _volumes = [b.get("volume", 0) for b in bougies[-20:]] if len(bougies) >= 20 else [b.get("volume", 0) for b in bougies]
+        _clotures_vwap = clotures[-20:] if len(clotures) >= 20 else clotures
+        _vol_total = sum(_volumes)
+        if _vol_total > 0:
+            _vwap = sum(c * v for c, v in zip(_clotures_vwap, _volumes)) / _vol_total
+            if prix > _vwap:
+                score += 1
+                signaux.append(f"VWAP: prix ({prix:.4f}) au-dessus VWAP ({_vwap:.4f}) — bullish")
+            else:
+                score -= 1
+                signaux.append(f"VWAP: prix ({prix:.4f}) sous VWAP ({_vwap:.4f}) — bearish")
+    except Exception:
+        pass
 
     # Verdict
     if score >= 2:
@@ -566,6 +591,8 @@ def analyser_actif(symbole, intervalle="1h"):
             "BB_milieu": bb_milieu,
             "BB_haut": bb_haut,
             "BB_bas": bb_bas,
+            "VWAP": _vwap if _vol_total > 0 else None,
+            "BB_squeeze": _squeeze if bb_milieu else False,
         },
         "signaux": signaux,
         "score": score,

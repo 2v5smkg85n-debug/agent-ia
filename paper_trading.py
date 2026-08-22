@@ -1095,19 +1095,15 @@ def verifier_sorties(pf, prix_actuels):
             _sl_price = _pic * (1 - 0.5 / 100.0)
             _sl_regle = "suiveur-serre"
         elif _var_pic >= 4.0:
-            # Bien en profit: trail a 1% sous le pic
+            # Bien en profit: trail a 1.0% sous le pic
             _sl_price = _pic * (1 - 1.0 / 100.0)
             _sl_regle = "suiveur-proche"
-        elif _var_pic >= 2.0:
-            # En profit: trail a 1.5% sous le pic
+        elif _var_pic >= 2.5:
+            # En profit: trail a 1.5% sous le pic (laisse respirer vers le TP)
             _sl_price = _pic * (1 - 1.5 / 100.0)
             _sl_regle = "suiveur"
-        elif _var_pic >= 0.5:
-            # Debut de profit: trail large a 2.5% sous le pic
-            _sl_price = _pic * (1 - 2.5 / 100.0)
-            _sl_regle = "suiveur-large"
         else:
-            # SL fixe au debut (laisse respirer)
+            # SL fixe au debut (laisse respirer vers le TP de +3%)
             _sl_price = prix_entree * (1 - _sl / 100.0)
         # TP DYNAMIQUE PROGRESSIF: quand le prix atteint le TP, on le monte de plus en plus
         # Le trade court tant que la tendance haussiere continue
