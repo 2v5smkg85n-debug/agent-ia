@@ -969,8 +969,11 @@ def ouvrir_position(pf, signal, prix_actuel):
         montant = montant * 0.5
         print(f"  [POIDS STRAT SIZE] stratégie faible (poids {_poids_strat:.2f}) -> x0.5 ({montant:.0f}EUR)")
     # Clamp de securite: un plugin bugue ne peut pas depasser le liquide ni aller negatif
-    # PLANCHER MINIMUM 80EUR applique APRES tous les filtres (regime, sentiment, plugins)
-    montant = max(80, min(montant, pf["liquidites"]))
+    # PLANCHER MINIMUM 50% des liquidites (capital concentre) applique APRES tous les filtres
+    # Sauf si circuit breaker (montant=0) ou liquidites insuffisantes
+    if montant > 0 and pf["liquidites"] >= 80:
+        _plancher = min(pf["liquidites"] * RISK_PAR_TRADE, pf["liquidites"])
+        montant = max(_plancher, min(montant, pf["liquidites"]))
     if pf["liquidites"] < 80:
         return False
     frais = montant * FRAIS_TRANSACTION
