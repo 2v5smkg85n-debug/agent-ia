@@ -134,7 +134,7 @@ MARCHES_PAPER = {
     # Meme coins (gains énormes possibles)
     "PEPEUSDT": {"nom": "Pepe", "marche": "crypto", "source": "binance"},
     "WIFUSDT": {"nom": "dogwifhat", "marche": "crypto", "source": "binance"},
-    "FLOKIUSDT": {"nom": "Floki", "marche": "crypto", "source": "binance"},
+    # FLOKIUSDT retire (prix = 0.0000 sur Revolut X, impossible a trader)
     # DeFi tokens
     "CRVUSDT": {"nom": "Curve DAO", "marche": "crypto", "source": "binance"},
     "COMPUSDT": {"nom": "Compound", "marche": "crypto", "source": "binance"},
