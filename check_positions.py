@@ -14,4 +14,5 @@ for p in positions:
     sym = p.get("symbole", "?")
     print(f"  {sym}: {montant:.2f}EUR | qte {qte:.6f} @ {prix:.4f}")
 print()
-print(f"Capital total: {pf.get('liquidites', 0) + sum(p.get('montant_eur', 0) for p in positions):.2f}EUR")
+capital = pf.get('liquidites', 0) + sum(p.get('montant_eur', 0) for p in positions)
+print(f"Capital total: {capital:.2f}EUR")
