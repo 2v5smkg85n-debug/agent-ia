@@ -44,10 +44,10 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 # ============================================
 CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
-MAX_POSITIONS = 12             # 12 positions max (plus d'opportunites simultanees)
+MAX_POSITIONS = 3              # 3 positions max (capital concentre pour gros gains)
 FENETRE_CORRELATION_MIN = 30    # anti-double-exposition: bloque 2e entree sur actif ouvert <30min
 MAX_POS_PAR_ACTIF = 1          # 1 position par actif (pas de pyramiding risqué)
-RISK_PAR_TRADE = 0.025         # 2.5% du capital par trade (positions reduites, gestion risque)
+RISK_PAR_TRADE = 0.50         # 50% du capital par trade (500 EUR) [concentre]
 INTERVALLE_BOUCLE = 300        # 5 min (plus reactif pour plus de trades)
 # RISK MANAGEMENT AVANCE
 MAX_TRADES_PAR_JOUR = 50       # limite: max 50 trades par jour (test accelere)
@@ -801,17 +801,18 @@ def ouvrir_position(pf, signal, prix_actuel):
     except Exception as e:
         print(f"  [SIZING erreur {e}] fallback 20% fixe")
         montant = pf["liquidites"] * RISK_PAR_TRADE
-    # Plafonne au liquide dispo + plancher minimum 55EUR (15 positions x 60EUR)
-    montant = max(80, min(montant, pf["liquidites"]))
-    # KELLY OPTIMISATION: ajuste la taille selon le win rate et ratio gain/perte
-    try:
-        import kelly_optimise as kelly
-        montant_kelly = kelly.ajuster_taille_position(montant, pf["liquidites"])
-        if montant_kelly < montant:
-            print(f"  [KELLY] Taille ajustee: {montant:.0f} -> {montant_kelly:.0f} EUR (Kelly conservateur)")
-            montant = montant_kelly
-    except Exception:
-        pass
+    # Plafonne au liquide dispo + plancher minimum 50% des liquidites (capital concentre)
+    montant = max(min(pf["liquidites"] * RISK_PAR_TRADE, pf["liquidites"]), min(montant, pf["liquidites"]))
+    # Pas de reduction Kelly: on garde le capital concentre
+    # KELLY OPTIMISATION: desactive (on garde le capital concentre a 50%)
+    # try:
+    #     import kelly_optimise as kelly
+    #     montant_kelly = kelly.ajuster_taille_position(montant, pf["liquidites"])
+    #     if montant_kelly < montant:
+    #         print(f"  [KELLY] Taille ajustee: {montant:.0f} -> {montant_kelly:.0f} EUR (Kelly conservateur)")
+    #         montant = montant_kelly
+    # except Exception:
+    #     pass
     # FLASH-CRASH: reduire la taille si niveau de protection eleve
     try:
         import flash_crash as fc
