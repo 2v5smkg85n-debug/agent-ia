@@ -10,19 +10,19 @@ trades = pf.get("trades_fermes", [])
 
 # Stats bot
 total_trades = len(trades)
-gagnants = [t for t in trades if t.get("pnl", 0) > 0]
-perdants = [t for t in trades if t.get("pnl", 0) <= 0]
+gagnants = [t for t in trades if t.get("gain_eur", 0) > 0]
+perdants = [t for t in trades if t.get("gain_eur", 0) <= 0]
 win_rate = len(gagnants) / total_trades * 100 if total_trades > 0 else 0
-pnl_total = sum(t.get("pnl", 0) for t in trades)
+pnl_total = sum(t.get("gain_eur", 0) for t in trades)
 frais = pf.get("total_fais", pf.get("total_frais", 0))
 pct_total = (capital_actuel - capital_initial) / capital_initial * 100
 
 # PnL par jour
 par_jour = {}
 for t in trades:
-    jour = t.get("date_fermeture", t.get("date_sortie", ""))[:10]
+    jour = t.get("date_fermeture", "")[:10]
     if jour:
-        par_jour[jour] = par_jour.get(jour, 0) + t.get("pnl", 0)
+        par_jour[jour] = par_jour.get(jour, 0) + t.get("gain_eur", 0)
 
 jours_actifs = len(par_jour)
 if jours_actifs > 0:
@@ -41,8 +41,8 @@ else:
     pire_jour = 0
 
 # Gain moyen par trade
-gain_moyen = sum(t.get("pnl", 0) for t in gagnants) / len(gagnants) if gagnants else 0
-perte_moyenne = sum(t.get("pnl", 0) for t in perdants) / len(perdants) if perdants else 0
+gain_moyen = sum(t.get("gain_eur", 0) for t in gagnants) / len(gagnants) if gagnants else 0
+perte_moyenne = sum(t.get("gain_eur", 0) for t in perdants) / len(perdants) if perdants else 0
 
 print("=" * 55)
 print("  COMPARAISON: BOT vs KASPER TRADING")
