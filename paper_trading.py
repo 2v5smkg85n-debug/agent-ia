@@ -1736,14 +1736,16 @@ def boucle():
         finally:
             signal.alarm(0)
         prochaine = datetime.now() + timedelta(seconds=INTERVALLE_BOUCLE)
-        print(f"\nProchaine verification: {prochaine.strftime('%H:%M')} (crypto SL check a +{INTERVALLE_BOUCLE//2//60}min)")
-        _demi = INTERVALLE_BOUCLE // 2
-        time.sleep(_demi)
-        try:
-            _check_crypto_sl_rapide()
-        except Exception as _e:
-            print(f"[crypto-check] erreur: {_e}")
-        time.sleep(_demi)
+        print(f"\nProchaine verification: {prochaine.strftime('%H:%M')} (crypto SL check toutes les 60s)")
+        # SL check toutes les 60s au lieu de 2.5 min (evite SL-RETARD)
+        _nb_checks = INTERVALLE_BOUCLE // 60
+        _check_interval = 60
+        for _ in range(_nb_checks):
+            time.sleep(_check_interval)
+            try:
+                _check_crypto_sl_rapide()
+            except Exception as _e:
+                print(f"[crypto-check] erreur: {_e}")
     signal.signal(signal.SIGALRM, ancien_handler)
 
 def acheter_manuel(symbole_requete):
