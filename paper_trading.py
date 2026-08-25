@@ -47,7 +47,7 @@ FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 
 MAX_POSITIONS = 3              # 3 positions max (capital concentre pour gros gains)
 FENETRE_CORRELATION_MIN = 30    # anti-double-exposition: bloque 2e entree sur actif ouvert <30min
 MAX_POS_PAR_ACTIF = 1          # 1 position par actif (pas de pyramiding risqué)
-RISK_PAR_TRADE = 0.50         # 50% du capital par trade (500 EUR) [concentre]
+RISK_PAR_TRADE = 0.08         # 8% du capital par trade (~80 EUR) [securise]
 INTERVALLE_BOUCLE = 300        # 5 min (plus reactif pour plus de trades)
 # RISK MANAGEMENT AVANCE
 MAX_TRADES_PAR_JOUR = 50       # limite: max 50 trades par jour (test accelere)
@@ -1000,11 +1000,10 @@ def ouvrir_position(pf, signal, prix_actuel):
         except Exception:
             pass
     # Clamp de securite: un plugin bugue ne peut pas depasser le liquide ni aller negatif
-    # PLANCHER MINIMUM: 50% des liquidites pour spread normal, reduit pour spread large
+    # Plancher minimum 8% des liquidites (securise, ~80EUR)
     if montant > 0 and pf["liquidites"] >= 80:
         _plancher = min(pf["liquidites"] * RISK_PAR_TRADE, pf["liquidites"])
-        # Ne pas forcer le plancher si le spread a reduit la position (sinon on perd le benefice du sizing)
-        montant = min(montant, pf["liquidites"])
+        montant = max(_plancher, min(montant, pf["liquidites"]))
     if pf["liquidites"] < 80:
         return False
     frais = montant * FRAIS_TRANSACTION
