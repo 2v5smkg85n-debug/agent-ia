@@ -968,12 +968,43 @@ def ouvrir_position(pf, signal, prix_actuel):
     elif _poids_strat < 0.20:
         montant = montant * 0.5
         print(f"  [POIDS STRAT SIZE] stratégie faible (poids {_poids_strat:.2f}) -> x0.5 ({montant:.0f}EUR)")
+    # SIZING ADAPTATIF SELON LE SPREAD Revolut X
+    # Plus le spread est large, plus la position est reduite (liquidite faible = SL-RETARD)
+    # Le bot apprend: ATOM (spread 200%) = position x0.1, BTC (spread 0.2%) = position x1.0
+    if montant > 0 and signal.get("marche") == "crypto":
+        try:
+            import prix_revolut as pr
+            _spread = pr.get_spread_pct(signal["symbole"])
+            if _spread >= 100:
+                # Spread absurde (>100%) = ne pas trader
+                print(f"  [SPREAD] {signal['symbole']}: spread {_spread:.1f}% -> trade bloque (illiquide)")
+                return False
+            elif _spread >= 50:
+                _facteur = 0.1  # position reduite a 10%
+                print(f"  [SPREAD] {signal['symbole']}: spread {_spread:.1f}% -> position x{_facteur} ({montant*_facteur:.0f}EUR)")
+                montant = montant * _facteur
+            elif _spread >= 20:
+                _facteur = 0.25  # position reduite a 25%
+                print(f"  [SPREAD] {signal['symbole']}: spread {_spread:.1f}% -> position x{_facteur} ({montant*_facteur:.0f}EUR)")
+                montant = montant * _facteur
+            elif _spread >= 10:
+                _facteur = 0.5  # position reduite a 50%
+                print(f"  [SPREAD] {signal['symbole']}: spread {_spread:.1f}% -> position x{_facteur} ({montant*_facteur:.0f}EUR)")
+                montant = montant * _facteur
+            elif _spread >= 5:
+                _facteur = 0.75  # position reduite a 75%
+                print(f"  [SPREAD] {signal['symbole']}: spread {_spread:.1f}% -> position x{_facteur} ({montant*_facteur:.0f}EUR)")
+                montant = montant * _facteur
+            else:
+                print(f"  [SPREAD] {signal['symbole']}: spread {_spread:.1f}% -> position pleine ({montant:.0f}EUR)")
+        except Exception:
+            pass
     # Clamp de securite: un plugin bugue ne peut pas depasser le liquide ni aller negatif
-    # PLANCHER MINIMUM 50% des liquidites (capital concentre) applique APRES tous les filtres
-    # Sauf si circuit breaker (montant=0) ou liquidites insuffisantes
+    # PLANCHER MINIMUM: 50% des liquidites pour spread normal, reduit pour spread large
     if montant > 0 and pf["liquidites"] >= 80:
         _plancher = min(pf["liquidites"] * RISK_PAR_TRADE, pf["liquidites"])
-        montant = max(_plancher, min(montant, pf["liquidites"]))
+        # Ne pas forcer le plancher si le spread a reduit la position (sinon on perd le benefice du sizing)
+        montant = min(montant, pf["liquidites"])
     if pf["liquidites"] < 80:
         return False
     frais = montant * FRAIS_TRANSACTION

@@ -60,6 +60,34 @@ SYMBOLES_REVOLUT = {
 SYMBOLES_BOT = {v: k for k, v in SYMBOLES_REVOLUT.items()}
 
 
+def get_spread_pct(symbole):
+    """Retourne le spread (%) entre bid et ask sur Revolut X.
+    0 si erreur ou symbole indisponible."""
+    symbole_court = symbole.replace("USDT", "").replace("EUR", "").replace("USD", "").upper()
+    if symbole_court in BLACKLIST:
+        return 100.0  # trop risque
+    try:
+        url = "https://revx.revolut.com/api/2.0/public/order-book/" + symbole_court + "-EUR"
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "application/json"
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+        bids = data.get("data", {}).get("bids", [])
+        asks = data.get("data", {}).get("asks", [])
+        if not bids or not asks:
+            return 100.0
+        best_bid = float(bids[0]["price"])
+        best_ask = float(asks[0]["price"])
+        if best_bid <= 0:
+            return 100.0
+        spread = abs(best_ask - best_bid) / best_bid * 100
+        return spread
+    except Exception:
+        return 100.0
+
+
 def get_prix_revolut(symbole, force_refresh=False):
     """
     Recupere le mid-price d'un symbole depuis Revolut X.
