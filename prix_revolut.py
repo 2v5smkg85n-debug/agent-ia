@@ -17,7 +17,7 @@ CACHE_TTL = 300  # 5 minutes (matche l'intervalle du bot)
 _cache = {}
 
 # Symboles qui n'existent PAS sur Revolut X (evite les erreurs 400)
-BLACKLIST = {"SUIA", "COMP", "IMX", "AXS", "CAKE", "SAND"}
+BLACKLIST = {"SUIA", "COMP", "IMX", "AXS", "CAKE", "SAND", "FLOKI", "PEPE", "MATIC"}
 
 # Mapping symbole bot -> symbole Revolut X
 SYMBOLES_REVOLUT = {

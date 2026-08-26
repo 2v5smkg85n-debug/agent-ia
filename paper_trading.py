@@ -556,6 +556,10 @@ def _entree_bloquee_weekend(signal, maintenant=None):
     return _jour == 4 or _jour >= 5
 
 def ouvrir_position(pf, signal, prix_actuel):
+    # PROTECTION: bloquer si prix invalide (0 ou None)
+    if not prix_actuel or prix_actuel <= 0:
+        print(f"  [BLOCAGE] Prix invalide ({prix_actuel}) pour {signal.get('symbole','?')} - trade bloque")
+        return False
     # ANTI FLASH-CRASH: bloquer les nouveaux trades si circuit breaker actif
     try:
         import flash_crash as fc
