@@ -132,9 +132,9 @@ MARCHES_PAPER = {
     "TIAUSDT": {"nom": "Celestia", "marche": "crypto", "source": "binance"},
     "SUIAUSDT": {"nom": "Sui Alpha", "marche": "crypto", "source": "binance"},
     # Meme coins (gains énormes possibles)
-    "PEPEUSDT": {"nom": "Pepe", "marche": "crypto", "source": "binance"},
+    # PEPEUSDT retire (prix trop petit 0.000003€, spread 16% sur Revolut X)
+    # FLOKIUSDT retire (prix = 0.0000 sur Revolut X)
     "WIFUSDT": {"nom": "dogwifhat", "marche": "crypto", "source": "binance"},
-    # FLOKIUSDT retire (prix = 0.0000 sur Revolut X, impossible a trader)
     # DeFi tokens
     "CRVUSDT": {"nom": "Curve DAO", "marche": "crypto", "source": "binance"},
     "COMPUSDT": {"nom": "Compound", "marche": "crypto", "source": "binance"},
@@ -147,7 +147,7 @@ MARCHES_PAPER = {
     "FILUSDT": {"nom": "Filecoin", "marche": "crypto", "source": "binance"},
     "ATOMUSDT": {"nom": "Cosmos", "marche": "crypto", "source": "binance"},
     "DOTUSDT": {"nom": "Polkadot", "marche": "crypto", "source": "binance"},
-    "MATICUSDT": {"nom": "Polygon", "marche": "crypto", "source": "binance"},
+    # MATICUSDT retire (HTTP 400 sur Revolut X, renomme POL sur Revolut)
     # CRYPTO UNIQUEMENT — actions/forex/matieres/indices desactives
 }
 

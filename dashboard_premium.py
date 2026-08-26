@@ -545,8 +545,8 @@ def build_premium_page(d):
     if fermes:
         for t in fermes[-10:]:
             sym = t.get("symbole", "?")
-            pnl = t.get("pnl", 0)
-            raison = t.get("raison_fermeture", "?")
+            pnl = t.get("gain_eur", t.get("pnl", 0))
+            raison = t.get("raison", t.get("raison_fermeture", "?"))
             date_f = t.get("date_fermeture", "?")
             color = "#4ade80" if pnl >= 0 else "#f87171"
             trades_html += f"<tr><td>{esc(sym)}</td><td style='color:{color}'>{pnl:+.2f}€</td><td>{esc(raison)}</td><td>{esc(date_f)}</td></tr>"
