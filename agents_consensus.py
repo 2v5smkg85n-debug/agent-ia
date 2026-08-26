@@ -48,17 +48,41 @@ def _cache_key(signaux, prix):
 
 
 def _call_gemini(prompt):
-    """Appel Gemini avec rate limiting."""
-    try:
-        import agent
-        _rate_limit()
-        resp = agent.gemini(prompt)
-        if resp.startswith("[Erreur"):
-            print(f"  [AGENTS] Gemini: {resp[:100]}")
-        return resp
-    except Exception as e:
-        print(f"  [AGENTS] Exception Gemini: {e}")
-        return f"[Erreur Gemini: {e}]"
+    """Appel Gemini direct avec fallback de modèle."""
+    import os, requests
+    key = os.getenv("GEMINI_API_KEY", "")
+    if not key:
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+            key = os.getenv("GEMINI_API_KEY", "")
+        except Exception:
+            pass
+    if not key:
+        print("  [AGENTS] Pas de clé GEMINI_API_KEY")
+        return "[Erreur: pas de clé]"
+    
+    _rate_limit()
+    # Essaye plusieurs modèles (certains peuvent être dépréciés)
+    modeles = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest", "gemini-1.5-flash"]
+    for modele in modeles:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={key}"
+            r = requests.post(url, json={"contents":[{"parts":[{"text":prompt}]}]}, timeout=90)
+            if r.status_code == 200:
+                return r.json()["candidates"][0]["content"]["parts"][0]["text"]
+            elif r.status_code == 404:
+                continue  # modèle inexistant, essaye le suivant
+            elif r.status_code == 429:
+                print(f"  [AGENTS] Gemini 429 (rate limit)")
+                return "[Erreur: 429]"
+            else:
+                print(f"  [AGENTS] Gemini {modele}: HTTP {r.status_code} — {r.text[:150]}")
+                continue
+        except Exception as e:
+            print(f"  [AGENTS] Gemini {modele}: {e}")
+            continue
+    return "[Erreur: tous les modèles ont échoué]"
 
 
 def _call_perplexity(prompt):
