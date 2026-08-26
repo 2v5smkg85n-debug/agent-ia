@@ -119,7 +119,7 @@ def _build_agent_prompt(signaux, prix, fg_value, fg_class):
 
     signaux_str = "\n".join(signaux_texte) if signaux_texte else "Aucun signal technique"
 
-    return f"""Tu es un comité de trading de 4 agents IA spécialisés. Analyse les signaux suivants et donne ton verdict.
+    return f"""Tu es un comité de trading de 8 agents IA spécialisés. Analyse les signaux suivants et donne ton verdict.
 
 CONTEXTE MARCHÉ:
 - Fear & Greed Index: {fg_value}/100 ({fg_class})
@@ -134,9 +134,13 @@ SYMBOLE: [symbole]
 TECHNIQUE: [analyse en 1 phrase: momentum, RSI, MACD, Bollinger]
 MACRO: [contexte macro en 1 phrase: btc trend, secteur, news]
 SENTIMENT: [analyse sentiment en 1 phrase: F&G={fg_value}, peur/avidité]
+RISQUE: [évaluation du risk/reward en 1 phrase: volatilité, drawdown potentiel, taille de position conseillée]
+CONTRARIEN: [argument baissier en 1 phrase: divergence, fake breakout, trap potentiel]
+MOMENTUM: [force de la tendance en 1 phrase: ADX, volume, breakout ou exhaustion]
+LIQUIDITÉ: [analyse spread et liquidité en 1 phrase: volume 24h, spread bid/ask, slippage estimé]
 STRATÈGE: [verdict final: ACHAT_FORT / ACHAT / NEUTRE / ÉVITER]
 SCORE: [nombre de -5 à +5]
-RAISON: [1 phrase qui justifie le score]
+RAISON: [1 phrase qui justifie le score en tenant compte des 8 agents]
 
 Termine par:
 CONSENSUS_GLOBAL: [nombre de -10 à +10]
@@ -229,6 +233,14 @@ def _parse_response(response):
             entry["macro"] = ligne.split(":", 1)[1].strip() if ":" in ligne else ""
         elif ligne.startswith("SENTIMENT:"):
             entry["sentiment"] = ligne.split(":", 1)[1].strip() if ":" in ligne else ""
+        elif ligne.startswith("RISQUE:"):
+            entry["risque"] = ligne.split(":", 1)[1].strip() if ":" in ligne else ""
+        elif ligne.startswith("CONTRARIEN:"):
+            entry["contrarien"] = ligne.split(":", 1)[1].strip() if ":" in ligne else ""
+        elif ligne.startswith("MOMENTUM:"):
+            entry["momentum"] = ligne.split(":", 1)[1].strip() if ":" in ligne else ""
+        elif ligne.startswith("LIQUIDITÉ:") or ligne.startswith("LIQUIDITE:"):
+            entry["liquidite"] = ligne.split(":", 1)[1].strip() if ":" in ligne else ""
         elif ligne.startswith("CONSENSUS_GLOBAL:"):
             try:
                 val = ligne.replace("CONSENSUS_GLOBAL:", "").strip()
