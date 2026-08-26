@@ -16,7 +16,9 @@ NB_ARCHIVES = 3  # garde paper_trading.log.1, .2, .3
 
 
 def rotation(force=False):
-    """Effectue la rotation si le log dépasse TAILLE_MAX."""
+    """Effectue la rotation si le log dépasse TAILLE_MAX.
+    Utilise copy+truncate pour préserver le file descriptor de systemd.
+    """
     if not os.path.exists(LOG_PRINCIPAL):
         return False
     taille = os.path.getsize(LOG_PRINCIPAL)
@@ -28,11 +30,14 @@ def rotation(force=False):
         dst = f"{LOG_PRINCIPAL}.{i + 1}" if i < NB_ARCHIVES else None
         if os.path.exists(src):
             if dst:
-                os.rename(src, dst)
+                os.replace(src, dst)
             else:
                 os.remove(src)
-    # Archive le log courant
-    os.rename(LOG_PRINCIPAL, f"{LOG_PRINCIPAL}.1")
+    # Copie le log courant vers .1 puis tronque l'original (garde le fd systemd)
+    import shutil
+    shutil.copy2(LOG_PRINCIPAL, f"{LOG_PRINCIPAL}.1")
+    with open(LOG_PRINCIPAL, "w") as f:
+        f.truncate(0)
     # Nettoie les vieux logs (> NB_ARCHIVES)
     for old in glob.glob(f"{LOG_PRINCIPAL}.*"):
         try:
@@ -41,7 +46,7 @@ def rotation(force=False):
                 os.remove(old)
         except (ValueError, OSError):
             pass
-    print(f"[LOG-ROTATION] Log roté ({taille // 1024} KB -> archive)")
+    print(f"[LOG-ROTATION] Log roté ({taille // 1024} KB -> copie+truncate)")
     return True
 
 
