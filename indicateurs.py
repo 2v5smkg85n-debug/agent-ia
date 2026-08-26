@@ -443,6 +443,22 @@ def _strat_params():
     except Exception:
         return {}
 
+def detecter_support_resistance(symbole, intervalle="1h", lookback=50):
+    """Détecte les niveaux de support et résistance.
+    Retourne (support, resistance) ou (None, None).
+    """
+    bougies = historique_ohlcv(symbole, intervalle, lookback)
+    if not bougies or len(bougies) < 10:
+        return None, None
+    hauts = [b["haut"] for b in bougies]
+    bas = [b["bas"] for b in bougies]
+    prix_actuel = bougies[-1]["cloture"]
+    # Trouve les plus bas (supports) et plus hauts (résistances) récents
+    support = min(bas[-20:]) if len(bas) >= 20 else min(bas)
+    resistance = max(hauts[-20:]) if len(hauts) >= 20 else max(hauts)
+    return support, resistance
+
+
 def analyser_actif(symbole, intervalle="1h"):
     """Analyse complete d'un actif avec tous les indicateurs."""
     bougies = historique_ohlcv(symbole, intervalle, 200)

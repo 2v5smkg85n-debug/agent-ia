@@ -57,15 +57,19 @@ CIRCUIT_BREAKER_CONSECUTIF = 3 # pause apres 3 pertes consecutives (plus de room
 DRAWDOWN_REDUCTION_SEUIL = 0.95 # si capital < 95% du initial, reduit positions de 50%
 COMPOUND_AUTOMATIQUE = True
 HEURES_FAIBLE_LIQUIDITE = [(2, 6)] # pas de trades entre 2h-6h UTC
+# DIVERSIFICATION TEMPORELLE: boost le score pendant les heures a fort volume
+# Ouverture Europe (8h-11h UTC) et ouverture US (13h-17h UTC) = plus de liquidité
+HEURES_FORT_VOLUME = [(8, 11), (13, 17)]  # UTC
+HEURES_FORT_BOOST = 1  # +1 au score pendant ces heures
 # Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
-TAKE_PROFIT_PCT = 4.0          # +4% (bigger gains to overcome fees)
+TAKE_PROFIT_PCT = 3.5          # +3.5% (compromis: plus de gains que 3% sans trop attendre)
 STOP_LOSS_PCT = 1.0            # -1.0% ( coupe vite)
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
 # est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
 # Idee utilisateur + valide par backtest elargi (9 marches, 30 trades, plateau a tp_ext=4).
 EXTEND_CRYPTOS = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "LDOUSDT", "AAVEUSDT", "UNIUSDT", "PENDLEUSDT", "ARBUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "OPUSDT", "INJUSDT", "NEARUSDT"}
 EXTEND_SEUIL = 0.5        # active l'extension a partir de +0.5% de gain
-EXTEND_TP_PCT = 5.0       # TP monte a 5% une fois en profit
+EXTEND_TP_PCT = 4.0       # TP monte a 4% une fois en profit (avant 5% trop greedy)
 EXTEND_DUREE_MAX = 480    # cap duree des positions extended (8h, vs 90min normal)
 SORTIE_DUREE_MIN = 720          # ferme apres 12h si en gain (laisse le TP dynamique travailler)
 STALE_DUREE_MAX = 120           # position stale apres 2h (libere le capital plus vite)
@@ -78,9 +82,17 @@ DUREE_GAGNANT_MAX = 360         # gagnant protégé (breakeven armé): respire j
 DUREE_BONUS_STRATEGIE = 60    # stratégie prouvée (live_n>=3, wr>=60%, pnl>0): +1h de respiration
 BREAKEVEN_SEUIL = 2.0      # +2.0% -> SL monte au breakeven (laisse respirer)
 TRAIL_ACTIF = 4.0          # +4.0% -> trailing stop (apres un vrai move)
-TRAIL_PCT = 2.0            # trail 2.0% sous le pic (evite le bruit crypto)
+TRAIL_PCT = 1.5            # trail 1.5% sous le pic (compromis bruit/protection)
 PARTIAL_TP_SEUIL = 2.5     # +2.5% -> encaisse 50% (pas trop tot)
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
+# FERMETURE INTELLIGENTE: ferme les positions perdantes qui stagnent
+STAGNATION_PERTE_SEUIL = -0.7   # si position a -0.7% ou pire (avant -0.5% trop agressif)
+STAGNATION_PERTE_DUREE = 60     # pendant plus de 60 min -> ferme
+# TP DYNAMIQUE ATR: adapte le TP selon la volatilité
+ATR_LOOKBACK = 14               # périodes pour le calcul ATR
+ATR_TP_MULT = 2.0               # TP = prix_entree + ATR * mult
+ATR_TP_MIN = 3.0                # TP minimum 3%
+ATR_TP_MAX = 8.0                # TP maximum 8%
 
 # ============================================
 # MODE SCALPING (SCALPING=1): boucle 5 min, TP 3%, SL 1%, timeframe 1h
@@ -782,6 +794,31 @@ def ouvrir_position(pf, signal, prix_actuel):
                 return False
         except Exception:
             pass
+    # FILTRE VOLUME: verifie que le volume confirme le signal d'achat
+    try:
+        from indicateurs import historique_ohlcv, detecter_support_resistance
+        # Filtre volume: le volume actuel doit etre >= 70% de la moyenne
+        _vol_bougies = historique_ohlcv(signal["symbole"], "1h", 20)
+        if _vol_bougies and len(_vol_bougies) >= 10:
+            _vols = [b.get("volume", 0) for b in _vol_bougies[:-1]]
+            _vol_actuel = _vol_bougies[-1].get("volume", 0)
+            _vol_moyen = sum(_vols) / len(_vols) if _vols else 0
+            if _vol_moyen > 0 and _vol_actuel < _vol_moyen * 0.7:
+                print(f"  [VOLUME] {signal.get('nom',signal['symbole'])}: volume faible ({_vol_actuel:.0f} vs moy {_vol_moyen:.0f}) -> SKIP")
+                return False
+        # Filtre support/resistance: n'achete pas juste sous une resistance
+        _sup, _res = detecter_support_resistance(signal["symbole"], "1h")
+        if _res and prix_actuel > 0:
+            _dist_res = ((_res - prix_actuel) / prix_actuel) * 100
+            if _dist_res > 0 and _dist_res < 0.5:
+                print(f"  [S/R] {signal.get('nom',signal['symbole'])}: prix trop proche resistance ({_dist_res:.1f}%) -> SKIP")
+                return False
+            _dist_sup = ((prix_actuel - _sup) / prix_actuel) * 100 if _sup and _sup < prix_actuel else 999
+            if _dist_sup >= 0 and _dist_sup < 1.0:
+                print(f"  [S/R] {signal.get('nom',signal['symbole'])}: proche support {_dist_sup:.1f}% -> BONUS (+1 score)")
+                signal["score"] = signal.get("score", 0) + 1
+    except Exception:
+        pass
     # FILTRE SCORE MINIMUM: ne trade que les signaux avec score >= 4
     _score_min = signal.get("score", 0)
     if _score_min < 4:
@@ -1140,6 +1177,27 @@ def verifier_sorties(pf, prix_actuels):
                 _tp, _sl = tp_sl_actif(sym)
             except Exception:
                 _tp, _sl = TAKE_PROFIT_PCT, STOP_LOSS_PCT
+        # TP DYNAMIQUE ATR: adapte le TP selon la volatilité de l'actif
+        try:
+            from indicateurs import historique_ohlcv
+            _bougies = historique_ohlcv(sym, "1h", ATR_LOOKBACK + 1)
+            if _bougies and len(_bougies) >= ATR_LOOKBACK:
+                _trs = []
+                for i in range(1, len(_bougies)):
+                    h = _bougies[i]["haut"]
+                    l = _bougies[i]["bas"]
+                    c_prev = _bougies[i-1]["cloture"]
+                    _tr = max(h - l, abs(h - c_prev), abs(l - c_prev))
+                    _trs.append(_tr)
+                if _trs:
+                    _atr = sum(_trs) / len(_trs)
+                    _px = pos.get("prix_entree", prix_actuel)
+                    if _px > 0:
+                        _atr_pct = (_atr / _px) * 100
+                        _tp_atr = _atr_pct * ATR_TP_MULT
+                        _tp = max(ATR_TP_MIN, min(_tp_atr, ATR_TP_MAX))
+        except Exception:
+            pass
         # EXTEND_TP (valide backtest +13.35% crypto): si position crypto en profit
         # >= +0.5%, on monte le TP a 4.0% pour laisser courir les gagnants.
         # SL fixe (pas de breakeven). Forex/or/matieres: TP fixe (non valide).
@@ -1201,6 +1259,15 @@ def verifier_sorties(pf, prix_actuels):
             except Exception:
                 pass
         else:
+            # FERMETURE INTELLIGENTE: position perdante qui stagne
+            try:
+                dt_ouv = datetime.strptime(pos.get("date_ouverture", ""), "%Y-%m-%d %H:%M")
+                age_min = (maintenant - dt_ouv).total_seconds() / 60
+                if variation <= STAGNATION_PERTE_SEUIL and age_min >= STAGNATION_PERTE_DUREE:
+                    positions_a_fermer.append((pos, prix_actuel, f"CUT-STAGNATION ({variation:+.2f}% après {age_min:.0f}min)", variation))
+                    continue
+            except Exception:
+                pass
             # Sortie par duree: UNIQUEMENT si la position est en gain SUFFISANT.
             # Anti-churn : on ne ferme pas a +0.05% car les frais (0.2% AR) =>
             # perte nette. On attend gain >= SEUIL_BENEFICE_MIN (0.30%).
@@ -1612,6 +1679,17 @@ def tick():
             # === CONSENSUS MULTI-IA: DESACTIVE (429 sur Gemini + Perplexity) ===
             # === SENTIMENT SOCIAL: DESACTIVE (Reddit 403, Fear&Greed OK mais pas critique) ===
             # === MULTI-TIMEFRAME: DESACTIVE (429 sur OHLC Revolut X) ===
+            # === DIVERSIFICATION TEMPORELLE: boost le score pendant les heures a fort volume ===
+            _heure_utc_now = datetime.now(timezone.utc).hour
+            _boost_heure = False
+            for _h_deb, _h_fin in HEURES_FORT_VOLUME:
+                if _h_deb <= _heure_utc_now < _h_fin:
+                    _boost_heure = True
+                    break
+            if _boost_heure:
+                for sig in tous_signaux:
+                    sig["score"] = sig.get("score", 0) + HEURES_FORT_BOOST
+                print(f"  [TEMPS] Heure fort volume ({_heure_utc_now}h UTC) -> +{HEURES_FORT_BOOST} score")
             print(f"\n{len(tous_signaux)} signal(s) d'achat detecte(s)")
             # Phase 3: filtre ML - confirme les signaux via le modele predictif
             # Seuls les signaux confirmes par le ML (sur les actifs avec edge) sont gardes
@@ -1790,6 +1868,12 @@ def boucle():
     if not pf:
         print("Portefeuille non initialise. Lance 'python paper_trading.py init' d'abord.")
         return
+    # Rotation automatique des logs au démarrage
+    try:
+        from rotation_logs import rotation
+        rotation()
+    except Exception:
+        pass
     print(f"MODE PAPER TRADING MULTI-MARCHES CONTINU - toutes les {INTERVALLE_BOUCLE//60} min")
     print(f"Watchdog actif: un tick bloque au-dela de {TEMPS_MAX_TICK}s est interrompu.")
     print("Pour arreter: Ctrl+C")
