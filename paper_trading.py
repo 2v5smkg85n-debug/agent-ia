@@ -1546,6 +1546,15 @@ def tick():
                 tous_signaux = signaux_pro
             except Exception as e:
                 print(f"    Trader pro indisponible: {e}")
+            # === MULTI-AGENTS IA: 4 agents débattent et ajustent le score ===
+            try:
+                import agents_consensus as ac
+                signaux_avant_agents = len(tous_signaux)
+                tous_signaux = ac.enrichir_signaux(tous_signaux, prix, pf.get("positions", []))
+                if len(tous_signaux) < signaux_avant_agents:
+                    print(f"  [AGENTS] {signaux_avant_agents - len(tous_signaux)} signal(aux) filtré(s) par le consensus IA")
+            except Exception as e:
+                print(f"    Multi-agents indisponible: {e}")
             # === MASTER TRADERS: consensus des 10 plus grands traders ===
             try:
                 import master_traders as mt
@@ -1628,15 +1637,6 @@ def tick():
             # === CONSENSUS MULTI-IA: DESACTIVE (429 sur Gemini + Perplexity) ===
             # === SENTIMENT SOCIAL: DESACTIVE (Reddit 403, Fear&Greed OK mais pas critique) ===
             # === MULTI-TIMEFRAME: DESACTIVE (429 sur OHLC Revolut X) ===
-            # === MULTI-AGENTS IA: 4 agents débattent et ajustent le score ===
-            try:
-                import agents_consensus as ac
-                signaux_avant_agents = len(tous_signaux)
-                tous_signaux = ac.enrichir_signaux(tous_signaux, prix, pf.get("positions", []))
-                if len(tous_signaux) < signaux_avant_agents:
-                    print(f"  [AGENTS] {signaux_avant_agents - len(tous_signaux)} signal(aux) filtré(s) par le consensus IA")
-            except Exception as e:
-                print(f"    Multi-agents indisponible: {e}")
             print(f"\n{len(tous_signaux)} signal(s) d'achat detecte(s)")
             # Phase 3: filtre ML - confirme les signaux via le modele predictif
             # Seuls les signaux confirmes par le ML (sur les actifs avec edge) sont gardes

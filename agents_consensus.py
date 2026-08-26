@@ -250,7 +250,10 @@ def enrichir_signaux(signaux, prix, positions_ouvertes=None):
     try:
         resultats = analyser_avec_agents(signaux, prix, positions_ouvertes)
         if not resultats:
-            print("  [AGENTS] Consensus indisponible (API) — trend-following seul")
+            if not signaux:
+                print("  [AGENTS] 0 signal à analyser")
+            else:
+                print("  [AGENTS] Consensus indisponible (API) — trend-following seul")
             return signaux
 
         print(f"  [AGENTS] {len(resultats)} analyse(s) multi-agents reçues")
