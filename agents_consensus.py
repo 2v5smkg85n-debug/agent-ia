@@ -52,8 +52,12 @@ def _call_gemini(prompt):
     try:
         import agent
         _rate_limit()
-        return agent.gemini(prompt)
+        resp = agent.gemini(prompt)
+        if resp.startswith("[Erreur"):
+            print(f"  [AGENTS] Gemini: {resp[:100]}")
+        return resp
     except Exception as e:
+        print(f"  [AGENTS] Exception Gemini: {e}")
         return f"[Erreur Gemini: {e}]"
 
 
