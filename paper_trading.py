@@ -45,41 +45,41 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
 MAX_POSITIONS = 5              # 5 positions max (diversification securisee)
-FENETRE_CORRELATION_MIN = 30    # anti-double-exposition: bloque 2e entree sur actif ouvert <30min
+FENETRE_CORRELATION_MIN = 60    # anti-double-exposition: 60min entre entrees meme actif
 MAX_POS_PAR_ACTIF = 1          # 1 position par actif (pas de pyramiding risqué)
 RISK_PAR_TRADE = 0.08         # 8% minimum (~80 EUR) - plancher securite
 RISK_MAX_TRADE = 0.50         # 50% maximum (~500 EUR) - plafond dynamique
 INTERVALLE_BOUCLE = 300        # 5 min (plus reactif pour plus de trades)
 # RISK MANAGEMENT AVANCE
-MAX_TRADES_PAR_JOUR = 50       # limite: max 50 trades par jour
+MAX_TRADES_PAR_JOUR = 25       # limite: 25 trades/jour (anti-churn)
 PERTE_JOUR_MAX_PCT = 2.0      # stop trading si -2% en une journee
 CIRCUIT_BREAKER_CONSECUTIF = 3 # pause apres 3 pertes consecutives (plus de room)
 DRAWDOWN_REDUCTION_SEUIL = 0.95 # si capital < 95% du initial, reduit positions de 50%
 COMPOUND_AUTOMATIQUE = True
 HEURES_FAIBLE_LIQUIDITE = [(2, 6)] # pas de trades entre 2h-6h UTC
 # Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
-TAKE_PROFIT_PCT = 3.0          # +3% (laisse les gagnants courir)
-STOP_LOSS_PCT = 1.0            # -1.0% (reserre pour eviter SL-RETARD)
+TAKE_PROFIT_PCT = 4.0          # +4% (bigger gains to overcome fees)
+STOP_LOSS_PCT = 1.0            # -1.0% ( coupe vite)
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
 # est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
 # Idee utilisateur + valide par backtest elargi (9 marches, 30 trades, plateau a tp_ext=4).
 EXTEND_CRYPTOS = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "LDOUSDT", "AAVEUSDT", "UNIUSDT", "PENDLEUSDT", "ARBUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "OPUSDT", "INJUSDT", "NEARUSDT"}
 EXTEND_SEUIL = 0.5        # active l'extension a partir de +0.5% de gain
-EXTEND_TP_PCT = 4.0       # TP monte (2.0% -> 4.0%) une fois en profit
+EXTEND_TP_PCT = 5.0       # TP monte a 5% une fois en profit
 EXTEND_DUREE_MAX = 480    # cap duree des positions extended (8h, vs 90min normal)
 SORTIE_DUREE_MIN = 720          # ferme apres 12h si en gain (laisse le TP dynamique travailler)
-STALE_DUREE_MAX = 180           # position stale apres 3h (libere le capital plus vite)
+STALE_DUREE_MAX = 120           # position stale apres 2h (libere le capital plus vite)
 # Seuil de gain minimum pour fermer par duree : doit couvrir les frais (0.2% AR) + une marge.
 # Fermer a +0.05% = perte nette (frais 0.2%). Donc on n'accepte que gain >= 0.30%.
-SEUIL_BENEFICE_MIN = 0.50       # 0.50% : couvre les 0.2% de frais + 0.3% de marge nette
+SEUIL_BENEFICE_MIN = 0.80       # 0.80% : couvre les 0.2% de frais + 0.6% de marge nette
 DUREE_PETIT_GAIN = 180        # gain 0.30-0.45%: respire 2h (était 90min) pour viser partial TP
 DUREE_GAIN_PROGRESS = 240    # gain 0.45-0.60%: respire 3h
 DUREE_GAGNANT_MAX = 360         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
 DUREE_BONUS_STRATEGIE = 60    # stratégie prouvée (live_n>=3, wr>=60%, pnl>0): +1h de respiration
-BREAKEVEN_SEUIL = 1.5      # +1.5% -> SL monte au breakeven (protege les gains plus tot)
-TRAIL_ACTIF = 3.0          # +3.0% -> trailing stop derrière le pic
-TRAIL_PCT = 1.0            # trail 1.0% sous le pic (lock profit, laisse respirer)
-PARTIAL_TP_SEUIL = 1.5     # +1.5% -> encaisse une fraction du gain, garde le reste
+BREAKEVEN_SEUIL = 2.0      # +2.0% -> SL monte au breakeven (laisse respirer)
+TRAIL_ACTIF = 4.0          # +4.0% -> trailing stop (apres un vrai move)
+TRAIL_PCT = 2.0            # trail 2.0% sous le pic (evite le bruit crypto)
+PARTIAL_TP_SEUIL = 2.5     # +2.5% -> encaisse 50% (pas trop tot)
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 
 # ============================================
@@ -782,6 +782,11 @@ def ouvrir_position(pf, signal, prix_actuel):
                 return False
         except Exception:
             pass
+    # FILTRE SCORE MINIMUM: ne trade que les signaux avec score >= 4
+    _score_min = signal.get("score", 0)
+    if _score_min < 4:
+        print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> score {_score_min} < 4 (trop faible)")
+        return False
     # SIZING DYNAMIQUE BASE SUR LE SENTIMENT ET LE SCORE
     # Le bot ajuste la taille de position selon le sentiment du marche:
     # - Score eleve + sentiment haussier = grosse position (jusqu'a 50%)
@@ -977,37 +982,7 @@ def ouvrir_position(pf, signal, prix_actuel):
     if nb_conf >= 2:
         montant = montant * min(nb_conf, 3)  # 2 strats=x2, 3 strats=x3, 4+=x3
         print(f"  [CONFLUENCE] {signal.get('nom',signal['symbole'])}: {nb_conf} strategies -> x{min(nb_conf,3)} sizing ({montant:.0f}EUR)")
-    # BOOST STRATEGIE GAGNANTE: EMA Crossover = 50% WR live, +3.36EUR -> position 2x
-    strat_name = signal.get("strategie", "")
-    if strat_name == "EMA Crossover":
-        montant = montant * 2.0
-        print(f"  [BOOST] EMA Crossover: strategie gagnante -> x2 ({montant:.0f}EUR)")
-    # CONVICTION SIZING: score plus eleve = position plus grosse
-    score = signal.get("score", 2)
-    if score >= 4:
-        montant = montant * 1.5
-        print(f"  [CONVICTION] Score {score} -> x1.5 ({montant:.0f}EUR)")
-    # DETECTION REGIME: bull/bear/sideways
-    try:
-        sma50 = prix.get("sma50", None)
-        if sma50 and prix_actuel:
-            if prix_actuel > sma50 * 1.02:
-                montant = montant * 1.2  # bull market: +20%
-            elif prix_actuel < sma50 * 0.98:
-                montant = montant * 0.5  # bear market: -50%
-    except:
-        pass
-    # PYRAMIDING: si position deja ouverte ET en profit, on ajoute (acheter plus quand ca monte)
-    _pos_existante = None
-    for p in pf.get("positions", []):
-        if p["symbole"] == signal["symbole"]:
-            _pos_existante = p
-            break
-    if _pos_existante and prix_actuel > _pos_existante["prix_entree"]:
-        _var = (prix_actuel - _pos_existante["prix_entree"]) / _pos_existante["prix_entree"] * 100
-        if _var >= 1.0:  # position en profit de +1% minimum
-            montant = montant * 1.5  # pyramiding: 50% plus
-            print(f"  [PYRAMIDING] {signal.get('nom',signal['symbole'])}: ajout a position +{_var:.1f}% -> x1.5 ({montant:.0f}EUR)")
+    # (Sizing deja calcule ci-dessus via DYN-SIZE + filtres)
     # POIDS STRATEGIES (anti-surapprentissage): ajuste la taille selon le poids
     # de la stratégie. Une stratégie forte (poids > 0.40) obtient +50% de taille,
     # une stratégie faible (poids < 0.20) obtient -50% de taille.
