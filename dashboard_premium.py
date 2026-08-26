@@ -170,8 +170,8 @@ def build_positions_chart(d):
     prix_tr = get_prix_batch(syms) if syms else {}
     ohlc_data = get_ohlc_batch(syms) if syms else {}
     
-    TAKE_PROFIT_PCT = 2.0
-    STOP_LOSS_PCT = 1.5
+    TAKE_PROFIT_PCT = 3.0
+    STOP_LOSS_PCT = 1.0
     EXTEND_TP_PCT = 4.0
     
     cards_html = ""
@@ -379,7 +379,7 @@ function updateLive() {{
         }}
         if (elVar) elVar.textContent = '24h: ' + (p.var24h >= 0 ? '+' : '') + p.var24h.toFixed(1) + '%';
         totalPnl += p.pnl;
-        totalVal += (p.montant || 0) + (p.pnl || 0);
+        totalVal += (p.montant_eur || p.montant || 0) + (p.pnl || 0);
       }});
       var liq = data.liquidites || 0;
       var elCap = document.getElementById('capital-val');
@@ -660,7 +660,7 @@ th{{color:var(--muted);font-size:11px;text-transform:uppercase}}
 
 <div class="footer">
   <a href="/maitres?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🏆 Maitres</a> · <a href="/learning?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🧠 Apprentissage</a> · <a href="/positions?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📊 Positions Live</a> · <a href="/rapport?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📄 Rapport</a>
-  <br>Agent IA Trading v2 · Auto-refresh 30s · Donnees CoinGecko temps reel
+  <br>Agent IA Trading v2 · Auto-refresh 30s · Donnees Revolut X temps reel
 </div>
 </body></html>"""
 
@@ -1098,13 +1098,14 @@ class Handler(BaseHTTPRequestHandler):
                     valeur = prix_actuel * quantite if prix_disponible else montant
                     pnl_eur = (valeur - montant) if prix_disponible else 0
                     pnl_pct = (pnl_eur / montant * 100) if montant > 0 and prix_disponible else 0
-                    tp = prix_entree * 1.02
-                    sl = prix_entree * 0.985
+                    tp = prix_entree * 1.03
+                    sl = prix_entree * 0.99
                     result["positions"].append({
                         "sym": sym, "prix": prix_actuel, "pnl": round(pnl_eur, 2),
                         "pnl_pct": round(pnl_pct, 1), "var24h": var_24h,
                         "tp": tp, "sl": sl, "entry": prix_entree,
-                        "tp_pct": 2.0, "sl_pct": 1.5,
+                        "tp_pct": 3.0, "sl_pct": 1.0,
+                        "montant_eur": round(montant, 2),
                     })
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')

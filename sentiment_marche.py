@@ -18,14 +18,23 @@ import requests
 
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 FNG_URL = "https://api.alternative.me/fng/"
+_cache_fg = {"data": None, "ts": 0}
+_CACHE_TTL = 300  # 5 minutes
 
 
 def fetch_fear_greed(limit=30):
-    """Récupère les dernières valeurs du Fear & Greed Index (nouveau -> ancien)."""
+    """Récupère les dernières valeurs du Fear & Greed Index (nouveau -> ancien). Cache 5min."""
+    import time
+    now = time.time()
+    if _cache_fg["data"] is not None and now - _cache_fg["ts"] < _CACHE_TTL:
+        return _cache_fg["data"]
     try:
         r = requests.get(FNG_URL, params={"limit": limit}, timeout=12)
         r.raise_for_status()
-        return r.json().get("data", [])
+        data = r.json().get("data", [])
+        _cache_fg["data"] = data
+        _cache_fg["ts"] = now
+        return data
     except Exception:
         return []
 

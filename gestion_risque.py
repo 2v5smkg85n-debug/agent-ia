@@ -50,6 +50,10 @@ RISK_MIN_EUR = 0.0           # minimum desactive (paper_trading.py a son propre 
 # Actifs correles (groupes) - bases sur la realite des marches
 GROUPES_CORRELES = [
     set(["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"]),  # crypto major
+    set(["DOGEUSDT", "AVAXUSDT", "LINKUSDT", "ADAUSDT", "DOTUSDT", "ATOMUSDT",
+         "APTUSDT", "SUIUSDT", "SEIUSDT", "TIAUSDT", "ARBUSDT", "NEARUSDT",
+         "LDOUSDT", "AAVEUSDT", "UNIUSDT", "OPUSDT", "INJUSDT", "LTCUSDT",
+         "TRXUSDT", "WIFUSDT", "FETUSDT", "RNDRUSDT", "OCEANUSDT"]),  # altcoins L1/L2 correles
     set(["AAPL", "MSFT", "NVDA"]),                                  # big tech US
     set(["^GSPC", "^IXIC"]),                                         # indices US correles
     set(["^GDAXI", "^FCHI"]),                                        # indices EU correles
@@ -218,7 +222,7 @@ def drawdown_scaler(pf):
     if dd >= DRAWDOWN_SEUIL:
         return DRAWDOWN_REDUCTION
     # reduction lineaire entre 0 (a 0% dd) et 50% (a 10% dd)
-    return max(DRAWDOWN_REDUCTION, 1.0 - (dd / DRAWDOWN_SEUIL) * (1 - DRAWDOWN_REDUCTION))
+    return max(DRAWDOWN_REDUCTION, min(1.0, 1.0 - (dd / DRAWDOWN_SEUIL) * (1 - DRAWDOWN_REDUCTION)))
 
 def valeur_portefeuille(pf):
     liquidites = pf.get("liquidites", 0)
@@ -338,8 +342,8 @@ def calculer_taille(pf, signal, prix_actuel, backtest_stats=None):
     raison = (f"Kelly {kelly*100:.1f}% x vol {vol_scaler:.2f} x corr {corr_scaler:.2f} "
               f"x dd {dd_scaler:.2f} = {montant_base:.1f} EUR (cap {montant_final:.1f} EUR)")
     if montant_final < 1.0:
-        montant_final = capital * 0.06  # 6% fixe si Kelly trop faible
-        raison += f" (fallback 6% fixe)"
+        montant_final = min(capital * 0.06, dispo_actif, dispo_secteur)  # 6% fixe mais respecte les caps
+        raison += f" (fallback 6% fixe, cap applique)"
     return round(montant_final, 2), raison
 
 # ============================================

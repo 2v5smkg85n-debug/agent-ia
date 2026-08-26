@@ -26,7 +26,7 @@ import time
 import re
 import signal
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from agent import disponible, appeler_ia, notify_ifft, ajouter
 from backtest import charger_backtests
@@ -76,7 +76,6 @@ DUREE_PETIT_GAIN = 180        # gain 0.30-0.45%: respire 2h (était 90min) pour 
 DUREE_GAIN_PROGRESS = 240    # gain 0.45-0.60%: respire 3h
 DUREE_GAGNANT_MAX = 360         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
 DUREE_BONUS_STRATEGIE = 60    # stratégie prouvée (live_n>=3, wr>=60%, pnl>0): +1h de respiration
-STALE_DUREE_MAX = 180           # position stale apres 3h (libere le capital plus vite)
 BREAKEVEN_SEUIL = 1.5      # +1.5% -> SL monte au breakeven (protege les gains plus tot)
 TRAIL_ACTIF = 3.0          # +3.0% -> trailing stop derrière le pic
 TRAIL_PCT = 1.0            # trail 1.0% sous le pic (lock profit, laisse respirer)
@@ -131,7 +130,7 @@ MARCHES_PAPER = {
     "APTUSDT": {"nom": "Aptos", "marche": "crypto", "source": "binance"},
     "SEIUSDT": {"nom": "Sei", "marche": "crypto", "source": "binance"},
     "TIAUSDT": {"nom": "Celestia", "marche": "crypto", "source": "binance"},
-    "SUIAUSDT": {"nom": "Sui Alpha", "marche": "crypto", "source": "binance"},
+    # SUIAUSDT retire (faux symbole, n'existe pas sur Binance)
     # Meme coins (gains énormes possibles)
     # PEPEUSDT retire (prix trop petit 0.000003€, spread 16% sur Revolut X)
     # FLOKIUSDT retire (prix = 0.0000 sur Revolut X)
@@ -913,6 +912,7 @@ def ouvrir_position(pf, signal, prix_actuel):
             print(f"  [SENTIMENT erreur {_e}] taille inchangée")
     # CONVICTION SIZING: amplifie les stratégies gagnantes éprouvées en live
     # (plus de bénéfices/trade sur ce qui marche déjà). Désactivable: CONVICTION_SIZING=0.
+    _mult = 1.0  # default
     if os.getenv("CONVICTION_SIZING", "1") != "0":
         try:
             _cs = json.load(open("classement_strategies.json"))
@@ -950,7 +950,10 @@ def ouvrir_position(pf, signal, prix_actuel):
         except Exception:
             pass
     # ANTI-CORRELATION: si on a deja une position sur un actif correle, on reduit
-    from gestion_risque import GROUPES_CORRELES
+    try:
+        from gestion_risque import GROUPES_CORRELES
+    except ImportError:
+        GROUPES_CORRELES = []
     sym = signal["symbole"]
     _nb_correl = 0
     for p in pf.get("positions", []):
@@ -965,7 +968,7 @@ def ouvrir_position(pf, signal, prix_actuel):
         montant = montant * 0.5  # reduit de 50% si 1 position correlee
         print(f"  [CORREL] {signal.get('nom',sym)}: 1 position correlee -> x0.5 ({montant:.0f}EUR)")
     # DRAWDOWN REDUCTION: si capital < 95% du initial, reduit les positions de 50%
-    capital_actuel = pf["liquidites"] + sum(p.get("montant", 0) for p in pf.get("positions", []))
+    capital_actuel = pf["liquidites"] + sum(p.get("montant_eur", 0) for p in pf.get("positions", []))
     if capital_actuel < pf.get("capital_initial", 1000) * DRAWDOWN_REDUCTION_SEUIL:
         montant = montant * 0.5
         print(f"  [DRAWDOWN] Capital {capital_actuel:.0f}EUR < {DRAWDOWN_REDUCTION_SEUIL*100:.0f}% initial -> x0.5 ({montant:.0f}EUR)")
@@ -1052,6 +1055,8 @@ def ouvrir_position(pf, signal, prix_actuel):
     if montant > 0 and pf["liquidites"] >= 80:
         _min_absolu = pf["liquidites"] * 0.05  # 5% minimum absolu
         montant = max(_min_absolu, min(montant, pf["liquidites"]))
+    if montant <= 0:
+        return False
     if pf["liquidites"] < 80:
         return False
     frais = montant * FRAIS_TRANSACTION
@@ -1126,6 +1131,9 @@ def verifier_sorties(pf, prix_actuels):
         if not prix_actuel or prix_actuel <= 0:
             print(f"  [PRIX INVALIDE] {sym}: prix={prix_actuel} — position preservee")
             continue
+        if prix_entree <= 0:
+            print(f"  [PRIX ENTREE INVALIDE] {sym}: prix_entree={prix_entree} — skip")
+            continue
         variation = (prix_actuel - prix_entree) / prix_entree * 100
         # Recupere le SL applicable (avant la detection de position piegee)
         # Priorite: TP/SL adaptatif intelligence_pro > meta_tuning > constantes globales
@@ -1144,7 +1152,7 @@ def verifier_sorties(pf, prix_actuels):
         # DETECTION POSITION PIEGEE: si la perte depasse le SL, le SL aurait du etre touche
         # On ferme immediatement (le prix a chute trop, la position est morte)
         if variation <= -_sl_check:
-            positions_a_fermer.append((pos, prix_actuel, f"SL-RETARD (perte {variation:+.1f}%, SL={-_sl_check}%%)", variation))
+            positions_a_fermer.append((pos, prix_actuel, f"SL-RETARD (perte {variation:+.1f}%, SL={_sl_check}%)", variation))
             continue
         # TP/SL: en mode scalping, les constantes globales priment sur meta_tuning
         if os.getenv('SCALPING', '0') == '1':
@@ -1327,6 +1335,11 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
     # Phase 2: suit les trades fermes pour le circuit breaker (perte journaliere)
     pf.setdefault("trades_fermes", []).append(trade)
     pf["positions"].remove(position)
+    # Circuit breaker: track pertes consecutives
+    if gain < 0:
+        pf["pertes_consecutives"] = pf.get("pertes_consecutives", 0) + 1
+    else:
+        pf["pertes_consecutives"] = 0
     # Phase 2: met a jour le pic de capital pour le drawdown scaler
     _cap_total = pf["liquidites"] + sum(p.get("montant_eur", 0) for p in pf.get("positions", []))
     pf["pic_capital"] = max(pf.get("pic_capital", pf.get("capital_initial", 1000.0)), _cap_total)
@@ -1391,7 +1404,7 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
             symbole=position["symbole"],
             strategie=position.get("strategie", ""),
             gain=gain,
-            gain_pct=gain_pct,
+            gain_pct=variation,
             conditions=conditions,
             pattern_bougie=position.get("pattern_bougie", ""),
             regime=position.get("intel_regime", ""),
@@ -1422,19 +1435,22 @@ def tick():
     print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Verification des prix...")
     # === RISK MANAGEMENT AVANCE ===
     # 1. Perte journaliere max
-    trades_aujourdhui = [t for t in pf.get("trades_fermes", []) if t.get("date", "").startswith(datetime.now().strftime("%Y-%m-%d"))]
+    trades_aujourdhui = [t for t in pf.get("trades_fermes", []) if t.get("date_fermeture", "").startswith(datetime.now().strftime("%Y-%m-%d"))]
     pnl_jour = sum(t.get("gain_eur", 0) for t in trades_aujourdhui)
-    capital_actuel = pf["liquidites"] + sum(p.get("montant", 0) for p in pf.get("positions", []))
+    capital_actuel = pf["liquidites"] + sum(p.get("montant_eur", 0) for p in pf.get("positions", []))
     if capital_actuel > 0 and pnl_jour < -(capital_actuel * PERTE_JOUR_MAX_PCT / 100):
         print(f"  [RISK] Perte journaliere {pnl_jour:.2f}EUR > -{PERTE_JOUR_MAX_PCT}% -> STOP TRADING")
         return
     # 2. Circuit breaker 3 pertes consecutives
-    pertes_consec = pf.get("circuit_breaker", {}).get("consecutive_losses", 0)
+    _cb = pf.get("circuit_breaker", {})
+    if not isinstance(_cb, dict):
+        _cb = {}
+    pertes_consec = _cb.get("consecutive_losses", pf.get("pertes_consecutives", 0))
     if pertes_consec >= CIRCUIT_BREAKER_CONSECUTIF:
         print(f"  [RISK] Circuit breaker: {pertes_consec} pertes consecutives -> PAUSE")
         return
     # 3. Heures de faible liquidite
-    heure_utc = datetime.utcnow().hour
+    heure_utc = datetime.now(timezone.utc).hour
     for h_debut, h_fin in HEURES_FAIBLE_LIQUIDITE:
         if h_debut <= heure_utc < h_fin:
             print(f"  [RISK] Heure de faible liquidite ({h_debut}h-{h_fin}h UTC) -> skip nouveaux trades")

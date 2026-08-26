@@ -22,5 +22,5 @@ pf["positions"] = []
 json.dump(pf, open("paper_trading.json", "w"), indent=2, ensure_ascii=False)
 
 print(f"\nLiquidites: {pf['liquidites']:.2f}EUR")
-print(f"Prochaine position: {pf['liquidites']*0.50:.2f}EUR (50%)")
+print(f"Prochaine position: {pf['liquidites']*0.08:.2f}EUR (8%)")
 print("Redemarre le bot: sudo systemctl restart paper_trading.service")

@@ -14,7 +14,7 @@ gagnants = [t for t in trades if t.get("gain_eur", 0) > 0]
 perdants = [t for t in trades if t.get("gain_eur", 0) <= 0]
 win_rate = len(gagnants) / total_trades * 100 if total_trades > 0 else 0
 pnl_total = sum(t.get("gain_eur", 0) for t in trades)
-frais = pf.get("total_fais", pf.get("total_frais", 0))
+frais = pf.get("total_frais", 0)
 pct_total = (capital_actuel - capital_initial) / capital_initial * 100
 
 # PnL par jour

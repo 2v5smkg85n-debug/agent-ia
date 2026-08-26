@@ -65,19 +65,22 @@ print("-" * 55)
 print(f"  Liquidites: {liquidites:.2f}EUR")
 print(f"  Valeur positions: {valeur_pos:.2f}EUR")
 print(f"  Capital total: {capital:.2f}EUR")
-print(f"  Capital initial: 1000.00EUR")
-print(f"  Rendement: {(capital-1000)/1000*100:+.2f}%")
+cap_init = pf.get("capital_initial", 1000)
+print(f"  Capital initial: {cap_init:.2f}EUR")
+print(f"  Rendement: {(capital-cap_init)/cap_init*100:+.2f}%")
 print()
 
 # Comparaison avant/apres
 old_gain = sum(t.get("gain_eur", 0) for t in trades_old)
+old_frais = sum(t.get("frais_total", 0) for t in trades_old)
+old_net = old_gain - old_frais
 print("COMPARAISON AVANT/APRES 500EUR:")
 print("-" * 55)
-print(f"  Avant (80EUR): {len(trades_old)} trades, {old_gain:+.2f}EUR net")
+print(f"  Avant (80EUR): {len(trades_old)} trades, {old_net:+.2f}EUR net")
 print(f"  Apres (500EUR): {len(trades_500)} trades, {total_gain-frais:+.2f}EUR net")
 if trades_500:
     gain_moyen_500 = (total_gain - frais) / len(trades_500)
-    gain_moyen_80 = old_gain / max(len(trades_old), 1)
+    gain_moyen_80 = old_net / max(len(trades_old), 1)
     print(f"  Gain moyen/trade avant: {gain_moyen_80:+.2f}EUR")
     print(f"  Gain moyen/trade apres: {gain_moyen_500:+.2f}EUR")
     if gain_moyen_80 != 0:

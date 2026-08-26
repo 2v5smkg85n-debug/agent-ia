@@ -6,7 +6,7 @@ API publique (sans authentification):
   GET https://revx.revolut.com/api/2.0/public/order-book/{SYMBOL}-EUR
 
 Retourne le mid-price (moyenne bid/ask) en EUR pour chaque crypto.
-Cache de 60 secondes pour eviter le spam API.
+Cache de 300 secondes (5 minutes) pour eviter le spam API.
 """
 import json
 import os
@@ -17,7 +17,7 @@ CACHE_TTL = 300  # 5 minutes (matche l'intervalle du bot)
 _cache = {}
 
 # Symboles qui n'existent PAS sur Revolut X (evite les erreurs 400)
-BLACKLIST = {"SUIA", "COMP", "IMX", "AXS", "CAKE", "SAND", "FLOKI", "PEPE", "MATIC"}
+BLACKLIST = {"COMP", "IMX", "AXS", "CAKE", "SAND", "FLOKI", "PEPE", "MATIC"}
 
 # Mapping symbole bot -> symbole Revolut X
 SYMBOLES_REVOLUT = {
@@ -38,9 +38,8 @@ SYMBOLES_REVOLUT = {
     "RNDRUSDT": "RENDER",
     "OCEANUSDT": "OCEAN",
     "APTUSDT": "APT",
-    "MATICUSDT": "MATIC",
+    # MATICUSDT, PEPEUSDT, FLOKIUSDT retirés (blacklist Revolut X)
     "UNIUSDT": "UNI",
-    "PEPEUSDT": "PEPE",
     "ADAUSDT": "ADA",
     "DOTUSDT": "DOT",
     "TRXUSDT": "TRX",
@@ -51,7 +50,7 @@ SYMBOLES_REVOLUT = {
     "SEIUSDT": "SEI",
     "TIAUSDT": "TIA",
     "WIFUSDT": "WIF",
-    "FLOKIUSDT": "FLOKI",
+    # FLOKIUSDT retiré (blacklist Revolut X)
     "OPUSDT": "OP",
     "INJUSDT": "INJ",
 }

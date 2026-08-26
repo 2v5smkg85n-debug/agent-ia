@@ -162,6 +162,7 @@ _TTL_BOUGIES = {"1m": 60, "5m": 120, "15m": 300, "30m": 600, "1h": 900, "4h": 36
 def _historique_revolut(symbole, intervalle, limite):
     """Recupere les chandeliers OHLCV depuis Revolut X (API publique, EUR).
     Cache intelligent: 1h -> 15min, 4h -> 1h, 1d -> 4h."""
+    import time as _t
     # Verifier le cache
     cache_key = (symbole, intervalle)
     ttl = _TTL_BOUGIES.get(intervalle, 300)
@@ -341,8 +342,8 @@ def prix_actuel(symbole):
     coin_id = COINGECKO_MAP.get(symbole)
     if coin_id:
         try:
-            r = requests.get(f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies=usd", timeout=10)
-            return float(r.json()[coin_id]["usd"])
+            r = requests.get(f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies=eur", timeout=10)
+            return float(r.json()[coin_id]["eur"])
         except:
             pass
     # Fallback Binance
@@ -375,7 +376,7 @@ def ema(valeurs, periode):
 
 def rsi(clotures, periode=14):
     """Calcule le RSI (Relative Strength Index). 0-100."""
-    if len(clotures) < periode + 1:
+    if len(clotures) < periode + 2:
         return None
     gains = []
     pertes = []

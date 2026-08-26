@@ -4,7 +4,14 @@ import json
 pf = json.load(open("paper_trading.json"))
 positions = pf.get("positions", [])
 print(f"=== POSITIONS OUVERTES ({len(positions)}) ===")
-print(f"MAX_POSITIONS: 3 | RISK_PAR_TRADE: 50%")
+try:
+    import paper_trading as pt
+    _max = pt.MAX_POSITIONS
+    _risk = pt.RISK_PAR_TRADE * 100
+except Exception:
+    _max = 5
+    _risk = 8.0
+print(f"MAX_POSITIONS: {_max} | RISK_PAR_TRADE: {_risk:.0f}%")
 print(f"Liquidites: {pf.get('liquidites', 0):.2f}EUR")
 print()
 for p in positions:
