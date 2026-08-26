@@ -186,36 +186,20 @@ _cache_mtf = {}
 
 def get_ohlc_timeframe(symbole, timeframe="1d", days=30):
     """Recupere les bougies OHLC pour un timeframe donne.
-    Timeframes: 15m, 1h, 4h, 1d
+    Utilise indicateurs.historique_ohlcv (Revolut X -> CoinGecko -> Binance) avec cache.
     """
     cache_key = f"{symbole}_{timeframe}"
     if cache_key in _cache_mtf and time.time() - _cache_mtf[cache_key]["ts"] < 300:
         return _cache_mtf[cache_key]["data"]
 
-    coin_id = COIN_IDS.get(symbole, "")
-    if not coin_id:
-        return []
-
-    # Mapping timeframe -> intervalle CoinGecko
-    # CoinGecko supporte: daily (1d), hourly (1h), et minute via /coins/id/ohlc
     try:
-        import urllib.request
-        if timeframe == "1d":
-            url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/ohlc?vs_currency=usd&days={days}"
-        elif timeframe == "1h":
-            url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/ohlc?vs_currency=usd&days=1"
-        elif timeframe == "4h":
-            url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/ohlc?vs_currency=usd&days=7"
-        else:
-            url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/ohlc?vs_currency=usd&days=1"
-
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            raw = json.loads(resp.read())
-
-        # Format CoinGecko OHLC: [[timestamp, open, high, low, close], ...]
+        from indicateurs import historique_ohlcv
+        bougies = historique_ohlcv(symbole, timeframe, 100)
+        if not bougies or len(bougies) < 5:
+            return []
+        # Convertir le format dict -> format liste [timestamp, open, high, low, close]
+        raw = [[b["temps"], b["ouverture"], b["haut"], b["bas"], b["cloture"]] for b in bougies]
         _cache_mtf[cache_key] = {"data": raw, "ts": time.time()}
-        time.sleep(1)
         return raw
     except Exception as e:
         print(f"[INTEL] Erreur OHLC {timeframe} {symbole}: {e}")
