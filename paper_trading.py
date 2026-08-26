@@ -47,7 +47,8 @@ FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 
 MAX_POSITIONS = 3              # 3 positions max (capital concentre pour gros gains)
 FENETRE_CORRELATION_MIN = 30    # anti-double-exposition: bloque 2e entree sur actif ouvert <30min
 MAX_POS_PAR_ACTIF = 1          # 1 position par actif (pas de pyramiding risqué)
-RISK_PAR_TRADE = 0.08         # 8% du capital par trade (~80 EUR) [securise]
+RISK_PAR_TRADE = 0.08         # 8% minimum (~80 EUR) - plancher securite
+RISK_MAX_TRADE = 0.50         # 50% maximum (~500 EUR) - plafond dynamique
 INTERVALLE_BOUCLE = 300        # 5 min (plus reactif pour plus de trades)
 # RISK MANAGEMENT AVANCE
 MAX_TRADES_PAR_JOUR = 50       # limite: max 50 trades par jour (test accelere)
@@ -782,8 +783,11 @@ def ouvrir_position(pf, signal, prix_actuel):
                 return False
         except Exception:
             pass
-    # SIZING DYNAMIQUE (Phase 2): remplace le 20% fixe par Kelly fractionnaire
-    # + vol targeting + correlation + drawdown + caps durs
+    # SIZING DYNAMIQUE BASE SUR LE SENTIMENT ET LE SCORE
+    # Le bot ajuste la taille de position selon le sentiment du marche:
+    # - Score eleve + sentiment haussier = grosse position (jusqu'a 50%)
+    # - Score faible + sentiment baissier = petite position (minimum 8%)
+    # - Toujours avec SL/TP/trailing stop actifs
     try:
         from gestion_risque import calculer_taille
         montant, raison = calculer_taille(pf, signal, prix_actuel, signal.get("backtest_stats"))
@@ -792,8 +796,6 @@ def ouvrir_position(pf, signal, prix_actuel):
             return False
         print(f"  [SIZING] {signal.get('nom',signal['symbole'])}: {raison}")
     except ImportError:
-        # Fallback si gestion_risque.py absent: ancien comportement 20% fixe
-        # Montant ajuste par la meta-intelligence (confidence sizing)
         _meta_taille = signal.get("meta_taille")
         _meta_conf = signal.get("meta_confiance", 0.5)
         if _meta_taille == "grande":
@@ -803,20 +805,61 @@ def ouvrir_position(pf, signal, prix_actuel):
         else:
             montant = pf["liquidites"] * RISK_PAR_TRADE
     except Exception as e:
-        print(f"  [SIZING erreur {e}] fallback 20% fixe")
+        print(f"  [SIZING erreur {e}] fallback 8% fixe")
         montant = pf["liquidites"] * RISK_PAR_TRADE
-    # Plafonne au liquide dispo + plancher minimum 50% des liquidites (capital concentre)
-    montant = max(min(pf["liquidites"] * RISK_PAR_TRADE, pf["liquidites"]), min(montant, pf["liquidites"]))
-    # Pas de reduction Kelly: on garde le capital concentre
-    # KELLY OPTIMISATION: desactive (on garde le capital concentre a 50%)
-    # try:
-    #     import kelly_optimise as kelly
-    #     montant_kelly = kelly.ajuster_taille_position(montant, pf["liquidites"])
-    #     if montant_kelly < montant:
-    #         print(f"  [KELLY] Taille ajustee: {montant:.0f} -> {montant_kelly:.0f} EUR (Kelly conservateur)")
-    #         montant = montant_kelly
-    # except Exception:
-    #     pass
+    # SIZING ADAPTATIF SENTIMENT + SCORE
+    # Base: 8% minimum, jusqu'a 50% maximum selon sentiment et conviction
+    _base_size = pf["liquidites"] * RISK_PAR_TRADE  # 8% plancher
+    _max_size = pf["liquidites"] * RISK_MAX_TRADE   # 50% plafond
+    # Recupere le score du signal (1-10)
+    _score = signal.get("score", 5)
+    # Recupere le sentiment Fear & Greed
+    _fg = 50  # defaut neutre
+    try:
+        from sentiment_marche import get_fear_greed
+        _fg = get_fear_greed()
+    except Exception:
+        pass
+    # Calcul du multiplicateur sentiment (0.5x a 3.0x)
+    # Extreme Fear (0-25): x0.5 (prudent)
+    # Fear (25-45): x0.8
+    # Neutral (45-55): x1.0
+    # Greed (55-75): x1.5 (confiant)
+    # Extreme Greed (75-100): x2.0 (tres confiant)
+    if _fg < 25:
+        _sent_mult = 0.5
+        _sent_label = "Extreme Fear"
+    elif _fg < 45:
+        _sent_mult = 0.8
+        _sent_label = "Fear"
+    elif _fg < 55:
+        _sent_mult = 1.0
+        _sent_label = "Neutral"
+    elif _fg < 75:
+        _sent_mult = 1.5
+        _sent_label = "Greed"
+    else:
+        _sent_mult = 2.0
+        _sent_label = "Extreme Greed"
+    # Multiplicateur score (0.5x a 2.0x)
+    # Score 1-3: x0.5 (signal faible)
+    # Score 4-6: x1.0 (signal moyen)
+    # Score 7-8: x1.5 (signal fort)
+    # Score 9-10: x2.0 (signal tres fort)
+    if _score <= 3:
+        _score_mult = 0.5
+    elif _score <= 6:
+        _score_mult = 1.0
+    elif _score <= 8:
+        _score_mult = 1.5
+    else:
+        _score_mult = 2.0
+    # Montant dynamique = base x sentiment x score
+    _montant_dyn = _base_size * _sent_mult * _score_mult
+    _montant_dyn = min(_montant_dyn, _max_size)  # plafond 50%
+    _montant_dyn = max(_montant_dyn, _base_size)  # plancher 8%
+    print(f"  [DYN-SIZE] {signal.get('nom',signal['symbole'])}: sentiment={_sent_label}({_fg:.0f}) x{_sent_mult} | score={_score} x{_score_mult} | {montant:.0f} -> {_montant_dyn:.0f}EUR")
+    montant = _montant_dyn
     # FLASH-CRASH: reduire la taille si niveau de protection eleve
     try:
         import flash_crash as fc
@@ -1003,11 +1046,12 @@ def ouvrir_position(pf, signal, prix_actuel):
                 print(f"  [SPREAD] {signal['symbole']}: spread {_spread:.1f}% -> position pleine ({montant:.0f}EUR)")
         except Exception:
             pass
-    # Clamp de securite: un plugin bugue ne peut pas depasser le liquide ni aller negatif
-    # Plancher minimum 8% des liquidites (securise, ~80EUR)
+    # Clamp de securite: ne pas depasser le liquide dispo, ne pas aller negatif
+    # Pas de plancher fixe - le sizing dynamique decide (sentiment + score)
+    # Mais on garde un minimum de 5% pour eviter les micro-positions inutiles
     if montant > 0 and pf["liquidites"] >= 80:
-        _plancher = min(pf["liquidites"] * RISK_PAR_TRADE, pf["liquidites"])
-        montant = max(_plancher, min(montant, pf["liquidites"]))
+        _min_absolu = pf["liquidites"] * 0.05  # 5% minimum absolu
+        montant = max(_min_absolu, min(montant, pf["liquidites"]))
     if pf["liquidites"] < 80:
         return False
     frais = montant * FRAIS_TRANSACTION

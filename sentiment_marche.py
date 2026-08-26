@@ -82,6 +82,14 @@ def sentiment_prompt():
             + "\n".join(lignes))
 
 
+def get_fear_greed():
+    """Retourne la valeur actuelle du Fear & Greed Index (0-100). 50 si indispo."""
+    data = fetch_fear_greed(1)
+    if not data:
+        return 50
+    return int(data[0]["value"])
+
+
 def sentiment_multiplier():
     """Multiplicateur de taille contrarian pour ouvrir_position.
     Extreme Fear=1.0 (zone achat) ... Extreme Greed=0.5 (prudence).
