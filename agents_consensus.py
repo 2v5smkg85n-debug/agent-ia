@@ -59,11 +59,9 @@ def _call_gemini(prompt):
         except Exception:
             pass
     if not key:
-        print("  [AGENTS] Pas de clé GEMINI_API_KEY")
         return "[Erreur: pas de clé]"
     
     _rate_limit()
-    # Essaye plusieurs modèles (certains peuvent être dépréciés)
     modeles = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest", "gemini-1.5-flash"]
     for modele in modeles:
         try:
@@ -71,18 +69,15 @@ def _call_gemini(prompt):
             r = requests.post(url, json={"contents":[{"parts":[{"text":prompt}]}]}, timeout=90)
             if r.status_code == 200:
                 return r.json()["candidates"][0]["content"]["parts"][0]["text"]
-            elif r.status_code == 404:
-                continue  # modèle inexistant, essaye le suivant
+            elif r.status_code in (404, 400):
+                continue
             elif r.status_code == 429:
-                print(f"  [AGENTS] Gemini 429 (rate limit)")
                 return "[Erreur: 429]"
             else:
-                print(f"  [AGENTS] Gemini {modele}: HTTP {r.status_code} — {r.text[:150]}")
                 continue
-        except Exception as e:
-            print(f"  [AGENTS] Gemini {modele}: {e}")
+        except Exception:
             continue
-    return "[Erreur: tous les modèles ont échoué]"
+    return "[Erreur: modèles Gemini indisponibles]"
 
 
 def _call_perplexity(prompt):
@@ -175,28 +170,17 @@ def analyser_avec_agents(signaux, prix, positions_ouvertes=None):
     # Récupère le sentiment
     fg_value, fg_class = _get_fear_greed()
 
-    # Construit et envoie le prompt multi-agents (1 seul appel Gemini)
+    # Construit le prompt multi-agents
     prompt = _build_agent_prompt(signaux, prix, fg_value, fg_class)
-    response = _call_gemini(prompt)
 
-    # Récupère l'actualité macro (1 seul appel Perplexity)
-    # Seulement si on a des signaux (évite le gaspillage)
-    macro_context = ""
-    try:
-        macro_prompt = f"Résume en 3 phrases max l'actualité crypto importante aujourd'hui: BTC trend, news majeures, sentiment marché. Fear&Greed={fg_value}. Sois concis et factuel."
-        macro_response = _call_perplexity(macro_prompt)
-        if not macro_response.startswith("[Erreur"):
-            macro_context = macro_response[:500]
-    except Exception:
-        pass  # Le macro est optionnel
+    # Perplexity en premier (plus de quota + web access intégré = 1 seul appel)
+    response = _call_perplexity(prompt)
+    if not response or response.startswith("[Erreur"):
+        # Fallback Gemini
+        response = _call_gemini(prompt)
 
     # Parse la réponse
     resultats = _parse_response(response)
-
-    # Ajoute le contexte macro aux résultats
-    if macro_context:
-        for sym in resultats:
-            resultats[sym]["macro_context"] = macro_context
 
     # Cache les résultats
     _cache["key"] = key
