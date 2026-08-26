@@ -286,7 +286,7 @@ def enrichir_signaux(signaux, prix, positions_ouvertes=None):
             sig["agent_macro"] = res.get("macro_context", res.get("macro", ""))[:200]
 
             if bonus != 0:
-                print(f"  [AGENTS] {sym}: {verdict} (score agent {score_agent:+.1f}, bonus {bonus:+d}) — {res.get('raison', '')[:50]}")
+                print(f"  [AGENTS] {sym}: {verdict} (score agent {score_agent:+.1f}, bonus {bonus:+.0f}) — {res.get('raison', '')[:50]}")
             signaux_filtrés.append(sig)
 
         # Consensus global
