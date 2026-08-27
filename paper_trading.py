@@ -284,7 +284,7 @@ def tous_les_prix():
         p = prix_binance(sym)
         if p:
             prix[sym] = p
-        time.sleep(3.0)  # Rate-limit Revolut X
+        time.sleep(1.0)  # Rate-limit Revolut X (avant 3s trop lent -> SL-RETARD)
 
     # Actions/Forex/Indices/Matieres via Yahoo
     for sym in prix_par_source["yahoo"]:
@@ -1245,6 +1245,11 @@ def verifier_sorties(pf, prix_actuels):
         # Partial take-profit: encaisse 50% a +2.5%, le reste court indéfiniment
         if variation >= PARTIAL_TP_SEUIL and not pos.get("partiellement_clote"):
             fermer_position_partielle(pf, pos, prix_actuel, PARTIAL_FRACTION, "PARTIAL-TP", variation)
+        # HARD STOP D'URGENCE: si la perte dépasse 1.5x le SL, ferme immédiatement
+        # Evite les SL-RETARD de -2% à -3% quand le prix gap entre deux checks
+        if variation <= -(_sl * 1.5):
+            positions_a_fermer.append((pos, prix_actuel, f"SL-URGENCE ({variation:+.2f}%, SL={_sl}%)", variation))
+            continue
         # Fermeture au SL suiveur (1% sous le pic) — le seul point de sortie
         if prix_actuel <= _sl_price:
             positions_a_fermer.append((pos, prix_actuel, f"STOP-SUIVEUR (pic {_var_pic:+.1f}%, ferme a {variation:+.1f}%)", variation))
@@ -1856,7 +1861,7 @@ def _check_crypto_sl_rapide():
             time.sleep(2.0)
         if _p and _p > 0:
             prix[_s] = _p
-        time.sleep(3.0)  # Rate-limit Revolut X
+        time.sleep(1.0)  # Rate-limit Revolut X (avant 3s trop lent -> SL-RETARD)
     if not prix:
         return
     verifier_sorties(pf, prix)
@@ -1898,10 +1903,10 @@ def boucle():
         finally:
             signal.alarm(0)
         prochaine = datetime.now() + timedelta(seconds=INTERVALLE_BOUCLE)
-        print(f"\nProchaine verification: {prochaine.strftime('%H:%M')} (crypto SL check toutes les 60s)")
-        # SL check toutes les 60s au lieu de 2.5 min (evite SL-RETARD)
-        _nb_checks = INTERVALLE_BOUCLE // 60
-        _check_interval = 60
+        print(f"\nProchaine verification: {prochaine.strftime('%H:%M')} (crypto SL check toutes les 20s)")
+        # SL check toutes les 20s au lieu de 60s (evite SL-RETARD sur moves rapides crypto)
+        _nb_checks = INTERVALLE_BOUCLE // 20
+        _check_interval = 20
         for _ in range(_nb_checks):
             time.sleep(_check_interval)
             try:
