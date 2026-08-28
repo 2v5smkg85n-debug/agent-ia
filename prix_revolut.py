@@ -147,7 +147,27 @@ def get_prix_revolut(symbole, force_refresh=False):
         return mid_price
 
     except Exception as e:
-        print("  [REVOLUT] Erreur prix " + symbole_court + ": " + str(e))
+        _err = str(e)
+        if "429" in _err:
+            # Rate limit: attend 2s et réessaie une fois
+            time.sleep(2.0)
+            try:
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    data = json.loads(resp.read())
+                bids = data.get("data", {}).get("bids", [])
+                asks = data.get("data", {}).get("asks", [])
+                if bids and asks:
+                    best_bid = float(bids[0]["price"])
+                    best_ask = float(asks[0]["price"])
+                    mid_price = (best_bid + best_ask) / 2
+                    spread_pct = abs(best_ask - best_bid) / best_bid if best_bid > 0 else 1
+                    if spread_pct > 0.05:
+                        mid_price = best_bid
+                    _cache[cache_key] = {"prix": mid_price, "timestamp": time.time()}
+                    return mid_price
+            except Exception:
+                pass
+        print("  [REVOLUT] Erreur prix " + symbole_court + ": " + _err)
         return 0
 
 
@@ -180,7 +200,19 @@ def _prix_coingecko(symbole_court):
         if prix > 0:
             print(f"  [COINGECKO] Fallback {symbole_court}: {prix} EUR")
         return prix
-    except Exception:
+    except Exception as e:
+        if "429" in str(e):
+            # Rate limit CoinGecko: attend 3s et réessaie
+            time.sleep(3.0)
+            try:
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    data = json.loads(resp.read())
+                prix = data.get(coin_id, {}).get("eur", 0)
+                if prix > 0:
+                    print(f"  [COINGECKO] Fallback {symbole_court}: {prix} EUR")
+                return prix
+            except Exception:
+                pass
         return 0
 
 
@@ -211,7 +243,7 @@ def get_prix_batch(symboles):
         if not sym:
             continue
         if i > 0:
-            time.sleep(3.0)  # Delai anti rate-limit Revolut X
+            time.sleep(1.0)  # Delai anti rate-limit Revolut X
         prix = get_prix_revolut(sym)
         resultats[sym] = prix
     return resultats

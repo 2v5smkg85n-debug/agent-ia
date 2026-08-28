@@ -348,7 +348,10 @@ def check_spreads():
         info(f"Spread blacklist: {sorted(SPREAD_BLACKLIST)}")
         # Test quelques prix
         test_syms = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT"]
-        for sym in test_syms:
+        import time as _time
+        for i, sym in enumerate(test_syms):
+            if i > 0:
+                _time.sleep(1.5)  # Évite le rate limit Revolut X
             prix = get_prix_secours(sym)
             if prix and prix > 0:
                 ok(f"{sym}: {prix:.4f}")
