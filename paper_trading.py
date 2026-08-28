@@ -1250,6 +1250,31 @@ def verifier_sorties(pf, prix_actuels):
         if variation <= -(_sl * 1.5):
             positions_a_fermer.append((pos, prix_actuel, f"SL-URGENCE ({variation:+.2f}%, SL={_sl}%)", variation))
             continue
+        # GESTION POSITION LIVE: analyse adaptative en temps réel
+        try:
+            from gestion_position_live import analyser_position_live
+            _action, _raison = analyser_position_live(pos, prix_actuel)
+            if _action == "FERMER":
+                positions_a_fermer.append((pos, prix_actuel, f"LIVE-EXIT: {_raison}", variation))
+                continue
+            elif _action == "PARTIAL_TP" and not pos.get("partiellement_clote"):
+                fermer_position_partielle(pf, pos, prix_actuel, 0.5, f"LIVE-PARTIAL: {_raison}", variation)
+                print(f"  [LIVE] {sym}: {_raison}")
+            elif _action == "TIGHTEN_SL":
+                # Serrer le SL au breakeven ou plus proche du prix actuel
+                _new_sl_pct = max(0.3, variation - 0.5)
+                _new_sl_price = prix_actuel * (1 - _new_sl_pct / 100.0)
+                if _new_sl_price > _sl_price:
+                    _sl_price = _new_sl_price
+                    _sl_regle = "live-tight"
+                    print(f"  [LIVE] {sym}: SL resserré → {_new_sl_pct:.1f}% sous le prix actuel")
+            elif _action == "HOLD":
+                # Log discret pour ne pas spammer
+                pass
+        except ImportError:
+            pass
+        except Exception as _e:
+            print(f"  [LIVE] {sym}: erreur analyse ({_e})")
         # Fermeture au SL suiveur (1% sous le pic) — le seul point de sortie
         if prix_actuel <= _sl_price:
             positions_a_fermer.append((pos, prix_actuel, f"STOP-SUIVEUR (pic {_var_pic:+.1f}%, ferme a {variation:+.1f}%)", variation))
