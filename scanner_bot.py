@@ -299,45 +299,37 @@ def check_modules():
 def check_config():
     section("5. CONFIGURATION")
     try:
-        # Import les constantes sans exécuter la boucle
-        import importlib
-        spec = importlib.util.spec_from_file_location("pt", os.path.join(DOSSIER, "paper_trading.py"))
-        # On lit juste les constantes avec grep
+        # Lit la config avec grep au lieu d'importer (évite les dépendances manquantes)
         r = subprocess.run(["python3", "-c", f"""
-import sys; sys.path.insert(0, '{DOSSIER}')
-import paper_trading as pt
-print(f"TP={{pt.TAKE_PROFIT_PCT}}")
-print(f"SL={{pt.STOP_LOSS_PCT}}")
-print(f"TRAIL_ACTIF={{pt.TRAIL_ACTIF}}")
-print(f"TRAIL_PCT={{pt.TRAIL_PCT}}")
-print(f"MAX_TRADES={{pt.MAX_TRADES_PAR_JOUR}}")
-print(f"MAX_POSITIONS={{pt.MAX_POSITIONS}}")
-print(f"INTERVALLE={{pt.INTERVALLE_BOUCLE}}")
-print(f"STALE={{pt.STALE_DUREE_MAX}}")
-print(f"BREAKEVEN={{pt.BREAKEVEN_SEUIL}}")
-print(f"PARTIAL_TP={{pt.PARTIAL_TP_SEUIL}}")
-print(f"SEUIL_BENEF={{pt.SEUIL_BENEFICE_MIN}}")
-print(f"STAGNATION_SEUIL={{pt.STAGNATION_PERTE_SEUIL}}")
-print(f"STAGNATION_DUREE={{pt.STAGNATION_PERTE_DUREE}}")
-print(f"ATR_LOOKBACK={{pt.ATR_LOOKBACK}}")
-print(f"ATR_TP_MULT={{pt.ATR_TP_MULT}}")
-print(f"ATR_TP_MIN={{pt.ATR_TP_MIN}}")
-print(f"ATR_TP_MAX={{pt.ATR_TP_MAX}}")
-print(f"CIRCUIT_BREAKER={{pt.CIRCUIT_BREAKER_CONSECUTIF}}")
-print(f"HEURES_FAIBLE={{pt.HEURES_FAIBLE_LIQUIDITE}}")
-print(f"HEURES_FORT={{pt.HEURES_FORT_VOLUME}}")
-"""], capture_output=True, text=True, timeout=15, cwd=DOSSIER)
+import re
+with open('{DOSSIER}/paper_trading.py') as f:
+    code = f.read()
+consts = [
+    'TAKE_PROFIT_PCT', 'STOP_LOSS_PCT', 'TRAIL_ACTIF', 'TRAIL_PCT',
+    'MAX_TRADES_PAR_JOUR', 'MAX_POSITIONS', 'INTERVALLE_BOUCLE',
+    'STALE_DUREE_MAX', 'BREAKEVEN_SEUIL', 'PARTIAL_TP_SEUIL',
+    'SEUIL_BENEFICE_MIN', 'STAGNATION_PERTE_SEUIL', 'STAGNATION_PERTE_DUREE',
+    'ATR_LOOKBACK', 'ATR_TP_MULT', 'ATR_TP_MIN', 'ATR_TP_MAX',
+    'CIRCUIT_BREAKER_CONSECUTIF'
+]
+for c in consts:
+    m = re.search(rf'^{{c}}\s*=\s*([0-9.]+)', code, re.MULTILINE)
+    if m:
+        print(f"{{c}}={{m.group(1)}}")
+"""], capture_output=True, text=True, timeout=10)
         if r.returncode == 0:
             for ligne in r.stdout.strip().split("\n"):
-                info(ligne)
+                if "=" in ligne:
+                    info(ligne)
             # Vérifications
             config = dict(l.split("=", 1) for l in r.stdout.strip().split("\n") if "=" in l)
-            if float(config.get("TP", 0)) > 5:
-                probleme("WARN", f"TP très élevé: {config['TP']}%")
-            if float(config.get("SL", 0)) > 2:
-                probleme("WARN", f"SL large: {config['SL']}%")
-            if int(config.get("MAX_TRADES", 0)) > 50:
-                probleme("WARN", f"Max trades élevé: {config['MAX_TRADES']}")
+            if float(config.get("TAKE_PROFIT_PCT", 0)) > 5:
+                probleme("WARN", f"TP très élevé: {config['TAKE_PROFIT_PCT']}%")
+            if float(config.get("STOP_LOSS_PCT", 0)) > 2:
+                probleme("WARN", f"SL large: {config['STOP_LOSS_PCT']}%")
+            if int(config.get("MAX_TRADES_PAR_JOUR", 0)) > 50:
+                probleme("WARN", f"Max trades élevé: {config['MAX_TRADES_PAR_JOUR']}")
+            ok("Config lue avec succès")
         else:
             probleme("WARN", f"Impossible de lire la config: {r.stderr[:200]}")
     except Exception as e:
@@ -436,8 +428,15 @@ def check_dashboard():
 def check_telegram():
     section("9. TELEGRAM")
     try:
-        from dotenv import dotenv_values
-        env = dotenv_values(os.path.join(DOSSIER, ".env"))
+        # Lit .env manuellement (pas de dépendance dotenv)
+        env = {}
+        env_path = os.path.join(DOSSIER, ".env")
+        if os.path.exists(env_path):
+            for ligne in open(env_path):
+                ligne = ligne.strip()
+                if "=" in ligne and not ligne.startswith("#"):
+                    k, v = ligne.split("=", 1)
+                    env[k.strip()] = v.strip()
         token = env.get("TELEGRAM_BOT_TOKEN", "")
         chat = env.get("TELEGRAM_CHAT_ID", "")
         if token and chat:
