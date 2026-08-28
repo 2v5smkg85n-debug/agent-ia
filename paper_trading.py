@@ -794,6 +794,14 @@ def ouvrir_position(pf, signal, prix_actuel):
                 return False
         except Exception:
             pass
+    # FILTRE SPREAD ANORMAL: bloque les entrees sur les actifs avec spread Revolut X anormal
+    try:
+        from prix_revolut import SPREAD_BLACKLIST
+        if signal["symbole"] in SPREAD_BLACKLIST:
+            print(f"  [SPREAD] {signal.get('nom',signal['symbole'])}: spread Revolut X anormal -> SKIP nouvelle entree")
+            return False
+    except Exception:
+        pass
     # FILTRE VOLUME: verifie que le volume confirme le signal d'achat
     try:
         from indicateurs import historique_ohlcv, detecter_support_resistance
@@ -1269,8 +1277,7 @@ def verifier_sorties(pf, prix_actuels):
                     _sl_regle = "live-tight"
                     print(f"  [LIVE] {sym}: SL resserré → {_new_sl_pct:.1f}% sous le prix actuel")
             elif _action == "HOLD":
-                # Log discret pour ne pas spammer
-                pass
+                print(f"  [LIVE] {sym}: HOLD - {_raison}")
         except ImportError:
             pass
         except Exception as _e:
