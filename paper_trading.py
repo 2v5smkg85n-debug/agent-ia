@@ -44,14 +44,15 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 # ============================================
 CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
-MAX_POSITIONS = 5              # 5 positions max (diversification securisee)
+MAX_POSITIONS = 8              # 8 positions max (plus de trades)
+LIQUIDITE_MIN = 200.0          # garde au moins 200 EUR de liquidites
 FENETRE_CORRELATION_MIN = 60    # anti-double-exposition: 60min entre entrees meme actif
 MAX_POS_PAR_ACTIF = 1          # 1 position par actif (pas de pyramiding risqué)
-RISK_PAR_TRADE = 0.08         # 8% minimum (~80 EUR) - plancher securite
-RISK_MAX_TRADE = 0.50         # 50% maximum (~500 EUR) - plafond dynamique
+RISK_PAR_TRADE = 0.10         # 10% minimum (~100 EUR) - plus de positions possibles
+RISK_MAX_TRADE = 0.20         # 20% maximum (~200 EUR) - evite trop gros trades
 INTERVALLE_BOUCLE = 300        # 5 min (plus reactif pour plus de trades)
 # RISK MANAGEMENT AVANCE
-MAX_TRADES_PAR_JOUR = 25       # limite: 25 trades/jour (anti-churn)
+MAX_TRADES_PAR_JOUR = 40       # limite: 40 trades/jour (plus de trades)
 PERTE_JOUR_MAX_PCT = 2.0      # stop trading si -2% en une journee
 CIRCUIT_BREAKER_CONSECUTIF = 3 # pause apres 3 pertes consecutives (plus de room)
 DRAWDOWN_REDUCTION_SEUIL = 0.95 # si capital < 95% du initial, reduit positions de 50%
@@ -582,6 +583,10 @@ def ouvrir_position(pf, signal, prix_actuel):
     except Exception:
         pass
     if len(pf["positions"]) >= MAX_POSITIONS:
+        return False
+    # PLANCHER LIQUIDITE: garde au moins 200 EUR de liquidites
+    if pf["liquidites"] < LIQUIDITE_MIN:
+        print(f"  [LIQUIDITE] {pf['liquidites']:.2f} EUR < {LIQUIDITE_MIN} EUR minimum -> skip nouveau trade")
         return False
     # BLACKLIST STRATEGIES PERDANTES: momentum bloque (33% WR, pertes repetees)
     _strat_blacklist = ["momentum"]
