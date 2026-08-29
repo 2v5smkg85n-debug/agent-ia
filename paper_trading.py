@@ -814,11 +814,13 @@ def ouvrir_position(pf, signal, prix_actuel):
         # Skip le filtre si Revolut X ne fournit pas le volume (volume=0 = indisponible)
         _vol_bougies = historique_ohlcv(signal["symbole"], "1h", 20)
         if _vol_bougies and len(_vol_bougies) >= 10:
-            _vols = [b.get("volume", 0) for b in _vol_bougies[:-1]]
-            _vol_actuel = _vol_bougies[-1].get("volume", 0)
+            # Utilise l'avant-derniere bougie (derniere COMPLETE) comme volume actuel
+            # La derniere bougie est incomplete (en cours) -> volume trompeur
+            _vols = [b.get("volume", 0) for b in _vol_bougies[:-2]]
+            _vol_actuel = _vol_bougies[-2].get("volume", 0) if len(_vol_bougies) >= 2 else 0
             _vol_moyen = sum(_vols) / len(_vols) if _vols else 0
-            # Only filter if volume data is reliable (moyenne > 10, sinon Revolut X = pas de volume)
-            if _vol_moyen > 10 and _vol_actuel > 0 and _vol_actuel < _vol_moyen * 0.7:
+            # Only filter if volume data is reliable (moyenne > 10)
+            if _vol_moyen > 10 and _vol_actuel > 0 and _vol_actuel < _vol_moyen * 0.5:
                 print(f"  [VOLUME] {signal.get('nom',signal['symbole'])}: volume faible ({_vol_actuel:.0f} vs moy {_vol_moyen:.0f}) -> SKIP")
                 return False
         # Filtre support/resistance: n'achete pas juste sous une resistance
