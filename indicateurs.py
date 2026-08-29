@@ -87,17 +87,17 @@ def historique_ohlcv(symbole="BTCUSDT", intervalle="1h", limite=200):
         bougies = _historique_yahoo(symbole, intervalle, limite)
         if bougies:
             return bougies
-    # Crypto -> Revolut X d'abord (EUR, prix identiques a Revolut)
-    bougies = _historique_revolut(symbole, intervalle, limite)
+    # Crypto -> Binance d'abord (vraies donnees OHLCV + volume), puis CoinGecko, puis Revolut X
+    bougies = _historique_binance(symbole, intervalle, limite)
     if bougies and len(bougies) >= 20:
         return bougies
     # Fallback: CoinGecko
     bougies = _historique_coingecko(symbole, intervalle, limite)
     if bougies and len(bougies) >= 20:
         return bougies
-    # Fallback: Binance (au cas ou)
-    bougies = _historique_binance(symbole, intervalle, limite)
-    if bougies:
+    # Fallback: Revolut X (volume non fiable mais prix OK)
+    bougies = _historique_revolut(symbole, intervalle, limite)
+    if bougies and len(bougies) >= 20:
         return bougies
     return []
 
