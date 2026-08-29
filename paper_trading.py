@@ -811,12 +811,14 @@ def ouvrir_position(pf, signal, prix_actuel):
     try:
         from indicateurs import historique_ohlcv, detecter_support_resistance
         # Filtre volume: le volume actuel doit etre >= 70% de la moyenne
+        # Skip le filtre si Revolut X ne fournit pas le volume (volume=0 = indisponible)
         _vol_bougies = historique_ohlcv(signal["symbole"], "1h", 20)
         if _vol_bougies and len(_vol_bougies) >= 10:
             _vols = [b.get("volume", 0) for b in _vol_bougies[:-1]]
             _vol_actuel = _vol_bougies[-1].get("volume", 0)
             _vol_moyen = sum(_vols) / len(_vols) if _vols else 0
-            if _vol_moyen > 0 and _vol_actuel < _vol_moyen * 0.7:
+            # Only filter if we have real volume data (both > 0)
+            if _vol_moyen > 0 and _vol_actuel > 0 and _vol_actuel < _vol_moyen * 0.7:
                 print(f"  [VOLUME] {signal.get('nom',signal['symbole'])}: volume faible ({_vol_actuel:.0f} vs moy {_vol_moyen:.0f}) -> SKIP")
                 return False
         # Filtre support/resistance: n'achete pas juste sous une resistance
