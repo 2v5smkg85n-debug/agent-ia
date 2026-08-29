@@ -815,14 +815,20 @@ def ouvrir_position(pf, signal, prix_actuel):
         _vol_bougies = historique_ohlcv(signal["symbole"], "1h", 20)
         if _vol_bougies and len(_vol_bougies) >= 10:
             # Utilise l'avant-derniere bougie (derniere COMPLETE) comme volume actuel
-            # La derniere bougie est incomplete (en cours) -> volume trompeur
             _vols = [b.get("volume", 0) for b in _vol_bougies[:-2]]
             _vol_actuel = _vol_bougies[-2].get("volume", 0) if len(_vol_bougies) >= 2 else 0
             _vol_moyen = sum(_vols) / len(_vols) if _vols else 0
-            # Only filter if volume data is reliable (moyenne > 10)
-            if _vol_moyen > 10 and _vol_actuel > 0 and _vol_actuel < _vol_moyen * 0.5:
-                print(f"  [VOLUME] {signal.get('nom',signal['symbole'])}: volume faible ({_vol_actuel:.0f} vs moy {_vol_moyen:.0f}) -> SKIP")
-                return False
+            # Volume faible = penalite score (pas blocage dur)
+            if _vol_moyen > 10 and _vol_actuel > 0:
+                _ratio_vol = _vol_actuel / _vol_moyen
+                if _ratio_vol < 0.3:
+                    # Volume tres faible: -1 score (forte penalite)
+                    signal["score"] = signal.get("score", 5) - 1
+                    print(f"  [VOLUME] {signal.get('nom',signal['symbole'])}: volume tres faible ({_vol_actuel:.0f} vs moy {_vol_moyen:.0f}) -> -1 score")
+                elif _ratio_vol < 0.5:
+                    # Volume faible: -0.5 score
+                    signal["score"] = signal.get("score", 5) - 0.5
+                    print(f"  [VOLUME] {signal.get('nom',signal['symbole'])}: volume faible ({_vol_actuel:.0f} vs moy {_vol_moyen:.0f}) -> -0.5 score")
         # Filtre support/resistance: n'achete pas juste sous une resistance
         _sup, _res = detecter_support_resistance(signal["symbole"], "1h")
         if _res and prix_actuel > 0:
