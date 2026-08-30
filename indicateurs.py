@@ -550,6 +550,35 @@ def analyser_actif(symbole, intervalle="1h"):
         elif rsi_val is not None and 45 <= rsi_val <= 50:
             score += 1
             signaux.append("MOMENTUM faible: uptrend + RSI 45-50")
+        elif rsi_val is not None and 65 <= rsi_val <= 70:
+            score -= 1
+            signaux.append("MOMENTUM: uptrend mais RSI eleve (65-70) — surachat modere")
+
+    # 5f. PRIX SUR-ETENDU: si prix trop loin de SMA20, risque de retracement
+    if sma_courte is not None and sma_courte > 0:
+        _deviation_pct = ((prix - sma_courte) / sma_courte) * 100
+        if _deviation_pct > 5:
+            score -= 2
+            signaux.append(f"SUR-ETENDU: prix {_deviation_pct:.1f}% au-dessus SMA20 — retracement probable")
+        elif _deviation_pct > 3:
+            score -= 1
+            signaux.append(f"SUR-ETENDU: prix {_deviation_pct:.1f}% au-dessus SMA20 — attention")
+
+    # 5g. FILTRE TENDANCE SUPERIEURE (4h): n'achete que si la tendance 4h est haussiere
+    try:
+        _bougies_4h = historique_ohlcv(symbole, "4h", 60)
+        if _bougies_4h and len(_bougies_4h) >= 50:
+            _clotures_4h = [b["cloture"] for b in _bougies_4h]
+            _sma20_4h, _sma50_4h = moyennes_mobiles(_clotures_4h, 20, 50)
+            if _sma20_4h and _sma50_4h:
+                if _sma20_4h > _sma50_4h:
+                    score += 1
+                    signaux.append("HTF 4h: tendance haussiere confirmee (SMA20 > SMA50)")
+                else:
+                    score -= 2
+                    signaux.append("HTF 4h: tendance baissiere (SMA20 < SMA50) — contre-tendance")
+    except Exception:
+        pass
 
     # 5c. BREAKOUT BOLLINGER: prix casse la bande superieure = continuation haussiere
     if prix is not None and bb_haut is not None and bb_bas is not None:
