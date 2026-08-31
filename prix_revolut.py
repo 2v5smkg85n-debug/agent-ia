@@ -249,6 +249,63 @@ def get_prix_batch(symboles):
     return resultats
 
 
+# Cache du taux EUR/USDT (mis a jour depuis Revolut X BTC)
+_eur_usdt_rate = 0
+_eur_usdt_ts = 0
+
+def _get_eur_usdt_rate():
+    """Recupere le taux EUR/USDT depuis Revolut X BTC (cache 5 min)."""
+    global _eur_usdt_rate, _eur_usdt_ts
+    if _eur_usdt_rate > 0 and (time.time() - _eur_usdt_ts) < 300:
+        return _eur_usdt_rate
+    # BTC en EUR depuis Revolut (utilise cache, pas force_refresh)
+    btc_eur = get_prix_revolut("BTCUSDT")
+    if btc_eur > 0:
+        try:
+            url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read())
+            btc_usdt = float(data["price"])
+            if btc_usdt > 0:
+                _eur_usdt_rate = btc_eur / btc_usdt
+                _eur_usdt_ts = time.time()
+                return _eur_usdt_rate
+        except Exception:
+            pass
+    # Fallback: taux fixe approximatif
+    if _eur_usdt_rate == 0:
+        _eur_usdt_rate = 0.92  # ~1 USD = 0.92 EUR
+    return _eur_usdt_rate
+
+def get_prix_binance_batch(symboles):
+    """Recupere les prix de plusieurs cryptos en UN SEUL appel Binance.
+    Retourne les prix en EUR (conversion USDT -> EUR via taux cache).
+    Beaucoup plus rapide que Revolut X pour les SL checks."""
+    if not symboles:
+        return {}
+    try:
+        # Binance ticker/price accepte plusieurs symboles en un seul appel
+        # Format: ?symbols=["BTCUSDT","ETHUSDT"]
+        import urllib.parse
+        symbols_json = json.dumps(symboles)
+        symbols_encoded = urllib.parse.quote(symbols_json)
+        url = f"https://api.binance.com/api/v3/ticker/price?symbols={symbols_encoded}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+        # Taux de conversion EUR/USDT
+        _rate = _get_eur_usdt_rate()
+        resultats = {}
+        for item in data:
+            sym = item["symbol"]
+            prix_usdt = float(item["price"])
+            resultats[sym] = prix_usdt * _rate  # Convertit en EUR
+        return resultats
+    except Exception:
+        return {}
+
+
 def get_prix_avec_variation(symbole):
     """
     Recupere le prix + variation 24h (si disponible).

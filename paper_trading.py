@@ -1880,9 +1880,9 @@ def _timeout_handler(signum, frame):
 TEMPS_MAX_TICK = 120
 
 def _check_crypto_sl_rapide():
-    """Check crypto mi-boucle (15 min): rattrape les SL crypto 2x plus vite.
-    Evite overshoot du SL sur mouvements rapides crypto (cf ETH -3.19% vs -1.5%).
-    Ne fetch QUE les prix des positions crypto ouvertes -> pas de churn entree."""
+    """Check crypto mi-boucle (20s): rattrape les SL crypto instantanement.
+    Utilise Binance batch (1 seul appel pour tous les symboles) au lieu de
+    Revolut X (1 appel par symbole + rate limit = SL-RETARD)."""
     pf = charger_portefeuille()
     if not pf or not pf.get("positions"):
         return
@@ -1898,17 +1898,14 @@ def _check_crypto_sl_rapide():
     if not _crypto_syms:
         return
     import prix_revolut as pr
-    prix = {}
-    for _s in _crypto_syms:
-        _p = None
-        for _try in range(2):  # 2 tentatives
-            _p = pr.get_prix_secours(_s)
-            if _p and _p > 0:
-                break
-            time.sleep(2.0)
+    # 1. Binance batch (1 appel, instantane, pas de rate limit)
+    prix = pr.get_prix_binance_batch(_crypto_syms)
+    # 2. Fallback: si Binance rate limit, utilise Revolut X avec cache
+    _missing = [s for s in _crypto_syms if s not in prix or prix[s] <= 0]
+    for _s in _missing:
+        _p = pr.get_prix_revolut(_s)  # utilise cache (pas force_refresh)
         if _p and _p > 0:
             prix[_s] = _p
-        time.sleep(1.0)  # Rate-limit Revolut X (avant 3s trop lent -> SL-RETARD)
     if not prix:
         return
     verifier_sorties(pf, prix)
@@ -1950,10 +1947,10 @@ def boucle():
         finally:
             signal.alarm(0)
         prochaine = datetime.now() + timedelta(seconds=INTERVALLE_BOUCLE)
-        print(f"\nProchaine verification: {prochaine.strftime('%H:%M')} (crypto SL check toutes les 20s)")
-        # SL check toutes les 20s au lieu de 60s (evite SL-RETARD sur moves rapides crypto)
-        _nb_checks = INTERVALLE_BOUCLE // 20
-        _check_interval = 20
+        print(f"\nProchaine verification: {prochaine.strftime('%H:%M')} (crypto SL check toutes les 10s)")
+        # SL check toutes les 10s (Binance batch = instantane, pas de rate limit)
+        _nb_checks = INTERVALLE_BOUCLE // 10
+        _check_interval = 10
         for _ in range(_nb_checks):
             time.sleep(_check_interval)
             try:
