@@ -19,7 +19,7 @@ _cache = {}
 # Symboles qui n'existent PAS sur Revolut X (evite les erreurs 400)
 BLACKLIST = {"COMP", "IMX", "AXS", "CAKE", "SAND", "FLOKI", "PEPE", "MATIC", "SUI"}
 # Symboles avec spread anormal sur Revolut X: pas de nouvelles positions, mais monitoring OK
-SPREAD_BLACKLIST = {"BNBUSDT", "AAVEUSDT", "SUIUSDT", "XRPUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT"}
+SPREAD_BLACKLIST = {"BNBUSDT", "AAVEUSDT", "SUIUSDT", "XRPUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "SOLUSDT"}
 
 # Mapping symbole bot -> symbole Revolut X
 SYMBOLES_REVOLUT = {
