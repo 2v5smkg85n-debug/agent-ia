@@ -48,8 +48,8 @@ MAX_POSITIONS = 8              # 8 positions max (plus de trades)
 LIQUIDITE_MIN = 200.0          # garde au moins 200 EUR de liquidites
 FENETRE_CORRELATION_MIN = 60    # anti-double-exposition: 60min entre entrees meme actif
 MAX_POS_PAR_ACTIF = 1          # 1 position par actif (pas de pyramiding risqué)
-RISK_PAR_TRADE = 0.10         # 10% minimum (~100 EUR) - plus de positions possibles
-RISK_MAX_TRADE = 0.20         # 20% maximum (~200 EUR) - evite trop gros trades
+RISK_PAR_TRADE = 0.10         # 10% fixe (~100 EUR par position)
+RISK_MAX_TRADE = 0.10         # 10% fixe (~100 EUR) - 8 positions x 100 EUR = 800 EUR + 200 liquidite
 INTERVALLE_BOUCLE = 300        # 5 min (plus reactif pour plus de trades)
 # RISK MANAGEMENT AVANCE
 MAX_TRADES_PAR_JOUR = 40       # limite: 40 trades/jour (plus de trades)
