@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Agents Consensus — Intelligence multi-agents multi-modèles pour le bot de trading.
+Agents Consensus — Intelligence multi-agents multi-modèles avec ROUTING intelligent.
 
 8 agents spécialisés × 5 modèles IA = consensus robuste.
 
@@ -11,16 +11,23 @@ Modèles utilisés (2 clés API seulement):
 - Gemini 2.5-flash (validation rapide)
 - Gemini 2.5-pro (contre-analyse)
 
-Tous les modèles sont appelés EN PARALLÈLE (threads) pour minimiser la latence.
-Le consensus pondéré nécessite ≥3/5 modèles d'accord pour valider un ACHAT.
-Si ≥2 modèles disent ÉVITER → signal filtré.
+ROUTING INTELLIGENT (comme Perplexity Computer):
+Le routeur choisit quels modèles appeler selon le contexte:
+- Conviction faible (score 5-6): 2 modèles (sonar + gemini-flash) — rapide
+- Conviction moyenne (score 7-8): 3 modèles (+ reasoning) — équilibré
+- Conviction forte (score 9+): 5 modèles (tous) — analyse complète
+- Sentiment extrême (F&G >80 ou <20): +gemini-pro (contrarien obligatoire)
+- Volatilité élevée (ATR >3%): +sonar-pro (analyse approfondie)
+
+Cela économise les appels API et réduit la latence pour les signaux simples,
+tout en gardant l'analyse complète pour les signaux importants.
 
 Si toutes les API échouent → retourne 0 (ne bloque pas le trend-following).
 
 Optimisations:
-- 5 appels parallèles (threads) = latence ~2-3s au lieu de 10s séquentiel
+- Appels parallèles (threads) = latence minimale
 - Cache 5 min (matche l'intervalle du bot)
-- Rate limiting intégré
+- Rate limiting intégré (thread-safe)
 - Prompts différenciés par modèle (évite corrélation)
 """
 
@@ -243,29 +250,119 @@ RAISON: [1 phrase: pourquoi ça pourrait mal tourner]
 
 
 # ============================================
-# APPEL PARALLÈLE DE TOUS LES MODÈLES
+# ROUTING INTELLIGENT (comme Perplexity Computer)
 # ============================================
 
-def _call_all_models_parallel(signaux, prix, fg_value, fg_class):
+def _detecter_contexte(signaux, fg_value, fg_class):
     """
-    Appelle les 5 modèles en parallèle (threads).
-    Retourne {model_name: response_text}.
+    Analyse le contexte pour décider quels modèles appeler.
+    
+    Retourne un dict avec:
+    - conviction: 'faible' | 'moyenne' | 'forte'
+    - sentiment_extreme: bool (F&G >80 ou <20)
+    - volatilite_haute: bool (ATR signalé >3%)
+    - score_max: int (score le plus élevé parmi les signaux)
     """
+    # Score maximum parmi les signaux
+    scores = [s.get("score", 0) for s in signaux]
+    score_max = max(scores) if scores else 0
+    
+    # Conviction basée sur le score
+    if score_max >= 9:
+        conviction = "forte"
+    elif score_max >= 7:
+        conviction = "moyenne"
+    else:
+        conviction = "faible"
+    
+    # Sentiment extrême
+    sentiment_extreme = fg_value >= 80 or fg_value <= 20
+    
+    # Volatilité: vérifie si un signal mentionne ATR élevé
+    volatilite_haute = False
+    for sig in signaux:
+        raison = sig.get("raison", "").lower()
+        if "atr" in raison and any(x in raison for x in ["3", "4", "5", "6", "7", "8", "haut", "élevé", "eleve"]):
+            volatilite_haute = True
+            break
+    
+    return {
+        "conviction": conviction,
+        "sentiment_extreme": sentiment_extreme,
+        "volatilite_haute": volatilite_haute,
+        "score_max": score_max,
+    }
+
+
+def _router_modeles(contexte):
+    """
+    Choisit quels modèles appeler selon le contexte.
+    Comme Perplexity Computer: route chaque sous-tâche vers le meilleur modèle.
+    
+    Retourne une liste de labels de modèles à appeler.
+    
+    Règles:
+    - Base: sonar (web) + gemini-flash (risque) — toujours appelés
+    - Conviction moyenne: + sonar-reasoning (logique)
+    - Conviction forte: + sonar-pro (approfondi) + gemini-pro (contrarien)
+    - Sentiment extrême: + gemini-pro (contrarien obligatoire, même si conviction faible)
+    - Volatilité haute: + sonar-pro (analyse approfondi, même si conviction moyenne)
+    """
+    modeles = ["sonar", "gem-flash"]  # Base: toujours 2 modèles
+    
+    conviction = contexte["conviction"]
+    
+    if conviction == "moyenne":
+        modeles.append("reasoning")
+    elif conviction == "forte":
+        modeles.extend(["reasoning", "pro", "gem-pro"])
+    
+    # Overrides: ajoute des modèles spécifiques selon le contexte
+    if contexte["sentiment_extreme"] and "gem-pro" not in modeles:
+        modeles.append("gem-pro")  # Contrarien obligatoire en sentiment extrême
+    
+    if contexte["volatilite_haute"] and "pro" not in modeles:
+        modeles.append("pro")  # Analyse approfondie en haute volatilité
+    
+    return modeles
+
+
+def _call_models_routed(signaux, prix, fg_value, fg_class):
+    """
+    Appelle les modèles choisis par le routeur en parallèle.
+    Retourne (results dict, errors count, models_called list, contexte dict).
+    """
+    contexte = _detecter_contexte(signaux, fg_value, fg_class)
+    modeles_a_appeler = _router_modeles(contexte)
+    
     signaux_str, _, _ = _build_prompt_base(signaux, prix, fg_value, fg_class)
-
-    # Prépare les 5 tâches
-    tasks = [
-        ("sonar",        _call_perplexity_model, _prompt_sonar(signaux_str, fg_value, fg_class), "sonar"),
-        ("reasoning",    _call_perplexity_model, _prompt_sonar_reasoning(signaux_str, fg_value, fg_class), "sonar-reasoning"),
-        ("pro",          _call_perplexity_model, _prompt_sonar_pro(signaux_str, fg_value, fg_class), "sonar-pro"),
-        ("gem-flash",    _call_gemini_model,     _prompt_gemini_flash(signaux_str, fg_value, fg_class), "gemini-2.5-flash"),
-        ("gem-pro",      _call_gemini_model,     _prompt_gemini_pro(signaux_str, fg_value, fg_class), "gemini-2.5-pro"),
-    ]
-
+    
+    # Toutes les tâches possibles
+    toutes_taches = {
+        "sonar":      ("sonar",      _call_perplexity_model, _prompt_sonar(signaux_str, fg_value, fg_class), "sonar"),
+        "reasoning":  ("reasoning",  _call_perplexity_model, _prompt_sonar_reasoning(signaux_str, fg_value, fg_class), "sonar-reasoning"),
+        "pro":        ("pro",        _call_perplexity_model, _prompt_sonar_pro(signaux_str, fg_value, fg_class), "sonar-pro"),
+        "gem-flash":  ("gem-flash",  _call_gemini_model,     _prompt_gemini_flash(signaux_str, fg_value, fg_class), "gemini-2.5-flash"),
+        "gem-pro":    ("gem-pro",    _call_gemini_model,     _prompt_gemini_pro(signaux_str, fg_value, fg_class), "gemini-2.5-pro"),
+    }
+    
+    # Filtre les tâches selon le routeur
+    tasks = [toutes_taches[m] for m in modeles_a_appeler if m in toutes_taches]
+    
+    # Affiche le routing
+    conv_label = {"faible": "faible", "moyenne": "moyenne", "forte": "forte"}[contexte["conviction"]]
+    extras = []
+    if contexte["sentiment_extreme"]:
+        extras.append(f"sentiment extrême F&G={fg_value}")
+    if contexte["volatilite_haute"]:
+        extras.append("volatilité élevée")
+    extra_str = f" + {', '.join(extras)}" if extras else ""
+    print(f"  [ROUTER] Conviction {conv_label} (score max {contexte['score_max']}) → {len(tasks)} modèles{extra_str}")
+    
     results = {}
     errors = 0
-
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    
+    with ThreadPoolExecutor(max_workers=len(tasks)) as executor:
         futures = {}
         for label, func, prompt, model_name in tasks:
             future = executor.submit(func, prompt, model_name)
@@ -284,7 +381,7 @@ def _call_all_models_parallel(signaux, prix, fg_value, fg_class):
                 errors += 1
                 print(f"  [AGENTS] {label} timeout/erreur: {e}")
 
-    return results, errors
+    return results, errors, modeles_a_appeler, contexte
 
 
 # ============================================
@@ -408,11 +505,19 @@ def _build_consensus(all_results, symboles):
         else:
             score_moyen = 0.0
 
+        # Seuil de consensus adaptatif selon le nombre de modèles appelés
+        # 2 modèles: unanimité requise (2/2 pour ACHAT, 1/2 pour ÉVITER)
+        # 3 modèles: majorité (2/3 pour ACHAT, 2/3 pour ÉVITER)
+        # 4-5 modèles: majorité forte (3/5 pour ACHAT, 2/5 pour ÉVITER)
+        seuil_achat = 2 if models_total <= 2 else (2 if models_total == 3 else 3)
+        seuil_eviter = 1 if models_total <= 2 else 2
+        seuil_fort = 2  # Toujours besoin de 2 FORT pour ACHAT_FORT
+        
         # Détermine le verdict de consensus
-        if nb_eviter >= 2:
+        if nb_eviter >= seuil_eviter:
             verdict_consensus = "ÉVITER"
-        elif nb_achat >= 3:
-            if nb_achat_fort >= 2:
+        elif nb_achat >= seuil_achat:
+            if nb_achat_fort >= seuil_fort and models_total >= 3:
                 verdict_consensus = "ACHAT_FORT"
             else:
                 verdict_consensus = "ACHAT"
@@ -482,14 +587,14 @@ def analyser_avec_agents(signaux, prix, positions_ouvertes=None):
     # Récupère le sentiment
     fg_value, fg_class = _get_fear_greed()
 
-    # Appelle les 5 modèles en parallèle
-    all_results, errors = _call_all_models_parallel(signaux, prix, fg_value, fg_class)
+    # Appelle les modèles via le routeur intelligent
+    all_results, errors, models_called, contexte = _call_models_routed(signaux, prix, fg_value, fg_class)
 
     if not all_results:
         print(f"  [AGENTS] Tous les modèles ont échoué ({errors} erreurs) — trend-following seul")
         return {}
 
-    print(f"  [AGENTS] {len(all_results)}/5 modèles ont répondu")
+    print(f"  [AGENTS] {len(all_results)}/{len(models_called)} modèles ont répondu")
 
     # Parse chaque réponse
     parsed = {}
@@ -599,8 +704,9 @@ if __name__ == "__main__":
     ]
     prix_test = {"BTCUSDT": 78000, "ETHUSDT": 2400, "SOLUSDT": 100}
 
-    print("=== TEST MULTI-MODÈLES (5 IA en parallèle) ===")
+    print("=== TEST MULTI-MODÈLES avec ROUTING intelligent ===")
     print("Modèles: Perplexity sonar + sonar-reasoning + sonar-pro + Gemini 2.5-flash + 2.5-pro")
+    print("Routing: conviction faible → 2 modèles, moyenne → 3, forte → 5")
     print()
 
     t0 = time.time()

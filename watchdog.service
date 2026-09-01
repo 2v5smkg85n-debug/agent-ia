@@ -1,0 +1,14 @@
+[Unit]
+Description=Watchdog auto-reparation bot trading
+After=network.target paper_trading.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/ubuntu/agent-ia/watchdog.py
+WorkingDirectory=/home/ubuntu/agent-ia
+Restart=always
+RestartSec=10
+User=ubuntu
+
+[Install]
+WantedBy=multi-user.target
