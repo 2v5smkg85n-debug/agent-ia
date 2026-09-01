@@ -842,6 +842,87 @@ def ouvrir_position(pf, signal, prix_actuel):
                 signal["score"] = signal.get("score", 0) + 1
     except Exception:
         pass
+    # === AMELIORATION WIN RATE: 3 FILTRES SUPPLEMENTAIRES ===
+    # FILTRE 1: CONFIRMATION MULTI-TIMEFRAME STRICTE (1h + 4h + 1d alignes)
+    # Bloque les entrees si la tendance 4h ou 1d contredit le signal 1h
+    try:
+        from indicateurs import historique_ohlcv, calculer_rsi, calculer_sma
+        _sym = signal["symbole"]
+        _conf_htf = 0
+        _htf_details = []
+        for _tf, _label in [("4h", "4h"), ("1d", "1j")]:
+            try:
+                _bougies = historique_ohlcv(_sym, _tf, 20)
+                if _bougies and len(_bougies) >= 5:
+                    _closes = [b.get("close", 0) for b in _bougies]
+                    _sma20 = sum(_closes[-20:]) / len(_closes[-20:]) if len(_closes) >= 20 else sum(_closes) / len(_closes)
+                    _prix_now = _closes[-1]
+                    _rsi_tf = calculer_rsi(_closes) if len(_closes) >= 14 else 50
+                    if _prix_now > _sma20 and _rsi_tf > 45:
+                        _conf_htf += 1
+                        _htf_details.append(f"{_label} haussier")
+                    else:
+                        _htf_details.append(f"{_label} baissier/neutre (RSI {_rsi_tf:.0f})")
+            except Exception:
+                _htf_details.append(f"{_label} indisponible")
+        if _conf_htf == 0:
+            # Aucune HTF confirme -> SKIP (trop risque)
+            print(f"  [MTF-65] {signal.get('nom',_sym)}: aucune HTF confirme ({', '.join(_htf_details)}) -> SKIP")
+            return False
+        elif _conf_htf == 1:
+            # 1 seule HTF confirme -> penalite score
+            signal["score"] = signal.get("score", 0) - 1
+            print(f"  [MTF-65] {signal.get('nom',_sym)}: 1/2 HTF confirme ({', '.join(_htf_details)}) -> -1 score")
+        else:
+            # 2/2 HTF confirment -> bonus score
+            signal["score"] = signal.get("score", 0) + 1
+            print(f"  [MTF-65] {signal.get('nom',_sym)}: 2/2 HTF confirment -> +1 score")
+    except Exception as _e:
+        print(f"  [MTF-65] indisponible: {_e}")
+    # FILTRE 2: ATTENDRE UN PULLBACK (pas acheter au sommet)
+    # Si le prix est trop etendu au-dessus de la SMA20 ou RSI > 65, penalite
+    try:
+        from indicateurs import historique_ohlcv as _hist_1h, rsi as _rsi_fn
+        _bougies_1h = _hist_1h(signal["symbole"], "1h", 20)
+        if _bougies_1h and len(_bougies_1h) >= 14:
+            _closes_1h = [b.get("close", 0) for b in _bougies_1h]
+            _sma20_1h = sum(_closes_1h[-20:]) / len(_closes_1h[-20:]) if len(_closes_1h) >= 20 else sum(_closes_1h) / len(_closes_1h)
+            _ecart_sma = ((prix_actuel - _sma20_1h) / _sma20_1h) * 100 if _sma20_1h > 0 else 0
+            _rsi_1h = _rsi_fn(_closes_1h) if len(_closes_1h) >= 14 else 50
+            # Prix trop etendu au-dessus de la SMA20 (> 2.5%) = risque de pullback
+            if _ecart_sma > 2.5:
+                signal["score"] = signal.get("score", 0) - 1
+                print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: prix +{_ecart_sma:.1f}% au-dessus SMA20 -> -1 score (risque pullback)")
+            # RSI en surachat (> 65) = attendre un repli
+            if _rsi_1h > 65:
+                signal["score"] = signal.get("score", 0) - 1
+                print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: RSI {_rsi_1h:.0f} > 65 (surachat) -> -1 score (attendre repli)")
+            # Prix proche de la SMA20 (dans +/- 1%) = bon point d'entree
+            if abs(_ecart_sma) <= 1.0:
+                signal["score"] = signal.get("score", 0) + 1
+                print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: prix proche SMA20 ({_ecart_sma:+.1f}%) -> +1 score (bon entree)")
+    except Exception:
+        pass
+    # FILTRE 3: HEURES DE FAIBLE LIQUIDITE ETENDU (weekend + heures creuses)
+    # Penalise les trades en dehors des heures de fort volume (pas de bonus)
+    try:
+        _heure_utc = datetime.now(timezone.utc).hour
+        _jour = datetime.now(timezone.utc).weekday()  # 0=Lundi, 6=Dimanche
+        _est_weekend = _jour >= 5  # Samedi=5, Dimanche=6
+        _est_heure_faible = True
+        for _h_deb, _h_fin in HEURES_FORT_VOLUME:
+            if _h_deb <= _heure_utc < _h_fin:
+                _est_heure_faible = False
+                break
+        if _est_weekend:
+            signal["score"] = signal.get("score", 0) - 1
+            print(f"  [LIQUIDITE] Weekend -> -1 score (liquidite faible)")
+        elif _est_heure_faible and not (HEURES_FAIBLE_LIQUIDITE and any(h <= _heure_utc < f for h, f in HEURES_FAIBLE_LIQUIDITE)):
+            # Heure creuse mais pas bloque: petite penalite
+            signal["score"] = signal.get("score", 0) - 0.5
+            print(f"  [LIQUIDITE] Heure creuse ({_heure_utc}h UTC) -> -0.5 score")
+    except Exception:
+        pass
     # FILTRE SCORE MINIMUM: ne trade que les signaux avec score >= 5 (win rate plus haut)
     _score_min = signal.get("score", 0)
     if _score_min < 5:
