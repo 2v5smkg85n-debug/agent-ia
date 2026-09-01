@@ -442,6 +442,12 @@ def _traiter_message(message):
 
 def _reponse_gemini_fallback(message):
     """Si l'intention est inconnue, utilise Gemini pour répondre."""
+    # Vérifie d'abord si c'est une question non-trading
+    msg_lower = message.lower()
+    sujets_non_trading = ["météo", "meteo", "temps à", "restaurant", "film", "musique", "blague", "recette", "voyage", "sport", "news", "actualité"]
+    if any(s in msg_lower for s in sujets_non_trading):
+        return "Je gère uniquement le trading crypto et ton bot. Pose-moi une question sur ton portefeuille, tes positions, ou le marché. Tape 'aide' pour voir ce que je peux faire."
+    
     try:
         import requests
         key = os.getenv("GEMINI_API_KEY", "")
@@ -451,7 +457,8 @@ def _reponse_gemini_fallback(message):
             if os.path.exists(env_path):
                 with open(env_path) as f:
                     for line in f:
-                        if line.strip().startswith("GEMINI_API_KEY="):
+                        line = line.strip()
+                        if line.startswith("GEMINI_API_KEY="):
                             key = line.split("=", 1)[1].strip()
                             break
         
@@ -474,14 +481,26 @@ Question de l'utilisateur: {message}
 Si la question ne concerne pas le trading ou le bot, réponds que tu ne gères que le trading.
 Réponds en 2-3 phrases maximum."""
         
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
-        r = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=30)
-        if r.status_code == 200:
-            return r.json()["candidates"][0]["content"]["parts"][0]["text"][:500]
+        # Essaie plusieurs modèles Gemini
+        modeles = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest"]
+        for modele in modeles:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={key}"
+                r = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=30)
+                if r.status_code == 200:
+                    return r.json()["candidates"][0]["content"]["parts"][0]["text"][:500]
+                elif r.status_code == 401:
+                    continue  # Essaie le modèle suivant
+                elif r.status_code == 404:
+                    continue  # Modèle non trouvé
+                else:
+                    continue
+            except Exception:
+                continue
     except Exception:
         pass
     
-    return "Je n'ai pas compris. Tape 'aide' pour voir ce que je peux faire."
+    return "Je n'ai pas compris ta demande. Tape 'aide' pour voir ce que je peux faire."
 
 
 # ============================================
