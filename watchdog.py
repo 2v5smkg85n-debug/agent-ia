@@ -203,12 +203,22 @@ def check_sl_retard():
 
 def check_dashboard():
     """Check 6: Dashboard répond ?"""
-    out, code = _run("curl -s -o /dev/null -w '%{http_code}' http://localhost:8765/ 2>/dev/null")
+    # Lit le token depuis .env
+    token = ""
+    env_path = os.path.join(DOSSIER, ".env")
+    if os.path.exists(env_path):
+        with open(env_path) as f:
+            for line in f:
+                if line.strip().startswith("DASHBOARD_TOKEN="):
+                    token = line.split("=", 1)[1].strip()
+                    break
+    url = f"http://localhost:8765/?token={token}" if token else "http://localhost:8765/"
+    out, code = _run(f"curl -s -o /dev/null -w '%{{http_code}}' '{url}' 2>/dev/null")
     if code != 0 or out not in ("200", "301", "302"):
         _log("ALERT: Dashboard down — redémarrage...")
         _run("sudo systemctl restart dashboard.service")
         time.sleep(3)
-        out2, _ = _run("curl -s -o /dev/null -w '%{http_code}' http://localhost:8765/ 2>/dev/null")
+        out2, _ = _run(f"curl -s -o /dev/null -w '%{{http_code}}' '{url}' 2>/dev/null")
         if out2 in ("200", "301", "302"):
             _log("OK: dashboard redémarré")
             _telegram("🔧 WATCHDOG: dashboard.service redémarré")
