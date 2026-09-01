@@ -93,15 +93,33 @@ def check_service():
     out, code = _run("systemctl is-active paper_trading.service")
     if code != 0 or out != "active":
         _log("ALERT: paper_trading.service INACTIF — redémarrage...")
+        # Apprentissage: cherche si une solution connue existe
+        try:
+            from apprentissage_session import chercher_solution, enregistrer_solution, incrementer_stat
+            sol = chercher_solution("Service crash")
+            if sol and sol.get("succes_rate", 0) >= 70:
+                _log(f"  Solution connue (freq {sol.get('frequence',0)}): {sol.get('solution','')[:60]}")
+            incrementer_stat("Service crash", auto=True)
+        except Exception:
+            pass
         _run("sudo systemctl restart paper_trading.service")
         time.sleep(5)
         out2, _ = _run("systemctl is-active paper_trading.service")
         if out2 == "active":
             _log("OK: service redémarré avec succès")
             _telegram("🔧 WATCHDOG: paper_trading.service redémarré automatiquement")
+            try:
+                enregistrer_solution("Service crash", "sudo systemctl restart paper_trading.service")
+            except Exception:
+                pass
         else:
             _log("CRITICAL: échec redémarrage service!")
             _telegram("🚨 WATCHDOG CRITICAL: échec redémarrage paper_trading.service!")
+            try:
+                from apprentissage_session import enregistrer_echec
+                enregistrer_echec("Service crash")
+            except Exception:
+                pass
         return False
     return True
 
@@ -135,6 +153,15 @@ def check_json_corrompu():
         return True
     except Exception as e:
         _log(f"ALERT: JSON corrompu ({e}) — recherche backup...")
+        # Apprentissage: cherche la solution connue
+        try:
+            from apprentissage_session import chercher_solution, enregistrer_solution, incrementer_stat
+            sol = chercher_solution("JSON corrompu")
+            if sol:
+                _log(f"  Solution connue: {sol.get('solution','')[:60]}")
+            incrementer_stat("JSON corrompu", auto=True)
+        except Exception:
+            pass
         # Cherche un backup
         backups = sorted(Path(DOSSIER).glob("paper_trading.json.bak*"))
         if backups:
@@ -142,6 +169,10 @@ def check_json_corrompu():
             _log(f"Restauration depuis {backup}")
             shutil.copy2(backup, JSON_FILE)
             _telegram(f"🔧 WATCHDOG: paper_trading.json corrompu, restauré depuis {backup}")
+            try:
+                enregistrer_solution("JSON corrompu", f"Restore backup {backup}")
+            except Exception:
+                pass
         else:
             # Crée un JSON minimal valide
             _log("Aucun backup — création JSON minimal")
@@ -158,6 +189,10 @@ def check_json_corrompu():
             with open(JSON_FILE, "w") as f:
                 json.dump(minimal, f, indent=2)
             _telegram("🔧 WATCHDOG: JSON corrompu sans backup, recréé minimal (1000€)")
+            try:
+                enregistrer_solution("JSON corrompu", "Recréer JSON minimal 1000€")
+            except Exception:
+                pass
         return False
 
 
@@ -173,11 +208,23 @@ def check_circuit_breaker():
         consec = cb.get("consecutive_losses", 0) if isinstance(cb, dict) else 0
         if consec >= 3 or pertes >= 3:
             _log(f"ALERT: Circuit breaker actif ({consec} pertes consec) — reset...")
+            try:
+                from apprentissage_session import chercher_solution, enregistrer_solution, incrementer_stat
+                sol = chercher_solution("Circuit breaker bloqué")
+                if sol:
+                    _log(f"  Solution connue: {sol.get('solution','')[:60]}")
+                incrementer_stat("Circuit breaker bloqué", auto=True)
+            except Exception:
+                pass
             data["circuit_breaker"] = {"consecutive_losses": 0}
             data["pertes_consecutives"] = 0
             with open(JSON_FILE, "w") as f:
                 json.dump(data, f, indent=2)
             _telegram("🔧 WATCHDOG: Circuit breaker reset (3+ pertes consecutives)")
+            try:
+                enregistrer_solution("Circuit breaker bloqué", "Reset pertes_consecutives=0")
+            except Exception:
+                pass
             return False
     except Exception:
         pass
@@ -194,6 +241,15 @@ def check_sl_retard():
         count = int(out) if out.isdigit() else 0
         if count > 0:
             _log(f"ALERT: {count} SL-RETARD détectés dans les logs récents!")
+            # Apprentissage: cherche la solution connue
+            try:
+                from apprentissage_session import chercher_solution, enregistrer_solution, incrementer_stat
+                sol = chercher_solution("SL-RETARD")
+                if sol:
+                    _log(f"  Solution connue: {sol.get('solution','')[:60]}")
+                incrementer_stat("SL-RETARD", auto=False)
+            except Exception:
+                pass
             _telegram(f"⚠️ WATCHDOG: {count} SL-RETARD détectés — vérifie les logs")
             return False
     except Exception:

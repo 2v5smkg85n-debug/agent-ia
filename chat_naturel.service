@@ -1,0 +1,14 @@
+[Unit]
+Description=Chat naturel Telegram — conversation en langage naturel
+After=network.target paper_trading.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/ubuntu/agent-ia/chat_naturel.py
+WorkingDirectory=/home/ubuntu/agent-ia
+Restart=always
+RestartSec=10
+User=ubuntu
+
+[Install]
+WantedBy=multi-user.target
