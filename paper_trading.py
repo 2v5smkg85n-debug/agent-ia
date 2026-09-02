@@ -46,7 +46,7 @@ CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
 MAX_POSITIONS = 8              # 8 positions max (plus de trades)
 LIQUIDITE_MIN = 200.0          # garde au moins 200 EUR de liquidites
-FENETRE_CORRELATION_MIN = 60    # anti-double-exposition: 60min entre entrees meme actif
+FENETRE_CORRELATION_MIN = 30    # anti-double-exposition: 30min entre entrees meme actif (assoupli)
 MAX_POS_PAR_ACTIF = 1          # 1 position par actif (pas de pyramiding risqué)
 RISK_PAR_TRADE = 0.10         # 10% fixe (~100 EUR par position)
 RISK_MAX_TRADE = 0.10         # 10% fixe (~100 EUR) - 8 positions x 100 EUR = 800 EUR + 200 liquidite
@@ -866,13 +866,13 @@ def ouvrir_position(pf, signal, prix_actuel):
             except Exception:
                 _htf_details.append(f"{_label} indisponible")
         if _conf_htf == 0:
-            # Aucune HTF confirme -> SKIP (trop risque)
-            print(f"  [MTF-65] {signal.get('nom',_sym)}: aucune HTF confirme ({', '.join(_htf_details)}) -> SKIP")
-            return False
+            # Aucune HTF confirme -> forte penalite mais pas SKIP (assoupli)
+            signal["score"] = signal.get("score", 0) - 2
+            print(f"  [MTF-65] {signal.get('nom',_sym)}: 0/2 HTF confirme ({', '.join(_htf_details)}) -> -2 score")
         elif _conf_htf == 1:
-            # 1 seule HTF confirme -> penalite score
-            signal["score"] = signal.get("score", 0) - 1
-            print(f"  [MTF-65] {signal.get('nom',_sym)}: 1/2 HTF confirme ({', '.join(_htf_details)}) -> -1 score")
+            # 1 seule HTF confirme -> petite penalite
+            signal["score"] = signal.get("score", 0) - 0.5
+            print(f"  [MTF-65] {signal.get('nom',_sym)}: 1/2 HTF confirme ({', '.join(_htf_details)}) -> -0.5 score")
         else:
             # 2/2 HTF confirment -> bonus score
             signal["score"] = signal.get("score", 0) + 1
@@ -889,16 +889,16 @@ def ouvrir_position(pf, signal, prix_actuel):
             _sma20_1h = sum(_closes_1h[-20:]) / len(_closes_1h[-20:]) if len(_closes_1h) >= 20 else sum(_closes_1h) / len(_closes_1h)
             _ecart_sma = ((prix_actuel - _sma20_1h) / _sma20_1h) * 100 if _sma20_1h > 0 else 0
             _rsi_1h = _rsi_fn(_closes_1h) if len(_closes_1h) >= 14 else 50
-            # Prix trop etendu au-dessus de la SMA20 (> 2.5%) = risque de pullback
-            if _ecart_sma > 2.5:
+            # Prix trop etendu au-dessus de la SMA20 (> 3.5%) = risque de pullback (assoupli)
+            if _ecart_sma > 3.5:
                 signal["score"] = signal.get("score", 0) - 1
                 print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: prix +{_ecart_sma:.1f}% au-dessus SMA20 -> -1 score (risque pullback)")
-            # RSI en surachat (> 65) = attendre un repli
-            if _rsi_1h > 65:
+            # RSI en surachat extreme (> 72) = attendre un repli (assoupli, avant 65)
+            if _rsi_1h > 72:
                 signal["score"] = signal.get("score", 0) - 1
-                print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: RSI {_rsi_1h:.0f} > 65 (surachat) -> -1 score (attendre repli)")
-            # Prix proche de la SMA20 (dans +/- 1%) = bon point d'entree
-            if abs(_ecart_sma) <= 1.0:
+                print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: RSI {_rsi_1h:.0f} > 72 (surachat) -> -1 score (attendre repli)")
+            # Prix proche de la SMA20 (dans +/- 1.5%) = bon point d'entree (assoupli)
+            if abs(_ecart_sma) <= 1.5:
                 signal["score"] = signal.get("score", 0) + 1
                 print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: prix proche SMA20 ({_ecart_sma:+.1f}%) -> +1 score (bon entree)")
     except Exception:
@@ -915,18 +915,18 @@ def ouvrir_position(pf, signal, prix_actuel):
                 _est_heure_faible = False
                 break
         if _est_weekend:
-            signal["score"] = signal.get("score", 0) - 1
-            print(f"  [LIQUIDITE] Weekend -> -1 score (liquidite faible)")
-        elif _est_heure_faible and not (HEURES_FAIBLE_LIQUIDITE and any(h <= _heure_utc < f for h, f in HEURES_FAIBLE_LIQUIDITE)):
-            # Heure creuse mais pas bloque: petite penalite
             signal["score"] = signal.get("score", 0) - 0.5
-            print(f"  [LIQUIDITE] Heure creuse ({_heure_utc}h UTC) -> -0.5 score")
+            print(f"  [LIQUIDITE] Weekend -> -0.5 score (liquidite faible)")
+        elif _est_heure_faible and not (HEURES_FAIBLE_LIQUIDITE and any(h <= _heure_utc < f for h, f in HEURES_FAIBLE_LIQUIDITE)):
+            # Heure creuse mais pas bloque: petite penalite (assoupli)
+            signal["score"] = signal.get("score", 0) - 0.3
+            print(f"  [LIQUIDITE] Heure creuse ({_heure_utc}h UTC) -> -0.3 score")
     except Exception:
         pass
-    # FILTRE SCORE MINIMUM: ne trade que les signaux avec score >= 5 (win rate plus haut)
+    # FILTRE SCORE MINIMUM: ne trade que les signaux avec score >= 4 (assoupli, avant 5)
     _score_min = signal.get("score", 0)
-    if _score_min < 5:
-        print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> score {_score_min} < 5 (trop faible)")
+    if _score_min < 4:
+        print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> score {_score_min} < 4 (trop faible)")
         return False
     # SIZING DYNAMIQUE BASE SUR LE SENTIMENT ET LE SCORE
     # Le bot ajuste la taille de position selon le sentiment du marche:
