@@ -160,6 +160,17 @@ MARCHES_PAPER = {
     "FILUSDT": {"nom": "Filecoin", "marche": "crypto", "source": "binance"},
     "ATOMUSDT": {"nom": "Cosmos", "marche": "crypto", "source": "binance"},
     "DOTUSDT": {"nom": "Polkadot", "marche": "crypto", "source": "binance"},
+    # === Nouvelles cryptos haute liquidite (plus de trades possibles) ===
+    "ADAUSDT": {"nom": "Cardano", "marche": "crypto", "source": "binance"},
+    "TRXUSDT": {"nom": "TRON", "marche": "crypto", "source": "binance"},
+    "LTCUSDT": {"nom": "Litecoin", "marche": "crypto", "source": "binance"},
+    "SHIBUSDT": {"nom": "Shiba Inu", "marche": "crypto", "source": "binance"},
+    "ALGOUSDT": {"nom": "Algorand", "marche": "crypto", "source": "binance"},
+    "GRTUSDT": {"nom": "The Graph", "marche": "crypto", "source": "binance"},
+    "ICPUSDT": {"nom": "Internet Computer", "marche": "crypto", "source": "binance"},
+    "ETCUSDT": {"nom": "Ethereum Classic", "marche": "crypto", "source": "binance"},
+    "XLMUSDT": {"nom": "Stellar", "marche": "crypto", "source": "binance"},
+    "RUNEUSDT": {"nom": "THORChain", "marche": "crypto", "source": "binance"},
     # MATICUSDT retire (HTTP 400 sur Revolut X, renomme POL sur Revolut)
     # CRYPTO UNIQUEMENT — actions/forex/matieres/indices desactives
 }

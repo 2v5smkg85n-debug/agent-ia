@@ -55,6 +55,12 @@ SYMBOLES_REVOLUT = {
     # FLOKIUSDT retiré (blacklist Revolut X)
     "OPUSDT": "OP",
     "INJUSDT": "INJ",
+    "ALGOUSDT": "ALGO",
+    "GRTUSDT": "GRT",
+    "ICPUSDT": "ICP",
+    "ETCUSDT": "ETC",
+    "XLMUSDT": "XLM",
+    "RUNEUSDT": "RUNE",
 }
 
 # Mapping inverse (symbole court -> symbole bot)
