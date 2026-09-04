@@ -177,22 +177,67 @@ def get_prix_revolut(symbole, force_refresh=False):
         return 0
 
 
+# Mapping symbole -> id CoinGecko (partagé)
+_COINGECKO_MAP = {
+    "BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana",
+    "BNB": "binancecoin", "XRP": "ripple", "DOGE": "dogecoin",
+    "AVAX": "avalanche-2", "LINK": "chainlink", "ARB": "arbitrum",
+    "NEAR": "near", "LDO": "lido-dao", "AAVE": "aave",
+    "PENDLE": "pendle", "FET": "fetch-ai", "RENDER": "render-token",
+    "RNDR": "render-token", "APT": "aptos", "UNI": "uniswap",
+    "PEPE": "pepe", "DOT": "polkadot", "ATOM": "cosmos",
+    "SUI": "sui", "SEI": "sei-network", "TIA": "celestia",
+    "WIF": "dogwifcoin", "FLOKI": "floki", "OP": "optimism",
+    "INJ": "injective-protocol", "ADA": "cardano", "TRX": "tron",
+    "LTC": "litecoin", "SHIB": "shiba-inu", "ALGO": "algorand",
+    "GRT": "the-graph", "ICP": "internet-computer", "ETC": "ethereum-classic",
+    "XLM": "stellar", "RUNE": "thorchain", "CRV": "curve-dao-token",
+    "COMP": "compound-governance-token", "IMX": "immutable-x",
+    "AXS": "axie-infinity", "CAKE": "pancakeswap-token",
+    "SAND": "the-sandbox", "MATIC": "matic-network", "OCEAN": "ocean-protocol",
+    "FIL": "filecoin",
+}
+
+def get_prix_coingecko_batch(symboles_bot):
+    """Recupere les prix de plusieurs cryptos en UN appel CoinGecko batch.
+    Retourne les prix en EUR directement (pas de conversion USDT necessaire).
+    Pas de geo-blocage, API publique gratuite."""
+    if not symboles_bot:
+        return {}
+    # Map symboles bot -> ids CoinGecko
+    id_to_sym = {}
+    ids = []
+    for sym in symboles_bot:
+        court = sym.replace("USDT", "").replace("EUR", "").replace("USD", "").upper()
+        coin_id = _COINGECKO_MAP.get(court, "")
+        if coin_id and coin_id not in id_to_sym:
+            id_to_sym[coin_id] = sym
+            ids.append(coin_id)
+    if not ids:
+        return {}
+    try:
+        ids_str = ",".join(ids)
+        url = f"https://api.coingecko.com/api/v3/simple/price?ids={ids_str}&vs_currencies=eur"
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "application/json"
+        })
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read())
+        resultats = {}
+        for coin_id, sym_bot in id_to_sym.items():
+            prix = data.get(coin_id, {}).get("eur", 0)
+            if prix > 0:
+                resultats[sym_bot] = prix
+        return resultats
+    except Exception as e:
+        print(f"  [COINGECKO-BATCH] Erreur: {e}")
+        return {}
+
 def _prix_coingecko(symbole_court):
     """Fallback: recupere le prix via CoinGecko (API publique gratuite)."""
     try:
-        # Mapping symbole -> id CoinGecko
-        mapping = {
-            "BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana",
-            "BNB": "binancecoin", "XRP": "ripple", "DOGE": "dogecoin",
-            "AVAX": "avalanche-2", "LINK": "chainlink", "ARB": "arbitrum",
-            "NEAR": "near", "LDO": "lido-dao", "AAVE": "aave",
-            "PENDLE": "pendle", "FET": "fetch-ai", "RENDER": "render-token",
-            "APT": "aptos", "UNI": "uniswap", "PEPE": "pepe",
-            "DOT": "polkadot", "ATOM": "cosmos", "SUI": "sui",
-            "SEI": "sei-network", "TIA": "celestia", "WIF": "dogwifcoin",
-            "FLOKI": "floki", "OP": "optimism", "INJ": "injective-protocol",
-        }
-        coin_id = mapping.get(symbole_court, "")
+        coin_id = _COINGECKO_MAP.get(symbole_court, "")
         if not coin_id:
             return 0
         url = f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies=eur"
@@ -208,7 +253,6 @@ def _prix_coingecko(symbole_court):
         return prix
     except Exception as e:
         if "429" in str(e):
-            # Rate limit CoinGecko: attend 3s et réessaie
             time.sleep(3.0)
             try:
                 with urllib.request.urlopen(req, timeout=10) as resp:

@@ -284,17 +284,22 @@ def tous_les_prix():
 
     syms_crypto = prix_par_source["binance"]
 
-    # 1. BATCH BINANCE: toutes les cryptos en un seul appel (rapide, pas de rate limit)
+    # 1. BATCH COINGECKO: toutes les cryptos en un seul appel (pas de geo-blocage)
     try:
         import prix_revolut as pr
-        prix_batch = pr.get_prix_binance_batch(syms_crypto)
+        prix_batch = pr.get_prix_coingecko_batch(syms_crypto)
         if prix_batch:
             prix.update(prix_batch)
-            print(f"  [BINANCE-BATCH] {len(prix_batch)}/{len(syms_crypto)} cryptos recuperees")
+            print(f"  [COINGECKO-BATCH] {len(prix_batch)}/{len(syms_crypto)} cryptos recuperees")
         else:
-            print(f"  [BINANCE-BATCH] 0 prix recuperees (Binance indisponible?)")
+            print(f"  [COINGECKO-BATCH] 0 prix - fallback Binance")
+            # Fallback Binance si CoinGecko echoue
+            prix_batch = pr.get_prix_binance_batch(syms_crypto)
+            if prix_batch:
+                prix.update(prix_batch)
+                print(f"  [BINANCE-BATCH] {len(prix_batch)} cryptos (fallback)")
     except Exception as e:
-        print(f"  [BINANCE-BATCH] Erreur: {e}")
+        print(f"  [BATCH] Erreur: {e}")
 
     # 2. REVOLUT X pour les top assets non blacklistes (prix d'entree plus precis)
     top_revolut = ["BTCUSDT", "ETHUSDT"]
@@ -2001,12 +2006,19 @@ def _check_crypto_sl_rapide():
     if not _crypto_syms:
         return
     import prix_revolut as pr
-    # 1. Binance batch (1 appel, instantane, pas de rate limit)
+    # 1. Binance batch (1 appel, instantane)
     prix = pr.get_prix_binance_batch(_crypto_syms)
-    # 2. Fallback: si Binance rate limit, utilise Revolut X avec cache
+    # 2. Fallback CoinGecko batch si Binance geo-bloque
     _missing = [s for s in _crypto_syms if s not in prix or prix[s] <= 0]
+    if _missing:
+        _cg = pr.get_prix_coingecko_batch(_missing)
+        for _s, _p in _cg.items():
+            if _p > 0:
+                prix[_s] = _p
+        _missing = [s for s in _crypto_syms if s not in prix or prix[s] <= 0]
+    # 3. Fallback Revolut X pour les restants
     for _s in _missing:
-        _p = pr.get_prix_revolut(_s)  # utilise cache (pas force_refresh)
+        _p = pr.get_prix_revolut(_s)
         if _p and _p > 0:
             prix[_s] = _p
     if not prix:
