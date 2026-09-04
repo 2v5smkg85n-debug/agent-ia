@@ -1033,8 +1033,8 @@ def ouvrir_position(pf, signal, prix_actuel):
         pass
     # FILTRE SCORE MINIMUM: ne trade que les signaux avec score >= 4 (assoupli, avant 5)
     _score_min = signal.get("score", 0)
-    if _score_min < 4:
-        print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> score {_score_min} < 4 (trop faible)")
+    if _score_min < 2:
+        print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> score {_score_min} < 2 (trop faible)")
         return False
     # SIZING DYNAMIQUE BASE SUR LE SENTIMENT ET LE SCORE
     # Le bot ajuste la taille de position selon le sentiment du marche:
