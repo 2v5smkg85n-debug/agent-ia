@@ -275,41 +275,46 @@ def prix_perplexity_fallback(symboles_noms):
         return {}
 
 def tous_les_prix():
-    """Recupere tous les prix depuis toutes les sources."""
+    """Recupere tous les prix depuis toutes les sources.
+    Utilise Binance batch (1 appel pour TOUTES les cryptos) + Revolut X pour les top assets."""
     prix = {}
     prix_par_source = {"binance": [], "yahoo": []}
-    # Groupe par source (binance = crypto via Revolut X maintenant)
     for sym, config in MARCHES_PAPER.items():
         prix_par_source[config["source"]].append(sym)
 
-    # Crypto via Revolut X (rotation: 10 symboles par cycle)
     syms_crypto = prix_par_source["binance"]
-    # Toujours inclure les top 5 (BTC, ETH, SOL, BNB, XRP)
-    top5 = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"]
-    # Tourner: prendre 10 symboles differents a chaque cycle pour le reste
-    cycle = int(time.time() // 300)  # change toutes les 5 min
-    autres = [s for s in syms_crypto if s not in top5]
-    offset = (cycle * 5) % max(len(autres), 1)
-    autres_cycle = (autres[offset:] + autres[:offset])[:5]
-    syms_this_cycle = top5 + autres_cycle
-    for sym in syms_this_cycle:
-        p = prix_binance(sym)
-        if p:
-            prix[sym] = p
-        time.sleep(1.0)  # Rate-limit Revolut X (avant 3s trop lent -> SL-RETARD)
 
-    # Actions/Forex/Indices/Matieres via Yahoo
+    # 1. BATCH BINANCE: toutes les cryptos en UN SEUL appel (rapide, pas de rate limit)
+    try:
+        import prix_revolut as pr
+        prix_batch = pr.get_prix_binance_batch(syms_crypto)
+        if prix_batch:
+            prix.update(prix_batch)
+            print(f"  [BINANCE-BATCH] {len(prix_batch)} cryptos recuperees en 1 appel")
+    except Exception as e:
+        print(f"  [BINANCE-BATCH] Erreur: {e}")
+
+    # 2. REVOLUT X pour les top assets non blacklistes (prix d'entree plus precis)
+    top_revolut = ["BTCUSDT", "ETHUSDT"]
+    for sym in top_revolut:
+        try:
+            p = prix_binance(sym)  # = Revolut X
+            if p and p > 0:
+                prix[sym] = p  # ecrase le prix Binance avec le prix Revolut X
+        except Exception:
+            pass
+        time.sleep(1.0)
+
+    # 3. Yahoo pour les non-crypto (si activé)
     for sym in prix_par_source["yahoo"]:
         p = prix_yahoo(sym)
         if p:
             prix[sym] = p
-        time.sleep(0.3)  # Yahoo peut bloquer si trop rapide
+        time.sleep(0.3)
 
-    # Plus de fallback Perplexity pour les prix (retournait de faux prix)
-    # Les symboles sans prix sont simplement ignores ce cycle
     manquants = [s for s in MARCHES_PAPER if s not in prix]
     if manquants:
-        print(f"  [Info] {len(manquants)} symboles sans prix ce cycle (rotation Revolut X)")
+        print(f"  [Info] {len(manquants)} symboles sans prix")
 
     return prix
 
