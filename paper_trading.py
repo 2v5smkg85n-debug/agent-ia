@@ -284,13 +284,15 @@ def tous_les_prix():
 
     syms_crypto = prix_par_source["binance"]
 
-    # 1. BATCH BINANCE: toutes les cryptos en UN SEUL appel (rapide, pas de rate limit)
+    # 1. BATCH BINANCE: toutes les cryptos en un seul appel (rapide, pas de rate limit)
     try:
         import prix_revolut as pr
         prix_batch = pr.get_prix_binance_batch(syms_crypto)
         if prix_batch:
             prix.update(prix_batch)
-            print(f"  [BINANCE-BATCH] {len(prix_batch)} cryptos recuperees en 1 appel")
+            print(f"  [BINANCE-BATCH] {len(prix_batch)}/{len(syms_crypto)} cryptos recuperees")
+        else:
+            print(f"  [BINANCE-BATCH] 0 prix recuperees (Binance indisponible?)")
     except Exception as e:
         print(f"  [BINANCE-BATCH] Erreur: {e}")
 

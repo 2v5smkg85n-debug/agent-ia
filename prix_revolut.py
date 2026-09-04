@@ -285,31 +285,32 @@ def _get_eur_usdt_rate():
     return _eur_usdt_rate
 
 def get_prix_binance_batch(symboles):
-    """Recupere les prix de plusieurs cryptos en UN SEUL appel Binance.
+    """Recupere les prix de plusieurs cryptos en appel(s) Binance.
     Retourne les prix en EUR (conversion USDT -> EUR via taux cache).
-    Beaucoup plus rapide que Revolut X pour les SL checks."""
+    Decoupe en chunks de 10 pour eviter l'erreur URL trop longue."""
     if not symboles:
         return {}
-    try:
-        # Binance ticker/price accepte plusieurs symboles en un seul appel
-        # Format: ?symbols=["BTCUSDT","ETHUSDT"]
-        import urllib.parse
-        symbols_json = json.dumps(symboles)
-        symbols_encoded = urllib.parse.quote(symbols_json)
-        url = f"https://api.binance.com/api/v3/ticker/price?symbols={symbols_encoded}"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            data = json.loads(resp.read())
-        # Taux de conversion EUR/USDT
-        _rate = _get_eur_usdt_rate()
-        resultats = {}
-        for item in data:
-            sym = item["symbol"]
-            prix_usdt = float(item["price"])
-            resultats[sym] = prix_usdt * _rate  # Convertit en EUR
-        return resultats
-    except Exception:
-        return {}
+    resultats = {}
+    # Decoupe en chunks de 10 symboles max (URL trop longue sinon)
+    for i in range(0, len(symboles), 10):
+        chunk = symboles[i:i+10]
+        try:
+            import urllib.parse
+            symbols_json = json.dumps(chunk)
+            symbols_encoded = urllib.parse.quote(symbols_json)
+            url = f"https://api.binance.com/api/v3/ticker/price?symbols={symbols_encoded}"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read())
+            _rate = _get_eur_usdt_rate()
+            for item in data:
+                sym = item["symbol"]
+                prix_usdt = float(item["price"])
+                resultats[sym] = prix_usdt * _rate
+        except Exception as e:
+            # Continue avec le prochain chunk si un echoue
+            continue
+    return resultats
 
 
 def get_prix_avec_variation(symbole):
