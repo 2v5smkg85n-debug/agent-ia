@@ -862,7 +862,7 @@ def ouvrir_position(pf, signal, prix_actuel):
     # FILTRE 1: CONFIRMATION MULTI-TIMEFRAME STRICTE (1h + 4h + 1d alignes)
     # Bloque les entrees si la tendance 4h ou 1d contredit le signal 1h
     try:
-        from indicateurs import historique_ohlcv, calculer_rsi, calculer_sma
+        from indicateurs import historique_ohlcv, rsi as _calc_rsi
         _sym = signal["symbole"]
         _conf_htf = 0
         _htf_details = []
@@ -873,7 +873,9 @@ def ouvrir_position(pf, signal, prix_actuel):
                     _closes = [b.get("close", 0) for b in _bougies]
                     _sma20 = sum(_closes[-20:]) / len(_closes[-20:]) if len(_closes) >= 20 else sum(_closes) / len(_closes)
                     _prix_now = _closes[-1]
-                    _rsi_tf = calculer_rsi(_closes) if len(_closes) >= 14 else 50
+                    _rsi_tf = _calc_rsi(_closes) if len(_closes) >= 16 else 50
+                    if _rsi_tf is None:
+                        _rsi_tf = 50
                     if _prix_now > _sma20 and _rsi_tf > 45:
                         _conf_htf += 1
                         _htf_details.append(f"{_label} haussier")
@@ -904,7 +906,9 @@ def ouvrir_position(pf, signal, prix_actuel):
             _closes_1h = [b.get("close", 0) for b in _bougies_1h]
             _sma20_1h = sum(_closes_1h[-20:]) / len(_closes_1h[-20:]) if len(_closes_1h) >= 20 else sum(_closes_1h) / len(_closes_1h)
             _ecart_sma = ((prix_actuel - _sma20_1h) / _sma20_1h) * 100 if _sma20_1h > 0 else 0
-            _rsi_1h = _rsi_fn(_closes_1h) if len(_closes_1h) >= 14 else 50
+            _rsi_1h = _rsi_fn(_closes_1h) if len(_closes_1h) >= 16 else 50
+            if _rsi_1h is None:
+                _rsi_1h = 50
             # Prix trop etendu au-dessus de la SMA20 (> 3.5%) = risque de pullback (assoupli)
             if _ecart_sma > 3.5:
                 signal["score"] = signal.get("score", 0) - 1
