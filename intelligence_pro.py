@@ -226,6 +226,14 @@ def analyse_multi_timeframe(symbole):
             # Extraire les closes
             closes = [c[4] for c in ohlc]
 
+            # Detecte donnees low-quality: range < 0.1% du prix moyen = Revolut X quasi-identiques
+            _range_tf = max(closes) - min(closes)
+            _mean_tf = sum(closes) / len(closes)
+            if _mean_tf > 0 and (_range_tf / _mean_tf) < 0.001:
+                scores[tf] = 0
+                details[tf] = "donnees low-quality (range < 0.1%)"
+                continue
+
             # Calculer SMA courte vs longue
             sma_courte = sum(closes[-5:]) / 5
             sma_longue = sum(closes[-10:]) / 10 if len(closes) >= 10 else sma_courte
