@@ -58,6 +58,13 @@ COINGECKO_MAP = {
     "HBARUSDT": "hedera-hashgraph",
     "ICPUSDT": "internet-computer",
     "TRXUSDT": "tron",
+    "SHIBUSDT": "shiba-inu", "ALGOUSDT": "algorand", "GRTUSDT": "the-graph",
+    "ETCUSDT": "ethereum-classic", "XLMUSDT": "stellar", "RUNEUSDT": "thorchain",
+    "CRVUSDT": "curve-dao-token", "COMPUSDT": "compound-governance-token",
+    "IMXUSDT": "immutable-x", "AXSUSDT": "axie-infinity", "CAKEUSDT": "pancakeswap-token",
+    "SANDUSDT": "the-sandbox", "OCEANUSDT": "ocean-protocol", "WIFUSDT": "dogwifcoin",
+    "FLOKIUSDT": "floki", "FETUSDT": "fetch-ai", "RNDRUSDT": "render-token",
+    "RENDERUSDT": "render-token",
 }
 
 NOMS = {
@@ -87,15 +94,29 @@ def historique_ohlcv(symbole="BTCUSDT", intervalle="1h", limite=200):
         bougies = _historique_yahoo(symbole, intervalle, limite)
         if bougies:
             return bougies
-    # Crypto -> Binance d'abord (vraies donnees OHLCV + volume), puis CoinGecko, puis Revolut X
-    bougies = _historique_binance(symbole, intervalle, limite)
-    if bougies and len(bougies) >= 20:
-        return bougies
-    # Fallback: CoinGecko
+    # Crypto -> CoinGecko d'abord (pas de geo-blocage), puis Binance, puis Revolut X
+    # Cache pour eviter le rate limit CoinGecko (40+ appels par cycle sinon)
+    cache_key = (symbole, intervalle)
+    if cache_key in _CACHE_BOUGIES:
+        import time as _t
+        entry = _CACHE_BOUGIES[cache_key]
+        ttl = _TTL_BOUGIES.get(intervalle, 300)
+        if _t.time() - entry["timestamp"] < ttl:
+            bougies = entry["bougies"]
+            return bougies[-limite:] if len(bougies) > limite else bougies
+    # 1. CoinGecko (primaire - pas de geo-blocage)
     bougies = _historique_coingecko(symbole, intervalle, limite)
     if bougies and len(bougies) >= 20:
+        import time as _t
+        _CACHE_BOUGIES[cache_key] = {"bougies": bougies, "timestamp": _t.time()}
         return bougies
-    # Fallback: Revolut X (volume non fiable mais prix OK)
+    # 2. Binance (fallback - geo-bloque UE mais essaie au cas ou)
+    bougies = _historique_binance(symbole, intervalle, limite)
+    if bougies and len(bougies) >= 20:
+        import time as _t
+        _CACHE_BOUGIES[cache_key] = {"bougies": bougies, "timestamp": _t.time()}
+        return bougies
+    # 3. Revolut X (dernier recours)
     bougies = _historique_revolut(symbole, intervalle, limite)
     if bougies and len(bougies) >= 20:
         return bougies
@@ -157,7 +178,7 @@ def _historique_yahoo(symbole, intervalle, limite):
 # TTL adapte selon l'intervalle: plus l'intervalle est long, plus le cache dure
 _CACHE_BOUGIES = {}  # cle: (symbole, intervalle) -> {"bougies": [...], "timestamp": float}
 
-_TTL_BOUGIES = {"1m": 60, "5m": 120, "15m": 300, "30m": 600, "1h": 900, "4h": 3600, "1d": 14400}
+_TTL_BOUGIES = {"1m": 60, "5m": 120, "15m": 300, "30m": 600, "1h": 900, "4h": 7200, "1d": 43200}
 
 def _historique_revolut(symbole, intervalle, limite):
     """Recupere les chandeliers OHLCV depuis Revolut X (API publique, EUR).
@@ -326,7 +347,10 @@ def _historique_coingecko(symbole, intervalle, limite):
         
         return bougies[-limite:] if len(bougies) > limite else bougies
     except Exception as e:
-        print(f"[CoinGecko] Erreur {symbole}: {e}")
+        if "429" in str(e):
+            import time as _t
+            _t.sleep(2.0)
+            return []  # le cache ou le prochain cycle reessaiera
         return []
 
 def prix_actuel(symbole):
@@ -389,6 +413,9 @@ def rsi(clotures, periode=14):
     gain_moyen = sum(gains) / periode if gains else 0
     perte_moyenne = sum(pertes) / periode if pertes else 0
     if perte_moyenne == 0:
+        # Si gains aussi = 0 (tous les prix identiques) -> neutre, pas 100
+        if gain_moyen == 0:
+            return 50.0
         return 100.0
     rs = gain_moyen / perte_moyenne
     return 100 - (100 / (1 + rs))
