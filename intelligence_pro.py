@@ -254,6 +254,15 @@ def analyse_multi_timeframe(symbole):
             avg_loss = sum(pertes) / len(pertes) if pertes else 0
             rsi = 100 if avg_loss == 0 else 100 - (100 / (1 + avg_gain / avg_loss))
 
+            # Detecte donnees low-quality: RSI ~50 ET SMA5 ≈ SMA10 ET prix ≈ SMA
+            # Les donnees Revolut X ont des variations > 0.1% mais RSI toujours ~50
+            _ecart_sma_cl = abs((sma_courte - sma_longue) / sma_longue) * 100 if sma_longue > 0 else 0
+            _ecart_prix_sma = abs((prix_actuel - sma_longue) / sma_longue) * 100 if sma_longue > 0 else 0
+            if 45 <= rsi <= 55 and _ecart_sma_cl < 0.1 and _ecart_prix_sma < 0.1:
+                scores[tf] = 0
+                details[tf] = f"donnees low-quality (RSI {rsi:.0f}, ecart SMA {_ecart_sma_cl:.2f}%)"
+                continue
+
             # Score du timeframe
             score = 0
             detail_parts = []
