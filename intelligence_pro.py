@@ -258,6 +258,9 @@ def analyse_multi_timeframe(symbole):
             # Les donnees Revolut X ont des variations > 0.1% mais RSI toujours ~50
             _ecart_sma_cl = abs((sma_courte - sma_longue) / sma_longue) * 100 if sma_longue > 0 else 0
             _ecart_prix_sma = abs((prix_actuel - sma_longue) / sma_longue) * 100 if sma_longue > 0 else 0
+            # Debug: affiche les valeurs pour diagnostiquer
+            if tf in ("4h", "1d"):
+                print(f"    [MTF-DBG] {symbole} {tf}: RSI={rsi:.1f} ecart_sma={_ecart_sma_cl:.3f}% ecart_prix={_ecart_prix_sma:.3f}% n={len(closes)}")
             if 45 <= rsi <= 55 and _ecart_sma_cl < 0.1 and _ecart_prix_sma < 0.1:
                 scores[tf] = 0
                 details[tf] = f"donnees low-quality (RSI {rsi:.0f}, ecart SMA {_ecart_sma_cl:.2f}%)"
