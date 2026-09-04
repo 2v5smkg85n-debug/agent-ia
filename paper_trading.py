@@ -880,8 +880,9 @@ def ouvrir_position(pf, signal, prix_actuel):
                 if _bougies and len(_bougies) >= 5:
                     _closes = [b.get("close", 0) for b in _bougies]
                     # Detecte donnees defectueuses: tous les prix identiques ou quasi
-                    _unique = len(set([round(c, 6) for c in _closes]))
-                    if _unique <= 2:
+                    _range_h = max(_closes) - min(_closes)
+                    _mean_h = sum(_closes) / len(_closes)
+                    if _mean_h > 0 and (_range_h / _mean_h) < 0.0001:
                         _data_ok = False
                         _htf_details.append(f"{_label} donnees indisponibles")
                         continue
@@ -953,9 +954,11 @@ def ouvrir_position(pf, signal, prix_actuel):
         _bougies_1h = _hist_1h(signal["symbole"], "1h", 20)
         if _bougies_1h and len(_bougies_1h) >= 14:
             _closes_1h = [b.get("close", 0) for b in _bougies_1h]
-            # Detecte donnees defectueuses (prix identiques = rate limit)
-            _unique_1h = len(set([round(c, 6) for c in _closes_1h]))
-            if _unique_1h <= 2:
+            # Detecte donnees defectueuses: range < 0.01% du prix moyen = prix identiques
+            _range_1h = max(_closes_1h) - min(_closes_1h)
+            _mean_1h = sum(_closes_1h) / len(_closes_1h)
+            _defectueux = _mean_1h > 0 and (_range_1h / _mean_1h) < 0.0001
+            if _defectueux:
                 # Fallback: utilise l'historique stocke
                 try:
                     import historique_prix as hp
