@@ -226,14 +226,6 @@ def analyse_multi_timeframe(symbole):
             # Extraire les closes
             closes = [c[4] for c in ohlc]
 
-            # Detecte donnees low-quality: range < 0.1% du prix moyen = Revolut X quasi-identiques
-            _range_tf = max(closes) - min(closes)
-            _mean_tf = sum(closes) / len(closes)
-            if _mean_tf > 0 and (_range_tf / _mean_tf) < 0.001:
-                scores[tf] = 0
-                details[tf] = "donnees low-quality (range < 0.1%)"
-                continue
-
             # Calculer SMA courte vs longue
             sma_courte = sum(closes[-5:]) / 5
             sma_longue = sum(closes[-10:]) / 10 if len(closes) >= 10 else sma_courte
@@ -253,18 +245,6 @@ def analyse_multi_timeframe(symbole):
             avg_gain = sum(gains) / len(gains) if gains else 0
             avg_loss = sum(pertes) / len(pertes) if pertes else 0
             rsi = 100 if avg_loss == 0 else 100 - (100 / (1 + avg_gain / avg_loss))
-
-            # Detecte donnees low-quality: RSI ~50 ET SMA5 ≈ SMA10 ET prix ≈ SMA
-            # Les donnees Revolut X ont des variations > 0.1% mais RSI toujours ~50
-            _ecart_sma_cl = abs((sma_courte - sma_longue) / sma_longue) * 100 if sma_longue > 0 else 0
-            _ecart_prix_sma = abs((prix_actuel - sma_longue) / sma_longue) * 100 if sma_longue > 0 else 0
-            # Debug: affiche les valeurs pour diagnostiquer
-            if tf in ("4h", "1d"):
-                print(f"    [MTF-DBG] {symbole} {tf}: RSI={rsi:.1f} ecart_sma={_ecart_sma_cl:.3f}% ecart_prix={_ecart_prix_sma:.3f}% n={len(closes)}")
-            if 45 <= rsi <= 55 and _ecart_sma_cl < 0.1 and _ecart_prix_sma < 0.1:
-                scores[tf] = 0
-                details[tf] = f"donnees low-quality (RSI {rsi:.0f}, ecart SMA {_ecart_sma_cl:.2f}%)"
-                continue
 
             # Score du timeframe
             score = 0
