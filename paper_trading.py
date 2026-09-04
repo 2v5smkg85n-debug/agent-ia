@@ -1274,10 +1274,10 @@ def ouvrir_position(pf, signal, prix_actuel):
         except Exception:
             pass
     # Clamp de securite: ne pas depasser le liquide dispo, ne pas aller negatif
-    # Pas de plancher fixe - le sizing dynamique decide (sentiment + score)
-    # Mais on garde un minimum de 5% pour eviter les micro-positions inutiles
+    # Plancher a RISK_PAR_TRADE (10% = ~100 EUR) pour viser 100 EUR par position
+    # Les filtres (regime, sentiment, spread) peuvent reduire mais le plancher remonte
     if montant > 0 and pf["liquidites"] >= 80:
-        _min_absolu = pf["liquidites"] * 0.05  # 5% minimum absolu
+        _min_absolu = pf["liquidites"] * RISK_PAR_TRADE  # 10% = ~100 EUR minimum
         montant = max(_min_absolu, min(montant, pf["liquidites"]))
     if montant <= 0:
         return False
