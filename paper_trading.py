@@ -898,8 +898,40 @@ def ouvrir_position(pf, signal, prix_actuel):
             except Exception:
                 _htf_details.append(f"{_label} indisponible")
         if not _data_ok:
-            # Donnees HTF indisponibles (rate limit CoinGecko) -> pas de penalite
-            print(f"  [MTF-65] {signal.get('nom',_sym)}: donnees HTF indisponibles ({', '.join(_htf_details)}) -> neutre (0)")
+            # Fallback: utilise l'historique stocke des prix batch
+            try:
+                import historique_prix as hp
+                _conf_htf2 = 0
+                _htf2_ok = True
+                for _tf, _label in [("4h", "4h"), ("1d", "1j")]:
+                    _closes_hist = hp.get_historique(_sym, _tf)
+                    if len(_closes_hist) >= 16:
+                        _sma_h = hp.sma_simple(_closes_hist, 20) or sum(_closes_hist) / len(_closes_hist)
+                        _rsi_h = hp.rsi_simple(_closes_hist)
+                        if _rsi_h is None:
+                            _rsi_h = 50
+                        _prix_h = _closes_hist[-1]
+                        if _prix_h > _sma_h and _rsi_h > 45:
+                            _conf_htf2 += 1
+                            _htf_details.append(f"{_label} haussier (hist RSI {_rsi_h:.0f})")
+                        else:
+                            _htf_details.append(f"{_label} baissier (hist RSI {_rsi_h:.0f})")
+                    else:
+                        _htf2_ok = False
+                        _htf_details.append(f"{_label} hist insuffisant ({len(_closes_hist)})")
+                if _htf2_ok and _conf_htf2 == 2:
+                    signal["score"] = signal.get("score", 0) + 1
+                    print(f"  [MTF-65] {signal.get('nom',_sym)}: 2/2 HTF confirment (historique) -> +1 score")
+                elif _htf2_ok and _conf_htf2 == 1:
+                    signal["score"] = signal.get("score", 0) - 0.5
+                    print(f"  [MTF-65] {signal.get('nom',_sym)}: 1/2 HTF confirme (historique) -> -0.5 score")
+                elif _htf2_ok and _conf_htf2 == 0:
+                    signal["score"] = signal.get("score", 0) - 2
+                    print(f"  [MTF-65] {signal.get('nom',_sym)}: 0/2 HTF confirme (historique) -> -2 score")
+                else:
+                    print(f"  [MTF-65] {signal.get('nom',_sym)}: donnees HTF indisponibles ({', '.join(_htf_details)}) -> neutre (0)")
+            except Exception:
+                print(f"  [MTF-65] {signal.get('nom',_sym)}: donnees HTF indisponibles ({', '.join(_htf_details)}) -> neutre (0)")
         elif _conf_htf == 0:
             # Aucune HTF confirme -> forte penalite mais pas SKIP (assoupli)
             signal["score"] = signal.get("score", 0) - 2
@@ -924,7 +956,27 @@ def ouvrir_position(pf, signal, prix_actuel):
             # Detecte donnees defectueuses (prix identiques = rate limit)
             _unique_1h = len(set([round(c, 6) for c in _closes_1h]))
             if _unique_1h <= 2:
-                print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: donnees 1h indisponibles -> skip filtre")
+                # Fallback: utilise l'historique stocke
+                try:
+                    import historique_prix as hp
+                    _closes_hist = hp.get_historique(signal["symbole"], "1h")
+                    if len(_closes_hist) >= 16:
+                        _sma20_1h = hp.sma_simple(_closes_hist, 20) or sum(_closes_hist) / len(_closes_hist)
+                        _ecart_sma = ((prix_actuel - _sma20_1h) / _sma20_1h) * 100 if _sma20_1h > 0 else 0
+                        _rsi_1h = hp.rsi_simple(_closes_hist) or 50
+                        if _ecart_sma > 3.5:
+                            signal["score"] = signal.get("score", 0) - 1
+                            print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: prix +{_ecart_sma:.1f}% au-dessus SMA20 (hist) -> -1 score")
+                        if _rsi_1h > 72:
+                            signal["score"] = signal.get("score", 0) - 1
+                            print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: RSI {_rsi_1h:.0f} > 72 (hist) -> -1 score")
+                        if abs(_ecart_sma) <= 1.5:
+                            signal["score"] = signal.get("score", 0) + 1
+                            print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: prix proche SMA20 ({_ecart_sma:+.1f}%) (hist) -> +1 score")
+                    else:
+                        print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: donnees 1h indisponibles -> skip filtre")
+                except Exception:
+                    print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: donnees 1h indisponibles -> skip filtre")
             else:
                 _sma20_1h = sum(_closes_1h[-20:]) / len(_closes_1h[-20:]) if len(_closes_1h) >= 20 else sum(_closes_1h) / len(_closes_1h)
                 _ecart_sma = ((prix_actuel - _sma20_1h) / _sma20_1h) * 100 if _sma20_1h > 0 else 0
@@ -1681,6 +1733,12 @@ def tick():
     if not prix:
         print("Impossible de recuperer les prix.")
         return
+    # Stocke l'historique des prix pour les filtres MTF/PULLBACK
+    try:
+        import historique_prix as hp
+        hp.stocker_prix(prix)
+    except Exception:
+        pass
     print(f"Prix recuperes ({len(prix)} actifs):")
     # Groupe par marche pour l'affichage
     par_marche = {}

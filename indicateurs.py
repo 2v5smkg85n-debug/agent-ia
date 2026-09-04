@@ -119,6 +119,8 @@ def historique_ohlcv(symbole="BTCUSDT", intervalle="1h", limite=200):
     # 3. Revolut X (dernier recours)
     bougies = _historique_revolut(symbole, intervalle, limite)
     if bougies and len(bougies) >= 20:
+        import time as _t
+        _CACHE_BOUGIES[cache_key] = {"bougies": bougies, "timestamp": _t.time()}
         return bougies
     return []
 
