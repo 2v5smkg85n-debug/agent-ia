@@ -891,6 +891,12 @@ def ouvrir_position(pf, signal, prix_actuel):
                     _rsi_tf = _calc_rsi(_closes) if len(_closes) >= 16 else 50
                     if _rsi_tf is None:
                         _rsi_tf = 50
+                    # Detecte donnees low-quality: RSI ~50 ET prix = SMA = donnees inutilisables
+                    _ecart_sma_tf = abs((_prix_now - _sma20) / _sma20) * 100 if _sma20 > 0 else 0
+                    if 48 <= _rsi_tf <= 52 and _ecart_sma_tf < 0.05:
+                        _data_ok = False
+                        _htf_details.append(f"{_label} donnees low-quality")
+                        continue
                     if _prix_now > _sma20 and _rsi_tf > 45:
                         _conf_htf += 1
                         _htf_details.append(f"{_label} haussier (RSI {_rsi_tf:.0f})")
@@ -958,6 +964,11 @@ def ouvrir_position(pf, signal, prix_actuel):
             _range_1h = max(_closes_1h) - min(_closes_1h)
             _mean_1h = sum(_closes_1h) / len(_closes_1h)
             _defectueux = _mean_1h > 0 and (_range_1h / _mean_1h) < 0.0001
+            # Aussi detecte: SMA = prix actuel (donnees low-quality Revolut X)
+            _sma20_test = sum(_closes_1h[-20:]) / len(_closes_1h[-20:]) if len(_closes_1h) >= 20 else sum(_closes_1h) / len(_closes_1h)
+            _ecart_test = abs((prix_actuel - _sma20_test) / _sma20_test) * 100 if _sma20_test > 0 else 0
+            if _ecart_test < 0.01:
+                _defectueux = True
             if _defectueux:
                 # Fallback: utilise l'historique stocke
                 try:
