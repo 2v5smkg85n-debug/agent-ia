@@ -873,11 +873,18 @@ def ouvrir_position(pf, signal, prix_actuel):
         _sym = signal["symbole"]
         _conf_htf = 0
         _htf_details = []
+        _data_ok = True  # detecte si les donnees HTF sont fiables
         for _tf, _label in [("4h", "4h"), ("1d", "1j")]:
             try:
                 _bougies = historique_ohlcv(_sym, _tf, 20)
                 if _bougies and len(_bougies) >= 5:
                     _closes = [b.get("close", 0) for b in _bougies]
+                    # Detecte donnees defectueuses: tous les prix identiques ou quasi
+                    _unique = len(set([round(c, 6) for c in _closes]))
+                    if _unique <= 2:
+                        _data_ok = False
+                        _htf_details.append(f"{_label} donnees indisponibles")
+                        continue
                     _sma20 = sum(_closes[-20:]) / len(_closes[-20:]) if len(_closes) >= 20 else sum(_closes) / len(_closes)
                     _prix_now = _closes[-1]
                     _rsi_tf = _calc_rsi(_closes) if len(_closes) >= 16 else 50
@@ -885,12 +892,15 @@ def ouvrir_position(pf, signal, prix_actuel):
                         _rsi_tf = 50
                     if _prix_now > _sma20 and _rsi_tf > 45:
                         _conf_htf += 1
-                        _htf_details.append(f"{_label} haussier")
+                        _htf_details.append(f"{_label} haussier (RSI {_rsi_tf:.0f})")
                     else:
                         _htf_details.append(f"{_label} baissier/neutre (RSI {_rsi_tf:.0f})")
             except Exception:
                 _htf_details.append(f"{_label} indisponible")
-        if _conf_htf == 0:
+        if not _data_ok:
+            # Donnees HTF indisponibles (rate limit CoinGecko) -> pas de penalite
+            print(f"  [MTF-65] {signal.get('nom',_sym)}: donnees HTF indisponibles ({', '.join(_htf_details)}) -> neutre (0)")
+        elif _conf_htf == 0:
             # Aucune HTF confirme -> forte penalite mais pas SKIP (assoupli)
             signal["score"] = signal.get("score", 0) - 2
             print(f"  [MTF-65] {signal.get('nom',_sym)}: 0/2 HTF confirme ({', '.join(_htf_details)}) -> -2 score")
@@ -911,23 +921,28 @@ def ouvrir_position(pf, signal, prix_actuel):
         _bougies_1h = _hist_1h(signal["symbole"], "1h", 20)
         if _bougies_1h and len(_bougies_1h) >= 14:
             _closes_1h = [b.get("close", 0) for b in _bougies_1h]
-            _sma20_1h = sum(_closes_1h[-20:]) / len(_closes_1h[-20:]) if len(_closes_1h) >= 20 else sum(_closes_1h) / len(_closes_1h)
-            _ecart_sma = ((prix_actuel - _sma20_1h) / _sma20_1h) * 100 if _sma20_1h > 0 else 0
-            _rsi_1h = _rsi_fn(_closes_1h) if len(_closes_1h) >= 16 else 50
-            if _rsi_1h is None:
-                _rsi_1h = 50
-            # Prix trop etendu au-dessus de la SMA20 (> 3.5%) = risque de pullback (assoupli)
-            if _ecart_sma > 3.5:
-                signal["score"] = signal.get("score", 0) - 1
-                print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: prix +{_ecart_sma:.1f}% au-dessus SMA20 -> -1 score (risque pullback)")
-            # RSI en surachat extreme (> 72) = attendre un repli (assoupli, avant 65)
-            if _rsi_1h > 72:
-                signal["score"] = signal.get("score", 0) - 1
-                print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: RSI {_rsi_1h:.0f} > 72 (surachat) -> -1 score (attendre repli)")
-            # Prix proche de la SMA20 (dans +/- 1.5%) = bon point d'entree (assoupli)
-            if abs(_ecart_sma) <= 1.5:
-                signal["score"] = signal.get("score", 0) + 1
-                print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: prix proche SMA20 ({_ecart_sma:+.1f}%) -> +1 score (bon entree)")
+            # Detecte donnees defectueuses (prix identiques = rate limit)
+            _unique_1h = len(set([round(c, 6) for c in _closes_1h]))
+            if _unique_1h <= 2:
+                print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: donnees 1h indisponibles -> skip filtre")
+            else:
+                _sma20_1h = sum(_closes_1h[-20:]) / len(_closes_1h[-20:]) if len(_closes_1h) >= 20 else sum(_closes_1h) / len(_closes_1h)
+                _ecart_sma = ((prix_actuel - _sma20_1h) / _sma20_1h) * 100 if _sma20_1h > 0 else 0
+                _rsi_1h = _rsi_fn(_closes_1h) if len(_closes_1h) >= 16 else 50
+                if _rsi_1h is None:
+                    _rsi_1h = 50
+                # Prix trop etendu au-dessus de la SMA20 (> 3.5%) = risque de pullback
+                if _ecart_sma > 3.5:
+                    signal["score"] = signal.get("score", 0) - 1
+                    print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: prix +{_ecart_sma:.1f}% au-dessus SMA20 -> -1 score (risque pullback)")
+                # RSI en surachat extreme (> 72) = attendre un repli
+                if _rsi_1h > 72:
+                    signal["score"] = signal.get("score", 0) - 1
+                    print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: RSI {_rsi_1h:.0f} > 72 (surachat) -> -1 score (attendre repli)")
+                # Prix proche de la SMA20 (dans +/- 1.5%) = bon point d'entree
+                if abs(_ecart_sma) <= 1.5:
+                    signal["score"] = signal.get("score", 0) + 1
+                    print(f"  [PULLBACK] {signal.get('nom',signal['symbole'])}: prix proche SMA20 ({_ecart_sma:+.1f}%) -> +1 score (bon entree)")
     except Exception:
         pass
     # FILTRE 3: HEURES DE FAIBLE LIQUIDITE ETENDU (weekend + heures creuses)

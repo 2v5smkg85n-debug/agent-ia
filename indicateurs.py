@@ -309,7 +309,7 @@ def _historique_coingecko(symbole, intervalle, limite):
     interval_ms = {"15m": 900000, "1h": 3600000, "4h": 14400000, "1d": 86400000}.get(intervalle, 3600000)
     try:
         url = (f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
-               f"?vs_currency=usd&days={jours}")
+               f"?vs_currency=eur&days={jours}")
         r = requests.get(url, timeout=15)
         if r.status_code != 200:
             return []
