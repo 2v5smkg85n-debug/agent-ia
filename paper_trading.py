@@ -64,7 +64,7 @@ HEURES_FORT_VOLUME = [(8, 11), (13, 17)]  # UTC
 HEURES_FORT_BOOST = 1  # +1 au score pendant ces heures
 # Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
 TAKE_PROFIT_PCT = 3.5          # +3.5% (compromis: plus de gains que 3% sans trop attendre)
-STOP_LOSS_PCT = 1.0            # -1.0% ( coupe vite)
+STOP_LOSS_PCT = 1.5            # -1.5% (evite les faux stops sur bruit crypto)
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
 # est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
 # Idee utilisateur + valide par backtest elargi (9 marches, 30 trades, plateau a tp_ext=4).
@@ -72,11 +72,11 @@ EXTEND_CRYPTOS = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "LDOUSD
 EXTEND_SEUIL = 0.5        # active l'extension a partir de +0.5% de gain
 EXTEND_TP_PCT = 4.0       # TP monte a 4% une fois en profit (avant 5% trop greedy)
 EXTEND_DUREE_MAX = 480    # cap duree des positions extended (8h, vs 90min normal)
-SORTIE_DUREE_MIN = 720          # ferme apres 12h si en gain (laisse le TP dynamique travailler)
-STALE_DUREE_MAX = 120           # position stale apres 2h (libere le capital plus vite)
+SORTIE_DUREE_MIN = 1440         # ferme apres 24h si en gain (laisse le TP dynamique travailler)
+STALE_DUREE_MAX = 240           # position stale apres 4h (plus de temps pour atteindre TP)
 # Seuil de gain minimum pour fermer par duree : doit couvrir les frais (0.2% AR) + une marge.
 # Fermer a +0.05% = perte nette (frais 0.2%). Donc on n'accepte que gain >= 0.30%.
-SEUIL_BENEFICE_MIN = 0.80       # 0.80% : couvre les 0.2% de frais + 0.6% de marge nette
+SEUIL_BENEFICE_MIN = 1.50       # 1.50% : ferme seulement si gain net significatif (couvre frais + marge)
 DUREE_PETIT_GAIN = 180        # gain 0.30-0.45%: respire 2h (était 90min) pour viser partial TP
 DUREE_GAIN_PROGRESS = 240    # gain 0.45-0.60%: respire 3h
 DUREE_GAGNANT_MAX = 360         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
