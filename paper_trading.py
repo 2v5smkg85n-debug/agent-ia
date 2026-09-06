@@ -1372,10 +1372,10 @@ def verifier_sorties(pf, prix_actuels):
                 _tp_check, _sl_check = tp_sl_actif(sym)
             except Exception:
                 _tp_check, _sl_check = TAKE_PROFIT_PCT, STOP_LOSS_PCT
-        # SL D'URGENCE ABSOLU: ferme a -3% quoi qu'il arrive (empeche les SL-RETARD de -7%)
+        # SL D'URGENCE ABSOLU: ferme a -1.5% quoi qu'il arrive (empeche les SL-RETARD de -7%)
         # Ce check est AVANT le SL adaptatif pour bloquer les pertes extremes immediatement
-        if variation <= -3.0:
-            positions_a_fermer.append((pos, prix_actuel, f"SL-URGENCE-ABSOLU (perte {variation:+.1f}%, seuil -3%)", variation))
+        if variation <= -1.5:
+            positions_a_fermer.append((pos, prix_actuel, f"SL-URGENCE-ABSOLU (perte {variation:+.1f}%, seuil -1.5%)", variation))
             continue
         # DETECTION POSITION PIEGEE: si la perte depasse le SL, le SL aurait du etre touche
         # On ferme immediatement (le prix a chute trop, la position est morte)
