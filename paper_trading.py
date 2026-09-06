@@ -1250,22 +1250,14 @@ def ouvrir_position(pf, signal, prix_actuel):
         montant = montant * 0.5
         print(f"  [POIDS STRAT SIZE] stratégie faible (poids {_poids_strat:.2f}) -> x0.5 ({montant:.0f}EUR)")
     # SIZING ADAPTATIF SELON LE SPREAD Revolut X
-    # Plus le spread est large, plus la position est reduite (liquidite faible = SL-RETARD)
-    # Le bot apprend: ATOM (spread 200%) = position x0.1, BTC (spread 0.2%) = position x1.0
+    # Plus le spread est large, plus la position est reduite (mais JAMAIS bloque)
+    # Le bot utilise CoinGecko pour les prix, le spread Revolut X indique juste la liquidite
     if montant > 0 and signal.get("marche") == "crypto":
         try:
             import prix_revolut as pr
             _spread = pr.get_spread_pct(signal["symbole"])
-            if _spread >= 100:
-                # Spread absurde (>100%) = ne pas trader
-                print(f"  [SPREAD] {signal['symbole']}: spread {_spread:.1f}% -> trade bloque (illiquide)")
-                return False
-            elif _spread >= 50:
-                _facteur = 0.1  # position reduite a 10%
-                print(f"  [SPREAD] {signal['symbole']}: spread {_spread:.1f}% -> position x{_facteur} ({montant*_facteur:.0f}EUR)")
-                montant = montant * _facteur
-            elif _spread >= 20:
-                _facteur = 0.25  # position reduite a 25%
+            if _spread >= 50:
+                _facteur = 0.3  # position reduite a 30% (liquidite faible)
                 print(f"  [SPREAD] {signal['symbole']}: spread {_spread:.1f}% -> position x{_facteur} ({montant*_facteur:.0f}EUR)")
                 montant = montant * _facteur
             elif _spread >= 10:

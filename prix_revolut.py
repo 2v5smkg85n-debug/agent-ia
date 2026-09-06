@@ -16,12 +16,19 @@ import urllib.request
 CACHE_TTL = 300  # 5 minutes (matche l'intervalle du bot)
 _cache = {}
 
-# Symboles qui n'existent PAS sur Revolut X (evite les erreurs 400)
-BLACKLIST = {"COMP", "IMX", "AXS", "CAKE", "SAND", "FLOKI", "PEPE", "MATIC", "SUI", "RNDR", "OCEAN"}
-# Seules les cryptos reellement tradeable sur Revolut X (spread < 5%)
-# Teste le 06/09/2026: BTC 0.77%, ETH 1.14%, SOL 2.05%, XRP 4.99%
-# Tout le reste a des spreads absurdes (100% a 91M%) -> order book vide ou inexistant
-REVOLUT_X_CRYPTO = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"}
+# Symboles qui n'existent PAS sur Revolut X (teste le 06/09/2026)
+BLACKLIST = {"COMP", "IMX", "AXS", "CAKE", "SAND", "MATIC", "OCEAN", "GRT", "RUNE"}
+# Toutes les cryptos disponibles sur Revolut X en paires EUR (teste le 06/09/2026)
+# 39 paires disponibles, spreads variables (0.7% a 91M%) mais toutes ont un order book
+REVOLUT_X_CRYPTO = {
+    "BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT",
+    "AVAXUSDT", "DOTUSDT", "LTCUSDT", "TRXUSDT", "ARBUSDT", "NEARUSDT",
+    "AAVEUSDT", "PENDLEUSDT", "SHIBUSDT", "ALGOUSDT", "ICPUSDT", "XLMUSDT",
+    "INJUSDT", "SEIUSDT", "TIAUSDT", "CRVUSDT", "WIFUSDT", "FETUSDT",
+    "LDOUSDT", "FILUSDT", "ETCUSDT", "OPUSDT", "SUIUSDT", "APTUSDT",
+    "PEPEUSDT", "BNBUSDT", "LINKUSDT", "UNIUSDT", "ATOMUSDT",
+    "FLOKIUSDT", "RNDRUSDT",
+}
 # SPREAD_BLACKLIST vide: on utilise REVOLUT_X_CRYPTO pour filtrer
 SPREAD_BLACKLIST = set()
 
