@@ -18,8 +18,12 @@ _cache = {}
 
 # Symboles qui n'existent PAS sur Revolut X (evite les erreurs 400)
 BLACKLIST = {"COMP", "IMX", "AXS", "CAKE", "SAND", "FLOKI", "PEPE", "MATIC", "SUI", "RNDR", "OCEAN"}
-# Symboles avec spread anormal sur Revolut X: pas de nouvelles positions, mais monitoring OK
-SPREAD_BLACKLIST = {"BNBUSDT", "AAVEUSDT", "SUIUSDT", "XRPUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "SOLUSDT", "TIAUSDT", "WIFUSDT", "CRVUSDT", "INJUSDT", "NEARUSDT", "FETUSDT", "OPUSDT", "APTUSDT", "SEIUSDT"}
+# Seules les cryptos reellement tradeable sur Revolut X (spread < 5%)
+# Teste le 06/09/2026: BTC 0.77%, ETH 1.14%, SOL 2.05%, XRP 4.99%
+# Tout le reste a des spreads absurdes (100% a 91M%) -> order book vide ou inexistant
+REVOLUT_X_CRYPTO = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"}
+# SPREAD_BLACKLIST vide: on utilise REVOLUT_X_CRYPTO pour filtrer
+SPREAD_BLACKLIST = set()
 
 # Mapping symbole bot -> symbole Revolut X
 SYMBOLES_REVOLUT = {

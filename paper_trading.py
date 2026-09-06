@@ -611,13 +611,20 @@ def ouvrir_position(pf, signal, prix_actuel):
     if pf["liquidites"] < LIQUIDITE_MIN:
         print(f"  [LIQUIDITE] {pf['liquidites']:.2f} EUR < {LIQUIDITE_MIN} EUR minimum -> skip nouveau trade")
         return False
-    # BLACKLIST STRATEGIES PERDANTES: momentum bloque (33% WR, pertes repetees)
-    _strat_blacklist = ["momentum"]
-    _strat_signal = (signal.get("strategie", "") or "").lower()
-    for _bl in _strat_blacklist:
-        if _bl in _strat_signal:
-            print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_bl}' bloquee")
-            return False
+    # BLACKLIST STRATEGIES PERDANTES: momentum bloque SAUF pour cryptos Revolut X
+    # (BTC/ETH/SOL/XRP sont les seuls tradeable, on ne les bloque pas)
+    try:
+        from prix_revolut import REVOLUT_X_CRYPTO
+        _is_revolut = signal["symbole"] in REVOLUT_X_CRYPTO
+    except Exception:
+        _is_revolut = False
+    if not _is_revolut:
+        _strat_blacklist = ["momentum"]
+        _strat_signal = (signal.get("strategie", "") or "").lower()
+        for _bl in _strat_blacklist:
+            if _bl in _strat_signal:
+                print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_bl}' bloquee")
+                return False
     # ANTI-DOUBLE-EXPOSITION: bloque une 2e entrée sur un actif déjà ouvert récemment
     # (2 stratégies sur le même actif au même moment = perte corrélée doublée quand ça chute)
     if os.getenv("ANTI_CORR", "1") != "0":
@@ -822,11 +829,11 @@ def ouvrir_position(pf, signal, prix_actuel):
                 return False
         except Exception:
             pass
-    # FILTRE SPREAD ANORMAL: bloque les entrees sur les actifs avec spread Revolut X anormal
+    # FILTRE REVOLUT X: ne trade que les cryptos reellement disponibles sur Revolut X
     try:
-        from prix_revolut import SPREAD_BLACKLIST
-        if signal["symbole"] in SPREAD_BLACKLIST:
-            print(f"  [SPREAD] {signal.get('nom',signal['symbole'])}: spread Revolut X anormal -> SKIP nouvelle entree")
+        from prix_revolut import REVOLUT_X_CRYPTO
+        if signal.get("marche") == "crypto" and signal["symbole"] not in REVOLUT_X_CRYPTO:
+            print(f"  [REVOLUT-X] {signal.get('nom',signal['symbole'])}: pas sur Revolut X -> SKIP")
             return False
     except Exception:
         pass
