@@ -1372,6 +1372,11 @@ def verifier_sorties(pf, prix_actuels):
                 _tp_check, _sl_check = tp_sl_actif(sym)
             except Exception:
                 _tp_check, _sl_check = TAKE_PROFIT_PCT, STOP_LOSS_PCT
+        # SL D'URGENCE ABSOLU: ferme a -3% quoi qu'il arrive (empeche les SL-RETARD de -7%)
+        # Ce check est AVANT le SL adaptatif pour bloquer les pertes extremes immediatement
+        if variation <= -3.0:
+            positions_a_fermer.append((pos, prix_actuel, f"SL-URGENCE-ABSOLU (perte {variation:+.1f}%, seuil -3%)", variation))
+            continue
         # DETECTION POSITION PIEGEE: si la perte depasse le SL, le SL aurait du etre touche
         # On ferme immediatement (le prix a chute trop, la position est morte)
         if variation <= -_sl_check:
@@ -2088,9 +2093,8 @@ def _timeout_handler(signum, frame):
 TEMPS_MAX_TICK = 120
 
 def _check_crypto_sl_rapide():
-    """Check crypto mi-boucle (20s): rattrape les SL crypto instantanement.
-    Utilise Binance batch (1 seul appel pour tous les symboles) au lieu de
-    Revolut X (1 appel par symbole + rate limit = SL-RETARD)."""
+    """Check crypto mi-boucle (10s): rattrape les SL crypto instantanement.
+    Utilise CoinGecko batch en PRIORITE (Binance geo-bloque depuis le VPS)."""
     pf = charger_portefeuille()
     if not pf or not pf.get("positions"):
         return
@@ -2100,19 +2104,19 @@ def _check_crypto_sl_rapide():
         _s = _p["symbole"]
         if _s in _seen:
             continue
-        if MARCHES_PAPER.get(_s, {}).get("source") == "binance":
+        if MARCHES_PAPER.get(_s, {}).get("marche") == "crypto":
             _crypto_syms.append(_s)
             _seen.add(_s)
     if not _crypto_syms:
         return
     import prix_revolut as pr
-    # 1. Binance batch (1 appel, instantane)
-    prix = pr.get_prix_binance_batch(_crypto_syms)
-    # 2. Fallback CoinGecko batch si Binance geo-bloque
+    # 1. CoinGecko batch en PRIORITE (Binance geo-bloque HTTP 451 depuis VPS OVH)
+    prix = pr.get_prix_coingecko_batch(_crypto_syms)
+    # 2. Fallback Binance batch si CoinGecko rate-limite
     _missing = [s for s in _crypto_syms if s not in prix or prix[s] <= 0]
     if _missing:
-        _cg = pr.get_prix_coingecko_batch(_missing)
-        for _s, _p in _cg.items():
+        _bn = pr.get_prix_binance_batch(_missing)
+        for _s, _p in _bn.items():
             if _p > 0:
                 prix[_s] = _p
         _missing = [s for s in _crypto_syms if s not in prix or prix[s] <= 0]
@@ -2122,6 +2126,7 @@ def _check_crypto_sl_rapide():
         if _p and _p > 0:
             prix[_s] = _p
     if not prix:
+        print(f"[crypto-check] ATTENTION: aucune source de prix disponible ({len(_crypto_syms)} positions)")
         return
     verifier_sorties(pf, prix)
     sauver_portefeuille(pf)
