@@ -488,6 +488,133 @@ def detecter_support_resistance(symbole, intervalle="1h", lookback=50):
     return support, resistance
 
 
+def detecter_patterns_bougies(bougies, nb=5):
+    """Detecte les patterns de chandeliers japonais sur les dernieres bougies.
+    Retourne (patterns_list, score_ajustement).
+    patterns_list: liste des noms de patterns detectes.
+    score_ajustement: ajustement de score (-3 a +3).
+    """
+    if not bougies or len(bougies) < 3:
+        return [], 0
+    patterns = []
+    score = 0
+    
+    # Analyser les dernieres bougies
+    recentes = bougies[-nb:] if len(bougies) >= nb else bougies
+    
+    for i, b in enumerate(recentes):
+        o, h, l, c = b["ouverture"], b["haut"], b["bas"], b["cloture"]
+        corps = abs(c - o)
+        mèche_haute = h - max(o, c)
+        mèche_basse = min(o, c) - l
+        amplitude = h - l
+        if amplitude <= 0:
+            continue
+        
+        # Proportions
+        pct_corps = corps / amplitude
+        pct_mèche_haute = mèche_haute / amplitude
+        pct_mèche_basse = mèche_basse / amplitude
+        est_haussier = c > o
+        est_baissier = c < o
+        
+        # 1. MARTEAU (Hammer) - mèche basse > 2x corps, mèche haute petite, corps dans le tiers superieur
+        if mèche_basse > 2 * corps and pct_mèche_haute < 0.15 and pct_corps < 0.4:
+            patterns.append("Marteau (haussier)")
+            score += 1
+        
+        # 2. ÉTOILE FILANTE (Shooting Star) - mèche haute > 2x corps, mèche basse petite, corps dans le tiers inferieur
+        elif mèche_haute > 2 * corps and pct_mèche_basse < 0.15 and pct_corps < 0.4:
+            patterns.append("Étoile filante (baissier)")
+            score -= 1
+        
+        # 3. DOJI - corps tres petit (< 10% de l'amplitude)
+        if pct_corps < 0.1 and amplitude > 0:
+            patterns.append("Doji (indécision)")
+        
+        # 4. MARUBOZU haussier - pas de mèches, grand corps vert
+        if pct_corps > 0.9 and est_haussier:
+            patterns.append("Marubozu haussier (momentum fort)")
+            score += 1
+        
+        # 5. MARUBOZU baissier - pas de mèches, grand corps rouge
+        elif pct_corps > 0.9 and est_baissier:
+            patterns.append("Marubozu baissier (momentum fort)")
+            score -= 1
+    
+    # 6. ENGLUFING HAUSSIER - bougie verte englobe la precedente rouge
+    if len(recentes) >= 2:
+        prev = recentes[-2]
+        curr = recentes[-1]
+        if prev["cloture"] < prev["ouverture"] and curr["cloture"] > curr["ouverture"]:
+            if curr["cloture"] >= prev["ouverture"] and curr["ouverture"] <= prev["cloture"]:
+                patterns.append("Engulfing haussier")
+                score += 2
+    
+    # 7. ENGLUFING BAISSIER - bougie rouge englobe la precedente verte
+    if len(recentes) >= 2:
+        prev = recentes[-2]
+        curr = recentes[-1]
+        if prev["cloture"] > prev["ouverture"] and curr["cloture"] < curr["ouverture"]:
+            if curr["ouverture"] >= prev["cloture"] and curr["cloture"] <= prev["ouverture"]:
+                patterns.append("Engulfing baissier")
+                score -= 2
+    
+    # 8. ÉTOILE DU MATIN (Morning Star) - 3 bougies: rouge, petite, verte
+    if len(recentes) >= 3:
+        b1, b2, b3 = recentes[-3], recentes[-2], recentes[-1]
+        corps1 = abs(b1["cloture"] - b1["ouverture"])
+        corps2 = abs(b2["cloture"] - b2["ouverture"])
+        amp1 = b1["haut"] - b1["bas"]
+        if amp1 > 0:
+            if (b1["cloture"] < b1["ouverture"] and  # rouge
+                corps2 < corps1 * 0.5 and  # petite bougie
+                b3["cloture"] > b3["ouverture"] and  # verte
+                b3["cloture"] > (b1["ouverture"] + b1["cloture"]) / 2):  # remonte au-dessus du milieu de b1
+                patterns.append("Étoile du matin (reversal haussier)")
+                score += 2
+    
+    # 9. ÉTOILE DU SOIR (Evening Star) - 3 bougies: verte, petite, rouge
+    if len(recentes) >= 3:
+        b1, b2, b3 = recentes[-3], recentes[-2], recentes[-1]
+        corps1 = abs(b1["cloture"] - b1["ouverture"])
+        corps2 = abs(b2["cloture"] - b2["ouverture"])
+        amp1 = b1["haut"] - b1["bas"]
+        if amp1 > 0:
+            if (b1["cloture"] > b1["ouverture"] and  # verte
+                corps2 < corps1 * 0.5 and  # petite bougie
+                b3["cloture"] < b3["ouverture"] and  # rouge
+                b3["cloture"] < (b1["ouverture"] + b1["cloture"]) / 2):  # descend sous le milieu de b1
+                patterns.append("Étoile du soir (reversal baissier)")
+                score -= 2
+    
+    # 10. TROIS SOLDATS BLANCS - 3 bougies vertes consecutives qui montent
+    if len(recentes) >= 3:
+        b1, b2, b3 = recentes[-3], recentes[-2], recentes[-1]
+        if (b1["cloture"] > b1["ouverture"] and
+            b2["cloture"] > b2["ouverture"] and
+            b3["cloture"] > b3["ouverture"] and
+            b2["cloture"] > b1["cloture"] and
+            b3["cloture"] > b2["cloture"]):
+            patterns.append("Trois soldats blancs (tendance haussiere forte)")
+            score += 2
+    
+    # 11. TROIS CORBEAUX NOIRS - 3 bougies rouges consecutives qui descendent
+    if len(recentes) >= 3:
+        b1, b2, b3 = recentes[-3], recentes[-2], recentes[-1]
+        if (b1["cloture"] < b1["ouverture"] and
+            b2["cloture"] < b2["ouverture"] and
+            b3["cloture"] < b3["ouverture"] and
+            b2["cloture"] < b1["cloture"] and
+            b3["cloture"] < b2["cloture"]):
+            patterns.append("Trois corbeaux noirs (tendance baissiere forte)")
+            score -= 2
+    
+    # Limiter le score a +/-3
+    score = max(-3, min(3, score))
+    return patterns, score
+
+
 def analyser_actif(symbole, intervalle="1h"):
     """Analyse complete d'un actif avec tous les indicateurs."""
     bougies = historique_ohlcv(symbole, intervalle, 200)
@@ -640,6 +767,13 @@ def analyser_actif(symbole, intervalle="1h"):
     except Exception:
         pass
 
+    # 6. PATTERNS DE BOUGIES (chandeliers japonais)
+    _patterns, _score_patterns = detecter_patterns_bougies(bougies, nb=5)
+    if _patterns:
+        score += _score_patterns
+        for p in _patterns:
+            signaux.append(f"BOUGIE: {p}")
+
     # Verdict
     if score >= 2:
         verdict = "ACHAT"
@@ -668,6 +802,7 @@ def analyser_actif(symbole, intervalle="1h"):
             "BB_bas": bb_bas,
             "VWAP": _vwap if _vol_total > 0 else None,
             "BB_squeeze": _squeeze if bb_milieu else False,
+            "patterns_bougies": _patterns if _patterns else [],
         },
         "signaux": signaux,
         "score": score,

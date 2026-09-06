@@ -1489,6 +1489,20 @@ def verifier_sorties(pf, prix_actuels):
         # Fermeture au SL suiveur (1% sous le pic) — le seul point de sortie
         if prix_actuel <= _sl_price:
             positions_a_fermer.append((pos, prix_actuel, f"STOP-SUIVEUR (pic {_var_pic:+.1f}%, ferme a {variation:+.1f}%)", variation))
+            continue
+        # SORTIE PATTERN BOUGIE: ferme si un pattern baissier fort est detecte (en profit)
+        if variation > 0.5:
+            try:
+                from indicateurs import detecter_patterns_bougies, historique_ohlcv
+                _bougies_pos = historique_ohlcv(sym, "1h", 10)
+                if _bougies_pos and len(_bougies_pos) >= 3:
+                    _pats, _score_pats = detecter_patterns_bougies(_bougies_pos, nb=5)
+                    if _score_pats <= -2:
+                        _pats_str = ", ".join(_pats)
+                        positions_a_fermer.append((pos, prix_actuel, f"PATTERN-SORTIE ({_pats_str}, gain {variation:+.1f}%)", variation))
+                        continue
+            except Exception:
+                pass
         # Sortie intelligente: fermer si pattern baissier detecte (en profit)
         elif variation > 0 and os.getenv("SMART_EXIT", "0") == "1":
             try:
