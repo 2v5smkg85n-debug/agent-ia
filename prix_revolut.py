@@ -209,12 +209,25 @@ _COINGECKO_MAP = {
     "FIL": "filecoin",
 }
 
+_CG_BATCH_CACHE = {"prix": {}, "ts": 0}
+_CG_BATCH_TTL = 60  # cache 60s (evite le rate limit 429 du SL check 10s)
+
 def get_prix_coingecko_batch(symboles_bot):
     """Recupere les prix de plusieurs cryptos en UN appel CoinGecko batch.
     Retourne les prix en EUR directement (pas de conversion USDT necessaire).
-    Pas de geo-blocage, API publique gratuite."""
+    Pas de geo-blocage, API publique gratuite.
+    Cache de 60s pour eviter le rate limit 429 (SL check appelle toutes les 10s)."""
     if not symboles_bot:
         return {}
+    # Cache: si on a des prix recents (< 60s), on les reutilise
+    _now = time.time()
+    if _CG_BATCH_CACHE["prix"] and (_now - _CG_BATCH_CACHE["ts"]) < _CG_BATCH_TTL:
+        _cached = {}
+        for sym in symboles_bot:
+            if sym in _CG_BATCH_CACHE["prix"]:
+                _cached[sym] = _CG_BATCH_CACHE["prix"][sym]
+        if _cached:
+            return _cached
     # Map symboles bot -> ids CoinGecko
     id_to_sym = {}
     ids = []
@@ -240,9 +253,20 @@ def get_prix_coingecko_batch(symboles_bot):
             prix = data.get(coin_id, {}).get("eur", 0)
             if prix > 0:
                 resultats[sym_bot] = prix
+        # Mettre a jour le cache
+        if resultats:
+            _CG_BATCH_CACHE["prix"].update(resultats)
+            _CG_BATCH_CACHE["ts"] = _now
         return resultats
     except Exception as e:
         print(f"  [COINGECKO-BATCH] Erreur: {e}")
+        # En cas d'erreur, retourner le cache meme s'il est vieux
+        if _CG_BATCH_CACHE["prix"]:
+            _cached = {}
+            for sym in symboles_bot:
+                if sym in _CG_BATCH_CACHE["prix"]:
+                    _cached[sym] = _CG_BATCH_CACHE["prix"][sym]
+            return _cached
         return {}
 
 def _prix_coingecko(symbole_court):
