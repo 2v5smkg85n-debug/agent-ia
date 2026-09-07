@@ -375,15 +375,16 @@ def _get_eur_usdt_rate():
 _KUCOIN_CACHE = {"prix": {}, "ts": 0}
 _KUCOIN_TTL = 30  # cache 30s pour le SL check (prix frais, pas de 429 sur KuCoin)
 
-def get_prix_kucoin_batch(symboles_bot):
+def get_prix_kucoin_batch(symboles_bot, force_fresh=False):
     """Recupere les prix via KuCoin (API gratuite alternative).
     https://api.kucoin.com/api/v1/prices?currencies=BTC,ETH,...&base=EUR
     Pas de cle, pas de geo-blocage, retourne EUR directement.
+    force_fresh=True: ignore le cache (pour le SL check qui veut des prix frais).
     """
     if not symboles_bot:
         return {}
     _now = time.time()
-    if _KUCOIN_CACHE["prix"] and (_now - _KUCOIN_CACHE["ts"]) < _KUCOIN_TTL:
+    if not force_fresh and _KUCOIN_CACHE["prix"] and (_now - _KUCOIN_CACHE["ts"]) < _KUCOIN_TTL:
         _cached = {}
         for sym in symboles_bot:
             if sym in _KUCOIN_CACHE["prix"]:

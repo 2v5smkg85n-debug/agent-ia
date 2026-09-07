@@ -2123,8 +2123,8 @@ def _check_crypto_sl_rapide():
         return
     import prix_revolut as pr
     # 1. KuCoin en PRIORITE pour le SL check (pas de 429, pas de geo-blocage, EUR direct)
-    #    CoinGecko a un cache de 120s trop long pour le SL — KuCoin donne des prix frais
-    prix = pr.get_prix_kucoin_batch(_crypto_syms)
+    #    force_fresh=True: ignore le cache -> chaque SL check a un prix frais (evite SL-RETARD)
+    prix = pr.get_prix_kucoin_batch(_crypto_syms, force_fresh=True)
     # 2. Fallback CoinGecko si KuCoin indisponible
     _missing = [s for s in _crypto_syms if s not in prix or prix[s] <= 0]
     if _missing:
