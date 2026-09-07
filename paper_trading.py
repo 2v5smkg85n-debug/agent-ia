@@ -46,8 +46,8 @@ CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
 MAX_POSITIONS = 10             # 10 positions max (plus de trades en parallele)
 LIQUIDITE_MIN = 200.0          # garde au moins 200 EUR de liquidites
-FENETRE_CORRELATION_MIN = 30    # anti-double-exposition: 30min entre entrees meme actif (assoupli)
-MAX_POS_PAR_ACTIF = 1          # 1 position par actif (pas de pyramiding risqué)
+FENETRE_CORRELATION_MIN = 10    # anti-double-exposition: 10min entre entrees meme actif (multi-entrees)
+MAX_POS_PAR_ACTIF = 3          # 3 positions max par actif (multi-entrees si hausse)
 RISK_PAR_TRADE = 0.10         # 10% fixe (~100 EUR par position)
 RISK_MAX_TRADE = 0.10         # 10% fixe (~100 EUR) - 8 positions x 100 EUR = 800 EUR + 200 liquidite
 INTERVALLE_BOUCLE = 180        # 3 min (plus reactif = plus de trades)
@@ -625,8 +625,9 @@ def ouvrir_position(pf, signal, prix_actuel):
             if _bl in _strat_signal:
                 print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_bl}' bloquee")
                 return False
-    # ANTI-DOUBLE-EXPOSITION: bloque une 2e entrée sur un actif déjà ouvert récemment
-    # (2 stratégies sur le même actif au même moment = perte corrélée doublée quand ça chute)
+    # MULTI-ENTREES: autorise plusieurs positions sur le meme actif SI en hausse
+    # Si la position existante est en perte, on bloque (on n'average pas down)
+    # Si la position existante est en gain, on autorise (on pyramide sur la hausse)
     if os.getenv("ANTI_CORR", "1") != "0":
         try:
             _sym = signal["symbole"]
@@ -641,8 +642,15 @@ def ouvrir_position(pf, signal, prix_actuel):
                     _age = (_maint - _dt).total_seconds() / 60
                     _meme_strat = bool(_sig_strat) and _p.get("strategie","") == _sig_strat
                     _fen = _FEN_MEME_STRAT if _meme_strat else FENETRE_CORRELATION_MIN
+                    # Si la position existante est en GAIN: autorise le rachat (pyramiding sur hausse)
+                    _var_existante = ((prix_actuel - _p["prix_entree"]) / _p["prix_entree"] * 100) if _p["prix_entree"] > 0 else 0
+                    if _var_existante > 0.3:
+                        # Position en gain > 0.3%: autorise multi-entree
+                        print(f"  [MULTI] {signal.get('nom',_sym)}: position existante +{_var_existante:.1f}% -> multi-entree autorisee")
+                        continue
+                    # Position en perte ou plate: bloque si fenetre pas ecoulee
                     if _age <= _fen:
-                        print("  [ANTI-CORR] " + str(signal.get("nom",_sym)) + ": actif deja ouvert (" + str(int(_age)) + "min<=" + str(_fen) + "min) -> entree bloquee (evite double-exposition)")
+                        print(f"  [ANTI-CORR] {signal.get('nom',_sym)}: actif en perte ({_var_existante:+.1f}%) -> entree bloquee")
                         return False
                 except Exception:
                     pass
