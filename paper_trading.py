@@ -76,7 +76,7 @@ SORTIE_DUREE_MIN = 1440         # ferme apres 24h si en gain (laisse le TP dynam
 STALE_DUREE_MAX = 120           # position stale apres 2h (libere le capital plus vite)
 # Seuil de gain minimum pour fermer par duree : doit couvrir les frais (0.2% AR) + une marge.
 # Fermer a +0.05% = perte nette (frais 0.2%). Donc on n'accepte que gain >= 0.30%.
-SEUIL_BENEFICE_MIN = 1.0        # 1.0% : ferme plus vite (libere capital pour nouveaux trades)
+SEUIL_BENEFICE_MIN = 1.50       # 1.50% : ferme seulement si gain net significatif (couvre frais + marga)
 DUREE_PETIT_GAIN = 180        # gain 0.30-0.45%: respire 2h (était 90min) pour viser partial TP
 DUREE_GAIN_PROGRESS = 240    # gain 0.45-0.60%: respire 3h
 DUREE_GAGNANT_MAX = 360         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
