@@ -2124,15 +2124,15 @@ def _check_crypto_sl_rapide():
     import prix_revolut as pr
     # 1. CoinGecko batch en PRIORITE (Binance geo-bloque HTTP 451 depuis VPS OVH)
     prix = pr.get_prix_coingecko_batch(_crypto_syms)
-    # 2. Fallback CoinCap si CoinGecko rate-limite (API gratuite alternative)
+    # 2. Fallback KuCoin si CoinGecko rate-limite (API gratuite, EUR direct)
     _missing = [s for s in _crypto_syms if s not in prix or prix[s] <= 0]
     if _missing:
-        _cc = pr.get_prix_coincap_batch(_missing)
-        for _s, _p in _cc.items():
+        _kc = pr.get_prix_kucoin_batch(_missing)
+        for _s, _p in _kc.items():
             if _p > 0:
                 prix[_s] = _p
         _missing = [s for s in _crypto_syms if s not in prix or prix[s] <= 0]
-    # 3. Fallback Binance batch si CoinCap aussi rate-limite
+    # 3. Fallback Binance batch si KuCoin aussi indisponible
     if _missing:
         _bn = pr.get_prix_binance_batch(_missing)
         for _s, _p in _bn.items():
