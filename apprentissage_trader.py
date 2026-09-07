@@ -222,24 +222,25 @@ def get_recommandations():
         "total_trades": learning.get("total_trades", 0),
     }
 
-    # Strategies a eviter (win rate < 35% avec au moins 3 trades, OU pnl < -2EUR)
+    # Strategies a eviter (win rate < 25% avec au moins 5 trades, OU pnl < -5EUR)
+    # Seuils assouplis: le bot a ete ameliore (patterns bougies, news, SL fix)
     for strat, stats in learning.get("stats_strategies", {}).items():
         _n = stats.get("n", 0)
         _wr = stats.get("win_rate", 0)
         _pnl = stats.get("pnl_total", 0)
-        if (_n >= 3 and _wr < 35) or (_n >= 5 and _pnl < -2):
+        if (_n >= 5 and _wr < 25) or (_n >= 10 and _pnl < -5):
             recs["strategies_a_eviter"].append(strat)
-        elif _n >= 3 and _wr >= 55 and _pnl > 0:
+        elif _n >= 5 and _wr >= 55 and _pnl > 0:
             recs["strategies_a_privilegier"].append(strat)
 
-    # Cryptos a eviter (win rate < 30% avec au moins 3 trades, OU pnl < -2EUR)
+    # Cryptos a eviter (win rate < 20% avec au moins 5 trades, OU pnl < -5EUR)
     for sym, stats in learning.get("stats_par_crypto", {}).items():
         _n = stats.get("n", 0)
         _wr = stats.get("win_rate", 0)
         _pnl = stats.get("pnl_total", 0)
-        if (_n >= 3 and _wr < 30) or (_n >= 5 and _pnl < -2):
+        if (_n >= 5 and _wr < 20) or (_n >= 10 and _pnl < -5):
             recs["cryptos_a_eviter"].append(sym)
-        elif _n >= 3 and _wr >= 55 and _pnl > 0:
+        elif _n >= 5 and _wr >= 55 and _pnl > 0:
             recs["cryptos_a_privilegier"].append(sym)
 
     # TP/SL optimaux par crypto (seulement si au moins 3 trades)
