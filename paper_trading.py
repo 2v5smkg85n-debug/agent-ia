@@ -1944,6 +1944,17 @@ def tick():
             # === CONSENSUS MULTI-IA: DESACTIVE (429 sur Gemini + Perplexity) ===
             # === SENTIMENT SOCIAL: DESACTIVE (Reddit 403, Fear&Greed OK mais pas critique) ===
             # === MULTI-TIMEFRAME: DESACTIVE (429 sur OHLC Revolut X) ===
+            # === NEWS CRYPTO: sentiment des news + trending CoinGecko ===
+            try:
+                from news_crypto import score_news_sentiment
+                for sig in tous_signaux:
+                    _news_score, _news_details = score_news_sentiment(sig["symbole"])
+                    if _news_score != 0:
+                        sig["score"] = sig.get("score", 0) + _news_score
+                        for d in _news_details:
+                            print(f"  [NEWS] {sig.get('nom', sig['symbole'])}: {d}")
+            except Exception as _e:
+                print(f"  (news crypto indisponible: {_e})")
             # === DIVERSIFICATION TEMPORELLE: boost le score pendant les heures a fort volume ===
             _heure_utc_now = datetime.now(timezone.utc).hour
             _boost_heure = False
