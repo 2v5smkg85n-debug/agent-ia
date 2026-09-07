@@ -292,12 +292,18 @@ def tous_les_prix():
             prix.update(prix_batch)
             print(f"  [COINGECKO-BATCH] {len(prix_batch)}/{len(syms_crypto)} cryptos recuperees")
         else:
-            print(f"  [COINGECKO-BATCH] 0 prix - fallback Binance")
-            # Fallback Binance si CoinGecko echoue
-            prix_batch = pr.get_prix_binance_batch(syms_crypto)
+            print(f"  [COINGECKO-BATCH] 0 prix - fallback KuCoin")
+            # Fallback KuCoin si CoinGecko echoue (pas de 429, pas de geo-blocage)
+            prix_batch = pr.get_prix_kucoin_batch(syms_crypto, force_fresh=True)
             if prix_batch:
                 prix.update(prix_batch)
-                print(f"  [BINANCE-BATCH] {len(prix_batch)} cryptos (fallback)")
+                print(f"  [KUCOIN-BATCH] {len(prix_batch)} cryptos (fallback)")
+            else:
+                # Dernier recours: Binance
+                prix_batch = pr.get_prix_binance_batch(syms_crypto)
+                if prix_batch:
+                    prix.update(prix_batch)
+                    print(f"  [BINANCE-BATCH] {len(prix_batch)} cryptos (fallback final)")
     except Exception as e:
         print(f"  [BATCH] Erreur: {e}")
 
