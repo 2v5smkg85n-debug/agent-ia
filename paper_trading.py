@@ -1346,6 +1346,7 @@ def verifier_sorties(pf, prix_actuels):
     for pos in pf["positions"]:
         sym = pos["symbole"]
         if sym not in prix_actuels:
+            print(f"  [ATTENTION] {sym}: prix introuvable — position sans protection SL!")
             continue
         prix_actuel = prix_actuels[sym]
         prix_entree = pos["prix_entree"]
@@ -2136,6 +2137,16 @@ def _check_crypto_sl_rapide():
         _p = pr.get_prix_revolut(_s)
         if _p and _p > 0:
             prix[_s] = _p
+    # 4. Fallback CoinGecko individuel pour les restants (evite les positions sans SL)
+    _missing2 = [s for s in _crypto_syms if s not in prix or prix[s] <= 0]
+    for _s in _missing2:
+        try:
+            _p = pr._prix_coingecko(_s.replace("USDT", "").replace("EUR", "").replace("USD", "").upper())
+            if _p and _p > 0:
+                prix[_s] = _p
+                print(f"  [CRYPTO-CHECK] Fallback CoinGecko individuel pour {_s}: {_p} EUR")
+        except Exception:
+            pass
     if not prix:
         print(f"[crypto-check] ATTENTION: aucune source de prix disponible ({len(_crypto_syms)} positions)")
         return
