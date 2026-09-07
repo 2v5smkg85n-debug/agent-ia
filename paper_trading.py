@@ -44,12 +44,12 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 # ============================================
 CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
-MAX_POSITIONS = 10             # 10 positions max (plus de trades en parallele)
+MAX_POSITIONS = 5              # 5 positions max (200 EUR x 5 = 1000 EUR)
 LIQUIDITE_MIN = 200.0          # garde au moins 200 EUR de liquidites
 FENETRE_CORRELATION_MIN = 10    # anti-double-exposition: 10min entre entrees meme actif (multi-entrees)
 MAX_POS_PAR_ACTIF = 3          # 3 positions max par actif (multi-entrees si hausse)
-RISK_PAR_TRADE = 0.10         # 10% fixe (~100 EUR par position)
-RISK_MAX_TRADE = 0.10         # 10% fixe (~100 EUR) - 8 positions x 100 EUR = 800 EUR + 200 liquidite
+RISK_PAR_TRADE = 0.20         # 20% fixe (~200 EUR par position) -> 10 EUR min par trade
+RISK_MAX_TRADE = 0.20         # 20% fixe (~200 EUR) - 4 positions x 200 EUR = 800 EUR + 200 liquidite
 INTERVALLE_BOUCLE = 180        # 3 min (plus reactif = plus de trades)
 # RISK MANAGEMENT AVANCE
 MAX_TRADES_PAR_JOUR = 60       # limite: 60 trades/jour (plus de trades)
@@ -63,7 +63,7 @@ HEURES_FAIBLE_LIQUIDITE = [(2, 6)] # pas de trades entre 2h-6h UTC
 HEURES_FORT_VOLUME = [(8, 11), (13, 17)]  # UTC
 HEURES_FORT_BOOST = 1  # +1 au score pendant ces heures
 # Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
-TAKE_PROFIT_PCT = 3.5          # +3.5% (compromis: plus de gains que 3% sans trop attendre)
+TAKE_PROFIT_PCT = 6.0          # +6% (200 EUR x 6% = 12 EUR - 0.40 frais = 11.60 EUR par trade)
 STOP_LOSS_PCT = 1.5            # -1.5% (evite les faux stops sur bruit crypto)
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
 # est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
@@ -92,8 +92,8 @@ STAGNATION_PERTE_DUREE = 60     # pendant plus de 60 min -> ferme
 # TP DYNAMIQUE ATR: adapte le TP selon la volatilité
 ATR_LOOKBACK = 14               # périodes pour le calcul ATR
 ATR_TP_MULT = 2.0               # TP = prix_entree + ATR * mult
-ATR_TP_MIN = 3.0                # TP minimum 3%
-ATR_TP_MAX = 8.0                # TP maximum 8%
+ATR_TP_MIN = 5.0                # TP minimum 5% (200 x 5% = 10 EUR)
+ATR_TP_MAX = 10.0               # TP maximum 10% (200 x 10% = 20 EUR)
 
 # ============================================
 # MODE SCALPING (SCALPING=1): boucle 5 min, TP 3%, SL 1%, timeframe 1h
