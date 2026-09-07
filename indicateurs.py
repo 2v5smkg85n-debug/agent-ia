@@ -615,6 +615,69 @@ def detecter_patterns_bougies(bougies, nb=5):
     return patterns, score
 
 
+def detecter_divergence_rsi(bougies, lookback=30):
+    """Detecte les divergences RSI (bullish et bearish).
+    Divergence haussiere: prix fait un plus bas, RSI fait un plus haut = reversal haussier.
+    Divergence baissiere: prix fait un plus haut, RSI fait un plus bas = reversal baissier.
+    Retourne (type, score, details).
+    """
+    if not bougies or len(bougies) < lookback + 14:
+        return None, 0, []
+    clotures = [b["cloture"] for b in bougies]
+    rsi_vals = []
+    for i in range(len(clotures) - 14, len(clotures)):
+        rsi_vals.append(rsi(clotures[:i+1], 14))
+    if len(rsi_vals) < 10 or None in rsi_vals:
+        return None, 0, []
+    # Trouver les plus bas et plus hauts locaux
+    prix_bas = []
+    prix_hauts = []
+    offset = len(clotures) - len(rsi_vals)
+    for i in range(2, len(rsi_vals) - 2):
+        px = clotures[offset + i]
+        if px < clotures[offset + i - 1] and px < clotures[offset + i + 1]:
+            prix_bas.append((i, px, rsi_vals[i]))
+        if px > clotures[offset + i - 1] and px > clotures[offset + i + 1]:
+            prix_hauts.append((i, px, rsi_vals[i]))
+    details = []
+    # Divergence haussiere
+    if len(prix_bas) >= 2:
+        _, px1, r1 = prix_bas[-2]
+        _, px2, r2 = prix_bas[-1]
+        if px2 < px1 and r2 > r1 and r2 < 45:
+            details.append(f"Divergence RSI haussiere (prix {px1:.4f}->{px2:.4f}, RSI {r1:.1f}->{r2:.1f})")
+            return 'haussiere', 2, details
+    # Divergence baissiere
+    if len(prix_hauts) >= 2:
+        _, px1, r1 = prix_hauts[-2]
+        _, px2, r2 = prix_hauts[-1]
+        if px2 > px1 and r2 < r1 and r2 > 55:
+            details.append(f"Divergence RSI baissiere (prix {px1:.4f}->{px2:.4f}, RSI {r1:.1f}->{r2:.1f})")
+            return 'baissiere', -2, details
+    return None, 0, []
+
+
+def detecter_volume_spike(bougies, lookback=20):
+    """Detecte un pic de volume anormal (volume > 2x la moyenne).
+    Retourne (score, details): +1 haussier, -1 baissier, 0 aucun.
+    """
+    if not bougies or len(bougies) < lookback + 1:
+        return 0, []
+    volumes = [b.get("volume", 0) for b in bougies[-lookback:]]
+    vol_moyen = sum(volumes[:-1]) / max(1, len(volumes) - 1)
+    vol_actuel = volumes[-1]
+    if vol_moyen <= 0 or vol_actuel <= 0:
+        return 0, []
+    ratio = vol_actuel / vol_moyen
+    if ratio < 2.0:
+        return 0, []
+    derniere = bougies[-1]
+    if derniere["cloture"] > derniere["ouverture"]:
+        return 1, [f"Volume spike haussier (x{ratio:.1f} moyenne)"]
+    else:
+        return -1, [f"Volume spike baissier (x{ratio:.1f} moyenne)"]
+
+
 def analyser_actif(symbole, intervalle="1h"):
     """Analyse complete d'un actif avec tous les indicateurs."""
     bougies = historique_ohlcv(symbole, intervalle, 200)
@@ -773,6 +836,20 @@ def analyser_actif(symbole, intervalle="1h"):
         score += _score_patterns
         for p in _patterns:
             signaux.append(f"BOUGIE: {p}")
+
+    # 7. DIVERGENCE RSI (signal de reversal fort)
+    _div_type, _div_score, _div_details = detecter_divergence_rsi(bougies)
+    if _div_type:
+        score += _div_score
+        for d in _div_details:
+            signaux.append(f"DIVERGENCE: {d}")
+
+    # 8. VOLUME SPIKE (confirmation de momentum)
+    _vol_score, _vol_details = detecter_volume_spike(bougies)
+    if _vol_score != 0:
+        score += _vol_score
+        for d in _vol_details:
+            signaux.append(f"VOLUME: {d}")
 
     # Verdict
     if score >= 2:

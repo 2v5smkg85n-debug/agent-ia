@@ -26,6 +26,9 @@ _CACHE_TTL = 300  # 5 minutes
 RSS_FEEDS = [
     "https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml",
     "https://cointelegraph.com/rss",
+    "https://decrypt.co/feed",
+    "https://cryptoslate.com/feed/",
+    "https://www.thedefiant.io/feed",
 ]
 
 # Mots-cles pour l'analyse de sentiment
