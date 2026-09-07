@@ -373,7 +373,7 @@ def _get_eur_usdt_rate():
 
 # KuCoin: API gratuite, pas de cle, pas de geo-blocage, EUR direct
 _KUCOIN_CACHE = {"prix": {}, "ts": 0}
-_KUCOIN_TTL = 60
+_KUCOIN_TTL = 30  # cache 30s pour le SL check (prix frais, pas de 429 sur KuCoin)
 
 def get_prix_kucoin_batch(symboles_bot):
     """Recupere les prix via KuCoin (API gratuite alternative).
