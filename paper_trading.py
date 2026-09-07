@@ -2124,20 +2124,27 @@ def _check_crypto_sl_rapide():
     import prix_revolut as pr
     # 1. CoinGecko batch en PRIORITE (Binance geo-bloque HTTP 451 depuis VPS OVH)
     prix = pr.get_prix_coingecko_batch(_crypto_syms)
-    # 2. Fallback Binance batch si CoinGecko rate-limite
+    # 2. Fallback CoinCap si CoinGecko rate-limite (API gratuite alternative)
     _missing = [s for s in _crypto_syms if s not in prix or prix[s] <= 0]
+    if _missing:
+        _cc = pr.get_prix_coincap_batch(_missing)
+        for _s, _p in _cc.items():
+            if _p > 0:
+                prix[_s] = _p
+        _missing = [s for s in _crypto_syms if s not in prix or prix[s] <= 0]
+    # 3. Fallback Binance batch si CoinCap aussi rate-limite
     if _missing:
         _bn = pr.get_prix_binance_batch(_missing)
         for _s, _p in _bn.items():
             if _p > 0:
                 prix[_s] = _p
         _missing = [s for s in _crypto_syms if s not in prix or prix[s] <= 0]
-    # 3. Fallback Revolut X pour les restants
+    # 4. Fallback Revolut X pour les restants
     for _s in _missing:
         _p = pr.get_prix_revolut(_s)
         if _p and _p > 0:
             prix[_s] = _p
-    # 4. Fallback CoinGecko individuel pour les restants (evite les positions sans SL)
+    # 5. Fallback CoinGecko individuel pour les restants (evite les positions sans SL)
     _missing2 = [s for s in _crypto_syms if s not in prix or prix[s] <= 0]
     for _s in _missing2:
         try:

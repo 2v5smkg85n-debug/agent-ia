@@ -210,7 +210,7 @@ _COINGECKO_MAP = {
 }
 
 _CG_BATCH_CACHE = {"prix": {}, "ts": 0}
-_CG_BATCH_TTL = 60  # cache 60s (evite le rate limit 429 du SL check 10s)
+_CG_BATCH_TTL = 120  # cache 120s (evite le rate limit 429 du SL check 10s)
 
 def get_prix_coingecko_batch(symboles_bot):
     """Recupere les prix de plusieurs cryptos en UN appel CoinGecko batch.
@@ -246,8 +246,16 @@ def get_prix_coingecko_batch(symboles_bot):
             "User-Agent": "Mozilla/5.0",
             "Accept": "application/json"
         })
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read())
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read())
+        except Exception as _retry_e:
+            if "429" in str(_retry_e):
+                time.sleep(5)
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    data = json.loads(resp.read())
+            else:
+                raise
         resultats = {}
         for coin_id, sym_bot in id_to_sym.items():
             prix = data.get(coin_id, {}).get("eur", 0)
@@ -362,6 +370,68 @@ def _get_eur_usdt_rate():
     if _eur_usdt_rate == 0:
         _eur_usdt_rate = 0.92  # ~1 USD = 0.92 EUR
     return _eur_usdt_rate
+
+# Map symboles -> CoinCap IDs (API gratuite, pas de cle, pas de rate-limit strict)
+_COINCAP_MAP = {
+    "BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "XRP": "ripple",
+    "ADA": "cardano", "DOGE": "dogecoin", "AVAX": "avalanche-2", "DOT": "polkadot",
+    "LTC": "litecoin", "TRX": "tron", "ARB": "arbitrum", "NEAR": "near",
+    "AAVE": "aave", "PENDLE": "pendle", "SHIB": "shiba-inu", "ALGO": "algorand",
+    "ICP": "internet-computer", "XLM": "stellar", "INJ": "injective-protocol",
+    "SEI": "seia", "TIA": "celestia", "CRV": "curve-dao-token", "WIF": "dogwifcoin",
+    "FET": "fetch-ai", "LDO": "lido-dao", "FIL": "filecoin", "ETC": "ethereum-classic",
+    "OP": "optimism", "SUI": "sui", "APT": "aptos", "PEPE": "pepe",
+    "BNB": "binance-coin", "LINK": "chainlink", "UNI": "uniswap",
+    "ATOM": "cosmos", "FLOKI": "floki", "RNDR": "render-token",
+}
+
+_COINCAP_CACHE = {"prix": {}, "ts": 0}
+_COINCAP_TTL = 60
+
+def get_prix_coincap_batch(symboles_bot):
+    """Recupere les prix via CoinCap (API gratuite alternative).
+    https://api.coincap.io/v2/assets — pas de cle, rate-limit ~10/min.
+    Retourne les prix en EUR (conversion USD -> EUR).
+    """
+    if not symboles_bot:
+        return {}
+    _now = time.time()
+    if _COINCAP_CACHE["prix"] and (_now - _COINCAP_CACHE["ts"]) < _COINCAP_TTL:
+        _cached = {}
+        for sym in symboles_bot:
+            if sym in _COINCAP_CACHE["prix"]:
+                _cached[sym] = _COINCAP_CACHE["prix"][sym]
+        if _cached:
+            return _cached
+    try:
+        url = "https://api.coincap.io/v2/assets?limit=200"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read())
+        _rate = _get_eur_usdt_rate()
+        resultats = {}
+        for item in data.get("data", []):
+            sym_court = item.get("symbol", "").upper()
+            prix_usd = float(item.get("priceUsd", 0) or 0)
+            if prix_usd > 0:
+                for sym_bot in symboles_bot:
+                    court = sym_bot.replace("USDT", "").replace("EUR", "").replace("USD", "").upper()
+                    if court == sym_court:
+                        resultats[sym_bot] = prix_usd * _rate
+                        break
+        if resultats:
+            _COINCAP_CACHE["prix"].update(resultats)
+            _COINCAP_CACHE["ts"] = _now
+        return resultats
+    except Exception as e:
+        if _COINCAP_CACHE["prix"]:
+            _cached = {}
+            for sym in symboles_bot:
+                if sym in _COINCAP_CACHE["prix"]:
+                    _cached[sym] = _COINCAP_CACHE["prix"][sym]
+            return _cached
+        return {}
+
 
 def get_prix_binance_batch(symboles):
     """Recupere les prix de plusieurs cryptos en appel(s) Binance.
