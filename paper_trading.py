@@ -44,15 +44,15 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 # ============================================
 CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
-MAX_POSITIONS = 8              # 8 positions max (plus de trades)
+MAX_POSITIONS = 10             # 10 positions max (plus de trades en parallele)
 LIQUIDITE_MIN = 200.0          # garde au moins 200 EUR de liquidites
 FENETRE_CORRELATION_MIN = 30    # anti-double-exposition: 30min entre entrees meme actif (assoupli)
 MAX_POS_PAR_ACTIF = 1          # 1 position par actif (pas de pyramiding risqué)
 RISK_PAR_TRADE = 0.10         # 10% fixe (~100 EUR par position)
 RISK_MAX_TRADE = 0.10         # 10% fixe (~100 EUR) - 8 positions x 100 EUR = 800 EUR + 200 liquidite
-INTERVALLE_BOUCLE = 300        # 5 min (plus reactif pour plus de trades)
+INTERVALLE_BOUCLE = 180        # 3 min (plus reactif = plus de trades)
 # RISK MANAGEMENT AVANCE
-MAX_TRADES_PAR_JOUR = 40       # limite: 40 trades/jour (plus de trades)
+MAX_TRADES_PAR_JOUR = 60       # limite: 60 trades/jour (plus de trades)
 PERTE_JOUR_MAX_PCT = 2.0      # stop trading si -2% en une journee
 CIRCUIT_BREAKER_CONSECUTIF = 3 # pause apres 3 pertes consecutives (plus de room)
 DRAWDOWN_REDUCTION_SEUIL = 0.95 # si capital < 95% du initial, reduit positions de 50%
@@ -73,10 +73,10 @@ EXTEND_SEUIL = 0.5        # active l'extension a partir de +0.5% de gain
 EXTEND_TP_PCT = 4.0       # TP monte a 4% une fois en profit (avant 5% trop greedy)
 EXTEND_DUREE_MAX = 480    # cap duree des positions extended (8h, vs 90min normal)
 SORTIE_DUREE_MIN = 1440         # ferme apres 24h si en gain (laisse le TP dynamique travailler)
-STALE_DUREE_MAX = 240           # position stale apres 4h (plus de temps pour atteindre TP)
+STALE_DUREE_MAX = 120           # position stale apres 2h (libere le capital plus vite)
 # Seuil de gain minimum pour fermer par duree : doit couvrir les frais (0.2% AR) + une marge.
 # Fermer a +0.05% = perte nette (frais 0.2%). Donc on n'accepte que gain >= 0.30%.
-SEUIL_BENEFICE_MIN = 1.50       # 1.50% : ferme seulement si gain net significatif (couvre frais + marge)
+SEUIL_BENEFICE_MIN = 1.0        # 1.0% : ferme plus vite (libere capital pour nouveaux trades)
 DUREE_PETIT_GAIN = 180        # gain 0.30-0.45%: respire 2h (était 90min) pour viser partial TP
 DUREE_GAIN_PROGRESS = 240    # gain 0.45-0.60%: respire 3h
 DUREE_GAGNANT_MAX = 360         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
@@ -1040,8 +1040,8 @@ def ouvrir_position(pf, signal, prix_actuel):
         pass
     # FILTRE SCORE MINIMUM: ne trade que les signaux avec score >= 4 (assoupli, avant 5)
     _score_min = signal.get("score", 0)
-    if _score_min < 2:
-        print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> score {_score_min} < 2 (trop faible)")
+    if _score_min < 1:
+        print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> score {_score_min} < 1 (trop faible)")
         return False
     # SIZING DYNAMIQUE BASE SUR LE SENTIMENT ET LE SCORE
     # Le bot ajuste la taille de position selon le sentiment du marche:
