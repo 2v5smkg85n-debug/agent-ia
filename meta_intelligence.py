@@ -507,10 +507,13 @@ def taille_position_optimale(confiance, capital, risk_base=0.21):
         confiance = max(0.0, min(1.0, float(confiance)))
         capital = max(0.0, float(capital))
 
-        if confiance < 0.4:
+        if confiance < 0.2:
             return {"montant": 0.0, "confiance": confiance, "taille": "skip"}
 
-        if confiance <= 0.6:
+        if confiance <= 0.4:
+            ratio = risk_base * 0.5
+            taille = "petite"
+        elif confiance <= 0.6:
             ratio = risk_base * 0.5
             taille = "petite"
         elif confiance <= 0.8:
