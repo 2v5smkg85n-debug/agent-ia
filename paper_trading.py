@@ -63,7 +63,7 @@ HEURES_FAIBLE_LIQUIDITE = [(2, 6)] # pas de trades entre 2h-6h UTC
 HEURES_FORT_VOLUME = [(8, 11), (13, 17)]  # UTC
 HEURES_FORT_BOOST = 1  # +1 au score pendant ces heures
 # Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
-TAKE_PROFIT_PCT = 6.0          # +6% (200 EUR x 6% = 12 EUR - 0.40 frais = 11.60 EUR par trade)
+TAKE_PROFIT_PCT = 4.0          # +4% (200 EUR x 4% = 8 EUR - 0.40 frais = 7.60 EUR par trade)
 STOP_LOSS_PCT = 1.5            # -1.5% (evite les faux stops sur bruit crypto)
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
 # est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
@@ -88,12 +88,12 @@ PARTIAL_TP_SEUIL = 2.5     # +2.5% -> encaisse 50% (pas trop tot)
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 # FERMETURE INTELLIGENTE: ferme les positions perdantes qui stagnent
 STAGNATION_PERTE_SEUIL = -0.7   # si position a -0.7% ou pire (avant -0.5% trop agressif)
-STAGNATION_PERTE_DUREE = 60     # pendant plus de 60 min -> ferme
+STAGNATION_PERTE_DUREE = 120    # pendant plus de 120 min -> ferme (laisse plus de temps)
 # TP DYNAMIQUE ATR: adapte le TP selon la volatilité
 ATR_LOOKBACK = 14               # périodes pour le calcul ATR
 ATR_TP_MULT = 2.0               # TP = prix_entree + ATR * mult
-ATR_TP_MIN = 5.0                # TP minimum 5% (200 x 5% = 10 EUR)
-ATR_TP_MAX = 10.0               # TP maximum 10% (200 x 10% = 20 EUR)
+ATR_TP_MIN = 3.0                # TP minimum 3% (200 x 3% = 6 EUR)
+ATR_TP_MAX = 8.0                # TP maximum 8% (200 x 8% = 16 EUR)
 
 # ============================================
 # MODE SCALPING (SCALPING=1): boucle 5 min, TP 3%, SL 1%, timeframe 1h
