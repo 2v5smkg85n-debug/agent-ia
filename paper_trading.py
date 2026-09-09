@@ -1959,6 +1959,14 @@ def tick():
             # === CONSENSUS MULTI-IA: DESACTIVE (429 sur Gemini + Perplexity) ===
             # === SENTIMENT SOCIAL: DESACTIVE (Reddit 403, Fear&Greed OK mais pas critique) ===
             # === MULTI-TIMEFRAME: DESACTIVE (429 sur OHLC Revolut X) ===
+            # === TRADINGVIEW: rating technique independant (23+ indicateurs agreges) ===
+            try:
+                import tradingview_signals as tv
+                tous_signaux = tv.enrichir_signaux(tous_signaux, intervalle="1h")
+            except ImportError:
+                print("  (tradingview-ta non installe: pip3 install tradingview-ta)")
+            except Exception as e:
+                print(f"  (tradingview indisponible: {e})")
             # === NEWS CRYPTO: sentiment des news + trending CoinGecko ===
             try:
                 from news_crypto import score_news_sentiment
