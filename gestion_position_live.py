@@ -129,11 +129,11 @@ def analyser_position_live(position, prix_actuel):
     # POSITION EN PERTE
     else:
         # Momentum inversé + perte → fermer (ne pas attendre le SL)
-        if momentum_negatif and variation <= -1.0:
+        if momentum_negatif and variation <= -1.5:
             return ("FERMER", f"Momentum inversé (MACD<signal) en perte {variation:.1f}% → couper avant SL")
 
         # Tendance baissière + perte → fermer si proche du SL
-        if tendance_baissiere and variation <= -1.0:
+        if tendance_baissiere and variation <= -1.5:
             return ("FERMER", f"Tendance baissière (SMA20<SMA50) en perte {variation:.1f}% → couper")
 
         # RSI survente + petite perte → HOLD (rebond probable)
