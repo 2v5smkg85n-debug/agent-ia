@@ -73,7 +73,7 @@ EXTEND_SEUIL = 0.5        # active l'extension a partir de +0.5% de gain
 EXTEND_TP_PCT = 4.0       # TP monte a 4% une fois en profit (avant 5% trop greedy)
 EXTEND_DUREE_MAX = 480    # cap duree des positions extended (8h, vs 90min normal)
 SORTIE_DUREE_MIN = 1440         # ferme apres 24h si en gain (laisse le TP dynamique travailler)
-STALE_DUREE_MAX = 120           # position stale apres 2h (libere le capital plus vite)
+STALE_DUREE_MAX = 360           # position stale apres 6h (laisse le temps au TP 3% d'etre atteint)
 # Seuil de gain minimum pour fermer par duree : doit couvrir les frais (0.2% AR) + une marge.
 # Fermer a +0.05% = perte nette (frais 0.2%). Donc on n'accepte que gain >= 0.30%.
 SEUIL_BENEFICE_MIN = 1.50       # 1.50% : ferme seulement si gain net significatif (couvre frais + marga)
