@@ -63,7 +63,7 @@ HEURES_FAIBLE_LIQUIDITE = [(2, 6)] # pas de trades entre 2h-6h UTC
 HEURES_FORT_VOLUME = [(8, 11), (13, 17)]  # UTC
 HEURES_FORT_BOOST = 1  # +1 au score pendant ces heures
 # Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
-TAKE_PROFIT_PCT = 3.0          # +3% (200 EUR x 3% = 6 EUR - 0.40 frais = 5.60 EUR par trade)
+TAKE_PROFIT_PCT = 2.0          # +2% (200 EUR x 2% = 4 EUR - 0.40 frais = 3.60 EUR par trade)
 STOP_LOSS_PCT = 1.5            # -1.5% (evite les faux stops sur bruit crypto)
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
 # est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
@@ -76,15 +76,15 @@ SORTIE_DUREE_MIN = 1440         # ferme apres 24h si en gain (laisse le TP dynam
 STALE_DUREE_MAX = 360           # position stale apres 6h (laisse le temps au TP 3% d'etre atteint)
 # Seuil de gain minimum pour fermer par duree : doit couvrir les frais (0.2% AR) + une marge.
 # Fermer a +0.05% = perte nette (frais 0.2%). Donc on n'accepte que gain >= 0.30%.
-SEUIL_BENEFICE_MIN = 2.0        # 2.0% : ferme seulement si gain net significatif (laisse courir)
+SEUIL_BENEFICE_MIN = 1.0        # 1.0% : ferme si gain net significatif (sortie precoce)
 DUREE_PETIT_GAIN = 180        # gain 0.30-0.45%: respire 2h (était 90min) pour viser partial TP
 DUREE_GAIN_PROGRESS = 240    # gain 0.45-0.60%: respire 3h
 DUREE_GAGNANT_MAX = 360         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
 DUREE_BONUS_STRATEGIE = 60    # stratégie prouvée (live_n>=3, wr>=60%, pnl>0): +1h de respiration
 BREAKEVEN_SEUIL = 2.0      # +2.0% -> SL monte au breakeven (laisse respirer)
 TRAIL_ACTIF = 4.0          # +4.0% -> trailing stop (apres un vrai move)
-TRAIL_PCT = 2.5            # trail 2.5% sous le pic (laisse les gagnants respirer)
-PARTIAL_TP_SEUIL = 3.5     # +3.5% -> encaisse 50% (laisse courir vers TP)
+TRAIL_PCT = 1.0            # trail 1.0% sous le pic (serre vite les gains)
+PARTIAL_TP_SEUIL = 1.5     # +1.5% -> encaisse 50% (sortie precoce)
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 # FERMETURE INTELLIGENTE: ferme les positions perdantes qui stagnent
 STAGNATION_PERTE_SEUIL = -1.0   # si position a -1.0% ou pire (assoupli, avant -0.7%)
@@ -92,8 +92,8 @@ STAGNATION_PERTE_DUREE = 120    # pendant plus de 120 min -> ferme (laisse plus 
 # TP DYNAMIQUE ATR: adapte le TP selon la volatilité
 ATR_LOOKBACK = 14               # périodes pour le calcul ATR
 ATR_TP_MULT = 2.0               # TP = prix_entree + ATR * mult
-ATR_TP_MIN = 2.5                # TP minimum 2.5% (200 x 2.5% = 5 EUR)
-ATR_TP_MAX = 6.0                # TP maximum 6% (200 x 6% = 12 EUR)
+ATR_TP_MIN = 1.5                # TP minimum 1.5% (200 x 1.5% = 3 EUR)
+ATR_TP_MAX = 4.0                # TP maximum 4% (200 x 4% = 8 EUR)
 
 # ============================================
 # MODE SCALPING (SCALPING=1): boucle 5 min, TP 3%, SL 1%, timeframe 1h
