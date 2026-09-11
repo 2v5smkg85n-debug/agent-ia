@@ -76,15 +76,15 @@ SORTIE_DUREE_MIN = 1440         # ferme apres 24h si en gain (laisse le TP dynam
 STALE_DUREE_MAX = 360           # position stale apres 6h (laisse le temps au TP 3% d'etre atteint)
 # Seuil de gain minimum pour fermer par duree : doit couvrir les frais (0.2% AR) + une marge.
 # Fermer a +0.05% = perte nette (frais 0.2%). Donc on n'accepte que gain >= 0.30%.
-SEUIL_BENEFICE_MIN = 1.50       # 1.50% : ferme seulement si gain net significatif (couvre frais + marga)
+SEUIL_BENEFICE_MIN = 2.0        # 2.0% : ferme seulement si gain net significatif (laisse courir)
 DUREE_PETIT_GAIN = 180        # gain 0.30-0.45%: respire 2h (était 90min) pour viser partial TP
 DUREE_GAIN_PROGRESS = 240    # gain 0.45-0.60%: respire 3h
 DUREE_GAGNANT_MAX = 360         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
 DUREE_BONUS_STRATEGIE = 60    # stratégie prouvée (live_n>=3, wr>=60%, pnl>0): +1h de respiration
 BREAKEVEN_SEUIL = 2.0      # +2.0% -> SL monte au breakeven (laisse respirer)
 TRAIL_ACTIF = 4.0          # +4.0% -> trailing stop (apres un vrai move)
-TRAIL_PCT = 1.5            # trail 1.5% sous le pic (compromis bruit/protection)
-PARTIAL_TP_SEUIL = 2.5     # +2.5% -> encaisse 50% (pas trop tot)
+TRAIL_PCT = 2.5            # trail 2.5% sous le pic (laisse les gagnants respirer)
+PARTIAL_TP_SEUIL = 3.5     # +3.5% -> encaisse 50% (laisse courir vers TP)
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 # FERMETURE INTELLIGENTE: ferme les positions perdantes qui stagnent
 STAGNATION_PERTE_SEUIL = -1.0   # si position a -1.0% ou pire (assoupli, avant -0.7%)
