@@ -31,6 +31,7 @@ MAX_DRAWDOWN = 0.12      # 12% drawdown -> pause
 MAX_PERTES = 5           # 5 pertes consecutives -> pause
 RESUME_DRAWDOWN = 0.06   # auto-resume si drawdown < 6%
 RESUME_DELAI = 1800      # auto-resume apres 30 min de pause (evite le deadlock)
+RESUME_GRACE = 3600      # 1h de grace apres reprise (pas de re-pause pour pertes)
 
 
 def _load():
@@ -103,27 +104,31 @@ def verifier_pause(pf):
     was_paused = s.get("paused", False)
     nouveau_pause = False
     raison = ""
+    # 1. Auto-resume: verifier EN PREMIER (avant les checks de pause)
+    #    Sinon pertes>=5 repause immediatement -> deadlock
+    grace_active = time.time() < s.get("grace_until", 0)
+    if was_paused and time.time() - s.get("pause_start", 0) > RESUME_DELAI:
+        s["paused"] = False
+        s["raison"] = ""
+        s["pause_start"] = 0
+        s["grace_until"] = time.time() + RESUME_GRACE
+        grace_active = True
+        _save(s)
+        print(f"  [CIRCUIT BREAKER] reprise auto apres {RESUME_DELAI//60} min (grace {RESUME_GRACE//60}min)")
+        return False, ""
+    # 2. Check pause: drawdown toujours actif, pertes ignore pendant grace
     if dd >= MAX_DRAWDOWN:
         raison = f"drawdown {dd*100:.1f}% (seuil {MAX_DRAWDOWN*100:.0f}%)"
         if not was_paused:
             nouveau_pause = True
         s["paused"] = True
         s["raison"] = raison
-    elif pertes >= MAX_PERTES:
+    elif pertes >= MAX_PERTES and not grace_active:
         raison = f"{pertes} pertes consecutives (seuil {MAX_PERTES})"
         if not was_paused:
             nouveau_pause = True
         s["paused"] = True
         s["raison"] = raison
-    elif was_paused and time.time() - s.get("pause_start", 0) > RESUME_DELAI:
-        # Auto-resume apres 30 min de pause (evite le deadlock: pertes == 0 impossible
-        # car le bot ne peut pas trader tant qu'il est en pause)
-        s["paused"] = False
-        s["raison"] = ""
-        s["pause_start"] = 0
-        _save(s)
-        print(f"  [CIRCUIT BREAKER] reprise auto apres {RESUME_DELAI//60} min de pause")
-        return False, ""
     _save(s)
     # Alerte Telegram (throttlée 1/h)
     if s.get("paused") and nouveau_pause:
