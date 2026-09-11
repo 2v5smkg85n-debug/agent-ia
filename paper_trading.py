@@ -379,7 +379,19 @@ def analyser_signaux_techniques(prix_actuels):
                     "nom": config["nom"],
                     "marche": config["marche"],
                     "source": "indicateurs",
-                    "strategie": "momentum" if any("MOMENTUM" in s for s in analyse.get("signaux", [])) else ("breakout" if any("BREAKOUT" in s for s in analyse.get("signaux", [])) else ("macd_cross" if any("MACD" in s for s in analyse.get("signaux", [])) else "technique")),
+                    "strategie": (
+                        "rsi_oversold" if any("survente" in s.lower() for s in analyse.get("signaux", [])) else
+                        "bollinger_bounce" if any("bande basse" in s.lower() or "sous bande" in s.lower() for s in analyse.get("signaux", [])) else
+                        "divergence_rsi" if any("DIVERGENCE" in s for s in analyse.get("signaux", [])) else
+                        "volume_spike" if any("VOLUME" in s for s in analyse.get("signaux", [])) else
+                        "vwap_bounce" if any("VWAP" in s for s in analyse.get("signaux", [])) else
+                        "pattern_reversal" if any("BOUGIE" in s for s in analyse.get("signaux", [])) else
+                        "momentum" if any("MOMENTUM" in s for s in analyse.get("signaux", [])) else
+                        "breakout" if any("BREAKOUT" in s for s in analyse.get("signaux", [])) else
+                        "macd_cross" if any("MACD" in s for s in analyse.get("signaux", [])) else
+                        "sma_trend" if any("SMA" in s for s in analyse.get("signaux", [])) else
+                        "technique"
+                    ),
                     "score": score,
                     "raison": "; ".join(analyse["signaux"][:2])
                 })
