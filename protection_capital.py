@@ -30,6 +30,7 @@ TELEGRAM_CHAT = os.getenv("TELEGRAM_CHAT_ID", "")
 MAX_DRAWDOWN = 0.12      # 12% drawdown -> pause
 MAX_PERTES = 5           # 5 pertes consecutives -> pause
 RESUME_DRAWDOWN = 0.06   # auto-resume si drawdown < 6%
+RESUME_DELAI = 1800      # auto-resume apres 30 min de pause (evite le deadlock)
 
 
 def _load():
@@ -114,14 +115,19 @@ def verifier_pause(pf):
             nouveau_pause = True
         s["paused"] = True
         s["raison"] = raison
-    elif dd < RESUME_DRAWDOWN and pertes == 0 and was_paused:
-        # Auto-resume (paper): conditions améliorées
+    elif was_paused and time.time() - s.get("pause_start", 0) > RESUME_DELAI:
+        # Auto-resume apres 30 min de pause (evite le deadlock: pertes == 0 impossible
+        # car le bot ne peut pas trader tant qu'il est en pause)
         s["paused"] = False
         s["raison"] = ""
+        s["pause_start"] = 0
         _save(s)
+        print(f"  [CIRCUIT BREAKER] reprise auto apres {RESUME_DELAI//60} min de pause")
         return False, ""
     _save(s)
     # Alerte Telegram (throttlée 1/h)
+    if s.get("paused") and nouveau_pause:
+        s["pause_start"] = time.time()
     if s.get("paused") and (nouveau_pause or time.time() - s.get("last_alert", 0) > 3600):
         _alerter(s.get("raison", ""))
         s["last_alert"] = time.time()
