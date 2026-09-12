@@ -194,6 +194,53 @@ def analyser_trades(trades_fermes):
     learning["stats_par_crypto"] = {k: v for k, v in stats_par_crypto.items()}
     learning["stats_jour_semaine"] = {str(k): v for k, v in stats_jour_semaine.items()}
     learning["stats_duree"] = stats_duree
+    # TP/SL OPTIMAL PAR STRATEGIE (evolution continue)
+    stats_tp_sl_strat = defaultdict(lambda: {"n": 0, "gains": [], "pertes": [], "tp_optimal": 2.0, "sl_optimal": 1.5})
+    for t in trades_analyses:
+        strat = t["strategie"]
+        s = stats_tp_sl_strat[strat]
+        s["n"] += 1
+        if t["gagnant"]:
+            s["gains"].append(t.get("gain_pct", 0))
+        else:
+            s["pertes"].append(abs(t.get("gain_pct", 0)))
+    # Calcule TP/SL optimal: TP = median des gains gagnants + 0.5, SL = median des pertes - 0.3
+    for strat, s in stats_tp_sl_strat.items():
+        if s["gains"]:
+            _med_gain = sorted(s["gains"])[len(s["gains"])//2]
+            s["tp_optimal"] = max(1.0, min(_med_gain + 0.5, 5.0))
+        if s["pertes"]:
+            _med_perte = sorted(s["pertes"])[len(s["pertes"])//2]
+            s["sl_optimal"] = max(0.8, min(_med_perte * 0.8, 3.0))
+    learning["tp_sl_optimal_par_strategie"] = {k: {"tp_optimal": v["tp_optimal"], "sl_optimal": v["sl_optimal"], "n": v["n"]} for k, v in stats_tp_sl_strat.items()}
+    # BOOST DYNAMIQUE PAR STRATEGIE (evolution: plus une strategie gagne, plus elle est boostee)
+    boost_strat = {}
+    for strat, s in stats_strategies.items():
+        _n = s["n"]
+        _wr = s["win_rate"]
+        _pnl = s["pnl_total"]
+        if _n >= 5:
+            # Boost proportionnel au win rate: 55% WR = +1, 65% = +2, 75% = +3, 85% = +4
+            _boost = max(0, int((_wr - 50) / 10))
+            # Malus pour les strategies perdantes (mais pas encore bloquees): -1 a -2
+            if _wr < 40 and _n >= 5:
+                _boost = -min(2, int((40 - _wr) / 10))
+            boost_strat[strat] = {"boost": _boost, "n": _n, "wr": _wr, "pnl": _pnl}
+    learning["boost_strategies"] = boost_strat
+    # HEURES FAVORABLES PAR STRATEGIE (quand chaque strategie gagne le plus)
+    heures_par_strat = defaultdict(lambda: defaultdict(lambda: {"n": 0, "gagnants": 0, "pnl": 0}))
+    for t in trades_analyses:
+        try:
+            _dt = datetime.strptime(t["date_ouverture"][:16], "%Y-%m-%d %H:%M")
+            _h = _dt.hour
+            _s = heures_par_strat[t["strategie"]][_h]
+            _s["n"] += 1
+            _s["pnl"] += t["gain_eur"]
+            if t["gagnant"]:
+                _s["gagnants"] += 1
+        except Exception:
+            pass
+    learning["heures_par_strategie"] = {strat: {str(h): v for h, v in heures.items() if v["n"] >= 3} for strat, heures in heures_par_strat.items()}
     learning["tp_optimal_par_crypto"] = {k: v["meilleur_tp"] for k, v in stats_par_crypto.items()}
     learning["sl_optimal_par_crypto"] = {k: v["meilleur_sl"] for k, v in stats_par_crypto.items()}
     learning["derniere_analyse"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -260,6 +307,7 @@ def get_recommandations():
 def filtrer_signaux_avec_apprentissage(signaux):
     """Filtre les signaux en utilisant l'apprentissage: evite les cryptos et strategies perdantes."""
     recs = get_recommandations()
+    learning = charger_learning()
     signaux_filtres = []
     signaux_bloques = 0
 
@@ -279,16 +327,45 @@ def filtrer_signaux_avec_apprentissage(signaux):
             print(f"  [LEARNING] SKIP {strat} sur {sym} — strategie perdante")
             continue
 
-        # Booster le score des cryptos et strategies gagnantes
+        # Booster le score des cryptos gagnantes
         if sym in recs["cryptos_a_privilegier"]:
             signal["score"] = signal.get("score", 0) + 3
             signal["meta_confiance"] = signal.get("meta_confiance", 0.5) + 0.3
             print(f"  [LEARNING] BOOST {sym} — crypto gagnante (+3 score)")
 
-        if strat in recs["strategies_a_privilegier"]:
-            signal["score"] = signal.get("score", 0) + 2
-            signal["meta_confiance"] = signal.get("meta_confiance", 0.5) + 0.2
-            print(f"  [LEARNING] BOOST {strat} sur {sym} — strategie gagnante (+2 score)")
+        # BOOST DYNAMIQUE PAR STRATEGIE (evolution continue)
+        _boost_strat = learning.get("boost_strategies", {})
+        _bs = _boost_strat.get(strat, {})
+        _boost_val = _bs.get("boost", 0)
+        if _boost_val != 0:
+            signal["score"] = signal.get("score", 0) + _boost_val
+            _wr_s = _bs.get("wr", 0)
+            _n_s = _bs.get("n", 0)
+            if _boost_val > 0:
+                print(f"  [EVOLUTION] {strat} sur {sym} — WR {_wr_s:.0f}% ({_n_s} trades) -> +{_boost_val} score")
+            else:
+                print(f"  [EVOLUTION] {strat} sur {sym} — WR {_wr_s:.0f}% ({_n_s} trades) -> {_boost_val} score (strategie faible)")
+
+        # TP/SL OPTIMAL PAR STRATEGIE (adapte les seuils selon la performance)
+        _tp_sl_strat = learning.get("tp_sl_optimal_par_strategie", {})
+        _ts = _tp_sl_strat.get(strat, {})
+        if _ts.get("n", 0) >= 5:
+            signal["tp_optimal"] = _ts.get("tp_optimal", 2.0)
+            signal["sl_optimal"] = _ts.get("sl_optimal", 1.5)
+
+        # BOOST HORAIRE PAR STRATEGIE (boost pendant les meilleures heures de chaque strategie)
+        _heures_strat = learning.get("heures_par_strategie", {})
+        _hs = _heures_strat.get(strat, {})
+        try:
+            _heure_actuelle = datetime.now().hour
+            _h_data = _hs.get(str(_heure_actuelle), {})
+            if _h_data.get("n", 0) >= 3 and _h_data.get("pnl", 0) > 0:
+                _h_wr = _h_data.get("gagnants", 0) / _h_data["n"] * 100
+                if _h_wr >= 60:
+                    signal["score"] = signal.get("score", 0) + 1
+                    print(f"  [EVOLUTION] {strat} a {_heure_actuelle}h — heure favorable (WR {_h_wr:.0f}%) -> +1 score")
+        except Exception:
+            pass
 
         # Ajuster le TP/SL selon l'apprentissage
         tp_opt = recs["tp_optimal"].get(sym)
