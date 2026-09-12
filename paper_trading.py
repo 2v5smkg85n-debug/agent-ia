@@ -49,7 +49,8 @@ LIQUIDITE_MIN = 200.0          # garde au moins 200 EUR de liquidites
 FENETRE_CORRELATION_MIN = 10    # anti-double-exposition: 10min entre entrees meme actif (multi-entrees)
 MAX_POS_PAR_ACTIF = 3          # 3 positions max par actif (multi-entrees si hausse)
 RISK_PAR_TRADE = 0.20         # 20% fixe (~200 EUR par position) -> 10 EUR min par trade
-RISK_MAX_TRADE = 0.20         # 20% fixe (~200 EUR) - 4 positions x 200 EUR = 800 EUR + 200 liquidite
+RISK_MAX_TRADE = 0.50         # 50% max pour haute conviction (~500 EUR)
+RISK_HAUTE_CONVICTION = 0.50  # 50% (500 EUR) pour score >= 8 + TradingView STRONG_BUY
 INTERVALLE_BOUCLE = 180        # 3 min (plus reactif = plus de trades)
 # RISK MANAGEMENT AVANCE
 MAX_TRADES_PAR_JOUR = 60       # limite: 60 trades/jour (plus de trades)
@@ -1099,6 +1100,16 @@ def ouvrir_position(pf, signal, prix_actuel):
     _max_size = pf["liquidites"] * RISK_MAX_TRADE   # 50% plafond
     # Recupere le score du signal (1-10)
     _score = signal.get("score", 5)
+    # HAUTE CONVICTION: score >= 8 + TradingView STRONG_BUY = 500 EUR
+    _haute_conviction = False
+    try:
+        from tradingview_signals import get_tv_rating
+        _tv = get_tv_rating(signal["symbole"])
+        if _score >= 8 and _tv and "STRONG_BUY" in str(_tv).upper():
+            _haute_conviction = True
+            print(f"  [HAUTE-CONVICTION] {signal.get('nom',signal['symbole'])}: score {_score} + TV STRONG_BUY -> 500 EUR")
+    except Exception:
+        pass
     # Recupere le sentiment Fear & Greed
     _fg = 50  # defaut neutre
     try:
@@ -1144,6 +1155,10 @@ def ouvrir_position(pf, signal, prix_actuel):
     _montant_dyn = _base_size * _sent_mult * _score_mult
     _montant_dyn = min(_montant_dyn, _max_size)  # plafond 50%
     _montant_dyn = max(_montant_dyn, _base_size)  # plancher 8%
+    # HAUTE CONVICTION: force 500 EUR si score >= 8 + TV STRONG_BUY
+    if _haute_conviction:
+        _montant_dyn = pf["liquidites"] * RISK_HAUTE_CONVICTION
+        _montant_dyn = min(_montant_dyn, pf["liquidites"] - LIQUIDITE_MIN)  # garde 200 EUR min
     print(f"  [DYN-SIZE] {signal.get('nom',signal['symbole'])}: sentiment={_sent_label}({_fg:.0f}) x{_sent_mult} | score={_score} x{_score_mult} | {montant:.0f} -> {_montant_dyn:.0f}EUR")
     montant = _montant_dyn
     # FLASH-CRASH: reduire la taille si niveau de protection eleve
