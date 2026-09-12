@@ -1341,6 +1341,7 @@ def ouvrir_position(pf, signal, prix_actuel):
         "signal_raison": signal.get("raison", ""),
         "source": signal.get("source", ""),
         "strategie": signal.get("strategie") or signal.get("source") or "inconnu",
+        "haute_conviction": _haute_conviction if '_haute_conviction' in dir() else False,
         "pattern_bougie": _pattern_info,
         # Intelligence pro
         "tp_adaptatif": signal.get("tp_adaptatif"),
@@ -1418,6 +1419,11 @@ def verifier_sorties(pf, prix_actuels):
         # Ce check est AVANT le SL adaptatif pour bloquer les pertes extremes immediatement
         if variation <= -1.5:
             positions_a_fermer.append((pos, prix_actuel, f"SL-URGENCE-ABSOLU (perte {variation:+.1f}%, seuil -1.5%)", variation))
+            continue
+        # TP RAPIDE HAUTE CONVICTION: ferme a +1.0% pour les positions 500 EUR
+        # Ces positions sont des signaux tres forts -> encaisse vite le gain garanti
+        if pos.get("haute_conviction") and variation >= 1.0:
+            positions_a_fermer.append((pos, prix_actuel, f"TP-HAUTE-CONVICTION (+{variation:.1f}% >= 1.0%)", variation))
             continue
         # DETECTION POSITION PIEGEE: si la perte depasse le SL, le SL aurait du etre touche
         # On ferme immediatement (le prix a chute trop, la position est morte)
