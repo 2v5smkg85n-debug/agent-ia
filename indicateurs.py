@@ -609,7 +609,177 @@ def detecter_patterns_bougies(bougies, nb=5):
             b3["cloture"] < b2["cloture"]):
             patterns.append("Trois corbeaux noirs (tendance baissiere forte)")
             score -= 2
-    
+
+    # 12. PENDU (Hanging Man) - meme forme que marteau mais apres une hausse = baissier
+    if len(recentes) >= 2:
+        curr = recentes[-1]
+        o, h, l, c = curr["ouverture"], curr["haut"], curr["bas"], curr["cloture"]
+        corps = abs(c - o); mèche_basse = min(o, c) - l; mèche_haute = h - max(o, c)
+        amp = h - l
+        if amp > 0 and mèche_basse > 2 * corps and mèche_haute < amp * 0.15 and corps < amp * 0.4:
+            prev = recentes[-2]
+            if prev["cloture"] > prev["ouverture"]:  # apres une hausse = pendu (baissier)
+                patterns.append("Pendu (baissier apres hausse)")
+                score -= 1
+
+    # 13. LIGNE DE PERCÉE (Piercing Line) - rouge puis verte qui perce le milieu de la rouge
+    if len(recentes) >= 2:
+        b1, b2 = recentes[-2], recentes[-1]
+        if (b1["cloture"] < b1["ouverture"] and  # rouge
+            b2["cloture"] > b2["ouverture"] and  # verte
+            b2["ouverture"] < b1["cloture"] and  # ouvre sous la cloture rouge
+            b2["cloture"] > (b1["ouverture"] + b1["cloture"]) / 2):  # perce le milieu
+            patterns.append("Ligne de percée (reversal haussier)")
+            score += 2
+
+    # 14. NUAGE NOIR (Dark Cloud Cover) - verte puis rouge qui descend sous le milieu
+    if len(recentes) >= 2:
+        b1, b2 = recentes[-2], recentes[-1]
+        if (b1["cloture"] > b1["ouverture"] and  # verte
+            b2["cloture"] < b2["ouverture"] and  # rouge
+            b2["ouverture"] > b1["cloture"] and  # ouvre au-dessus de la verte
+            b2["cloture"] < (b1["ouverture"] + b1["cloture"]) / 2):  # descend sous le milieu
+            patterns.append("Nuage noir (reversal baissier)")
+            score -= 2
+
+    # 15. HARAMI HAUSSIER - grande rouge puis petite verte contenue dedans
+    if len(recentes) >= 2:
+        b1, b2 = recentes[-2], recentes[-1]
+        if (b1["cloture"] < b1["ouverture"] and  # grande rouge
+            b2["cloture"] > b2["ouverture"] and  # petite verte
+            b2["cloture"] < b1["ouverture"] and b2["ouverture"] > b1["cloture"]):  # contenue
+            patterns.append("Harami haussier (reversal)")
+            score += 1
+
+    # 16. HARAMI BAISSIER - grande verte puis petite rouge contenue dedans
+    if len(recentes) >= 2:
+        b1, b2 = recentes[-2], recentes[-1]
+        if (b1["cloture"] > b1["ouverture"] and  # grande verte
+            b2["cloture"] < b2["ouverture"] and  # petite rouge
+            b2["ouverture"] < b1["cloture"] and b2["cloture"] > b1["ouverture"]):  # contenue
+            patterns.append("Harami baissier (reversal)")
+            score -= 1
+
+    # 17. TOUPIE (Spinning Top) - petite mèche des deux cotes = indecision
+    for b in recentes[-2:]:
+        o, h, l, c = b["ouverture"], b["haut"], b["bas"], b["cloture"]
+        corps = abs(c - o); amp = h - l
+        if amp > 0 and 0.1 < corps / amp < 0.3 and (h - max(o, c)) > amp * 0.3 and (min(o, c) - l) > amp * 0.3:
+            if "Toupie (indécision)" not in patterns:
+                patterns.append("Toupie (indécision)")
+
+    # 18. MARTEAU INVERSÉ (Inverted Hammer) - mèche haute > 2x corps apres baisse = haussier
+    if len(recentes) >= 2:
+        curr = recentes[-1]
+        o, h, l, c = curr["ouverture"], curr["haut"], curr["bas"], curr["cloture"]
+        corps = abs(c - o); mèche_haute = h - max(o, c); mèche_basse = min(o, c) - l; amp = h - l
+        if amp > 0 and mèche_haute > 2 * corps and mèche_basse < amp * 0.15 and corps < amp * 0.4:
+            prev = recentes[-2]
+            if prev["cloture"] < prev["ouverture"]:  # apres une baisse = marteau inverse (haussier)
+                patterns.append("Marteau inversé (haussier apres baisse)")
+                score += 1
+
+    # 19. TWEEZER BOTTOM - deux bougies avec meme bas = support fort = haussier
+    if len(recentes) >= 2:
+        b1, b2 = recentes[-2], recentes[-1]
+        if abs(b1["bas"] - b2["bas"]) / max(b1["bas"], 0.001) < 0.002:  # meme bas (0.2% pres)
+            if b1["cloture"] < b1["ouverture"] and b2["cloture"] > b2["ouverture"]:  # rouge puis verte
+                patterns.append("Tweezer bottom (support fort haussier)")
+                score += 1
+
+    # 20. TWEEZER TOP - deux bougies avec meme haut = resistance forte = baissier
+    if len(recentes) >= 2:
+        b1, b2 = recentes[-2], recentes[-1]
+        if abs(b1["haut"] - b2["haut"]) / max(b1["haut"], 0.001) < 0.002:  # meme haut
+            if b1["cloture"] > b1["ouverture"] and b2["cloture"] < b2["ouverture"]:  # verte puis rouge
+                patterns.append("Tweezer top (resistance forte baissier)")
+                score -= 1
+
+    # 21. HARAMI EN CROIX (Harami Cross) - grande bougie puis doji = indecision forte
+    if len(recentes) >= 2:
+        b1, b2 = recentes[-2], recentes[-1]
+        corps1 = abs(b1["cloture"] - b1["ouverture"]); amp2 = b2["haut"] - b2["bas"]
+        corps2 = abs(b2["cloture"] - b2["ouverture"])
+        if amp2 > 0 and corps1 > amp2 * 2 and corps2 < amp2 * 0.1:  # grande puis doji
+            patterns.append("Harami en croix (indécision forte)")
+
+    # 22. AVANCE DE L'HOMME (Rising Three Methods) - verte, 3 petites rouges, verte = continuation haussiere
+    if len(recentes) >= 5:
+        b = recentes[-5:]
+        if (b[0]["cloture"] > b[0]["ouverture"] and  # 1: verte
+            all(b[i]["cloture"] < b[i]["ouverture"] for i in [1,2,3]) and  # 2-4: rouges
+            b[4]["cloture"] > b[4]["ouverture"] and  # 5: verte
+            b[4]["cloture"] > b[0]["cloture"] and  # ferme au-dessus de la 1ere
+            all(b[i]["cloture"] > b[0]["ouverture"] for i in [1,2,3])):  # restent au-dessus
+            patterns.append("Avance de l'homme (continuation haussiere)")
+            score += 2
+
+    # 23. RECUL DE L'HOMME (Falling Three Methods) - rouge, 3 petites vertes, rouge = continuation baissiere
+    if len(recentes) >= 5:
+        b = recentes[-5:]
+        if (b[0]["cloture"] < b[0]["ouverture"] and  # 1: rouge
+            all(b[i]["cloture"] > b[i]["ouverture"] for i in [1,2,3]) and  # 2-4: vertes
+            b[4]["cloture"] < b[4]["ouverture"] and  # 5: rouge
+            b[4]["cloture"] < b[0]["cloture"] and  # ferme sous la 1ere
+            all(b[i]["cloture"] < b[0]["ouverture"] for i in [1,2,3])):  # restent sous
+            patterns.append("Recul de l'homme (continuation baissiere)")
+            score -= 2
+
+    # 24. DEUX CORBEAUX (Two Crows) - verte, rouge plus haute, rouge plus basse = baissier
+    if len(recentes) >= 3:
+        b1, b2, b3 = recentes[-3], recentes[-2], recentes[-1]
+        if (b1["cloture"] > b1["ouverture"] and  # verte
+            b2["cloture"] < b2["ouverture"] and b2["ouverture"] > b1["cloture"] and  # rouge ouvre plus haut
+            b3["cloture"] < b3["ouverture"] and b3["cloture"] < b2["cloture"]):  # rouge ferme plus bas
+            patterns.append("Deux corbeaux (baissier)")
+            score -= 1
+
+    # 25. MATIN DOJI STAR - rouge, doji, verte = reversal haussier fort
+    if len(recentes) >= 3:
+        b1, b2, b3 = recentes[-3], recentes[-2], recentes[-1]
+        amp2 = b2["haut"] - b2["bas"]; corps2 = abs(b2["cloture"] - b2["ouverture"])
+        if (b1["cloture"] < b1["ouverture"] and  # rouge
+            amp2 > 0 and corps2 < amp2 * 0.1 and  # doji
+            b3["cloture"] > b3["ouverture"] and  # verte
+            b3["cloture"] > (b1["ouverture"] + b1["cloture"]) / 2):  # perce le milieu
+            patterns.append("Matin doji star (reversal haussier fort)")
+            score += 2
+
+    # 26. SOIR DOJI STAR - verte, doji, rouge = reversal baissier fort
+    if len(recentes) >= 3:
+        b1, b2, b3 = recentes[-3], recentes[-2], recentes[-1]
+        amp2 = b2["haut"] - b2["bas"]; corps2 = abs(b2["cloture"] - b2["ouverture"])
+        if (b1["cloture"] > b1["ouverture"] and  # verte
+            amp2 > 0 and corps2 < amp2 * 0.1 and  # doji
+            b3["cloture"] < b3["ouverture"] and  # rouge
+            b3["cloture"] < (b1["ouverture"] + b1["cloture"]) / 2):  # sous le milieu
+            patterns.append("Soir doji star (reversal baissier fort)")
+            score -= 2
+
+    # 27. MÈRE ABANDONNÉE HAUSSIÈRE (Bullish Abandoned Baby) - rouge, doji gap bas, verte gap haut
+    if len(recentes) >= 3:
+        b1, b2, b3 = recentes[-3], recentes[-2], recentes[-1]
+        amp2 = b2["haut"] - b2["bas"]; corps2 = abs(b2["cloture"] - b2["ouverture"])
+        if (b1["cloture"] < b1["ouverture"] and  # rouge
+            amp2 > 0 and corps2 < amp2 * 0.1 and  # doji
+            b2["haut"] < b1["bas"] and  # gap baissier
+            b3["cloture"] > b3["ouverture"] and  # verte
+            b3["ouverture"] > b2["haut"]):  # gap haussier
+            patterns.append("Mère abandonnée haussière (reversal rare et fort)")
+            score += 3
+
+    # 28. MÈRE ABANDONNÉE BAISSIÈRE (Bearish Abandoned Baby) - verte, doji gap haut, rouge gap bas
+    if len(recentes) >= 3:
+        b1, b2, b3 = recentes[-3], recentes[-2], recentes[-1]
+        amp2 = b2["haut"] - b2["bas"]; corps2 = abs(b2["cloture"] - b2["ouverture"])
+        if (b1["cloture"] > b1["ouverture"] and  # verte
+            amp2 > 0 and corps2 < amp2 * 0.1 and  # doji
+            b2["bas"] > b1["haut"] and  # gap haussier
+            b3["cloture"] < b3["ouverture"] and  # rouge
+            b3["ouverture"] < b2["bas"]):  # gap baissier
+            patterns.append("Mère abandonnée baissière (reversal rare et fort)")
+            score -= 3
+
     # Limiter le score a +/-3
     score = max(-3, min(3, score))
     return patterns, score
