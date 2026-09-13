@@ -95,10 +95,22 @@ SYMBOLES_REVOLUT = {
 SYMBOLES_BOT = {v: k for k, v in SYMBOLES_REVOLUT.items()}
 
 
+def _symbole_court_revolut(symbole):
+    """Convertit un symbole bot (ex: RNDRUSDT) vers le ticker EXACT utilise par
+    Revolut X. Priorite a SYMBOLES_REVOLUT car certains tickers Revolut different
+    du symbole Binance/bot (ex: RNDRUSDT -> RENDER, pas RNDR -> 'Couldn't find
+    currency pair RNDR/EUR'). Sans entree dans la table, on repli sur le strip
+    generique (BTCUSDT -> BTC) qui fonctionne pour la plupart des symboles."""
+    s = symbole.upper()
+    if s in SYMBOLES_REVOLUT:
+        return SYMBOLES_REVOLUT[s]
+    return s.replace("USDT", "").replace("EUR", "").replace("USD", "")
+
+
 def get_spread_pct(symbole):
     """Retourne le spread (%) entre bid et ask sur Revolut X.
     0 si erreur ou symbole indisponible."""
-    symbole_court = symbole.replace("USDT", "").replace("EUR", "").replace("USD", "").upper()
+    symbole_court = _symbole_court_revolut(symbole)
     if symbole_court in BLACKLIST:
         return 100.0  # trop risque
     try:
@@ -134,9 +146,8 @@ def get_prix_revolut(symbole, force_refresh=False):
     Returns:
         prix (float) en EUR, ou 0 si erreur
     """
-    # Normaliser le symbole
-    symbole_court = symbole.replace("USDT", "").replace("EUR", "").replace("USD", "")
-    symbole_court = symbole_court.upper()
+    # Normaliser le symbole vers le ticker exact Revolut X (voir _symbole_court_revolut)
+    symbole_court = _symbole_court_revolut(symbole)
 
     # Skip si dans la blacklist (n'existe pas sur Revolut X)
     if symbole_court in BLACKLIST:
