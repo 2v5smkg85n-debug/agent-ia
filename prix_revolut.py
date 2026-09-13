@@ -15,6 +15,23 @@ import urllib.request
 
 CACHE_TTL = 300  # 5 minutes (matche l'intervalle du bot)
 _cache = {}
+# Multiplicateur au-dela duquel un prix en cache n'est plus servi en secours
+# quand Revolut X echoue (429 ou erreur reseau) - 4x300s = 20 min max
+STALE_MAX_TTL_MULT = 4
+
+
+def _prix_stale_fallback(cache_key):
+    """Renvoie le dernier prix connu (meme perime) si Revolut X echoue,
+    plutot que de renvoyer 0 et faire croire a un prix reellement indisponible.
+    Renvoie 0 si aucun cache ou si le cache est trop vieux pour etre fiable."""
+    entry = _cache.get(cache_key)
+    if not entry:
+        return 0
+    age = time.time() - entry["timestamp"]
+    if age < CACHE_TTL * STALE_MAX_TTL_MULT:
+        print(f"  [REVOLUT] {cache_key}: prix perime utilise ({age/60:.1f} min, source HS)")
+        return entry["prix"]
+    return 0
 
 # Symboles qui n'existent PAS sur Revolut X (teste le 06/09/2026)
 BLACKLIST = {"COMP", "IMX", "AXS", "CAKE", "SAND", "MATIC", "OCEAN", "GRT", "RUNE"}
@@ -144,7 +161,7 @@ def get_prix_revolut(symbole, force_refresh=False):
         asks = data.get("data", {}).get("asks", [])
 
         if not bids or not asks:
-            return 0
+            return _prix_stale_fallback(cache_key)
 
         best_bid = float(bids[0]["price"])
         best_ask = float(asks[0]["price"])
@@ -185,7 +202,7 @@ def get_prix_revolut(symbole, force_refresh=False):
             except Exception:
                 pass
         print("  [REVOLUT] Erreur prix " + symbole_court + ": " + _err)
-        return 0
+        return _prix_stale_fallback(cache_key)
 
 
 # Mapping symbole -> id CoinGecko (partagé)
