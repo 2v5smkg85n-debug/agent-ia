@@ -1344,8 +1344,8 @@ def ouvrir_position(pf, signal, prix_actuel):
         "haute_conviction": _haute_conviction if '_haute_conviction' in dir() else False,
         "pattern_bougie": _pattern_info,
         # Intelligence pro
-        "tp_adaptatif": signal.get("tp_adaptatif"),
-        "sl_adaptatif": signal.get("sl_adaptatif"),
+        "tp_adaptatif": signal.get("tp_learning") or signal.get("tp_adaptatif"),
+        "sl_adaptatif": signal.get("sl_learning") or signal.get("sl_adaptatif"),
         "intel_score": signal.get("intel_score"),
         "intel_fg": signal.get("intel_fg"),
         "intel_regime": signal.get("intel_regime"),
