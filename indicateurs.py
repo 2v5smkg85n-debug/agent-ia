@@ -122,6 +122,19 @@ def historique_ohlcv(symbole="BTCUSDT", intervalle="1h", limite=200):
         import time as _t
         _CACHE_BOUGIES[cache_key] = {"bougies": bougies, "timestamp": _t.time()}
         return bougies
+    # 4. Les 3 sources ont echoue (souvent un rate-limit passager sur les 3 APIs
+    # en meme temps quand plusieurs symboles sont verifies dans le meme cycle).
+    # On sert le dernier cache connu meme perime plutot que de renvoyer "indisponible",
+    # tant qu'il n'est pas trop vieux (les indicateurs restent utilisables un peu perimes).
+    if cache_key in _CACHE_BOUGIES:
+        entry = _CACHE_BOUGIES[cache_key]
+        age_sec = time.time() - entry["timestamp"]
+        ttl = _TTL_BOUGIES.get(intervalle, 300)
+        if age_sec < ttl * STALE_MAX_TTL_MULT:
+            bougies = entry["bougies"]
+            print(f"  [indicateurs] {symbole} {intervalle}: 3 sources indisponibles (rate-limit?), "
+                  f"cache perime utilise ({age_sec/60:.1f} min)")
+            return bougies[-limite:] if len(bougies) > limite else bougies
     return []
 
 # Symboles non-crypto reconnus (Yahoo Finance)
@@ -181,6 +194,9 @@ def _historique_yahoo(symbole, intervalle, limite):
 _CACHE_BOUGIES = {}  # cle: (symbole, intervalle) -> {"bougies": [...], "timestamp": float}
 
 _TTL_BOUGIES = {"1m": 60, "5m": 120, "15m": 300, "30m": 600, "1h": 900, "4h": 7200, "1d": 43200}
+# Multiplicateur au-dela duquel un cache perime n'est plus servi en secours
+# (evite d'utiliser des donnees trop vieilles si une source reste HS longtemps)
+STALE_MAX_TTL_MULT = 4
 
 def _historique_revolut(symbole, intervalle, limite):
     """Recupere les chandeliers OHLCV depuis Revolut X (API publique, EUR).
@@ -313,6 +329,9 @@ def _historique_coingecko(symbole, intervalle, limite):
         url = (f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
                f"?vs_currency=eur&days={jours}")
         r = requests.get(url, timeout=15)
+        if r.status_code == 429:
+            print(f"  [indicateurs] CoinGecko rate-limit (429) sur {coin_id}")
+            return []
         if r.status_code != 200:
             return []
         data = r.json()
@@ -348,12 +367,8 @@ def _historique_coingecko(symbole, intervalle, limite):
             })
         
         return bougies[-limite:] if len(bougies) > limite else bougies
-    except Exception as e:
-        if "429" in str(e):
-            import time as _t
-            _t.sleep(2.0)
-            return []  # le cache ou le prochain cycle reessaiera
-        return []
+    except Exception:
+        return []  # le cache (frais ou perime) ou le prochain cycle reessaiera
 
 def prix_actuel(symbole):
     """Prix actuel via Revolut X (EUR, identique a Revolut)."""

@@ -1385,11 +1385,16 @@ def verifier_sorties(pf, prix_actuels):
                     _strats_prouvees.add((_symc, _sc.get("strategie", "")))
     except Exception:
         pass
-    for pos in pf["positions"]:
+    for _idx_pos, pos in enumerate(pf["positions"]):
         sym = pos["symbole"]
         if sym not in prix_actuels:
             print(f"  [ATTENTION] {sym}: prix introuvable — position sans protection SL!")
             continue
+        # Petite pause entre positions pour ne pas saturer d'un coup les APIs
+        # de donnees (CoinGecko/Binance/Revolut) et declencher des rate-limits
+        # en cascade sur plusieurs symboles verifies dans le meme cycle.
+        if _idx_pos > 0:
+            time.sleep(0.4)
         prix_actuel = prix_actuels[sym]
         prix_entree = pos["prix_entree"]
         # Sanity check: si prix invalide (0 ou negative), skip pour éviter fermeture erronee
