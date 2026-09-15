@@ -1327,6 +1327,15 @@ def ouvrir_position(pf, signal, prix_actuel):
     quantite = (montant - frais) / prix_actuel
     pf["liquidites"] -= montant
     pf["total_frais"] += frais
+    # Etoiles filantes: TP plus eleve (5-10%) pour capturer les +20%
+    _is_etoile = MARCHES_PAPER.get(signal.get("symbole", ""), {}).get("etoile", False)
+    if _is_etoile:
+        _tp_etoile = min(10.0, max(5.0, signal.get("score", 5) * 1.5))
+        _sl_etoile = 3.0
+        print(f"  [ETOILE] TP={_tp_etoile:.1f}% SL={_sl_etoile:.1f}% pour cette etoile filante")
+    else:
+        _tp_etoile = signal.get("tp_learning") or 2.0
+        _sl_etoile = signal.get("sl_learning") or 1.5
     position = {
         "symbole": signal["symbole"],
         "nom": signal.get("nom", signal["symbole"]),
@@ -1344,8 +1353,8 @@ def ouvrir_position(pf, signal, prix_actuel):
         "haute_conviction": _haute_conviction if '_haute_conviction' in dir() else False,
         "pattern_bougie": _pattern_info,
         # Intelligence pro
-        "tp_adaptatif": signal.get("tp_learning") or 2.0,
-        "sl_adaptatif": signal.get("sl_learning") or 1.5,
+        "tp_adaptatif": _tp_etoile,
+        "sl_adaptatif": _sl_etoile,
         "intel_score": signal.get("intel_score"),
         "intel_fg": signal.get("intel_fg"),
         "intel_regime": signal.get("intel_regime"),
@@ -1814,6 +1823,17 @@ def tick():
         if len(trades_aujourdhui) >= MAX_TRADES_PAR_JOUR:
             print(f"  [RISK] Max {MAX_TRADES_PAR_JOUR} trades/jour atteint -> skip")
             return
+    # === SCANNER D'ETOILES FILANTES ===
+    # Scanne les top gainers et ajoute les meilleures cryptos au bot
+    try:
+        import scanner_etoiles as se
+        # Nettoie les anciennes etoiles expirees
+        se.nettoyer_etoiles(MARCHES_PAPER, max_age_minutes=180)
+        # Scanne et ajoute de nouvelles etoiles (max 3 par cycle)
+        se.scanner_et_ajouter(MARCHES_PAPER, max_ajout=3)
+    except Exception as e:
+        print(f"  [SCANNER] Erreur: {e}")
+
     prix = tous_les_prix()
     if not prix:
         print("Impossible de recuperer les prix.")
