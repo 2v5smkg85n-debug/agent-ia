@@ -54,7 +54,7 @@ RISK_HAUTE_CONVICTION = 0.50  # 50% (500 EUR) pour score >= 8 + TradingView STRO
 INTERVALLE_BOUCLE = 180        # 3 min (plus reactif = plus de trades)
 # RISK MANAGEMENT AVANCE
 MAX_TRADES_PAR_JOUR = 60       # limite: 60 trades/jour (plus de trades)
-PERTE_JOUR_MAX_PCT = 2.0      # stop trading si -2% en une journee
+PERTE_JOUR_MAX_PCT = 10.0     # stop trading si -10% en une journee
 CIRCUIT_BREAKER_CONSECUTIF = 3 # pause apres 3 pertes consecutives (plus de room)
 DRAWDOWN_REDUCTION_SEUIL = 0.95 # si capital < 95% du initial, reduit positions de 50%
 COMPOUND_AUTOMATIQUE = True
