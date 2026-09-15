@@ -1796,6 +1796,15 @@ def tick():
         print("Portefeuille non initialise. Lance 'python paper_trading.py init' d'abord.")
         return
     print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Verification des prix...")
+    # === SCANNER D'ETOILES FILANTES ===
+    # Scanne les top gainers et ajoute les meilleures cryptos au bot
+    try:
+        import scanner_etoiles as se
+        se.nettoyer_etoiles(MARCHES_PAPER, max_age_minutes=180)
+        se.scanner_et_ajouter(MARCHES_PAPER, max_ajout=3)
+    except Exception as e:
+        print(f"  [SCANNER] Erreur: {e}")
+
     # === RISK MANAGEMENT AVANCE ===
     # 1. Perte journaliere max
     trades_aujourdhui = [t for t in pf.get("trades_fermes", []) if t.get("date_fermeture", "").startswith(datetime.now().strftime("%Y-%m-%d"))]
@@ -1823,17 +1832,6 @@ def tick():
         if len(trades_aujourdhui) >= MAX_TRADES_PAR_JOUR:
             print(f"  [RISK] Max {MAX_TRADES_PAR_JOUR} trades/jour atteint -> skip")
             return
-    # === SCANNER D'ETOILES FILANTES ===
-    # Scanne les top gainers et ajoute les meilleures cryptos au bot
-    try:
-        import scanner_etoiles as se
-        # Nettoie les anciennes etoiles expirees
-        se.nettoyer_etoiles(MARCHES_PAPER, max_age_minutes=180)
-        # Scanne et ajoute de nouvelles etoiles (max 3 par cycle)
-        se.scanner_et_ajouter(MARCHES_PAPER, max_ajout=3)
-    except Exception as e:
-        print(f"  [SCANNER] Erreur: {e}")
-
     prix = tous_les_prix()
     if not prix:
         print("Impossible de recuperer les prix.")
