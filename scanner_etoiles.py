@@ -199,6 +199,13 @@ def scanner_et_ajouter(marches_paper, max_ajout=3):
     etoiles = scanner_etoiles()
     if not etoiles:
         etoiles = get_etoiles_cache()
+        # Filtre Revolut X sur le cache aussi
+        try:
+            import prix_revolut as pr
+            revolut_syms = set(s.replace("USDT", "").upper() for s in pr.REVOLUT_X_CRYPTO)
+            etoiles = [e for e in etoiles if e.get("symbole_base", "") in revolut_syms]
+        except Exception:
+            pass
 
     # Recupere le mapping CoinGecko depuis prix_revolut ET indicateurs
     try:
