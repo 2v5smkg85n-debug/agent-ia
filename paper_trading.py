@@ -1713,7 +1713,7 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
     try:
         import apprentissage_trader as ap
         trades = pf.get("trades_fermes", [])
-        if trades and len(trades) % 3 == 0:
+        if trades and len(trades) % 1 == 0:
             ap.analyser_trades(trades)
             print(f"  [LEARNING] Apprentissage mis a jour ({len(trades)} trades analyses)")
     except Exception as e:

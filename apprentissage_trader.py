@@ -265,6 +265,9 @@ def get_recommandations():
         "tp_optimal": {},
         "sl_optimal": {},
         "heures_favorables": [],
+        "heures_a_eviter": [],
+        "jours_favorables": [],
+        "jours_a_eviter": [],
         "win_rate_global": learning.get("win_rate_global", 0),
         "total_trades": learning.get("total_trades", 0),
     }
@@ -296,10 +299,30 @@ def get_recommandations():
             recs["tp_optimal"][sym] = stats.get("meilleur_tp", 3.0)
             recs["sl_optimal"][sym] = stats.get("meilleur_sl", 1.5)
 
-    # Heures favorables
+    # Heures favorables / a eviter (seuil: 5 trades min)
     for heure, stats in learning.get("stats_horaires", {}).items():
-        if stats.get("n", 0) >= 3 and stats.get("win_rate", 0) >= 60:
+        _n = stats.get("n", 0)
+        _wr = stats.get("win_rate", 0)
+        _pnl = stats.get("pnl_total", 0)
+        if _n >= 5 and _wr >= 60 and _pnl > 0:
             recs["heures_favorables"].append(int(heure))
+        elif _n >= 5 and _wr < 35 and _pnl < 0:
+            recs["heures_a_eviter"].append(int(heure))
+
+    # Jours favorables / a eviter (0=lundi ... 6=dimanche, seuil: 5 trades min)
+    _jours_noms = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+    for jour, stats in learning.get("stats_jour_semaine", {}).items():
+        _n = stats.get("n", 0)
+        _wr = stats.get("win_rate", 0)
+        _pnl = stats.get("pnl_total", 0)
+        try:
+            _j = int(jour)
+        except Exception:
+            continue
+        if _n >= 5 and _wr >= 60 and _pnl > 0:
+            recs["jours_favorables"].append(_j)
+        elif _n >= 5 and _wr < 35 and _pnl < 0:
+            recs["jours_a_eviter"].append(_j)
 
     return recs
 
@@ -311,9 +334,29 @@ def filtrer_signaux_avec_apprentissage(signaux):
     signaux_filtres = []
     signaux_bloques = 0
 
+    _heure_actuelle = datetime.now().hour
+    _jour_actuel = datetime.now().weekday()
+    _jours_noms = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+
+    # FILTRE TEMPOREL: bloquer les heures et jours perdants
+    if _heure_actuelle in recs.get("heures_a_eviter", []):
+        _h_stats = learning.get("stats_horaires", {}).get(str(_heure_actuelle), {})
+        print(f"  [TEMPS] SKIP tous signaux — heure {_heure_actuelle}h perdante (WR {_h_stats.get('win_rate',0):.0f}%, {_h_stats.get('n',0)} trades)")
+        return []
+    if _jour_actuel in recs.get("jours_a_eviter", []):
+        _j_stats = learning.get("stats_jour_semaine", {}).get(str(_jour_actuel), {})
+        print(f"  [TEMPS] SKIP tous signaux — {_jours_noms[_jour_actuel]} perdant (WR {_j_stats.get('win_rate',0):.0f}%, {_j_stats.get('n',0)} trades)")
+        return []
+
     for signal in signaux:
         sym = signal.get("symbole", "")
         strat = signal.get("strategie", "")
+
+        # Booster le score pendant les heures et jours favorables
+        if _heure_actuelle in recs.get("heures_favorables", []):
+            signal["score"] = signal.get("score", 0) + 1
+        if _jour_actuel in recs.get("jours_favorables", []):
+            signal["score"] = signal.get("score", 0) + 1
 
         # Bloquer les cryptos qui perdent systematiquement
         if sym in recs["cryptos_a_eviter"]:
