@@ -71,7 +71,7 @@ def analyser_trades(trades_fermes):
     stats_strategies = defaultdict(lambda: {"n": 0, "gagnants": 0, "pnl_total": 0, "win_rate": 0, "poids_recent": 0})
     stats_horaires = defaultdict(lambda: {"n": 0, "gagnants": 0, "pnl_total": 0})
     stats_par_regime = defaultdict(lambda: {"n": 0, "gagnants": 0, "pnl_total": 0})
-    stats_par_crypto = defaultdict(lambda: {"n": 0, "gagnants": 0, "pnl_total": 0, "meilleur_tp": 2.0, "meilleur_sl": 0.5})
+    stats_par_crypto = defaultdict(lambda: {"n": 0, "gagnants": 0, "pnl_total": 0, "meilleur_tp": 2.0, "meilleur_sl": 1.0})
     stats_raison = defaultdict(lambda: {"n": 0, "gagnants": 0, "pnl_total": 0})
     stats_jour_semaine = defaultdict(lambda: {"n": 0, "gagnants": 0, "pnl_total": 0})
     stats_duree = {"court": {"n": 0, "gagnants": 0, "pnl_total": 0}, "moyen": {"n": 0, "gagnants": 0, "pnl_total": 0}, "long": {"n": 0, "gagnants": 0, "pnl_total": 0}}
@@ -195,7 +195,7 @@ def analyser_trades(trades_fermes):
     learning["stats_jour_semaine"] = {str(k): v for k, v in stats_jour_semaine.items()}
     learning["stats_duree"] = stats_duree
     # TP/SL OPTIMAL PAR STRATEGIE (evolution continue)
-    stats_tp_sl_strat = defaultdict(lambda: {"n": 0, "gains": [], "pertes": [], "tp_optimal": 2.0, "sl_optimal": 0.5})
+    stats_tp_sl_strat = defaultdict(lambda: {"n": 0, "gains": [], "pertes": [], "tp_optimal": 2.0, "sl_optimal": 1.0})
     for t in trades_analyses:
         strat = t["strategie"]
         s = stats_tp_sl_strat[strat]
@@ -211,7 +211,7 @@ def analyser_trades(trades_fermes):
             s["tp_optimal"] = max(1.0, min(_med_gain + 0.5, 5.0))
         if s["pertes"]:
             _med_perte = sorted(s["pertes"])[len(s["pertes"])//2]
-            s["sl_optimal"] = max(0.3, min(_med_perte * 0.8, 0.5))
+            s["sl_optimal"] = max(0.8, min(_med_perte * 0.8, 1.5))
     learning["tp_sl_optimal_par_strategie"] = {k: {"tp_optimal": v["tp_optimal"], "sl_optimal": v["sl_optimal"], "n": v["n"]} for k, v in stats_tp_sl_strat.items()}
     # BOOST DYNAMIQUE PAR STRATEGIE (evolution: plus une strategie gagne, plus elle est boostee)
     boost_strat = {}
@@ -299,7 +299,7 @@ def get_recommandations():
     for sym, stats in learning.get("stats_par_crypto", {}).items():
         if stats.get("n", 0) >= 3:
             recs["tp_optimal"][sym] = stats.get("meilleur_tp", 3.0)
-            recs["sl_optimal"][sym] = stats.get("meilleur_sl", 0.5)
+            recs["sl_optimal"][sym] = stats.get("meilleur_sl", 1.0)
 
     # Heures favorables / a eviter (seuil: 5 trades min)
     for heure, stats in learning.get("stats_horaires", {}).items():
@@ -402,7 +402,7 @@ def filtrer_signaux_avec_apprentissage(signaux):
         _ts = _tp_sl_strat.get(strat, {})
         if _ts.get("n", 0) >= 5:
             signal["tp_learning"] = _ts.get("tp_optimal", 2.0)
-            signal["sl_learning"] = _ts.get("sl_optimal", 0.5)
+            signal["sl_learning"] = _ts.get("sl_optimal", 1.0)
             print(f"  [EVOLUTION] {strat} TP/SL adapte: TP={signal['tp_learning']:.1f}% SL={signal['sl_learning']:.1f}%")
 
         # BOOST HORAIRE PAR STRATEGIE (boost pendant les meilleures heures de chaque strategie)
@@ -467,7 +467,7 @@ def rapport_learning():
         n = s.get("n", 0)
         pnl = s.get("pnl_total", 0)
         tp_opt = s.get("meilleur_tp", 2.0)
-        sl_opt = s.get("meilleur_sl", 0.5)
+        sl_opt = s.get("meilleur_sl", 1.0)
         emoji = "+" if pnl > 0 else "-"
         lignes.append(f"  {emoji} {sym:12s} | {n:3d} trades | WR {wr:5.1f}% | PnL {pnl:+.2f}EUR | TP {tp_opt:.1f}% SL {sl_opt:.1f}%")
 
