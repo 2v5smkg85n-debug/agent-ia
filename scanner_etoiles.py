@@ -187,12 +187,17 @@ def scanner_et_ajouter(marches_paper, max_ajout=3):
     if not etoiles:
         etoiles = get_etoiles_cache()
 
-    # Recupere le mapping CoinGecko depuis prix_revolut
+    # Recupere le mapping CoinGecko depuis prix_revolut ET indicateurs
     try:
         import prix_revolut as pr
         cg_map = pr._COINGECKO_MAP
     except Exception:
         cg_map = {}
+    try:
+        import indicateurs as ind
+        cg_map_ind = ind.COINGECKO_MAP
+    except Exception:
+        cg_map_ind = {}
 
     ajoutees = []
     for e in etoiles:
@@ -211,12 +216,16 @@ def scanner_et_ajouter(marches_paper, max_ajout=3):
             "score_conviction": e["score_conviction"],
             "change_24h": e["change_24h"],
         }
-        # Ajoute le mapping CoinGecko dynamiquement
+        # Ajoute le mapping CoinGecko dynamiquement (prix_revolut ET indicateurs)
         symbole_court = e["symbole_base"]
         coin_id = e.get("id", "")
-        if coin_id and symbole_court and symbole_court not in cg_map:
-            cg_map[symbole_court] = coin_id
-            print(f"  [SCANNER] Mapping CoinGecko: {symbole_court} -> {coin_id}")
+        if coin_id and symbole_court:
+            if symbole_court not in cg_map:
+                cg_map[symbole_court] = coin_id
+                print(f"  [SCANNER] Mapping CoinGecko (prix): {symbole_court} -> {coin_id}")
+            if symbole_court not in cg_map_ind:
+                cg_map_ind[symbole_court] = coin_id
+                print(f"  [SCANNER] Mapping CoinGecko (indicateurs): {symbole_court} -> {coin_id}")
         ajoutees.append(e)
         print(f"  [ETOILE] {e['nom']} ({sym}) ajoutee — +{e['change_24h']:.1f}% 24h, score {e['score_conviction']}/10 — {', '.join(e['raisons'])}")
 
