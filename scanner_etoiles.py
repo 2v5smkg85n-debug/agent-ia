@@ -134,6 +134,7 @@ def scanner_etoiles():
         symbole_binance = symbole + "USDT"
 
         etoiles.append({
+            "id": m["id"],
             "symbole": symbole_binance,
             "nom": m["nom"],
             "symbole_base": symbole,
