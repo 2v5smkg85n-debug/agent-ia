@@ -875,9 +875,10 @@ def ouvrir_position(pf, signal, prix_actuel):
         except Exception:
             pass
     # FILTRE REVOLUT X: ne trade que les cryptos reellement disponibles sur Revolut X
+    # SAUF pour les etoiles filantes (deja validees par le scanner)
     try:
         from prix_revolut import REVOLUT_X_CRYPTO
-        if signal.get("marche") == "crypto" and signal["symbole"] not in REVOLUT_X_CRYPTO:
+        if signal.get("marche") == "crypto" and signal["symbole"] not in REVOLUT_X_CRYPTO and not signal.get("etoile", False):
             print(f"  [REVOLUT-X] {signal.get('nom',signal['symbole'])}: pas sur Revolut X -> SKIP")
             return False
     except Exception:
