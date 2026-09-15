@@ -65,7 +65,7 @@ HEURES_FORT_VOLUME = [(8, 11), (13, 17)]  # UTC
 HEURES_FORT_BOOST = 1  # +1 au score pendant ces heures
 # Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
 TAKE_PROFIT_PCT = 2.0          # +2% (200 EUR x 2% = 4 EUR - 0.40 frais = 3.60 EUR par trade)
-STOP_LOSS_PCT = 1.5            # -1.5% (evite les faux stops sur bruit crypto)
+STOP_LOSS_PCT = 0.5            # -0.5% (resserre les pertes: 200 EUR x 0.5% = 1 EUR max par trade)
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
 # est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
 # Idee utilisateur + valide par backtest elargi (9 marches, 30 trades, plateau a tp_ext=4).
@@ -1447,10 +1447,10 @@ def verifier_sorties(pf, prix_actuels):
                 _tp_check, _sl_check = tp_sl_actif(sym)
             except Exception:
                 _tp_check, _sl_check = TAKE_PROFIT_PCT, STOP_LOSS_PCT
-        # SL D'URGENCE ABSOLU: ferme a -1.5% quoi qu'il arrive (empeche les SL-RETARD de -7%)
+        # SL D'URGENCE ABSOLU: ferme a -1.0% quoi qu'il arrive (empeche les SL-RETARD de -7%)
         # Ce check est AVANT le SL adaptatif pour bloquer les pertes extremes immediatement
-        if variation <= -1.5:
-            positions_a_fermer.append((pos, prix_actuel, f"SL-URGENCE-ABSOLU (perte {variation:+.1f}%, seuil -1.5%)", variation))
+        if variation <= -1.0:
+            positions_a_fermer.append((pos, prix_actuel, f"SL-URGENCE-ABSOLU (perte {variation:+.1f}%, seuil -1.0%)", variation))
             continue
         # TP RAPIDE HAUTE CONVICTION: ferme a +1.0% pour les positions 500 EUR
         # Ces positions sont des signaux tres forts -> encaisse vite le gain garanti
@@ -1519,7 +1519,7 @@ def verifier_sorties(pf, prix_actuels):
             _sl_regle = "suiveur-proche"
         elif _var_pic >= 2.5:
             # En profit: trail a 1.5% sous le pic (laisse respirer vers le TP)
-            _sl_price = _pic * (1 - 1.5 / 100.0)
+            _sl_price = _pic * (1 - 1.0 / 100.0)
             _sl_regle = "suiveur"
         else:
             # SL fixe au debut (laisse respirer vers le TP de +3%)
@@ -2293,10 +2293,10 @@ def boucle():
         finally:
             signal.alarm(0)
         prochaine = datetime.now() + timedelta(seconds=INTERVALLE_BOUCLE)
-        print(f"\nProchaine verification: {prochaine.strftime('%H:%M')} (crypto SL check toutes les 10s)")
-        # SL check toutes les 10s (Binance batch = instantane, pas de rate limit)
-        _nb_checks = INTERVALLE_BOUCLE // 10
-        _check_interval = 10
+        print(f"\nProchaine verification: {prochaine.strftime('%H:%M')} (crypto SL check toutes les 5s)")
+        # SL check toutes les 5s (plus reactif = moins de SL-RETARD)
+        _nb_checks = INTERVALLE_BOUCLE // 5
+        _check_interval = 5
         for _ in range(_nb_checks):
             time.sleep(_check_interval)
             try:
