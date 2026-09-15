@@ -310,7 +310,7 @@ def get_recommandations():
         elif _n >= 5 and _wr < 35 and _pnl < 0:
             recs["heures_a_eviter"].append(int(heure))
 
-    # Jours favorables / a eviter (0=lundi ... 6=dimanche, seuil: 5 trades min)
+    # Jours favorables / a eviter (0=lundi ... 6=dimanche, seuil: 10 trades min)
     _jours_noms = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
     for jour, stats in learning.get("stats_jour_semaine", {}).items():
         _n = stats.get("n", 0)
@@ -322,7 +322,7 @@ def get_recommandations():
             continue
         if _n >= 5 and _wr >= 60 and _pnl > 0:
             recs["jours_favorables"].append(_j)
-        elif _n >= 5 and _wr < 35 and _pnl < 0:
+        elif _n >= 10 and _wr < 30 and _pnl < 0:
             recs["jours_a_eviter"].append(_j)
 
     return recs
