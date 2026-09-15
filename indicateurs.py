@@ -110,13 +110,19 @@ def historique_ohlcv(symbole="BTCUSDT", intervalle="1h", limite=200):
         import time as _t
         _CACHE_BOUGIES[cache_key] = {"bougies": bougies, "timestamp": _t.time()}
         return bougies
-    # 2. Binance (fallback - geo-bloque UE mais essaie au cas ou)
+    # 2. KuCoin (fallback - pas de rate-limit strict, pas de geo-blocage)
+    bougies = _historique_kucoin(symbole, intervalle, limite)
+    if bougies and len(bougies) >= 20:
+        import time as _t
+        _CACHE_BOUGIES[cache_key] = {"bougies": bougies, "timestamp": _t.time()}
+        return bougies
+    # 3. Binance (fallback - geo-bloque UE mais essaie au cas ou)
     bougies = _historique_binance(symbole, intervalle, limite)
     if bougies and len(bougies) >= 20:
         import time as _t
         _CACHE_BOUGIES[cache_key] = {"bougies": bougies, "timestamp": _t.time()}
         return bougies
-    # 3. Revolut X (dernier recours)
+    # 4. Revolut X (dernier recours)
     bougies = _historique_revolut(symbole, intervalle, limite)
     if bougies and len(bougies) >= 20:
         import time as _t
@@ -246,6 +252,40 @@ def _historique_revolut(symbole, intervalle, limite):
         _CACHE_BOUGIES[cache_key] = {"bougies": bougies, "timestamp": _t.time()}
         return bougies[-limite:] if len(bougies) > limite else bougies
     except Exception as e:
+        return []
+
+def _historique_kucoin(symbole, intervalle, limite):
+    """Recupere l'historique OHLCV via KuCoin (pas de rate-limit strict, pas de geo-blocage)."""
+    try:
+        _interval_map = {"15m": "15min", "1h": "1hour", "4h": "4hour", "1d": "1day"}
+        _ku_interval = _interval_map.get(intervalle, "1hour")
+        _sym = symbole.replace("USDT", "-USDT")
+        url = (f"https://api.kucoin.com/api/v1/market/candles?"
+               f"type={_ku_interval}&symbol={_sym}")
+        r = requests.get(url, timeout=15)
+        if r.status_code != 200:
+            return []
+        data = r.json()
+        if not data or data.get("code") != "200":
+            return []
+        items = data.get("data", [])
+        if not items:
+            return []
+        bougies = []
+        for b in items[-limite:]:
+            try:
+                bougies.append({
+                    "temps": int(b[0]) // 1000,
+                    "ouverture": float(b[1]),
+                    "haut": float(b[2]),
+                    "bas": float(b[3]),
+                    "cloture": float(b[4]),
+                    "volume": float(b[5])
+                })
+            except Exception:
+                continue
+        return bougies
+    except Exception:
         return []
 
 def _historique_binance(symbole, intervalle, limite):
