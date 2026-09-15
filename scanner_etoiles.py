@@ -68,9 +68,10 @@ def scanner_markets():
 def scanner_etoiles():
     """
     Scanne le marche et trouve les etoiles filantes - cryptos avec:
-    - Variation 24h > +5% (momentum fort)
+    - Variation 24h > +3% (momentum fort)
     - Volume > 5M USD (liquidite suffisante)
     - Top 200 par market cap (pas de micro-caps risquees)
+    - Disponible sur Revolut X (filtre important)
     Retourne une liste classee par score de conviction.
     """
     print("  [SCANNER] Recherche d'etoiles filantes...")
@@ -78,6 +79,15 @@ def scanner_etoiles():
     if not marches:
         print("  [SCANNER] Impossible de recuperer les marches")
         return []
+
+    # Recupere la liste des cryptos disponibles sur Revolut X
+    try:
+        import prix_revolut as pr
+        revolut_syms = set()
+        for sym in pr.REVOLUT_X_CRYPTO:
+            revolut_syms.add(sym.replace("USDT", "").upper())
+    except Exception:
+        revolut_syms = set()
 
     trending = scanner_top_gainers()
     trending_ids = set(t["id"] for t in trending)
@@ -90,8 +100,11 @@ def scanner_etoiles():
         rank = m["rank"]
         symbole = m["symbole"]
 
-        # Filtre: variation 24h > +3%, volume > 5M, top 200
+        # Filtre: variation 24h > +3%, volume > 5M, top 200, sur Revolut X
         if change < 3.0 or volume < 5_000_000 or rank > 200:
+            continue
+        # Filtre Revolut X: ne garder que les cryptos disponibles sur Revolut X
+        if revolut_syms and symbole not in revolut_syms:
             continue
 
         # Score de conviction
