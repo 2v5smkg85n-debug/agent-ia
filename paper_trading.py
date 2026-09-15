@@ -366,6 +366,23 @@ def analyser_signaux_techniques(prix_actuels):
         try:
             analyse = analyser_actif(sym, SCALPING_TIMEFRAME)
             if not analyse:
+                # Etoiles filantes: si les indicateurs echouent, utiliser le score du scanner
+                if config.get("etoile", False):
+                    _etoile_score = config.get("score_conviction", 5)
+                    _etoile_change = config.get("change_24h", 0)
+                    print(f"ETOILE (score scanner {_etoile_score}/10, +{_etoile_change:.1f}% 24h)")
+                    signaux.append({
+                        "symbole": sym,
+                        "prix_entree": prix_actuels[sym],
+                        "nom": config["nom"],
+                        "marche": config["marche"],
+                        "etoile": True,
+                        "source": "scanner_etoile",
+                        "strategie": "momentum",
+                        "score": max(1, _etoile_score),
+                        "raison": f"etoile filante +{_etoile_change:.1f}% 24h (score scanner {_etoile_score}/10)",
+                    })
+                    continue
                 print("echec")
                 continue
             verdict = analyse["verdict"]
