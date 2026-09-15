@@ -379,6 +379,7 @@ def analyser_signaux_techniques(prix_actuels):
                     "prix_entree": prix_actuels[sym],
                     "nom": config["nom"],
                     "marche": config["marche"],
+                    "etoile": config.get("etoile", False),
                     "source": "indicateurs",
                     "strategie": (
                         "rsi_oversold" if any("survente" in s.lower() for s in analyse.get("signaux", [])) else
