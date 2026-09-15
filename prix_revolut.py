@@ -251,11 +251,16 @@ def get_prix_coingecko_batch(symboles_bot):
     _now = time.time()
     if _CG_BATCH_CACHE["prix"] and (_now - _CG_BATCH_CACHE["ts"]) < _CG_BATCH_TTL:
         _cached = {}
+        _manquants = []
         for sym in symboles_bot:
             if sym in _CG_BATCH_CACHE["prix"]:
                 _cached[sym] = _CG_BATCH_CACHE["prix"][sym]
-        if _cached:
+            else:
+                _manquants.append(sym)
+        # Si tous les symboles sont en cache, on retourne
+        if _cached and not _manquants:
             return _cached
+        # Si des manquants, on continue vers le fetch complet (ignore le cache)
     # Map symboles bot -> ids CoinGecko
     id_to_sym = {}
     ids = []
