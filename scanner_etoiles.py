@@ -179,11 +179,19 @@ def get_etoiles_cache():
 def scanner_et_ajouter(marches_paper, max_ajout=3):
     """
     Scanne les etoiles filantes et ajoute les meilleures au dict MARCHES_PAPER.
+    Ajoute aussi le mapping CoinGecko pour que le bot puisse recuperer les prix.
     Retourne la liste des cryptos ajoutees.
     """
     etoiles = scanner_etoiles()
     if not etoiles:
         etoiles = get_etoiles_cache()
+
+    # Recupere le mapping CoinGecko depuis prix_revolut
+    try:
+        import prix_revolut as pr
+        cg_map = pr._COINGECKO_MAP
+    except Exception:
+        cg_map = {}
 
     ajoutees = []
     for e in etoiles:
@@ -202,6 +210,12 @@ def scanner_et_ajouter(marches_paper, max_ajout=3):
             "score_conviction": e["score_conviction"],
             "change_24h": e["change_24h"],
         }
+        # Ajoute le mapping CoinGecko dynamiquement
+        symbole_court = e["symbole_base"]
+        coin_id = e.get("id", "")
+        if coin_id and symbole_court and symbole_court not in cg_map:
+            cg_map[symbole_court] = coin_id
+            print(f"  [SCANNER] Mapping CoinGecko: {symbole_court} -> {coin_id}")
         ajoutees.append(e)
         print(f"  [ETOILE] {e['nom']} ({sym}) ajoutee — +{e['change_24h']:.1f}% 24h, score {e['score_conviction']}/10 — {', '.join(e['raisons'])}")
 
