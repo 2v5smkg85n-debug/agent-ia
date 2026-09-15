@@ -350,10 +350,11 @@ def filtrer_signaux_avec_apprentissage(signaux):
         _h_stats = learning.get("stats_horaires", {}).get(str(_heure_actuelle), {})
         print(f"  [TEMPS] SKIP signaux normaux — heure {_heure_actuelle}h perdante (WR {_h_stats.get('win_rate',0):.0f}%, {_h_stats.get('n',0)} trades) — etoiles conservees")
         return _signaux_etoiles
-    if _signaux_normaux and _jour_actuel in recs.get("jours_a_eviter", []):
-        _j_stats = learning.get("stats_jour_semaine", {}).get(str(_jour_actuel), {})
-        print(f"  [TEMPS] SKIP signaux normaux — {_jours_noms[_jour_actuel]} perdant (WR {_j_stats.get('win_rate',0):.0f}%, {_j_stats.get('n',0)} trades) — etoiles conservees")
-        return _signaux_etoiles
+    # Filtre jours DESACTIVE: le bot trade tous les jours pour continuer a apprendre
+    # if _signaux_normaux and _jour_actuel in recs.get("jours_a_eviter", []):
+    #     _j_stats = learning.get("stats_jour_semaine", {}).get(str(_jour_actuel), {})
+    #     print(f"  [TEMPS] SKIP signaux normaux — {_jours_noms[_jour_actuel]} perdant (WR {_j_stats.get('win_rate',0):.0f}%, {_j_stats.get('n',0)} trades) — etoiles conservees")
+    #     return _signaux_etoiles
 
     for signal in signaux:
         sym = signal.get("symbole", "")
