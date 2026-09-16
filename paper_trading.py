@@ -1909,6 +1909,18 @@ def tick():
                     print(f"  [APPRENTISSAGE] {signaux_avant_app - len(tous_signaux)} signaux filtres")
             except Exception as e:
                 print(f"    Apprentissage indisponible: {e}")
+            # FALLBACK: si tous les signaux sont bloques par l'apprentissage,
+            # utiliser les indicateurs techniques (pattern_reversal, etc.)
+            if not tous_signaux:
+                print("  Tous bloques -> indicateurs techniques (fallback)...")
+                signaux_techniques = analyser_signaux_techniques(prix)
+                if signaux_techniques:
+                    try:
+                        import apprentissage_trader as ap
+                        signaux_techniques = ap.filtrer_signaux_avec_apprentissage(signaux_techniques)
+                    except Exception:
+                        pass
+                    tous_signaux = signaux_techniques
             # === TRADER PRO: score multi-facteurs comme un pro ===
             try:
                 import trader_pro as tp_module
