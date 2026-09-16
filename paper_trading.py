@@ -1351,6 +1351,11 @@ def ouvrir_position(pf, signal, prix_actuel):
         _tp_etoile = min(10.0, max(5.0, signal.get("score", 5) * 1.5))
         _sl_etoile = 3.0
         print(f"  [ETOILE] TP={_tp_etoile:.1f}% SL={_sl_etoile:.1f}% pour cette etoile filante")
+    elif signal.get("source") == "professeur_virtuel":
+        # Professeur Virtuel: ratio gain/perte 2.5:1 (TP 2.5% / SL 1.0%)
+        _tp_etoile = signal.get("prof_tp", 2.5)
+        _sl_etoile = signal.get("prof_sl", 1.0)
+        print(f"  [PROF] TP={_tp_etoile:.1f}% SL={_sl_etoile:.1f}% ratio {_tp_etoile/_sl_etoile:.1f}:1")
     else:
         _tp_etoile = signal.get("tp_learning") or 2.0
         _sl_etoile = signal.get("sl_learning") or 1.5
@@ -1745,6 +1750,19 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
             print(f"  [LEARNING] Apprentissage mis a jour ({len(trades)} trades analyses)")
     except Exception as e:
         print(f"  [LEARNING] Erreur: {e}")
+    # === PROFESSEUR VIRTUEL: enregistrer le trade pour apprentissage ===
+    try:
+        if position.get("source") == "professeur_virtuel":
+            import professeur_virtuel as prof
+            prof.enregistrer_trade_prof(
+                position["symbole"],
+                position.get("strategie", "inconnu"),
+                gain,
+                variation
+            )
+            print(f"  [PROF] Apprentissage professeur: {position['symbole']} {position.get('strategie','?')} = {gain:+.2f}EUR")
+    except Exception as e:
+        print(f"  [PROF] Erreur apprentissage: {e}")
     # === TRADER PRO: apprendre du resultat du trade ===
     try:
         import trader_pro as tp_module
@@ -1880,6 +1898,14 @@ def tick():
     if len(pf["positions"]) < MAX_POSITIONS:
         from collections import Counter
         nb_par_actif = Counter(pos["symbole"] for pos in pf["positions"])
+        # === PROFESSEUR VIRTUEL: strategies des meilleurs traders du monde ===
+        print("\nProfesseur Virtuel (Joe007, Cyclop, Downshift Rider)...")
+        signaux_prof = []
+        try:
+            import professeur_virtuel as prof
+            signaux_prof = prof.generer_signaux_professeur(prix, MARCHES_PAPER)
+        except Exception as e:
+            print(f"    Professeur indisponible: {e}")
         print("\nAnalyse strategies gagnantes (backtest reel)...")
         signaux_gagnants = []
         try:
@@ -1888,6 +1914,9 @@ def tick():
         except Exception as e:
             print(f"    Module signaux_gagnants indisponible: {e}")
         tous_signaux = list(signaux_gagnants)
+        # Ajouter les signaux du Professeur Virtuel (priorite: les 2 sources coexistent)
+        if signaux_prof:
+            tous_signaux = list(signaux_prof) + tous_signaux
         # Fallback: si aucune strategie gagnante ne signale, on utilise les indicateurs techniques
         if not tous_signaux:
             print("\nAucun signal gagnant -> indicateurs techniques...")
