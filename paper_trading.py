@@ -1928,17 +1928,20 @@ def tick():
             signaux_ia = analyser_signaux_ia(prix)
             tous_signaux = signaux_ia
         if tous_signaux:
+            # Les signaux du Professeur Virtuel bypassent l'apprentissage (strategies nouvelles)
+            _signaux_prof_avant = [s for s in tous_signaux if s.get("source") == "professeur_virtuel"]
+            _signaux_autres_avant = [s for s in tous_signaux if s.get("source") != "professeur_virtuel"]
             # === APPRENTISSAGE: filtrer les signaux avec l'apprentissage ===
             try:
                 import apprentissage_trader as ap
-                signaux_avant_app = len(tous_signaux)
-                tous_signaux = ap.filtrer_signaux_avec_apprentissage(tous_signaux)
-                if len(tous_signaux) < signaux_avant_app:
-                    # Restaurer les signaux bloques mais avec score reduit
-                    print(f"  [APPRENTISSAGE] {signaux_avant_app - len(tous_signaux)} signaux filtres")
+                signaux_avant_app = len(_signaux_autres_avant)
+                _signaux_autres_avant = ap.filtrer_signaux_avec_apprentissage(_signaux_autres_avant)
+                if len(_signaux_autres_avant) < signaux_avant_app:
+                    print(f"  [APPRENTISSAGE] {signaux_avant_app - len(_signaux_autres_avant)} signaux filtres")
             except Exception as e:
                 print(f"    Apprentissage indisponible: {e}")
-            # FALLBACK: si tous les signaux sont bloques par l'apprentissage,
+            tous_signaux = _signaux_autres_avant + _signaux_prof_avant
+            # FALLBACK: si tous les signaux non-prof sont bloques par l'apprentissage,
             # utiliser les indicateurs techniques (pattern_reversal, etc.)
             if not tous_signaux:
                 print("  Tous bloques -> indicateurs techniques (fallback)...")
@@ -1951,6 +1954,11 @@ def tick():
                         pass
                     tous_signaux = signaux_techniques
             # === TRADER PRO: score multi-facteurs comme un pro ===
+            # Les signaux du Professeur Virtuel bypassent les filtres en aval
+            # (strategies backtestees, score deja calcule par le professeur)
+            _signaux_prof_passe = [s for s in tous_signaux if s.get("source") == "professeur_virtuel"]
+            _signaux_non_prof = [s for s in tous_signaux if s.get("source") != "professeur_virtuel"]
+            tous_signaux = _signaux_non_prof  # les signaux du prof sont mis de cote
             try:
                 import trader_pro as tp_module
                 signaux_pro = []
@@ -2026,6 +2034,9 @@ def tick():
                 tous_signaux = signaux_maitres
             except Exception as e:
                 print(f"    Master traders indisponible: {e}")
+            # === FIN DES FILTRES EN AVAL ===
+            # Remettre les signaux du professeur (qui ont bypass les filtres)
+            tous_signaux = tous_signaux + _signaux_prof_passe
             # === INTELLIGENCE PRO: Fear&Greed, regime, multi-timeframe, correlation, TP/SL adaptatifs ===
             try:
                 import intelligence_pro as ip
@@ -2037,6 +2048,10 @@ def tick():
                 for sig in tous_signaux:
                     sym = sig.get("symbole", "")
                     if not sym:
+                        signaux_intel.append(sig)
+                        continue
+                    # Les signaux du professeur gardent leur TP/SL (2.5%/1.0%)
+                    if sig.get("source") == "professeur_virtuel":
                         signaux_intel.append(sig)
                         continue
                     # Multi-timeframe
@@ -2075,17 +2090,24 @@ def tick():
             # === SENTIMENT SOCIAL: DESACTIVE (Reddit 403, Fear&Greed OK mais pas critique) ===
             # === MULTI-TIMEFRAME: DESACTIVE (429 sur OHLC Revolut X) ===
             # === TRADINGVIEW: rating technique independant (23+ indicateurs agreges) ===
+            # Les signaux du professeur bypassent TradingView (strategies deja validees)
             try:
                 import tradingview_signals as tv
-                tous_signaux = tv.enrichir_signaux(tous_signaux, intervalle="1h")
+                _tv_input = [s for s in tous_signaux if s.get("source") != "professeur_virtuel"]
+                _tv_prof = [s for s in tous_signaux if s.get("source") == "professeur_virtuel"]
+                _tv_input = tv.enrichir_signaux(_tv_input, intervalle="1h")
+                tous_signaux = _tv_input + _tv_prof
             except ImportError:
                 print("  (tradingview-ta non installe: pip3 install tradingview-ta)")
             except Exception as e:
                 print(f"  (tradingview indisponible: {e})")
             # === NEWS CRYPTO: sentiment des news + trending CoinGecko ===
+            # Les signaux du professeur bypassent les news (strategies backtestees)
             try:
                 from news_crypto import score_news_sentiment
                 for sig in tous_signaux:
+                    if sig.get("source") == "professeur_virtuel":
+                        continue
                     _news_score, _news_details = score_news_sentiment(sig["symbole"])
                     if _news_score != 0:
                         sig["score"] = sig.get("score", 0) + _news_score
