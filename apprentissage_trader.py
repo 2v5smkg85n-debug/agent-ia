@@ -60,11 +60,19 @@ def analyser_trade_ferme(trade):
 
 def analyser_trades(trades_fermes):
     """Analyse TOUS les trades fermes pour extraire les patterns gagnants/perdants.
-    Utilise un decay temporel: les 20 derniers trades comptent plus que les anciens."""
+    Utilise un decay temporel: les 20 derniers trades comptent plus que les anciens.
+    MERGE avec l'apprentissage existant: preserve les anciennes stats meme apres un reset."""
     if not trades_fermes:
         return {}
 
     learning = charger_learning()
+    # Sauvegarder les anciennes stats pour le merge
+    _anc_stats_strat = learning.get("stats_strategies", {})
+    _anc_stats_crypto = learning.get("stats_par_crypto", {})
+    _anc_total = learning.get("total_trades", 0)
+    _anc_gagnants = learning.get("total_gagnants", 0)
+    _anc_perdants = learning.get("total_perdants", 0)
+    _anc_pnl = learning.get("pnl_total", 0)
     trades_analyses = []
 
     # Stats accumulees avec decay temporel
@@ -250,6 +258,33 @@ def analyser_trades(trades_fermes):
     learning["total_perdants"] = sum(1 for t in trades_analyses if not t["gagnant"])
     learning["pnl_total"] = sum(t["gain_eur"] for t in trades_analyses)
     learning["win_rate_global"] = (learning["total_gagnants"] / len(trades_analyses) * 100) if trades_analyses else 0
+
+    # MERGE: combiner les anciennes stats avec les nouvelles
+    # pour ne pas perdre l'apprentissage apres un reset
+    for strat, old_d in _anc_stats_strat.items():
+        if strat not in learning.get("stats_strategies", {}):
+            learning["stats_strategies"][strat] = old_d
+        else:
+            new_d = learning["stats_strategies"][strat]
+            new_d["n"] = new_d.get("n", 0) + old_d.get("n", 0)
+            new_d["gagnants"] = new_d.get("gagnants", 0) + old_d.get("gagnants", 0)
+            new_d["pnl_total"] = new_d.get("pnl_total", 0) + old_d.get("pnl_total", 0)
+            new_d["win_rate"] = (new_d["gagnants"] / new_d["n"] * 100) if new_d["n"] > 0 else 0
+    for sym, old_d in _anc_stats_crypto.items():
+        if sym not in learning.get("stats_par_crypto", {}):
+            learning["stats_par_crypto"][sym] = old_d
+        else:
+            new_d = learning["stats_par_crypto"][sym]
+            new_d["n"] = new_d.get("n", 0) + old_d.get("n", 0)
+            new_d["gagnants"] = new_d.get("gagnants", 0) + old_d.get("gagnants", 0)
+            new_d["pnl_total"] = new_d.get("pnl_total", 0) + old_d.get("pnl_total", 0)
+    # Merger les totaux
+    learning["total_trades"] = learning.get("total_trades", 0) + _anc_total
+    learning["total_gagnants"] = learning.get("total_gagnants", 0) + _anc_gagnants
+    learning["total_perdants"] = learning.get("total_perdants", 0) + _anc_perdants
+    learning["pnl_total"] = learning.get("pnl_total", 0) + _anc_pnl
+    if learning["total_trades"] > 0:
+        learning["win_rate_global"] = learning["total_gagnants"] / learning["total_trades"] * 100
 
     sauver_learning(learning)
     return learning
