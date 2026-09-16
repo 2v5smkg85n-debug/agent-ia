@@ -49,6 +49,57 @@ PROF_SCORE_MIN = 3
 # Adapté pour long: détecte le momentum haussier MACD sur 4h
 # ====================================================================
 
+def _tendance_haussiere(symbole, bougies_4h):
+    """Filtre de tendance: verifie si la tendance 4h est haussiere.
+
+    Les strategies backtestees (Exhaustion Snap, Peak Fader) etaient SHORT-biased.
+    Adaptees en LONG, elles ont besoin d'un filtre de tendance pour eviter
+    d'acheter des couteaux qui tombent.
+
+    Regle: seulement acheter quand la tendance 4h est haussiere:
+    - Prix au-dessus de l'EMA 50 (tendance long terme positive)
+    - EMA 20 au-dessus de l'EMA 50 (confirmation momentum)
+
+    Returns: True si tendance haussiere, False sinon
+    """
+    if not bougies_4h or len(bougies_4h) < 55:
+        return True  # si pas assez de donnees, laisse passer
+
+    clotures = [b["cloture"] for b in bougies_4h]
+    try:
+        from indicateurs import ema as _ema
+    except Exception:
+        return True
+
+    prix = clotures[-1]
+
+    # EMA 20 et EMA 50 sur 4h
+    ema20_vals = []
+    ema50_vals = []
+    for i in range(len(clotures)):
+        v20 = _ema(clotures[:i+1], 20)
+        v50 = _ema(clotures[:i+1], 50)
+        if v20 is not None:
+            ema20_vals.append(v20)
+        if v50 is not None:
+            ema50_vals.append(v50)
+
+    ema20 = ema20_vals[-1] if ema20_vals else None
+    ema50 = ema50_vals[-1] if ema50_vals else None
+
+    if ema20 is None or ema50 is None:
+        return True  # si indispo, laisse passer
+
+    # Tendance haussiere: prix > EMA20 > EMA50
+    if prix > ema20 and ema20 > ema50:
+        return True
+    # Tendance legerement haussiere: prix > EMA50
+    elif prix > ema50:
+        return True
+    else:
+        return False
+
+
 def _downshift_rider(symbole, bougies_4h):
     """Détecte un momentum haussier confirmé sur 4h avec MACD.
 
@@ -435,6 +486,8 @@ def enregistrer_trade_prof(symbole, strategie, gain_eur, gain_pct):
     if s["n"] >= 5:
         if s["wr"] > 55:
             s["boost"] = 1
+        elif s["wr"] < 30:
+            s["boost"] = -3  # penalite forte pour strategies tres perdantes
         elif s["wr"] < 40:
             s["boost"] = -1
 
@@ -542,16 +595,24 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
         # === STRATÉGIE 2: Exhaustion Snap (Stoch RSI 4h) ===
         score_snap, raison_snap = 0, ""
         if bougies_4h:
-            score_snap, raison_snap = _exhaustion_snap(symbole, bougies_4h)
-            if score_snap > 0:
-                print(f"  [PROF] Exhaustion Snap sur {nom}: score {score_snap} — {raison_snap}")
+            # Filtre de tendance: ne pas acheter en tendance baissiere
+            if _tendance_haussiere(symbole, bougies_4h):
+                score_snap, raison_snap = _exhaustion_snap(symbole, bougies_4h)
+                if score_snap > 0:
+                    print(f"  [PROF] Exhaustion Snap sur {nom}: score {score_snap} — {raison_snap}")
+            else:
+                print(f"  [PROF] Exhaustion Snap sur {nom}: SKIP (tendance 4h baissiere — anti couteau)")
 
         # === STRATÉGIE 3: Peak Fader (RSI 1h) ===
         score_fader, raison_fader = 0, ""
         if bougies_1h:
-            score_fader, raison_fader = _peak_fader(symbole, bougies_1h)
-            if score_fader > 0:
-                print(f"  [PROF] Peak Fader sur {nom}: score {score_fader} — {raison_fader}")
+            # Filtre de tendance: ne pas acheter en tendance baissiere
+            if _tendance_haussiere(symbole, bougies_4h or bougies_1h):
+                score_fader, raison_fader = _peak_fader(symbole, bougies_1h)
+                if score_fader > 0:
+                    print(f"  [PROF] Peak Fader sur {nom}: score {score_fader} — {raison_fader}")
+            else:
+                print(f"  [PROF] Peak Fader sur {nom}: SKIP (tendance baissiere)")
 
         # Prend la meilleure stratégie
         best_score = max(score_rider, score_snap, score_fader)
