@@ -219,7 +219,7 @@ def analyser_trades(trades_fermes):
             s["tp_optimal"] = max(1.0, min(_med_gain + 0.5, 5.0))
         if s["pertes"]:
             _med_perte = sorted(s["pertes"])[len(s["pertes"])//2]
-            s["sl_optimal"] = max(0.8, min(_med_perte * 0.8, 1.5))
+            s["sl_optimal"] = max(1.0, min(_med_perte * 0.8, 1.5))
     learning["tp_sl_optimal_par_strategie"] = {k: {"tp_optimal": v["tp_optimal"], "sl_optimal": v["sl_optimal"], "n": v["n"]} for k, v in stats_tp_sl_strat.items()}
     # BOOST DYNAMIQUE PAR STRATEGIE (evolution: plus une strategie gagne, plus elle est boostee)
     boost_strat = {}

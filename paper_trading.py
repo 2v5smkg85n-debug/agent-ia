@@ -45,10 +45,10 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
 MAX_POSITIONS = 5              # 5 positions max (200 EUR x 5 = 1000 EUR)
-LIQUIDITE_MIN = 200.0          # garde au moins 200 EUR de liquidites
+LIQUIDITE_MIN = 300.0          # garde au moins 300 EUR de liquidites (taille de position 300 EUR)
 FENETRE_CORRELATION_MIN = 10    # anti-double-exposition: 10min entre entrees meme actif (multi-entrees)
 MAX_POS_PAR_ACTIF = 3          # 3 positions max par actif (multi-entrees si hausse)
-RISK_PAR_TRADE = 0.20         # 20% fixe (~200 EUR par position) -> 10 EUR min par trade
+RISK_PAR_TRADE = 0.30         # 30% fixe (~300 EUR par position) -> moins de trades, plus de gain net
 RISK_MAX_TRADE = 0.50         # 50% max pour haute conviction (~500 EUR)
 RISK_HAUTE_CONVICTION = 0.50  # 50% (500 EUR) pour score >= 8 + TradingView STRONG_BUY
 INTERVALLE_BOUCLE = 180        # 3 min (plus reactif = plus de trades)
@@ -58,14 +58,14 @@ PERTE_JOUR_MAX_PCT = 10.0     # stop trading si -10% en une journee
 CIRCUIT_BREAKER_CONSECUTIF = 3 # pause apres 3 pertes consecutives (plus de room)
 DRAWDOWN_REDUCTION_SEUIL = 0.95 # si capital < 95% du initial, reduit positions de 50%
 COMPOUND_AUTOMATIQUE = True
-HEURES_FAIBLE_LIQUIDITE = [(2, 6)] # pas de trades entre 2h-6h UTC
+HEURES_FAIBLE_LIQUIDITE = [(12, 13), (8, 9)] # bloque 12h et 8h UTC (0% WR historique)
 # DIVERSIFICATION TEMPORELLE: boost le score pendant les heures a fort volume
 # Ouverture Europe (8h-11h UTC) et ouverture US (13h-17h UTC) = plus de liquidité
 HEURES_FORT_VOLUME = [(8, 11), (13, 17)]  # UTC
 HEURES_FORT_BOOST = 1  # +1 au score pendant ces heures
 # Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
-TAKE_PROFIT_PCT = 2.0          # +2% (200 EUR x 2% = 4 EUR - 0.40 frais = 3.60 EUR par trade)
-STOP_LOSS_PCT = 0.5            # -0.5% (resserre les pertes: 200 EUR x 0.5% = 1 EUR max par trade)
+TAKE_PROFIT_PCT = 0.8          # +0.8% (300 EUR x 0.8% = 2.40 EUR - 0.42 frais = 1.98 EUR net par trade)
+STOP_LOSS_PCT = 1.0            # -1.0% (300 EUR x 1% = 3 EUR max perte, laisse respirer la volatilite crypto)
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
 # est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
 # Idee utilisateur + valide par backtest elargi (9 marches, 30 trades, plateau a tp_ext=4).
@@ -85,7 +85,7 @@ DUREE_BONUS_STRATEGIE = 60    # stratégie prouvée (live_n>=3, wr>=60%, pnl>0):
 BREAKEVEN_SEUIL = 2.0      # +2.0% -> SL monte au breakeven (laisse respirer)
 TRAIL_ACTIF = 4.0          # +4.0% -> trailing stop (apres un vrai move)
 TRAIL_PCT = 1.0            # trail 1.0% sous le pic (serre vite les gains)
-PARTIAL_TP_SEUIL = 1.5     # +1.5% -> encaisse 50% (sortie precoce)
+PARTIAL_TP_SEUIL = 0.4     # +0.4% -> encaisse 50% (securise au-dessus des frais de 0.28 EUR)
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 # FERMETURE INTELLIGENTE: ferme les positions perdantes qui stagnent
 STAGNATION_PERTE_SEUIL = -1.0   # si position a -1.0% ou pire (assoupli, avant -0.7%)
@@ -101,14 +101,14 @@ ATR_TP_MAX = 4.0                # TP maximum 4% (200 x 4% = 8 EUR)
 # Utilise les strategies backtestees (72% WR) au lieu d'indicateurs generiques (12% WR)
 if os.getenv('SCALPING', '0') == '1':
     INTERVALLE_BOUCLE = 300      # 5 min — evite le spam Telegram de signaux dupliques
-    TAKE_PROFIT_PCT = 3.0      # +3% — gains plus atteignables
+    TAKE_PROFIT_PCT = 0.8      # +0.8% — aligne avec le mode normal
     STOP_LOSS_PCT = 1.0        # -1.0% — perte limitee
     FENETRE_CORRELATION_MIN = 10
     EXTEND_SEUIL = 999
     BREAKEVEN_SEUIL = 3.0      # +3.0% -> SL monte au breakeven (laisse les gagnants courir)
     TRAIL_ACTIF = 3.5          # +3.5% -> trailing (plus tard = plus de gains)
     TRAIL_PCT = 0.7            # trail 0.7% sous le pic (plus de marge)
-    PARTIAL_TP_SEUIL = 2.5     # +2.5% -> prend 50% du benefice, le reste court vers TP
+    PARTIAL_TP_SEUIL = 0.4     # +0.4% -> aligne avec le mode normal
     SCALPING_TIMEFRAME = '1h'  # 1h au lieu de 15m — matche les backtests
 else:
     SCALPING_TIMEFRAME = '1h'
@@ -1085,8 +1085,8 @@ def ouvrir_position(pf, signal, prix_actuel):
         pass
     # FILTRE SCORE MINIMUM: ne trade que les signaux avec score >= 4 (assoupli, avant 5)
     _score_min = signal.get("score", 0)
-    if _score_min < 2:
-        print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> score {_score_min} < 2 (trop faible)")
+    if _score_min < 3:
+        print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> score {_score_min} < 3 (trop faible)")
         return False
     # SIZING DYNAMIQUE BASE SUR LE SENTIMENT ET LE SCORE
     # Le bot ajuste la taille de position selon le sentiment du marche:
