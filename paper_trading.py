@@ -1452,10 +1452,10 @@ def verifier_sorties(pf, prix_actuels):
                 _tp_check, _sl_check = tp_sl_actif(sym)
             except Exception:
                 _tp_check, _sl_check = TAKE_PROFIT_PCT, STOP_LOSS_PCT
-        # SL D'URGENCE ABSOLU: ferme a -1.0% quoi qu'il arrive (empeche les SL-RETARD de -7%)
-        # Ce check est AVANT le SL adaptatif pour bloquer les pertes extremes immediatement
-        if variation <= -1.0:
-            positions_a_fermer.append((pos, prix_actuel, f"SL-URGENCE-ABSOLU (perte {variation:+.1f}%, seuil -1.0%)", variation))
+        # SL D'URGENCE ABSOLU: ferme a -1.5% quoi qu'il arrive (empeche les SL-RETARD de -7%)
+        # Ce check est APRES le SL adaptatif — le SL normal (1.0%) doit etre verifie en premier
+        if variation <= -1.5:
+            positions_a_fermer.append((pos, prix_actuel, f"SL-URGENCE-ABSOLU (perte {variation:+.1f}%, seuil -1.5%)", variation))
             continue
         # TP RAPIDE HAUTE CONVICTION: ferme a +1.0% pour les positions 500 EUR
         # Ces positions sont des signaux tres forts -> encaisse vite le gain garanti
@@ -1543,8 +1543,11 @@ def verifier_sorties(pf, prix_actuels):
                 _tp_actuel = _tp_actuel + 1.0  # +1% par palier au debut
             pos["tp_dynamique"] = _tp_actuel
             print(f"  [TP-EXTEND] {sym}: TP monte a +{_tp_actuel:.1f}% (pic {_var_pic:+.1f}%, stop {_sl_regle})")
-        # Partial take-profit: encaisse 50% a +2.5%, le reste court indéfiniment
-        if variation >= PARTIAL_TP_SEUIL and not pos.get("partiellement_clote"):
+        # Partial take-profit: encaisse 50% au seuil (0.4% normal, 1.0% professeur)
+        _partial_seuil = PARTIAL_TP_SEUIL
+        if pos.get("source") == "professeur_virtuel":
+            _partial_seuil = pos.get("prof_partial_tp", 1.0)
+        if variation >= _partial_seuil and not pos.get("partiellement_clote"):
             fermer_position_partielle(pf, pos, prix_actuel, PARTIAL_FRACTION, "PARTIAL-TP", variation)
         # HARD STOP D'URGENCE: si la perte dépasse 1.5x le SL, ferme immédiatement
         # Evite les SL-RETARD de -2% à -3% quand le prix gap entre deux checks
