@@ -36,9 +36,9 @@ DOSSIER = os.path.dirname(os.path.abspath(__file__))
 # ====================================================================
 
 # Ratio gain/perte cible: 2.5:1 (les meilleurs traders du monde)
-PROF_TP_PCT = 2.5       # +2.5% (300€ × 2.5% = 7.50€ - 0.42€ frais = 7.08€ net)
+PROF_TP_PCT = 1.5       # +1.5% (atteignable: LIVE-EXIT ferme deja a +1.5% parfois)
 PROF_SL_PCT = 1.0       # -1.0% (300€ × 1% = 3.00€ perte max)
-PROF_PARTIAL_TP = 1.0   # +1.0% → encaisse 50% (sécurise au-dessus des frais)
+PROF_PARTIAL_TP = 999   # desactive (999 = jamais atteint) — laisse la position entiere courir vers TP
 
 # Score minimum du professeur (plus exigeant que le score normal)
 PROF_SCORE_MIN = 3
