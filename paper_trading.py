@@ -45,7 +45,7 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
 MAX_POSITIONS = 5              # 5 positions max (200 EUR x 5 = 1000 EUR)
-LIQUIDITE_MIN = 300.0          # garde au moins 300 EUR de liquidites (taille de position 300 EUR)
+LIQUIDITE_MIN = 200.0          # garde au moins 200 EUR de liquidites (user request)
 FENETRE_CORRELATION_MIN = 10    # anti-double-exposition: 10min entre entrees meme actif (multi-entrees)
 MAX_POS_PAR_ACTIF = 3          # 3 positions max par actif (multi-entrees si hausse)
 RISK_PAR_TRADE = 0.30         # 30% fixe (~300 EUR par position) -> moins de trades, plus de gain net
