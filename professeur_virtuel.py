@@ -533,6 +533,11 @@ def _boost_apprentissage_prof(strategie, symbole):
             boost -= 1
             raison += f"Prof: {symbole} WR={c['wr']}% -> -1"
 
+    # Blocage dur: crypto perdante en net (WR < 50% ET 15+ trades ET PnL < 0)
+    if c.get("n", 0) >= 15 and c.get("wr", 100) < 50 and c.get("pnl", 0) < 0:
+        boost = -10  # blocage total
+        raison = f"Prof: {symbole} BLOQUE (WR={c['wr']}% n={c['n']} PnL={c['pnl']:+.2f}EUR)"
+
     return boost, raison.strip()
 
 
@@ -647,6 +652,11 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
 
         # Score final du professeur
         score_final = best_score + score_catalyseur + mod_score_joe + boost_prof
+
+        # Blocage dur: crypto perdante (boost -10 = blocage total)
+        if score_final < 0:
+            print(f"  [PROF] {nom} BLOQUE par apprentissage (score {score_final})")
+            continue
 
         if score_final < PROF_SCORE_MIN:
             continue

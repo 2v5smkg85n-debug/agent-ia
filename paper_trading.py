@@ -1382,6 +1382,7 @@ def ouvrir_position(pf, signal, prix_actuel):
         "intel_fg": signal.get("intel_fg"),
         "intel_regime": signal.get("intel_regime"),
         "mtf_confirmation": signal.get("mtf_confirmation"),
+        "prof_partial_tp": signal.get("prof_partial_tp", 1.0),
     }
     pf["positions"].append(position)
     print(f"  [ACHAT] {signal.get('nom',signal['symbole'])} ({signal.get('marche','?')}) @ {prix_actuel:.2f} | {montant:.2f} EUR | qty {quantite:.6f}")
