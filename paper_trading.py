@@ -1456,7 +1456,10 @@ def verifier_sorties(pf, prix_actuels):
         # SL D'URGENCE ABSOLU: ferme a -1.5% quoi qu'il arrive (empeche les SL-RETARD de -7%)
         # Ce check est APRES le SL adaptatif — le SL normal (1.0%) doit etre verifie en premier
         if variation <= -1.5:
-            positions_a_fermer.append((pos, prix_actuel, f"SL-URGENCE-ABSOLU (perte {variation:+.1f}%, seuil -1.5%)", variation))
+            # Simuler un ordre stop: fermer au seuil d'urgence avec 0.1% slippage
+            _urg_price = prix_entree * (1 - 1.5 / 100.0) * (1 - 0.1 / 100.0)
+            _urg_var = (_urg_price - prix_entree) / prix_entree * 100
+            positions_a_fermer.append((pos, _urg_price, f"SL-URGENCE-ABSOLU (perte {_urg_var:+.1f}%, seuil -1.5%)", _urg_var))
             continue
         # TP RAPIDE HAUTE CONVICTION: ferme a +1.0% pour les positions 500 EUR
         # Ces positions sont des signaux tres forts -> encaisse vite le gain garanti
@@ -1464,9 +1467,12 @@ def verifier_sorties(pf, prix_actuels):
             positions_a_fermer.append((pos, prix_actuel, f"TP-HAUTE-CONVICTION (+{variation:.1f}% >= 1.0%)", variation))
             continue
         # DETECTION POSITION PIEGEE: si la perte depasse le SL, le SL aurait du etre touche
-        # On ferme immediatement (le prix a chute trop, la position est morte)
+        # Simuler un ordre stop-loss: fermer au prix du SL (avec 0.05% slippage)
+        # Au lieu de fermer au prix en retard qui peut etre bien plus bas
         if variation <= -_sl_check:
-            positions_a_fermer.append((pos, prix_actuel, f"SL-RETARD (perte {variation:+.1f}%, SL={_sl_check}%)", variation))
+            _sl_price = prix_entree * (1 - _sl_check / 100.0) * (1 - 0.05 / 100.0)
+            _sl_var = (_sl_price - prix_entree) / prix_entree * 100
+            positions_a_fermer.append((pos, _sl_price, f"SL-EXEC (perte {_sl_var:+.1f}%, SL={_sl_check}%)", _sl_var))
             continue
         # TP/SL: en mode scalping, les constantes globales priment sur meta_tuning
         if os.getenv('SCALPING', '0') == '1':
@@ -1550,10 +1556,13 @@ def verifier_sorties(pf, prix_actuels):
             _partial_seuil = pos.get("prof_partial_tp", 1.0)
         if variation >= _partial_seuil and not pos.get("partiellement_clote"):
             fermer_position_partielle(pf, pos, prix_actuel, PARTIAL_FRACTION, "PARTIAL-TP", variation)
-        # HARD STOP D'URGENCE: si la perte dépasse 1.5x le SL, ferme immédiatement
-        # Evite les SL-RETARD de -2% à -3% quand le prix gap entre deux checks
+        # HARD STOP D'URGENCE: si la perte depasse 1.5x le SL, ferme immédiatement
+        # Simuler un ordre stop: fermer au seuil d'urgence avec 0.1% slippage
         if variation <= -(_sl * 1.5):
-            positions_a_fermer.append((pos, prix_actuel, f"SL-URGENCE ({variation:+.2f}%, SL={_sl}%)", variation))
+            _urg_sl = _sl * 1.5
+            _urg_price = prix_entree * (1 - _urg_sl / 100.0) * (1 - 0.1 / 100.0)
+            _urg_var = (_urg_price - prix_entree) / prix_entree * 100
+            positions_a_fermer.append((pos, _urg_price, f"SL-URGENCE ({_urg_var:+.2f}%, SL={_sl}%)", _urg_var))
             continue
         # GESTION POSITION LIVE: analyse adaptative en temps réel
         try:
@@ -2363,7 +2372,7 @@ def boucle():
         print(f"\nProchaine verification: {prochaine.strftime('%H:%M')} (crypto SL check toutes les 5s)")
         # SL check toutes les 5s (plus reactif = moins de SL-RETARD)
         _nb_checks = INTERVALLE_BOUCLE // 5
-        _check_interval = 5
+        _check_interval = 3
         for _ in range(_nb_checks):
             time.sleep(_check_interval)
             try:
