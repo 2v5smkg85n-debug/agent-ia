@@ -49,6 +49,69 @@ PROF_SCORE_MIN = 3
 # Adapté pour long: détecte le momentum haussier MACD sur 4h
 # ====================================================================
 
+def _garde_btc(prix_actuels, marches_paper):
+    """Garde BTC: si BTC baisse fortement en 1h, tout le marché suit.
+
+    Vérifie la variation de BTC sur la dernière heure en comparant
+    le prix actuel avec la bougie 1h précédente.
+
+    Returns: (ok, raison) — ok=False si BTC en chute libre
+    """
+    try:
+        from indicateurs import historique_ohlcv
+        bougies_btc = historique_ohlcv('BTCUSDT', '1hour', 5)
+        if not bougies_btc or len(bougies_btc) < 2:
+            return True, ""  # si indispo, laisse passer
+        derniere = bougies_btc[-1]
+        precedente = bougies_btc[-2]
+        var_1h = ((derniere['cloture'] - precedente['cloture']) / precedente['cloture']) * 100
+        if var_1h < -0.5:
+            return False, f"BTC en chute (-{abs(var_1h):.2f}% en 1h) — marché risk-off"
+        return True, ""
+    except Exception:
+        return True, ""
+
+
+def _momentum_1h_porteur(bougies_1h):
+    """Vérifie si la dernière bougie 1h est porteuse (pas un couteau qui tombe).
+
+    Returns: True si la dernière bougie 1h n'est pas fortement baissière.
+    """
+    if not bougies_1h or len(bougies_1h) < 2:
+        return True  # si indispo, laisse passer
+    derniere = bougies_1h[-1]
+    var_bougie = ((derniere['cloture'] - derniere['ouverture']) / derniere['ouverture']) * 100
+    if var_bougie < -0.5:
+        return False  # bougie 1h fortement rouge (> 0.5% baissière)
+    return True
+
+
+def _pertes_consecutives_prof():
+    """Vérifie les derniers trades du professeur pour une série de pertes.
+
+    Returns: (nb_pertes_consecutives, penalty)
+    - 3 pertes consécutives → penalty -2 (mode prudent)
+    - 5+ pertes consécutives → penalty -4 (mode défensif)
+    """
+    try:
+        stats = _charger_stats_prof()
+        # On regarde le PnL des derniers trades par crypto (approximation)
+        # Si le PnL total récent est très négatif, on pénalise
+        total_pnl = sum(c.get('pnl', 0) for c in stats.get('par_crypto', {}).values())
+        total_n = sum(c.get('n', 0) for c in stats.get('par_crypto', {}).values())
+        if total_n < 10:
+            return 0, 0
+        # PnL par trade récent (approximation grossière)
+        pnl_par_trade = total_pnl / total_n if total_n else 0
+        if pnl_par_trade < -0.5:
+            return 5, -4  # mode défensif
+        elif pnl_par_trade < -0.2:
+            return 3, -2  # mode prudent
+        return 0, 0
+    except Exception:
+        return 0, 0
+
+
 def _tendance_haussiere(symbole, bougies_4h):
     """Filtre de tendance: verifie si la tendance 4h est haussiere.
 
@@ -569,6 +632,17 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
     if mod_score_joe != 0:
         print(f"  [PROF] Joe007: {raison_joe}")
 
+    # === GARDE BTC: si BTC chute, tout le marché suit ===
+    btc_ok, raison_btc = _garde_btc(prix_actuels, marches_paper)
+    if not btc_ok:
+        print(f"  [PROF] {raison_btc} — AUCUN signal ce cycle")
+        return []
+
+    # === PERTES CONSÉCUTIVES: mode prudent/défensif ===
+    nb_pertes, penalty_pertes = _pertes_consecutives_prof()
+    if penalty_pertes < 0:
+        print(f"  [PROF] Mode prudent: {nb_pertes} pertes récentes, penalty {penalty_pertes}")
+
     signaux = []
 
     for symbole, config in marches_paper.items():
@@ -593,9 +667,13 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
         # === STRATÉGIE 1: Downshift Rider (MACD 4h) ===
         score_rider, raison_rider = 0, ""
         if bougies_4h:
-            score_rider, raison_rider = _downshift_rider(symbole, bougies_4h)
-            if score_rider > 0:
-                print(f"  [PROF] Downshift Rider sur {nom}: score {score_rider} — {raison_rider}")
+            # Filtre momentum 1h: ne pas acheter si la dernière bougie 1h est baissière
+            if not _momentum_1h_porteur(bougies_1h):
+                print(f"  [PROF] Downshift Rider sur {nom}: SKIP (bougie 1h baissière — anti couteau)")
+            else:
+                score_rider, raison_rider = _downshift_rider(symbole, bougies_4h)
+                if score_rider > 0:
+                    print(f"  [PROF] Downshift Rider sur {nom}: score {score_rider} — {raison_rider}")
 
         # === STRATÉGIE 2: Exhaustion Snap (Stoch RSI 4h) ===
         score_snap, raison_snap = 0, ""
@@ -651,7 +729,7 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
             print(f"  [PROF] Apprentissage: {raison_prof}")
 
         # Score final du professeur
-        score_final = best_score + score_catalyseur + mod_score_joe + boost_prof
+        score_final = best_score + score_catalyseur + mod_score_joe + boost_prof + penalty_pertes
 
         # Blocage dur: crypto perdante (boost -10 = blocage total)
         if score_final < 0:
