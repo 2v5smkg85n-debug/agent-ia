@@ -675,18 +675,11 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
                 if score_rider > 0:
                     print(f"  [PROF] Downshift Rider sur {nom}: score {score_rider} — {raison_rider}")
 
-        # === STRATÉGIE 2: Exhaustion Snap (Stoch RSI 4h) ===
+        # === STRATÉGIE 2: Exhaustion Snap — DÉSACTIVÉE ===
+        # Backtest: 653 trades, 46% WR, -550€ PnL — stratégie perdante
         score_snap, raison_snap = 0, ""
-        if bougies_4h:
-            # Filtre de tendance: ne pas acheter en tendance baissiere
-            if _tendance_haussiere(symbole, bougies_4h):
-                score_snap, raison_snap = _exhaustion_snap(symbole, bougies_4h)
-                if score_snap > 0:
-                    print(f"  [PROF] Exhaustion Snap sur {nom}: score {score_snap} — {raison_snap}")
-            else:
-                print(f"  [PROF] Exhaustion Snap sur {nom}: SKIP (tendance 4h baissiere — anti couteau)")
 
-        # === STRATÉGIE 3: Peak Fader (RSI 1h) ===
+        # === STRATÉGIE 3: Peak Fader (RSI 1h) — 83% WR, +11€ ===
         score_fader, raison_fader = 0, ""
         if bougies_1h:
             # Filtre de tendance: ne pas acheter en tendance baissiere
