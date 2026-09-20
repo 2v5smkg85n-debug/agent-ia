@@ -50,7 +50,7 @@ print("=" * 75)
 # Stats du professeur
 prof_stats_file = 'professeur_stats.json'
 if os.path.exists(prof_stats_file):
-    stats = json.load(open(prof_stats_stats_file))
+    stats = json.load(open(prof_stats_file))
 else:
     stats = {}
 
