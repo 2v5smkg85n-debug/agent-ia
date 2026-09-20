@@ -37,6 +37,7 @@ TELEGRAM_TOKEN = ""
 TELEGRAM_CHAT = ""
 GEMINI_KEY = ""
 PPLX_KEY = ""
+GROQ_KEY = ""
 
 env_path = os.path.join(DOSSIER, ".env")
 if os.path.exists(env_path):
@@ -51,6 +52,8 @@ if os.path.exists(env_path):
                 GEMINI_KEY = line.split("=", 1)[1].strip()
             elif line.startswith("PPLX_API_KEY="):
                 PPLX_KEY = line.split("=", 1)[1].strip()
+            elif line.startswith("GROQ_API_KEY="):
+                GROQ_KEY = line.split("=", 1)[1].strip()
 
 API_URL = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
 _last_update_id = 0
@@ -268,6 +271,38 @@ def _perplexity_chat(message, contexte=None):
     except Exception:
         return None
 
+def _groq_chat(message, contexte=None):
+    """Fallback: utilise l'API Groq (Llama) quand Gemini et Perplexity echouent."""
+    if not GROQ_KEY:
+        return None
+    try:
+        ctx = contexte or _construire_contexte()
+        hist_texte = ""
+        if _historique:
+            hist_texte = "\nHistorique:\n"
+            for h in list(_historique)[-10:]:
+                hist_texte += f"User: {h['user']}\nAgent IA: {h['bot']}\n"
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {"Authorization": f"Bearer {GROQ_KEY}", "Content-Type": "application/json"}
+        system_msg = ctx + hist_texte + "\nInstructions: Reponds en francais de maniere naturelle et conversationnelle, comme un ami. Sois curieuse, chaleureuse, avec de l'humour. Tu peux parler de TOUT. Sois concise (3-8 phrases). N'utilise pas de markdown."
+        messages = [{"role": "system", "content": system_msg}]
+        for h in list(_historique)[-6:]:
+            messages.append({"role": "user", "content": h["user"]})
+            messages.append({"role": "assistant", "content": h["bot"]})
+        messages.append({"role": "user", "content": message})
+        payload = {
+            "model": "llama-3.3-70b-versatile",
+            "messages": messages,
+            "max_tokens": 800,
+            "temperature": 0.8
+        }
+        r = requests.post(url, headers=headers, json=payload, timeout=30)
+        if r.status_code == 200:
+            return r.json()["choices"][0]["message"]["content"].strip()
+        return None
+    except Exception:
+        return None
+
 def _gemini(message, contexte=None):
     """Envoie un message a Gemini, fallback Perplexity si rate-limitite."""
     if not GEMINI_KEY and not PPLX_KEY:
@@ -322,12 +357,17 @@ Instructions:
         except Exception:
             continue
 
-    # Fallback: API Perplexity si Gemini rate-limitite ou indisponible
+    # Fallback 1: API Perplexity si Gemini rate-limitite ou indisponible
     resultat_ppl = _perplexity_chat(message, contexte)
     if resultat_ppl:
         return resultat_ppl
 
-    return "Désolé, je n'arrive pas à réfléchir pour le moment (API indisponible). Tape 'status' pour voir le portefeuille directement."
+    # Fallback 2: API Groq (Llama 70B) si Perplexity aussi echoue
+    resultat_groq = _groq_chat(message, contexte)
+    if resultat_groq:
+        return resultat_groq
+
+    return "Les 3 APIs sont indisponibles (Gemini rate-limite, Perplexity sans credits, Groq non configure). Ajoute une cle GROQ_API_KEY dans .env (gratuit sur console.groq.com). Tape 'status' pour le portefeuille."
 
 # ============================================
 # CHEMINS RAPIDES (sans Gemini pour la vitesse)
