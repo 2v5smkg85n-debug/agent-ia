@@ -1,25 +1,20 @@
 #!/usr/bin/env python3
 """
-Conversation Naturelle Telegram — L'agent comprend le langage naturel.
+Conversation Naturelle Telegram — IA de niveau supérieur.
 
-Comme Perplexity Computer: pose des questions en langage naturel, l'agent répond.
+L'IA comprend TOUT, pas seulement le trading. Elle utilise Gemini comme cerveau
+principal avec un contexte riche sur le bot, le portefeuille, l'apprentissage et le marché.
 
-Au lieu de commandes rigides (/status, /positions), tu peux écrire:
-- "Comment va mon portefeuille ?"
-- "Quelles positions sont ouvertes ?"
-- "Montre-moi les trades récents"
-- "Le bot a-t-il fait des erreurs ?"
-- "Quel est le win rate ?"
-- "Redémarre le bot"
-- "Analyse BTC"
+Capabilities:
+- Conversation naturelle sur n'importe quel sujet
+- Mémoire de conversation (20 derniers messages)
+- Contexte riche: portefeuille, positions, trades, apprentissage professeur
+- Recherche web via API Perplexity pour prix et news en temps réel
+- Analyse proactive du marché et du bot
+- Chemins rapides pour commandes fréquentes (status, positions)
+- Personnalité: directe, maline, proactive
 
-Fonctionnement:
-1. Polling Telegram (getUpdates) en boucle
-2. NLP: comprend l'intention via mots-clés + Gemini si ambigu
-3. Exécute la commande correspondante
-4. Répond en langage naturel
-
-Lance ce module comme service systemd séparé.
+Lance ce module comme service systemd: chat_naturel.service
 """
 
 import os
@@ -28,15 +23,21 @@ import json
 import time
 import re
 import subprocess
+import requests
 from datetime import datetime
+from collections import deque
 
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 FICHIER_LOG = os.path.join(DOSSIER, "paper_trading.log")
+FICHIER_PROF_STATS = os.path.join(DOSSIER, "professeur_stats.json")
 
-# Charger les clés Telegram
+# Charger les clés
 TELEGRAM_TOKEN = ""
 TELEGRAM_CHAT = ""
+GEMINI_KEY = ""
+PPLX_KEY = ""
+
 env_path = os.path.join(DOSSIER, ".env")
 if os.path.exists(env_path):
     with open(env_path) as f:
@@ -46,21 +47,32 @@ if os.path.exists(env_path):
                 TELEGRAM_TOKEN = line.split("=", 1)[1].strip()
             elif line.startswith("TELEGRAM_CHAT_ID="):
                 TELEGRAM_CHAT = line.split("=", 1)[1].strip()
+            elif line.startswith("GEMINI_API_KEY="):
+                GEMINI_KEY = line.split("=", 1)[1].strip()
+            elif line.startswith("PPLX_API_KEY="):
+                PPLX_KEY = line.split("=", 1)[1].strip()
 
 API_URL = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
 _last_update_id = 0
-_cooldown = {}  # anti-spam par utilisateur
+_cooldown = {}
 
+# Mémoire de conversation (20 derniers messages)
+_historique = deque(maxlen=20)
 
-def _telegram_send(texte):
+# ============================================
+# UTILITAIRES
+# ============================================
+
+def _telegram_send(texte, parse_mode=None):
     """Envoie un message Telegram."""
-    import requests
     try:
-        r = requests.post(f"{API_URL}/sendMessage", data={"chat_id": TELEGRAM_CHAT, "text": texte}, timeout=15)
+        data = {"chat_id": TELEGRAM_CHAT, "text": texte}
+        if parse_mode:
+            data["parse_mode"] = parse_mode
+        r = requests.post(f"{API_URL}/sendMessage", data=data, timeout=15)
         return r.status_code == 200
     except Exception:
         return False
-
 
 def _run(cmd):
     """Exécute une commande shell."""
@@ -69,7 +81,6 @@ def _run(cmd):
         return r.stdout.strip(), r.returncode
     except Exception as e:
         return str(e), 1
-
 
 def _charger_paper():
     """Charge paper_trading.json."""
@@ -81,6 +92,15 @@ def _charger_paper():
     except Exception:
         return None
 
+def _charger_prof_stats():
+    """Charge professeur_stats.json."""
+    if not os.path.exists(FICHIER_PROF_STATS):
+        return None
+    try:
+        with open(FICHIER_PROF_STATS) as f:
+            return json.load(f)
+    except Exception:
+        return None
 
 def _lire_logs(n=30):
     """Lit les N dernières lignes du log."""
@@ -89,419 +109,360 @@ def _lire_logs(n=30):
     out, _ = _run(f"tail -{n} '{FICHIER_LOG}'")
     return out
 
-
 # ============================================
-# NLP — COMPRÉHENSION DU LANGAGE NATUREL
-# ============================================
-
-def _comprendre(message):
-    """
-    Comprend l'intention du message en langage naturel.
-    Retourne une intention: 'status', 'positions', 'trades', 'erreurs', 'winrate',
-    'restart', 'analyse', 'scanner', 'capital', 'liquidite', 'aide', 'inconnu'
-    """
-    msg = message.lower().strip()
-    
-    # Status / portefeuille / comment ça va
-    if any(w in msg for w in ["portefeuille", "portfolio", "comment", "comment ça va", "status", "solde", "ca va", "cv", "état", "etat", "global", "bilan"]):
-        return "status"
-    
-    # Positions ouvertes
-    if any(w in msg for w in ["position", "ouvert", "ouverte", "hold", "actif", "crypto détenue", "qu'est-ce que j'ai"]):
-        return "positions"
-    
-    # Trades fermés / historique
-    if any(w in msg for w in ["trade", "historique", "fermé", "ferme", "fermee", "récent", "recent", "dernier"]):
-        return "trades"
-    
-    # Erreurs / problèmes
-    if any(w in msg for w in ["erreur", "bug", "problème", "probleme", "crash", "sl-retard", "429", "rate limit", "cassé", "casse", "marche pas"]):
-        return "erreurs"
-    
-    # Win rate / performance
-    if any(w in msg for w in ["win rate", "winrate", "performance", "ratio", "pourcentage", "réussite", "reussite", "gagné", "gagne", "perdu", "pertes"]):
-        return "winrate"
-    
-    # Restart
-    if any(w in msg for w in ["redémarre", "redemarre", "restart", "reboot", "relance", "relancer"]):
-        return "restart"
-    
-    # Scanner
-    if any(w in msg for w in ["scan", "scanner", "diagnostic", "vérifie", "verifie", "check", "problème", "santé", "sante"]):
-        return "scanner"
-    
-    # Capital / liquidités
-    if any(w in msg for w in ["capital", "liquidité", "liquidite", "cash", "dispo", "disponible", "argent"]):
-        return "capital"
-    
-    # Analyse d'un actif
-    if any(w in msg for w in ["analyse", "analyser", "btc", "eth", "sol", "bitcoin", "ethereum", "solana", "prix"]):
-        return "analyse"
-    
-    # Aide
-    if any(w in msg for w in ["aide", "help", "commande", "que peux-tu", "que peut tu", "comment utiliser"]):
-        return "aide"
-    
-    return "inconnu"
-
-
-# ============================================
-# RÉPONSES PAR INTENTION
+# CONTEXTE RICHE POUR L'IA
 # ============================================
 
-def _reponse_status():
-    """Répond avec un résumé du portefeuille."""
+def _construire_contexte():
+    """Construit un contexte riche sur l'état du bot pour Gemini."""
+    data = _charger_paper()
+    prof = _charger_prof_stats()
+    parties = []
+
+    parties.append("Tu es l'Agent IA, un assistant IA avancé qui gère un bot de trading crypto automatise sur un VPS. Tu es direct, intelligent, proactif et tu parles francais. Tu as une personnalite: tu es confiant mais prudent, tu n'hesites pas a donner ton avis, tu fais de l'humour parfois, et tu expliques les choses clairement sans jargon inutile. Tu reponds de maniere concise (3-8 phrases en general) sauf si on te demande du detail.")
+
+    if data:
+        capital_init = data.get("capital_initial", 1000)
+        liquidites = data.get("liquidites", 0)
+        positions = data.get("positions", [])
+        trades = data.get("trades_fermes", [])
+        frais = data.get("total_frais", 0)
+
+        valeur_pos = sum(p.get("montant_eur", 0) for p in positions)
+        total = liquidites + valeur_pos
+        pnl = total - capital_init
+        pnl_pct = (pnl / capital_init * 100) if capital_init else 0
+
+        gagnants = sum(1 for t in trades if t.get("gain_eur", 0) > 0)
+        wr = (gagnants / len(trades) * 100) if trades else 0
+
+        gains = [t.get("gain_eur", 0) for t in trades if t.get("gain_eur", 0) > 0]
+        pertes = [t.get("gain_eur", 0) for t in trades if t.get("gain_eur", 0) <= 0]
+        gain_moy = sum(gains) / len(gains) if gains else 0
+        perte_moy = sum(pertes) / len(pertes) if pertes else 0
+
+        ctx = f"\n\n=== CONTEXTE BOT (temps réel) ===\n"
+        ctx += f"Capital: {total:.2f} EUR (P&L: {pnl:+.2f} EUR, {pnl_pct:+.1f}%)\n"
+        ctx += f"Liquidités: {liquidites:.0f} EUR | Positions ouvertes: {len(positions)}\n"
+        ctx += f"Trades fermés: {len(trades)} | Win rate: {wr:.0f}% | Frais: {frais:.2f} EUR\n"
+        if gains and pertes:
+            ratio = abs(gain_moy / perte_moy) if perte_moy else 0
+            ctx += f"Gain moyen: +{gain_moy:.2f} EUR | Perte moyenne: {perte_moy:.2f} EUR | Ratio: {ratio:.2f}:1\n"
+
+        if positions:
+            ctx += "Positions ouvertes:\n"
+            for p in positions:
+                sym = p.get("symbole", "?")
+                val = p.get("montant_eur", 0)
+                tp = p.get("tp_adaptatif", 0)
+                sl = p.get("sl_adaptatif", 0)
+                strat = p.get("strategie", "?")
+                ctx += f"  {sym}: {val:.0f} EUR (TP={tp}% SL={sl}% {strat})\n"
+
+        if trades:
+            recents = trades[-5:]
+            ctx += "Derniers trades:\n"
+            for t in reversed(recents):
+                sym = t.get("symbole", "?")
+                gain = t.get("gain_eur", 0)
+                var = t.get("variation_pct", 0)
+                raison = (t.get("raison", t.get("raison_fermeture", "?")))[:40]
+                emoji = "✅" if gain > 0 else "❌"
+                ctx += f"  {emoji} {sym}: {gain:+.2f} EUR ({var:+.1f}%) {raison}\n"
+
+        parties.append(ctx)
+    else:
+        parties.append("\nPortefeuille: illisible (bot démarre?)")
+
+    if prof:
+        strats = prof.get("par_strategie", {})
+        cryptos = prof.get("par_crypto", {})
+        bloques = []
+        favoris = []
+        for sym, d in sorted(cryptos.items(), key=lambda x: x[1].get("pnl", 0), reverse=True):
+            n = d.get("n", 0)
+            wr_c = d.get("wr", 0)
+            pnl_c = d.get("pnl", 0)
+            if n >= 15 and wr_c < 50 and pnl_c < 0:
+                bloques.append(f"{sym}({wr_c:.0f}% WR, {pnl_c:+.1f}€)")
+            elif n >= 5 and wr_c > 60 and pnl_c > 0:
+                favoris.append(f"{sym}({wr_c:.0f}% WR, {pnl_c:+.1f}€)")
+
+        ctx_prof = "\n=== APPRENTISSAGE PROFESSEUR ===\n"
+        for s, d in strats.items():
+            ctx_prof += f"  {s}: {d.get('n',0)} trades, {d.get('wr',0):.0f}% WR, {d.get('pnl',0):+.2f}€\n"
+        if favoris:
+            ctx_prof += f"Cryptos favoris: {', '.join(favoris[:5])}\n"
+        if bloques:
+            ctx_prof += f"Cryptos bloqués: {', '.join(bloques)}\n"
+        parties.append(ctx_prof)
+
+    # Heure et date
+    maintenant = datetime.now()
+    parties.append(f"\nDate/heure actuelle: {maintenant.strftime('%Y-%m-%d %H:%M')} (UTC{'+' if maintenant.utcoffset() else ''})")
+
+    return "\n".join(parties)
+
+# ============================================
+# RECHERCHE WEB VIA PERPLEXITY API
+# ============================================
+
+def _recherche_web(query):
+    """Recherche web via l'API Perplexity pour des infos en temps réel."""
+    if not PPLX_KEY:
+        return None
+    try:
+        url = "https://api.perplexity.ai/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {PPLX_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "sonar",
+            "messages": [
+                {"role": "system", "content": "Réponds brièvement en français. Donne les informations essentielles uniquement."},
+                {"role": "user", "content": query}
+            ],
+            "max_tokens": 500,
+            "temperature": 0.3
+        }
+        r = requests.post(url, headers=headers, json=payload, timeout=30)
+        if r.status_code == 200:
+            data = r.json()
+            return data["choices"][0]["message"]["content"]
+        return None
+    except Exception:
+        return None
+
+# ============================================
+# GEMINI — CERVEAU PRINCIPAL
+# ============================================
+
+def _gemini(message, contexte=None):
+    """Envoie un message à Gemini avec contexte et historique."""
+    if not GEMINI_KEY:
+        return "Je n'ai pas de clé API configurée pour le raisonnement. Tape 'status' pour voir le portefeuille."
+
+    # Construit le contexte
+    ctx = contexte or _construire_contexte()
+
+    # Construit l'historique de conversation
+    hist_texte = ""
+    if _historique:
+        hist_texte = "\n=== HISTORIQUE CONVERSATION (10 derniers échanges) ===\n"
+        for h in list(_historique)[-10:]:
+            hist_texte += f"User: {h['user']}\nAgent IA: {h['bot']}\n"
+
+    prompt = f"""{ctx}
+
+{hist_texte}
+
+Question de l'utilisateur: {message}
+
+Instructions:
+- Réponds en français de manière naturelle et conversationnelle
+- Sois direct, intelligent, avec une touche d'humour
+- Utilise les données du contexte bot si pertinent
+- Si la question concerne le marché crypto, donne des analyses concrètes
+- Si la question ne concerne pas le trading, réponds quand même (tu es une IA générale)
+- Sois concis (3-8 phrases) sauf si on te demande du détail
+- N'utilise pas de markdown (* ou **), utilise du texte simple
+- Si on te demande ton avis, donne-le franchement"""
+
+    # Essaie plusieurs modèles Gemini
+    modeles = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest"]
+    for modele in modeles:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
+            payload = {
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.8, "maxOutputTokens": 800}
+            }
+            r = requests.post(url, json=payload, timeout=30)
+            if r.status_code == 200:
+                texte = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+                return texte.strip()
+            elif r.status_code == 404:
+                continue
+            elif r.status_code == 429:
+                time.sleep(2)
+                continue
+            else:
+                continue
+        except Exception:
+            continue
+
+    return "Désolé, je n'arrive pas à réfléchir pour le moment (API indisponible). Tape 'status' pour voir le portefeuille directement."
+
+# ============================================
+# CHEMINS RAPIDES (sans Gemini pour la vitesse)
+# ============================================
+
+def _rapide_status():
+    """Status rapide sans Gemini."""
     data = _charger_paper()
     if not data:
         return "Je n'arrive pas à lire le portefeuille. Le bot tourne-t-il ?"
-    
-    capital = data.get("capital_initial", 1000)
+    capital_init = data.get("capital_initial", 1000)
     liquidites = data.get("liquidites", 0)
     positions = data.get("positions", [])
     trades = data.get("trades_fermes", [])
-    frais = data.get("frais_totaux", 0)
-    
+    frais = data.get("total_frais", 0)
     valeur_pos = sum(p.get("montant_eur", 0) for p in positions)
     total = liquidites + valeur_pos
-    pnl = total - capital
-    pnl_pct = (pnl / capital * 100) if capital else 0
-    
-    # Win rate
-    gagnants = sum(1 for t in trades if t.get("gain_eur", t.get("pnl", 0)) > 0)
-    total_trades = len(trades)
-    wr = (gagnants / total_trades * 100) if total_trades else 0
-    
+    pnl = total - capital_init
+    pnl_pct = (pnl / capital_init * 100) if capital_init else 0
+    gagnants = sum(1 for t in trades if t.get("gain_eur", 0) > 0)
+    wr = (gagnants / len(trades) * 100) if trades else 0
     emoji = "🟢" if pnl >= 0 else "🔴"
-    
     lignes = [
         f"{emoji} Portefeuille — {datetime.now().strftime('%d/%m %H:%M')}",
-        f"",
-        f"Capital: {total:.2f} EUR",
-        f"P&L: {pnl:+.2f} EUR ({pnl_pct:+.1f}%)",
-        f"Liquidités: {liquidites:.2f} EUR",
-        f"Positions: {len(positions)}",
-        f"Trades fermés: {total_trades}",
-        f"Win rate: {wr:.0f}% ({gagnants}W / {total_trades - gagnants}L)",
-        f"Frais: {frais:.2f} EUR",
+        f"Capital: {total:.2f} EUR (P&L: {pnl:+.2f} EUR, {pnl_pct:+.1f}%)",
+        f"Liquidités: {liquidites:.0f} EUR | Positions: {len(positions)}",
+        f"Trades: {len(trades)} | WR: {wr:.0f}% | Frais: {frais:.2f} EUR",
     ]
-    
     if positions:
         lignes.append("")
-        lignes.append("Positions ouvertes:")
         for p in positions:
-            sym = p.get("symbole", p.get("nom", "?"))
+            sym = p.get("symbole", "?")
             val = p.get("montant_eur", 0)
-            prix = p.get("prix_entree", 0)
-            lignes.append(f"  {sym}: {val:.0f} EUR @ {prix:.4f}")
-    
+            tp = p.get("tp_adaptatif", 0)
+            sl = p.get("sl_adaptatif", 0)
+            lignes.append(f"  {sym}: {val:.0f}€ TP={tp}% SL={sl}%")
     return "\n".join(lignes)
 
-
-def _reponse_positions():
-    """Répond avec les positions ouvertes."""
+def _rapide_positions():
+    """Positions rapides sans Gemini."""
     data = _charger_paper()
     if not data:
         return "Portefeuille illisible."
-    
     positions = data.get("positions", [])
     if not positions:
         return "Aucune position ouverte. Le bot attend des signaux."
-    
-    lignes = [f"Positions ouvertes ({len(positions)}):", ""]
+    lignes = [f"Positions ouvertes ({len(positions)}):"]
     for p in positions:
-        sym = p.get("symbole", p.get("nom", "?"))
+        sym = p.get("symbole", "?")
         val = p.get("montant_eur", 0)
         prix = p.get("prix_entree", 0)
-        strategie = p.get("strategie", "?")
-        ouvert = p.get("date_ouverture", "?")
-        lignes.append(f"  {sym}: {val:.0f} EUR @ {prix:.4f}")
-        lignes.append(f"    stratégie: {strategie}, ouvert: {ouvert}")
-    
+        strat = p.get("strategie", "?")
+        lignes.append(f"  {sym}: {val:.0f}€ @ {prix:.4f} ({strat})")
     return "\n".join(lignes)
 
-
-def _reponse_trades():
-    """Répond avec les trades récents."""
+def _rapide_trades():
+    """Trades récents rapides sans Gemini."""
     data = _charger_paper()
     if not data:
         return "Portefeuille illisible."
-    
     trades = data.get("trades_fermes", [])
     if not trades:
         return "Aucun trade fermé pour l'instant."
-    
-    recents = trades[-10:]  # 10 derniers
-    lignes = [f"Trades récents ({len(recents)} derniers sur {len(trades)}):", ""]
-    
+    recents = trades[-10:]
+    lignes = [f"Trades récents ({len(recents)} sur {len(trades)}):"]
     for t in reversed(recents):
         sym = t.get("symbole", "?")
-        gain = t.get("gain_eur", t.get("pnl", 0))
-        raison = t.get("raison", "?")
+        gain = t.get("gain_eur", 0)
+        raison = (t.get("raison", t.get("raison_fermeture", "?")))[:45]
         emoji = "✅" if gain > 0 else "❌"
-        lignes.append(f"  {emoji} {sym}: {gain:+.2f} EUR — {raison[:50]}")
-    
-    gagnants = sum(1 for t in trades if t.get("gain_eur", t.get("pnl", 0)) > 0)
-    wr = (gagnants / len(trades) * 100) if trades else 0
-    pnl_total = sum(t.get("gain_eur", t.get("pnl", 0)) for t in trades)
-    
-    lignes.append("")
-    lignes.append(f"Win rate: {wr:.0f}% ({gagnants}W / {len(trades) - gagnants}L)")
-    lignes.append(f"P&L trades: {pnl_total:+.2f} EUR")
-    
+        lignes.append(f"  {emoji} {sym}: {gain:+.2f}€ — {raison}")
     return "\n".join(lignes)
 
+def _rapide_aide():
+    """Aide rapide."""
+    return """🤖 Agent IA — Ton assistant IA
 
-def _reponse_erreurs():
-    """Vérifie les erreurs dans les logs."""
-    logs = _lire_logs(100)
-    
-    sl_retard = logs.count("SL-RETARD")
-    erreurs_429 = logs.count("429")
-    crash = logs.count("Traceback") + logs.count("Error")
-    
-    if sl_retard == 0 and erreurs_429 == 0 and crash == 0:
-        return "✅ Aucune erreur détectée dans les logs récents.\n\nLe bot tourne proprement."
-    
-    lignes = ["Erreurs détectées:", ""]
-    if sl_retard:
-        lignes.append(f"  ⚠️ SL-RETARD: {sl_retard} dans les logs récents")
-    if erreurs_429:
-        lignes.append(f"  ⚠️ Rate limit 429: {erreurs_429}")
-    if crash:
-        lignes.append(f"  🚨 Crash/erreur: {crash}")
-    
-    return "\n".join(lignes)
+Je peux répondre à TOUT, pas seulement le trading:
 
+Trading:
+  'Comment va mon portefeuille ?'
+  'Quelles positions sont ouvertes ?'
+  'Montre-moi les trades récents'
+  'Quel est le win rate ?'
+  'Que pense le professeur ?'
+  'Analyse pourquoi le bot perd/gagne'
 
-def _reponse_winrate():
-    """Répond avec les statistiques de performance."""
-    data = _charger_paper()
-    if not data:
-        return "Portefeuille illisible."
-    
-    trades = data.get("trades_fermes", [])
-    if not trades:
-        return "Pas encore assez de trades pour calculer le win rate."
-    
-    gagnants = [t for t in trades if t.get("gain_eur", t.get("pnl", 0)) > 0]
-    perdants = [t for t in trades if t.get("gain_eur", t.get("pnl", 0)) <= 0]
-    wr = (len(gagnants) / len(trades) * 100) if trades else 0
-    
-    gain_moyen = sum(t.get("gain_eur", t.get("pnl", 0)) for t in gagnants) / max(1, len(gagnants))
-    perte_moyenne = sum(t.get("gain_eur", t.get("pnl", 0)) for t in perdants) / max(1, len(perdants))
-    pnl_total = sum(t.get("gain_eur", t.get("pnl", 0)) for t in trades)
-    
-    # Raerais de fermeture
-    raisons = {}
-    for t in trades:
-        r = t.get("raison", "autre")
-        raisons[r] = raisons.get(r, 0) + 1
-    top_raisons = sorted(raisons.items(), key=lambda x: -x[1])[:5]
-    
-    lignes = [
-        f"Performance — {len(trades)} trades",
-        f"",
-        f"Win rate: {wr:.0f}%",
-        f"Gagnants: {len(gagnants)} (gain moyen: {gain_moyen:+.2f} EUR)",
-        f"Perdants: {len(perdants)} (perte moyenne: {perte_moyenne:+.2f} EUR)",
-        f"P&L total: {pnl_total:+.2f} EUR",
-        f"",
-        f"Motifs de fermeture:",
+Marché:
+  'Que pense-tu du marché crypto ?'
+  'Prix du BTC ?'
+  'Quelles news crypto importantes ?'
+
+Général:
+  Pose-moi n'importe quelle question
+  Je peux réfléchir, analyser, conseiller
+  Je suis ton IA personnelle
+
+Commandes rapides: status, positions, trades, aide"""
+
+# ============================================
+# ROUTAGE INTELLIGENT
+# ============================================
+
+def _est_commande_rapide(message):
+    """Détecte si c'est une commande rapide (sans Gemini)."""
+    msg = message.lower().strip()
+    # Status
+    if msg in ["status", "st", "s", "portefeuille", "bilan", "portfolio"]:
+        return "status"
+    if msg in ["positions", "pos", "p"]:
+        return "positions"
+    if msg in ["trades", "t", "trade", "historique"]:
+        return "trades"
+    if msg in ["aide", "help", "h", "?", "que peux-tu faire"]:
+        return "aide"
+    # Phrases naturelles rapides
+    if msg in ["comment va mon portefeuille", "comment ca va", "comment ça va", "ça va", "ca va"]:
+        return "status"
+    if msg in ["quelles positions", "positions ouvertes", "qu'est-ce que j'ai"]:
+        return "positions"
+    if msg in ["derniers trades", "trades récents", "montre moi les trades"]:
+        return "trades"
+    return None
+
+def _detecte_recherche_web(message):
+    """Détecte si le message nécessite une recherche web."""
+    msg = message.lower()
+    # Prix en temps réel, news, marché actuel
+    indicateurs = [
+        "prix du", "prix de", "cours du", "cours de", "combien vaut",
+        "news", "actualité", "actualite", "quelles nouvelles",
+        "que se passe-t-il", "quoi de neuf",
+        "marché aujourd", "marche aujourd", "marché maintenant",
+        "fear and greed", "sentiment marché",
+        "btc aujourd", "eth aujourd", "sol aujourd",
+        "dernière news", "derniere news",
     ]
-    for r, n in top_raisons:
-        lignes.append(f"  {r}: {n}x")
-    
-    return "\n".join(lignes)
-
-
-def _reponse_capital():
-    """Répond avec le capital et les liquidités."""
-    data = _charger_paper()
-    if not data:
-        return "Portefeuille illisible."
-    
-    capital = data.get("capital_initial", 1000)
-    liquidites = data.get("liquidites", 0)
-    positions = data.get("positions", [])
-    valeur_pos = sum(p.get("montant_eur", 0) for p in positions)
-    total = liquidites + valeur_pos
-    
-    pct_investi = (valeur_pos / total * 100) if total else 0
-    pct_liquide = (liquidites / total * 100) if total else 0
-    
-    lignes = [
-        f"Capital: {total:.2f} EUR",
-        f"",
-        f"Liquidités: {liquidites:.2f} EUR ({pct_liquide:.0f}%)",
-        f"Investi: {valeur_pos:.2f} EUR ({pct_investi:.0f}%)",
-        f"Plancher liquidité: 200 EUR",
-    ]
-    
-    if liquidites < 200:
-        lignes.append("⚠️ Liquidités sous le plancher de 200 EUR!")
-    
-    return "\n".join(lignes)
-
-
-def _reponse_restart():
-    """Redémarre le service."""
-    out, code = _run("sudo systemctl restart paper_trading.service")
-    time.sleep(3)
-    out2, _ = _run("systemctl is-active paper_trading.service")
-    if out2 == "active":
-        return "✅ Bot redémarré avec succès. Le service est actif."
-    else:
-        return "❌ Échec du redémarrage. Vérifie avec: python3 scanner_bot.py"
-
-
-def _reponse_scanner():
-    """Lance le scanner."""
-    out, code = _run(f"cd {DOSSIER} && python3 scanner_bot.py")
-    # Prend les 40 dernières lignes
-    lignes = out.split("\n")
-    return "\n".join(lignes[-40:])
-
-
-def _reponse_analyse(message):
-    """Analyse un actif spécifique."""
-    msg = message.upper()
-    symboles = {
-        "BTC": "BTCUSDT", "BITCOIN": "BTCUSDT",
-        "ETH": "ETHUSDT", "ETHEREUM": "ETHUSDT",
-        "SOL": "SOLUSDT", "SOLANA": "SOLUSDT",
-        "BNB": "BNBUSDT", "XRP": "XRPUSDT",
-        "DOGE": "DOGEUSDT", "AVAX": "AVAXUSDT",
-        "LINK": "LINKUSDT", "NEAR": "NEARUSDT",
-        "FET": "FETUSDT", "ARB": "ARBUSDT",
-    }
-    
-    sym = None
-    for key, val in symboles.items():
-        if key in msg:
-            sym = val
-            break
-    
-    if not sym:
-        return "Quel actif veux-tu que j'analyse ? (BTC, ETH, SOL, BNB, XRP, DOGE, AVAX, LINK, NEAR, FET, ARB)"
-    
-    # Récupère le prix
-    out, _ = _run(f"cd {DOSSIER} && python3 -c \"from prix_revolut import get_prix; print(get_prix('{sym}'))\"")
-    
-    return f"Analyse {sym}:\nPrix actuel: {out}\n\nPour une analyse complète, regarde le dashboard: http://51.38.227.237:8765/positions?token=LlVcM309UvV0aZMsUGl4FA"
-
-
-def _reponse_aide():
-    """Affiche l'aide."""
-    lignes = [
-        "🤖 Agent IA — Commandes en langage naturel",
-        "",
-        "Tu peux me demander:",
-        "  'Comment va mon portefeuille ?'",
-        "  'Quelles positions sont ouvertes ?'",
-        "  'Montre-moi les trades récents'",
-        "  'Quel est le win rate ?'",
-        "  'Y a-t-il des erreurs ?'",
-        "  'Combien de liquidités ?'",
-        "  'Redémarre le bot'",
-        "  'Lance un scan'",
-        "  'Analyse BTC'",
-        "",
-        "Je comprends le langage naturel, pas besoin de commandes exactes.",
-    ]
-    return "\n".join(lignes)
-
+    return any(ind in msg for ind in indicateurs)
 
 def _traiter_message(message):
     """Traite un message et retourne la réponse."""
-    intention = _comprendre(message)
-    
-    responses = {
-        "status": _reponse_status,
-        "positions": _reponse_positions,
-        "trades": _reponse_trades,
-        "erreurs": _reponse_erreurs,
-        "winrate": _reponse_winrate,
-        "capital": _reponse_capital,
-        "restart": _reponse_restart,
-        "scanner": _reponse_scanner,
-        "analyse": lambda: _reponse_analyse(message),
-        "aide": _reponse_aide,
-    }
-    
-    if intention in responses:
-        try:
-            return responses[intention]()
-        except Exception as e:
-            return f"Erreur lors du traitement: {e}"
-    elif intention == "inconnu":
-        # Essaie avec Gemini si disponible
-        return _reponse_gemini_fallback(message)
-    
-    return "Je n'ai pas compris. Tape 'aide' pour voir ce que je peux faire."
+    # 1. Chemins rapides (sans Gemini)
+    rapide = _est_commande_rapide(message)
+    if rapide == "status":
+        return _rapide_status()
+    elif rapide == "positions":
+        return _rapide_positions()
+    elif rapide == "trades":
+        return _rapide_trades()
+    elif rapide == "aide":
+        return _rapide_aide()
 
+    # 2. Détection de recherche web nécessaire
+    contexte_extra = ""
+    if _detecte_recherche_web(message):
+        resultat_web = _recherche_web(message)
+        if resultat_web:
+            contexte_extra = f"\n=== RECHERCHE WEB (temps réel) ===\n{resultat_web}\n"
 
-def _reponse_gemini_fallback(message):
-    """Si l'intention est inconnue, utilise Gemini pour répondre."""
-    # Vérifie d'abord si c'est une question non-trading
-    msg_lower = message.lower()
-    sujets_non_trading = ["météo", "meteo", "temps à", "restaurant", "film", "musique", "blague", "recette", "voyage", "sport", "news", "actualité"]
-    if any(s in msg_lower for s in sujets_non_trading):
-        return "Je gère uniquement le trading crypto et ton bot. Pose-moi une question sur ton portefeuille, tes positions, ou le marché. Tape 'aide' pour voir ce que je peux faire."
-    
-    try:
-        import requests
-        key = os.getenv("GEMINI_API_KEY", "")
-        if not key:
-            # Recharge depuis .env
-            env_path = os.path.join(DOSSIER, ".env")
-            if os.path.exists(env_path):
-                with open(env_path) as f:
-                    for line in f:
-                        line = line.strip()
-                        if line.startswith("GEMINI_API_KEY="):
-                            key = line.split("=", 1)[1].strip()
-                            break
-        
-        if not key:
-            return "Je n'ai pas compris ta demande. Tape 'aide' pour voir ce que je peux faire."
-        
-        # Contexte du portefeuille
-        data = _charger_paper()
-        contexte = ""
-        if data:
-            positions = data.get("positions", [])
-            trades = data.get("trades_fermes", [])
-            liquidites = data.get("liquidites", 0)
-            contexte = f"Contexte: {len(positions)} positions ouvertes, {len(trades)} trades fermés, {liquidites:.0f} EUR liquidités."
-        
-        prompt = f"""Tu es un assistant de trading crypto. Réponds brièvement en français.
-{contexte}
-Question de l'utilisateur: {message}
+    # 3. Gemini pour tout le reste (conversation naturelle)
+    contexte = _construire_contexte()
+    if contexte_extra:
+        contexte += contexte_extra
 
-Si la question ne concerne pas le trading ou le bot, réponds que tu ne gères que le trading.
-Réponds en 2-3 phrases maximum."""
-        
-        # Essaie plusieurs modèles Gemini
-        modeles = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest"]
-        for modele in modeles:
-            try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={key}"
-                r = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=30)
-                if r.status_code == 200:
-                    return r.json()["candidates"][0]["content"]["parts"][0]["text"][:500]
-                elif r.status_code == 401:
-                    continue  # Essaie le modèle suivant
-                elif r.status_code == 404:
-                    continue  # Modèle non trouvé
-                else:
-                    continue
-            except Exception:
-                continue
-    except Exception:
-        pass
-    
-    return "Je n'ai pas compris ta demande. Tape 'aide' pour voir ce que je peux faire."
+    reponse = _gemini(message, contexte)
 
+    # 4. Sauvegarde dans l'historique
+    _historique.append({"user": message, "bot": reponse[:200]})
+
+    return reponse
 
 # ============================================
 # BOUCLE DE POLLING TELEGRAM
@@ -510,69 +471,74 @@ Réponds en 2-3 phrases maximum."""
 def boucle():
     """Boucle principale: poll Telegram et répond aux messages."""
     global _last_update_id
-    
+
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:
         print("[CHAT] Erreur: TELEGRAM_BOT_TOKEN ou TELEGRAM_CHAT_ID manquant dans .env")
         return
-    
-    print(f"[CHAT] Démarré — écoute des messages Telegram")
-    _telegram_send("🤖 Conversation naturelle activée. Tu peux me poser des questions en langage naturel. Tape 'aide' pour voir ce que je peux faire.")
-    
+
+    print(f"[CHAT] Démarré — IA conversationnelle avancée")
+    _telegram_send("🧠 Agent IA v2.0 — IA conversationnelle activée.\n\nJe peux maintenant répondre à TOUT: trading, marché, analyses, ou n'importe quelle question. Je suis ton IA personnelle.\n\nTape 'aide' pour voir ce que je peux faire.")
+
     while True:
         try:
-            import requests
             # Poll Telegram (long polling 30s)
             params = {"timeout": 30}
             if _last_update_id:
                 params["offset"] = _last_update_id + 1
-            
+
             r = requests.get(f"{API_URL}/getUpdates", params=params, timeout=35)
-            
+
             if r.status_code != 200:
                 time.sleep(5)
                 continue
-            
+
             updates = r.json().get("result", [])
-            
+
             for update in updates:
                 _last_update_id = update.get("update_id", _last_update_id)
-                
+
                 if "message" not in update:
                     continue
-                
+
                 msg = update["message"]
                 chat_id = str(msg.get("chat", {}).get("id", ""))
                 texte = msg.get("text", "").strip()
-                
+
                 # Ignore les messages d'autres chats
                 if chat_id != TELEGRAM_CHAT:
                     continue
-                
+
                 if not texte:
                     continue
-                
-                # Anti-spam: max 1 message / 3s
+
+                # Anti-spam: max 1 message / 2s
                 now = time.time()
-                if chat_id in _cooldown and now - _cooldown[chat_id] < 3:
+                if chat_id in _cooldown and now - _cooldown[chat_id] < 2:
                     continue
                 _cooldown[chat_id] = now
-                
-                print(f"[CHAT] Message reçu: {texte[:60]}")
-                
+
+                print(f"[CHAT] Message: {texte[:80]}")
+
+                # Indique que l'IA réfléchit
+                if not _est_commande_rapide(texte):
+                    _telegram_send("🤔 je réfléchis...")
+
                 # Traite et répond
-                reponse = _traiter_message(texte)
-                
+                try:
+                    reponse = _traiter_message(texte)
+                except Exception as e:
+                    reponse = f"Erreur: {e}. Tape 'status' pour le portefeuille."
+
                 # Telegram limite à 4096 caractères
                 if len(reponse) > 4000:
                     reponse = reponse[:4000] + "\n... (tronqué)"
-                
+
                 _telegram_send(reponse)
                 print(f"[CHAT] Réponse envoyée ({len(reponse)} chars)")
-        
+
         except Exception as e:
             print(f"[CHAT] Erreur: {e}")
             time.sleep(10)
-
 
 if __name__ == "__main__":
     boucle()
