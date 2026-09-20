@@ -238,10 +238,40 @@ def _recherche_web(query):
 # GEMINI — CERVEAU PRINCIPAL
 # ============================================
 
+def _perplexity_chat(message, contexte=None):
+    """Fallback: utilise l'API Perplexity quand Gemini est rate-limitite."""
+    if not PPLX_KEY:
+        return None
+    try:
+        ctx = contexte or _construire_contexte()
+        hist_texte = ""
+        if _historique:
+            hist_texte = "\nHistorique:\n"
+            for h in list(_historique)[-10:]:
+                hist_texte += f"User: {h['user']}\nAgent IA: {h['bot']}\n"
+        url = "https://api.perplexity.ai/chat/completions"
+        headers = {"Authorization": f"Bearer {PPLX_KEY}", "Content-Type": "application/json"}
+        system_msg = ctx + hist_texte + "\nInstructions: Reponds en francais de maniere naturelle et conversationnelle, comme un ami. Sois curieuse, chaleureuse, avec de l'humour. Tu peux parler de TOUT. Sois concise (3-8 phrases). N'utilise pas de markdown."
+        payload = {
+            "model": "sonar",
+            "messages": [
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": message}
+            ],
+            "max_tokens": 800,
+            "temperature": 0.8
+        }
+        r = requests.post(url, headers=headers, json=payload, timeout=30)
+        if r.status_code == 200:
+            return r.json()["choices"][0]["message"]["content"].strip()
+        return None
+    except Exception:
+        return None
+
 def _gemini(message, contexte=None):
-    """Envoie un message à Gemini avec contexte et historique."""
-    if not GEMINI_KEY:
-        return "Je n'ai pas de clé API configurée pour le raisonnement. Tape 'status' pour voir le portefeuille."
+    """Envoie un message a Gemini, fallback Perplexity si rate-limitite."""
+    if not GEMINI_KEY and not PPLX_KEY:
+        return "Je n'ai pas de cle API configuree. Tape 'status' pour voir le portefeuille."
 
     # Construit le contexte
     ctx = contexte or _construire_contexte()
@@ -270,7 +300,7 @@ Instructions:
 - Pose des questions en retour si pertinent, sois proactive
 - Si on te demande ton avis ou tes émotions, sois honnête et authentique"""
 
-    # Essaie plusieurs modèles Gemini
+    # Essaie plusieurs modeles Gemini
     modeles = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest"]
     for modele in modeles:
         try:
@@ -286,12 +316,16 @@ Instructions:
             elif r.status_code == 404:
                 continue
             elif r.status_code == 429:
-                time.sleep(2)
-                continue
+                continue  # essaie le modele suivant
             else:
                 continue
         except Exception:
             continue
+
+    # Fallback: API Perplexity si Gemini rate-limitite ou indisponible
+    resultat_ppl = _perplexity_chat(message, contexte)
+    if resultat_ppl:
+        return resultat_ppl
 
     return "Désolé, je n'arrive pas à réfléchir pour le moment (API indisponible). Tape 'status' pour voir le portefeuille directement."
 
