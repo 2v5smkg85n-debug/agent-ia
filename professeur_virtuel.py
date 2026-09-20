@@ -87,26 +87,36 @@ def _momentum_1h_porteur(bougies_1h):
 
 
 def _pertes_consecutives_prof():
-    """Vérifie les derniers trades du professeur pour une série de pertes.
+    """Vérifie les derniers trades pour une série de pertes.
 
     Returns: (nb_pertes_consecutives, penalty)
-    - 3 pertes consécutives → penalty -2 (mode prudent)
-    - 5+ pertes consécutives → penalty -4 (mode défensif)
+    - 3 pertes consécutives → penalty -1 (mode prudent leger)
+    - 5+ pertes consécutives → penalty -2 (mode defensif)
+
+    IMPORTANT: regarde seulement les 10 derniers trades, pas tout l'historique.
+    Comme ca, apres quelques trades gagnants, le mode prudent se desactive.
     """
     try:
-        stats = _charger_stats_prof()
-        # On regarde le PnL des derniers trades par crypto (approximation)
-        # Si le PnL total récent est très négatif, on pénalise
-        total_pnl = sum(c.get('pnl', 0) for c in stats.get('par_crypto', {}).values())
-        total_n = sum(c.get('n', 0) for c in stats.get('par_crypto', {}).values())
-        if total_n < 10:
+        paper_path = os.path.join(DOSSIER, "paper_trading.json")
+        if not os.path.exists(paper_path):
             return 0, 0
-        # PnL par trade récent (approximation grossière)
-        pnl_par_trade = total_pnl / total_n if total_n else 0
-        if pnl_par_trade < -0.5:
-            return 5, -4  # mode défensif
-        elif pnl_par_trade < -0.2:
-            return 3, -2  # mode prudent
+        with open(paper_path) as f:
+            paper = json.load(f)
+        trades = paper.get("trades_fermes", [])
+        if len(trades) < 5:
+            return 0, 0
+        recents = trades[-10:]
+        nb_pertes = 0
+        for t in reversed(recents):
+            gain = t.get("gain_eur", 0)
+            if gain <= 0:
+                nb_pertes += 1
+            else:
+                break
+        if nb_pertes >= 5:
+            return nb_pertes, -2
+        elif nb_pertes >= 3:
+            return nb_pertes, -1
         return 0, 0
     except Exception:
         return 0, 0

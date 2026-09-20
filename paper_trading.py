@@ -85,7 +85,7 @@ DUREE_BONUS_STRATEGIE = 60    # stratégie prouvée (live_n>=3, wr>=60%, pnl>0):
 BREAKEVEN_SEUIL = 2.0      # +2.0% -> SL monte au breakeven (laisse respirer)
 TRAIL_ACTIF = 4.0          # +4.0% -> trailing stop (apres un vrai move)
 TRAIL_PCT = 1.0            # trail 1.0% sous le pic (serre vite les gains)
-PARTIAL_TP_SEUIL = 0.4     # +0.4% -> encaisse 50% (securise au-dessus des frais de 0.28 EUR)
+PARTIAL_TP_SEUIL = 999     # DESACTIVE — coupait les gains a +0.4% trop tot
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 # FERMETURE INTELLIGENTE: ferme les positions perdantes qui stagnent
 STAGNATION_PERTE_SEUIL = -1.0   # si position a -1.0% ou pire (assoupli, avant -0.7%)
@@ -108,7 +108,7 @@ if os.getenv('SCALPING', '0') == '1':
     BREAKEVEN_SEUIL = 3.0      # +3.0% -> SL monte au breakeven (laisse les gagnants courir)
     TRAIL_ACTIF = 3.5          # +3.5% -> trailing (plus tard = plus de gains)
     TRAIL_PCT = 0.7            # trail 0.7% sous le pic (plus de marge)
-    PARTIAL_TP_SEUIL = 0.4     # +0.4% -> aligne avec le mode normal
+    PARTIAL_TP_SEUIL = 999     # DESACTIVE — coupait les gains trop tot
     SCALPING_TIMEFRAME = '1h'  # 1h au lieu de 15m — matche les backtests
 else:
     SCALPING_TIMEFRAME = '1h'
