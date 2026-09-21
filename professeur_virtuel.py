@@ -50,23 +50,37 @@ PROF_SCORE_MIN = 3
 # ====================================================================
 
 def _garde_btc(prix_actuels, marches_paper):
-    """Garde BTC: si BTC baisse fortement en 1h, tout le marché suit.
+    """Garde BTC: si BTC baisse fortement, tout le marché suit.
 
-    Vérifie la variation de BTC sur la dernière heure en comparant
-    le prix actuel avec la bougie 1h précédente.
+    Vérifie:
+    1. Variation BTC sur 1h (seuil -0.5%)
+    2. Momentum BTC sur 5 min (seuil -0.3%) — corrige les chutes soudaines
+    3. Dernière bougie 1h BTC baissière
 
-    Returns: (ok, raison) — ok=False si BTC en chute libre
+    Returns: (ok, raison) — ok=False si BTC en chute
     """
     try:
         from indicateurs import historique_ohlcv
+        # Check 1: variation 1h
         bougies_btc = historique_ohlcv('BTCUSDT', '1hour', 5)
-        if not bougies_btc or len(bougies_btc) < 2:
-            return True, ""  # si indispo, laisse passer
-        derniere = bougies_btc[-1]
-        precedente = bougies_btc[-2]
-        var_1h = ((derniere['cloture'] - precedente['cloture']) / precedente['cloture']) * 100
-        if var_1h < -0.5:
-            return False, f"BTC en chute (-{abs(var_1h):.2f}% en 1h) — marché risk-off"
+        if bougies_btc and len(bougies_btc) >= 2:
+            derniere = bougies_btc[-1]
+            precedente = bougies_btc[-2]
+            var_1h = ((derniere['cloture'] - precedente['cloture']) / precedente['cloture']) * 100
+            if var_1h < -0.5:
+                return False, f"BTC en chute (-{abs(var_1h):.2f}% en 1h) — marché risk-off"
+            # Check 3: dernière bougie 1h baissière de plus de 0.3%
+            var_bougie = ((derniere['cloture'] - derniere['ouverture']) / derniere['ouverture']) * 100
+            if var_bougie < -0.3:
+                return False, f"BTC bougie 1h baissière ({var_bougie:.2f}%) — momentum négatif"
+        # Check 2: momentum 5 min (chute soudaine)
+        bougies_5m = historique_ohlcv('BTCUSDT', '5min', 12)
+        if bougies_5m and len(bougies_5m) >= 12:
+            prix_5m_ago = bougies_5m[-12]['cloture']
+            prix_now = bougies_5m[-1]['cloture']
+            var_5m = ((prix_now - prix_5m_ago) / prix_5m_ago) * 100
+            if var_5m < -0.3:
+                return False, f"BTC en chute soudaine (-{abs(var_5m):.2f}% en 5 min) — risk-off immédiat"
         return True, ""
     except Exception:
         return True, ""

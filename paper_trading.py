@@ -45,6 +45,7 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 CAPITAL_INITIAL = 1000.0
 FRAIS_TRANSACTION = 0.001       # 0.1% par cote (aller = 0.1%, retour = 0.1% => 0.2% aller-retour)
 MAX_POSITIONS = 5              # 5 positions max (200 EUR x 5 = 1000 EUR)
+MAX_NOUVELLES_PAR_CYCLE = 2    # max 2 nouvelles positions par cycle (stagger anti-crash)
 LIQUIDITE_MIN = 200.0          # garde au moins 200 EUR de liquidites (user request)
 FENETRE_CORRELATION_MIN = 10    # anti-double-exposition: 10min entre entrees meme actif (multi-entrees)
 MAX_POS_PAR_ACTIF = 3          # 3 positions max par actif (multi-entrees si hausse)
@@ -633,6 +634,27 @@ def ouvrir_position(pf, signal, prix_actuel):
     if not prix_actuel or prix_actuel <= 0:
         print(f"  [BLOCAGE] Prix invalide ({prix_actuel}) pour {signal.get('symbole','?')} - trade bloque")
         return False
+    # FILTRE VOLATILITE: si ATR trop élevé, ne pas entrer (anti-crash)
+    try:
+        from indicateurs import historique_ohlcv
+        _bougies_vol = historique_ohlcv(signal.get('symbole',''), '1hour', 20)
+        if _bougies_vol and len(_bougies_vol) >= 15:
+            _trs = []
+            for i in range(1, len(_bougies_vol)):
+                _h = _bougies_vol[i]['haut']
+                _l = _bougies_vol[i]['bas']
+                _c_prev = _bougies_vol[i-1]['cloture']
+                _tr = max(_h - _l, abs(_h - _c_prev), abs(_l - _c_prev))
+                _trs.append(_tr)
+            if _trs:
+                _atr = sum(_trs) / len(_trs)
+                _atr_pct = (_atr / prix_actuel) * 100
+                # Si ATR > 3%, la volatilité est trop élevée — risque de SL immédiat
+                if _atr_pct > 3.0:
+                    print(f"  [VOLATILITE] {signal.get('nom', signal.get('symbole','?'))}: ATR {_atr_pct:.1f}% > 3% — trop volatile, skip")
+                    return False
+    except Exception:
+        pass
     # ANTI FLASH-CRASH: bloquer les nouveaux trades si circuit breaker actif
     try:
         import flash_crash as fc
@@ -1911,6 +1933,7 @@ def tick():
     if len(pf["positions"]) < MAX_POSITIONS:
         from collections import Counter
         nb_par_actif = Counter(pos["symbole"] for pos in pf["positions"])
+        nb_positions_avant = len(pf["positions"])  # pour le stagger
         # === PROFESSEUR VIRTUEL: strategies des meilleurs traders du monde ===
         print("\nProfesseur Virtuel (Joe007, Cyclop, Downshift Rider)...")
         signaux_prof = []
@@ -2153,6 +2176,11 @@ def tick():
             for signal in tous_signaux:
                 if len(pf["positions"]) >= MAX_POSITIONS:
                     break  # plus de slots disponibles
+                # STAGGER: max 2 nouvelles positions par cycle (anti-crash)
+                nb_ouvertes_ce_cycle = len(pf["positions"]) - nb_positions_avant
+                if nb_ouvertes_ce_cycle >= MAX_NOUVELLES_PAR_CYCLE:
+                    print(f"  [STAGGER] {MAX_NOUVELLES_PAR_CYCLE} nouvelles positions ce cycle — attente prochain cycle")
+                    break
                 if nb_par_actif[signal["symbole"]] < MAX_POS_PAR_ACTIF:
                     if ouvrir_position(pf, signal, prix[signal["symbole"]]):
                         nb_par_actif[signal["symbole"]] += 1
