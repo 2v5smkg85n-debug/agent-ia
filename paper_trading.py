@@ -48,7 +48,7 @@ MAX_POSITIONS = 5              # 5 positions max (200 EUR x 5 = 1000 EUR)
 MAX_NOUVELLES_PAR_CYCLE = 1    # max 1 nouvelle position par cycle (stagger strict anti-crash)
 LIQUIDITE_MIN = 200.0          # garde au moins 200 EUR de liquidites (user request)
 FENETRE_CORRELATION_MIN = 10    # anti-double-exposition: 10min entre entrees meme actif (multi-entrees)
-MAX_POS_PAR_ACTIF = 3          # 3 positions max par actif (multi-entrees si hausse)
+MAX_POS_PAR_ACTIF = 1          # 1 position max par actif (FINI multi-entrees = moins de risque)
 RISK_PAR_TRADE = 0.30         # 30% fixe (~300 EUR par position) -> moins de trades, plus de gain net
 RISK_MAX_TRADE = 0.50         # 50% max pour haute conviction (~500 EUR)
 RISK_HAUTE_CONVICTION = 0.50  # 50% (500 EUR) pour score >= 8 + TradingView STRONG_BUY
@@ -634,6 +634,37 @@ def ouvrir_position(pf, signal, prix_actuel):
     if not prix_actuel or prix_actuel <= 0:
         print(f"  [BLOCAGE] Prix invalide ({prix_actuel}) pour {signal.get('symbole','?')} - trade bloque")
         return False
+    # COOLDOWN APRES SL/TP: ne pas rouvrir une crypto qui vient d'etre fermee
+    try:
+        _sym = signal.get('symbole','')
+        _trades = pf.get('trades_fermes', [])
+        _maint = datetime.now()
+        for _t in reversed(_trades[-10:]):
+            if _t.get('symbole') != _sym:
+                continue
+            _date_str = _t.get('date_fermeture', '') or _t.get('date', '')
+            if not _date_str:
+                continue
+            for _fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M'):
+                try:
+                    _dt = datetime.strptime(_date_str[:19] if len(_date_str) >= 19 else _date_str, _fmt)
+                    break
+                except ValueError:
+                    _dt = None
+            if _dt is None:
+                continue
+            _min_ecoule = (_maint - _dt).total_seconds() / 60
+            _gain = _t.get('gain_eur', 0)
+            _raison = _t.get('raison', '')
+            if _gain < 0 and 'SL' in _raison and _min_ecoule < 30:
+                print(f"  [COOLDOWN-SL] {signal.get('nom',_sym)}: SL il y a {_min_ecoule:.0f}min — cooldown 30min")
+                return False
+            if _gain > 0 and _min_ecoule < 15:
+                print(f"  [COOLDOWN-TP] {signal.get('nom',_sym)}: gain il y a {_min_ecoule:.0f}min — cooldown 15min")
+                return False
+            break
+    except Exception:
+        pass
     # FILTRE VOLATILITE: si ATR trop élevé, ne pas entrer (anti-crash)
     try:
         from indicateurs import historique_ohlcv
@@ -650,8 +681,8 @@ def ouvrir_position(pf, signal, prix_actuel):
                 _atr = sum(_trs) / len(_trs)
                 _atr_pct = (_atr / prix_actuel) * 100
                 # Si ATR > 3%, la volatilité est trop élevée — risque de SL immédiat
-                if _atr_pct > 3.0:
-                    print(f"  [VOLATILITE] {signal.get('nom', signal.get('symbole','?'))}: ATR {_atr_pct:.1f}% > 3% — trop volatile, skip")
+                if _atr_pct > 2.5:
+                    print(f"  [VOLATILITE] {signal.get('nom', signal.get('symbole','?'))}: ATR {_atr_pct:.1f}% > 2.5% — trop volatile, skip")
                     return False
     except Exception:
         pass
@@ -1107,8 +1138,8 @@ def ouvrir_position(pf, signal, prix_actuel):
         pass
     # FILTRE SCORE MINIMUM: ne trade que les signaux avec score >= 4 (assoupli, avant 5)
     _score_min = signal.get("score", 0)
-    if _score_min < 3:
-        print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> score {_score_min} < 3 (trop faible)")
+    if _score_min < 4:
+        print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> score {_score_min} < 4 (trop faible)")
         return False
     # SIZING DYNAMIQUE BASE SUR LE SENTIMENT ET LE SCORE
     # Le bot ajuste la taille de position selon le sentiment du marche:
