@@ -861,10 +861,10 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
             raison = raison_fader
 
         # === FILTRE SL CONSÉCUTIFS ===
-        # Si une crypto a 3 SL consécutifs récents, la bloquer temporairement
+        # Si une crypto a 2 SL consécutifs récents, la bloquer temporairement
         sl_consecutifs = _sl_consecutifs_crypto(symbole)
-        if sl_consecutifs >= 3:
-            print(f"  [PROF] {nom} BLOQUE (3 SL consécutifs — cooldown)")
+        if sl_consecutifs >= 2:
+            print(f"  [PROF] {nom} BLOQUE ({sl_consecutifs} SL consécutifs — cooldown)")
             continue
 
         # === LECTURE BOUGIES PRO (candlestick patterns) ===
