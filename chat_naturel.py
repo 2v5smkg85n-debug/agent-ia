@@ -33,7 +33,7 @@ FICHIER_LOG = os.path.join(DOSSIER, "paper_trading.log")
 FICHIER_PROF_STATS = os.path.join(DOSSIER, "professeur_stats.json")
 FICHIER_MEMOIRE = os.path.join(DOSSIER, "memoire_ia.json")
 
-# GPS de l'utilisateur
+# GPS de l'utilisateur (par defaut Queretaro, mis a jour par partage Telegram)
 USER_LOCATION = "Santiago de Querétaro, Mexico"
 USER_LAT = 20.5888
 USER_LON = -100.3889
@@ -77,7 +77,7 @@ _etat_emotionnel = {"humeur": "curieuse", "energie": 100, "nb_conversations": 0}
 
 def _charger_memoire():
     """Charge la mémoire persistante de l'IA (survit aux redémarrages)."""
-    global _etat_emotionnel, _historique
+    global _etat_emotionnel, _historique, USER_LAT, USER_LON, USER_LOCATION
     if not os.path.exists(FICHIER_MEMOIRE):
         return
     try:
@@ -86,7 +86,13 @@ def _charger_memoire():
         _etat_emotionnel = mem.get("etat_emotionnel", _etat_emotionnel)
         msgs = mem.get("historique", [])
         _historique = deque(msgs[-20:], maxlen=20)
-        print(f"[CHAT] Mémoire chargée: {_etat_emotionnel['nb_conversations']} conversations, humeur: {_etat_emotionnel['humeur']}")
+        # Restore GPS si sauvegarde
+        gps = mem.get("gps", {})
+        if gps:
+            USER_LAT = gps.get("lat", USER_LAT)
+            USER_LON = gps.get("lon", USER_LON)
+            USER_LOCATION = gps.get("location", USER_LOCATION)
+        print(f"[CHAT] Mémoire chargée: {_etat_emotionnel['nb_conversations']} conversations, humeur: {_etat_emotionnel['humeur']}, GPS: {USER_LOCATION}")
     except Exception:
         pass
 
@@ -120,25 +126,134 @@ def _evoluer_emotion(message, reponse):
     _sauver_memoire()
 
 def _meteo_queretaro():
-    """Récupère la météo de Querétaro via Open-Meteo (gratuit, pas de clé)."""
+    """Récupère la météo détaillée via Open-Meteo (gratuit, pas de clé)."""
     try:
-        url = f"https://api.open-meteo.com/v1/forecast?latitude={USER_LAT}&longitude={USER_LON}&current=temperature_2m,weather_code&timezone={USER_TZ}"
+        url = (f"https://api.open-meteo.com/v1/forecast?latitude={USER_LAT}&longitude={USER_LON}"
+               f"&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,apparent_temperature"
+               f"&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_sum"
+               f"&timezone={USER_TZ}&forecast_days=1")
         r = requests.get(url, timeout=10)
         if r.status_code == 200:
-            d = r.json().get("current", {})
-            temp = d.get("temperature_2m", 0)
-            code = d.get("weather_code", 0)
-            # Codes WMO -> description
+            d = r.json()
+            cur = d.get("current", {})
+            daily = d.get("daily", {})
+            temp = cur.get("temperature_2m", 0)
+            ressentie = cur.get("apparent_temperature", temp)
+            humidite = cur.get("relative_humidity_2m", 0)
+            vent = cur.get("wind_speed_10m", 0)
+            code = cur.get("weather_code", 0)
             descriptions = {0: "ciel dégagé", 1: "clair", 2: "partiellement nuageux", 3: "nuageux",
                            45: "brouillard", 51: "bruine légère", 53: "bruine", 55: "bruine dense",
                            61: "pluie légère", 63: "pluie", 65: "pluie forte",
                            71: "neige légère", 73: "neige", 75: "neige forte",
                            80: "averses", 81: "averses fortes", 95: "orage", 96: "orage avec grêle"}
             desc = descriptions.get(code, f"code {code}")
-            return f"{temp}°C, {desc}"
+            t_max = daily.get("temperature_2m_max", [0])[0] if daily else 0
+            t_min = daily.get("temperature_2m_min", [0])[0] if daily else 0
+            uv = daily.get("uv_index_max", [0])[0] if daily else 0
+            precip = daily.get("precipitation_sum", [0])[0] if daily else 0
+            sunrise = daily.get("sunrise", [""])[0] if daily else ""
+            sunset = daily.get("sunset", [""])[0] if daily else ""
+            lignes = [f"{temp}°C (ressenti {ressentie}°C), {desc}"]
+            lignes.append(f"Min {t_min}°C / Max {t_max}°C | Humidité {humidite}% | Vent {vent} km/h")
+            lignes.append(f"UV {uv} | Précipitations {precip}mm")
+            if sunrise and sunset:
+                lignes.append(f"Lever {sunrise[11:16]} | Coucher {sunset[11:16]}")
+            return "\n".join(lignes)
     except Exception:
         pass
     return None
+
+def _geocodage_inverse(lat, lon):
+    """Convertit des coordonnees en adresse (Nominatim/OpenStreetMap, gratuit)."""
+    try:
+        url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=18&addressdetails=1"
+        r = requests.get(url, headers={"User-Agent": "AgentIA/1.0"}, timeout=10)
+        if r.status_code == 200:
+            d = r.json()
+            addr = d.get("display_name", "")
+            return addr if addr else None
+    except Exception:
+        pass
+    return None
+
+def _lieux_a_proximite(lat, lon, rayon=1000, categorie="amenity"):
+    """Trouve les lieux a proximite via Overpass API (OpenStreetMap, gratuit)."""
+    try:
+        query = f"""[out:json][timeout:10];
+        node(around:{rayon},{lat},{lon})[{categorie}];
+        out body 10;"""
+        url = "https://overpass-api.de/api/interpreter"
+        r = requests.post(url, data={"data": query}, timeout=15)
+        if r.status_code == 200:
+            elements = r.json().get("elements", [])
+            lieux = []
+            for e in elements[:10]:
+                tags = e.get("tags", {})
+                nom = tags.get("name", tags.get("amenity", "lieu"))
+                cat = tags.get("amenity", "")
+                if cat in ["restaurant", "cafe", "bar", "fast_food"]:
+                    lieux.append(f"  {nom} ({cat})")
+                elif cat in ["pharmacy", "hospital", "clinic"]:
+                    lieux.append(f"  {nom} ({cat})")
+                elif cat in ["fuel", "parking", "atm", "bank"]:
+                    lieux.append(f"  {nom} ({cat})")
+                elif nom != "lieu":
+                    lieux.append(f"  {nom}")
+            if lieux:
+                return f"Lieux a {rayon}m:\n" + "\n".join(lieux[:10])
+    except Exception:
+        pass
+    return None
+
+def _qualite_air(lat, lon):
+    """Récupère la qualité de l'air via Open-Meteo Air Quality (gratuit)."""
+    try:
+        url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&current=european_aqi,pm10,pm2_5"
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            d = r.json().get("current", {})
+            aqi = d.get("european_aqi", 0)
+            pm10 = d.get("pm10", 0)
+            pm25 = d.get("pm2_5", 0)
+            if aqi <= 20:
+                qualite = "bonne"
+            elif aqi <= 40:
+                qualite = "correcte"
+            elif aqi <= 60:
+                qualite = "modérée"
+            elif aqi <= 80:
+                qualite = "mauvaise"
+            else:
+                qualite = "très mauvaise"
+            return f"AQI {aqi} ({qualite}) | PM2.5 {pm25} | PM10 {pm10}"
+    except Exception:
+        pass
+    return None
+
+def _mettre_a_jour_gps(lat, lon):
+    """Met a jour la position GPS de l'utilisateur."""
+    global USER_LAT, USER_LON, USER_LOCATION
+    USER_LAT = round(lat, 4)
+    USER_LON = round(lon, 4)
+    addr = _geocodage_inverse(lat, lon)
+    if addr:
+        USER_LOCATION = addr
+    else:
+        USER_LOCATION = f"{lat:.4f}, {lon:.4f}"
+    # Sauvegarde dans la memoire
+    try:
+        if os.path.exists(FICHIER_MEMOIRE):
+            with open(FICHIER_MEMOIRE) as f:
+                mem = json.load(f)
+        else:
+            mem = {}
+        mem["gps"] = {"lat": USER_LAT, "lon": USER_LON, "location": USER_LOCATION}
+        with open(FICHIER_MEMOIRE, "w") as f:
+            json.dump(mem, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+    return USER_LOCATION
 
 # ============================================
 # UTILITAIRES
@@ -524,9 +639,32 @@ def _rapide_trades():
         lignes.append(f"  {emoji} {sym}: {gain:+.2f}€ — {raison}")
     return "\n".join(lignes)
 
+def _rapide_meteo():
+    """Météo détaillée de la position actuelle."""
+    meteo = _meteo_queretaro()
+    if meteo:
+        air = _qualite_air(USER_LAT, USER_LON)
+        lignes = [f"📍 {USER_LOCATION}", "", f"🌡️ {meteo}"]
+        if air:
+            lignes.append(f"\n🌬️ Qualité air: {air}")
+        return "\n".join(lignes)
+    return "Météo indisponible pour le moment."
+
+def _rapide_gps():
+    """Position GPS actuelle."""
+    lignes = [f"📍 Position: {USER_LOCATION}", f"Coordonnées: {USER_LAT}, {USER_LON}", f"Fuseau: {USER_TZ}"]
+    return "\n".join(lignes)
+
+def _rapide_air():
+    """Qualité de l'air."""
+    air = _qualite_air(USER_LAT, USER_LON)
+    if air:
+        return f"🌬️ Qualité air à {USER_LOCATION}:\n{air}"
+    return "Qualité air indisponible."
+
 def _rapide_aide():
     """Aide rapide."""
-    return """🤖 Agent IA — Ton assistant IA
+    return """🤖 Agent IA — Ton IA personnelle
 
 Je peux répondre à TOUT, pas seulement le trading:
 
@@ -543,12 +681,19 @@ Marché:
   'Prix du BTC ?'
   'Quelles news crypto importantes ?'
 
+GPS:
+  'meteo' — météo détaillée chez toi
+  'gps' — ta position actuelle
+  'air' — qualité de l'air
+  Partage ta position Telegram pour te localiser
+  'restaurants près d'ici' — lieux à proximité
+
 Général:
   Pose-moi n'importe quelle question
   Je peux réfléchir, analyser, conseiller
   Je suis ton IA personnelle
 
-Commandes rapides: status, positions, trades, aide"""
+Commandes rapides: status, positions, trades, meteo, gps, air, aide"""
 
 # ============================================
 # ROUTAGE INTELLIGENT
@@ -573,6 +718,13 @@ def _est_commande_rapide(message):
         return "positions"
     if msg in ["derniers trades", "trades récents", "montre moi les trades"]:
         return "trades"
+    # GPS rapide
+    if msg in ["meteo", "météo", "temps", "weather", "quel temps"]:
+        return "meteo"
+    if msg in ["gps", "position", "ou suis-je", "où suis-je", "localisation"]:
+        return "gps"
+    if msg in ["air", "qualite air", "qualité air", "pollution"]:
+        return "air"
     return None
 
 def _detecte_recherche_web(message):
@@ -608,6 +760,12 @@ def _traiter_message(message):
         return _rapide_trades()
     elif rapide == "aide":
         return _rapide_aide()
+    elif rapide == "meteo":
+        return _rapide_meteo()
+    elif rapide == "gps":
+        return _rapide_gps()
+    elif rapide == "air":
+        return _rapide_air()
 
     # 2. Détection de recherche web nécessaire
     contexte_extra = ""
@@ -616,7 +774,24 @@ def _traiter_message(message):
         if resultat_web:
             contexte_extra = f"\n=== RECHERCHE WEB (temps réel) ===\n{resultat_web}\n"
 
-    # 3. Gemini pour tout le reste (conversation naturelle)
+    # 3. Detection des lieux a proximite
+    msg_lower = message.lower()
+    if any(w in msg_lower for w in ["restaurant", "cafe", "pharmacie", "pres d'ici", "près d'ici", "a proximite", "à proximité", "autour", "nearby"]):
+        cat = "amenity"
+        if "pharmacie" in msg_lower or "pharmacy" in msg_lower:
+            cat = "amenity=pharmacy"
+        elif "restaurant" in msg_lower or "manger" in msg_lower:
+            cat = "amenity=restaurant"
+        elif "cafe" in msg_lower or "café" in msg_lower:
+            cat = "amenity=cafe"
+        elif "essence" in msg_lower or "gas" in msg_lower or "fuel" in msg_lower:
+            cat = "amenity=fuel"
+        lieux = _lieux_a_proximite(USER_LAT, USER_LON, 1000, cat)
+        if lieux:
+            return f"📍 {USER_LOCATION}\n\n{lieux}"
+        return f"Aucun lieu trouvé près de {USER_LOCATION}."
+
+    # 4. Gemini pour tout le reste (conversation naturelle)
     contexte = _construire_contexte()
     if contexte_extra:
         contexte += contexte_extra
@@ -681,6 +856,23 @@ def boucle():
 
                 # Ignore les messages d'autres chats
                 if chat_id != TELEGRAM_CHAT:
+                    continue
+
+                # GPS: reception d'une position Telegram
+                if "location" in msg:
+                    loc = msg["location"]
+                    lat = loc.get("latitude", 0)
+                    lon = loc.get("longitude", 0)
+                    addr = _mettre_a_jour_gps(lat, lon)
+                    print(f"[CHAT] GPS mis a jour: {addr}")
+                    meteo = _meteo_queretaro()
+                    air = _qualite_air(lat, lon)
+                    resp = f"📍 Position mise à jour !\n{addr}\n\n"
+                    if meteo:
+                        resp += f"🌡️ {meteo}\n"
+                    if air:
+                        resp += f"🌬️ {air}"
+                    _telegram_send(resp)
                     continue
 
                 if not texte:
