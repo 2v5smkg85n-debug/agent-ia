@@ -144,6 +144,80 @@ def _sl_consecutifs_crypto(symbole):
     except Exception:
         return 0
 
+def _lire_bougies_pro(symbole, bougies_1h, bougies_4h):
+    """Le professeur lit les bougies japonaises comme un pro.
+
+    Détecte les patterns de bougies sur 1h et 4h et retourne:
+    - score -99 = BLOQUER (pattern baissier fort détecté)
+    - score négatif = pénalité (pattern baissier)
+    - score 0 = neutre (pas de pattern)
+    - score positif = bonus (pattern haussier)
+
+    Returns: (score, raison)
+    """
+    try:
+        from candlestick_learning import detecter_motif
+    except ImportError:
+        return 0, ""
+    except Exception:
+        return 0, ""
+
+    patterns_detectes = []
+    score_total = 0
+    raisons = []
+
+    # Analyse sur 1h (priorité — plus réactif)
+    if bougies_1h and len(bougies_1h) >= 4:
+        motifs_1h = detecter_motif(bougies_1h)
+        for m in motifs_1h:
+            patterns_detectes.append((m, "1h"))
+
+    # Analyse sur 4h (confirmation — plus fiable)
+    if bougies_4h and len(bougies_4h) >= 4:
+        motifs_4h = detecter_motif(bougies_4h)
+        for m in motifs_4h:
+            patterns_detectes.append((m, "4h"))
+
+    if not patterns_detectes:
+        return 0, ""
+
+    # Évalue chaque pattern
+    bearish_forts = []  # patterns baissiers qui bloquent
+    for m, tf in patterns_detectes:
+        pattern = m.get("pattern", "")
+        direction = m.get("direction", "")
+        force = m.get("force", 0)
+
+        if direction == "bullish":
+            # Bonus haussier: +1 à +2 selon la force et le timeframe
+            bonus = int(force * 2)  # force 0.5→+1, force 0.8→+1, force 0.9→+1
+            if tf == "4h":
+                bonus += 1  # bonus supplémentaire pour 4h (plus fiable)
+            score_total += bonus
+            raisons.append(f"{pattern} {tf} haussier (+{bonus})")
+
+        elif direction == "bearish":
+            # Pénalité baissière
+            penalite = -int(force * 2)
+            if tf == "4h":
+                penalite -= 1  # plus grave sur 4h
+            score_total += penalite
+            raisons.append(f"{pattern} {tf} baissier ({penalite})")
+            # Patterns baissiers forts qui bloquent l'entrée
+            if pattern in ["BEARISH_ENGULFING", "EVENING_STAR", "THREE_BLACK_CROWS", "DARK_CLOUD_COVER"]:
+                bearish_forts.append(f"{pattern} {tf}")
+            # Shooting star sur 4h = blocage aussi
+            if pattern == "SHOOTING_STAR" and tf == "4h":
+                bearish_forts.append(f"{pattern} {tf}")
+
+    # Si un pattern baissier fort est détecté, bloque l'entrée
+    if bearish_forts:
+        return -99, f"Pattern(s) baissier(s) fort: {', '.join(bearish_forts)}"
+
+    if score_total != 0:
+        return score_total, " | ".join(raisons)
+    return 0, ""
+
 
 def _pertes_consecutives_prof():
     """Vérifie les derniers trades pour une série de pertes.
@@ -793,6 +867,15 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
             print(f"  [PROF] {nom} BLOQUE (3 SL consécutifs — cooldown)")
             continue
 
+        # === LECTURE BOUGIES PRO (candlestick patterns) ===
+        # Le professeur lit les bougies comme un pro avant d'entrer
+        score_bougies, raison_bougies = _lire_bougies_pro(symbole, bougies_1h, bougies_4h)
+        if score_bougies == -99:
+            print(f"  [PROF] {nom} BLOQUE par bougies pro: {raison_bougies}")
+            continue
+        if score_bougies != 0:
+            print(f"  [PROF] Bougies pro sur {nom}: {raison_bougies} (score {score_bougies:+d})")
+
         # === CATALYSEUR CYCLOP ===
         score_catalyseur, raison_catalyseur = 0, ""
         if bougies_1h:
@@ -809,8 +892,8 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
         if boost_prof != 0:
             print(f"  [PROF] Apprentissage: {raison_prof}")
 
-        # Score final du professeur
-        score_final = best_score + score_catalyseur + mod_score_joe + boost_prof + penalty_pertes
+        # Score final du professeur (inclut le score bougies pro)
+        score_final = best_score + score_catalyseur + mod_score_joe + boost_prof + penalty_pertes + score_bougies
 
         # Blocage dur: crypto perdante (boost -10 = blocage total)
         if score_final < 0:
@@ -824,6 +907,8 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
         raisons_complete = [f"PROF {strategie} (score {best_score})"]
         if raison_catalyseur:
             raisons_complete.append(f"Catalyseur +{score_catalyseur}")
+        if raison_bougies:
+            raisons_complete.append(f"Bougies: {raison_bougies}")
         if raison_joe:
             raisons_complete.append(f"Joe007: {raison_joe}")
         if raison_prof:
