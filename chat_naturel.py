@@ -557,6 +557,13 @@ def boucle():
         print("[CHAT] Erreur: TELEGRAM_BOT_TOKEN ou TELEGRAM_CHAT_ID manquant dans .env")
         return
 
+    # Supprime tout webhook existant (sinon getUpdates ne marche pas)
+    try:
+        requests.get(f"{API_URL}/deleteWebhook", timeout=10)
+        print("[CHAT] Webhook supprimé (si existant)")
+    except Exception:
+        pass
+
     print(f"[CHAT] Démarré — IA conversationnelle avancée")
     _telegram_send("🧠 Agent IA v2.1 — IA libre activée.\n\nJe suis ton IA personnelle. On peut parler de tout: trading, mais aussi de philosophie, de code, de ta journée, de tes idées, de l'univers... Je suis là pour ça.\n\nDis-moi ce qui te passe par la tête.")
 
