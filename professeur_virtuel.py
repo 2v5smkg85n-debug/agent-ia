@@ -764,8 +764,9 @@ def _boost_apprentissage_prof(strategie, symbole):
             boost -= 1
             raison += f"Prof: {symbole} WR={c['wr']}% -> -1"
 
-    # Blocage dur: crypto perdante en net (WR < 50% ET 15+ trades ET PnL < 0)
-    if c.get("n", 0) >= 15 and c.get("wr", 100) < 50 and c.get("pnl", 0) < 0:
+    # Blocage dur: crypto perdante en net (WR < 50% ET 5+ trades ET PnL < 0)
+    # Seuil abaissé de 15 à 5 trades — une crypto avec 0% WR après 5 trades doit être bloquée
+    if c.get("n", 0) >= 5 and c.get("wr", 100) < 50 and c.get("pnl", 0) < 0:
         boost = -10  # blocage total
         raison = f"Prof: {symbole} BLOQUE (WR={c['wr']}% n={c['n']} PnL={c['pnl']:+.2f}EUR)"
 
