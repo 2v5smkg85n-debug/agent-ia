@@ -56,11 +56,13 @@ def _garde_btc(prix_actuels, marches_paper):
     1. Variation BTC sur 1h (seuil -0.5%)
     2. Momentum BTC sur 5 min (seuil -0.3%) — corrige les chutes soudaines
     3. Dernière bougie 1h BTC baissière
+    4. Tendance BTC 4h: prix sous EMA50 = marché baissier → STOP
+    5. Variation BTC sur 4h: si BTC < -1% en 4h → STOP
 
     Returns: (ok, raison) — ok=False si BTC en chute
     """
     try:
-        from indicateurs import historique_ohlcv
+        from indicateurs import historique_ohlcv, ema as _ema
         # Check 1: variation 1h
         bougies_btc = historique_ohlcv('BTCUSDT', '1hour', 5)
         if bougies_btc and len(bougies_btc) >= 2:
@@ -81,6 +83,20 @@ def _garde_btc(prix_actuels, marches_paper):
             var_5m = ((prix_now - prix_5m_ago) / prix_5m_ago) * 100
             if var_5m < -0.3:
                 return False, f"BTC en chute soudaine (-{abs(var_5m):.2f}% en 5 min) — risk-off immédiat"
+        # Check 4: tendance BTC 4h (prix sous EMA50 = marché baissier)
+        bougies_4h = historique_ohlcv('BTCUSDT', '4hour', 60)
+        if bougies_4h and len(bougies_4h) >= 55:
+            clotures_4h = [b['cloture'] for b in bougies_4h]
+            ema50 = _ema(clotures_4h, 50)
+            prix_actuel_btc = clotures_4h[-1]
+            if ema50 is not None and prix_actuel_btc < ema50:
+                ecart = ((prix_actuel_btc - ema50) / ema50) * 100
+                return False, f"BTC sous EMA50 4h ({ecart:.1f}%) — marché baissier, STOP total"
+            # Check 5: variation BTC sur 4h
+            if len(bougies_4h) >= 2:
+                var_4h = ((bougies_4h[-1]['cloture'] - bougies_4h[-2]['cloture']) / bougies_4h[-2]['cloture']) * 100
+                if var_4h < -1.0:
+                    return False, f"BTC en baisse de {var_4h:.1f}% sur 4h — marché risk-off"
         return True, ""
     except Exception:
         return True, ""
