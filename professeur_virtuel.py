@@ -75,15 +75,60 @@ def _garde_btc(prix_actuels, marches_paper):
 def _momentum_1h_porteur(bougies_1h):
     """Vérifie si la dernière bougie 1h est porteuse (pas un couteau qui tombe).
 
-    Returns: True si la dernière bougie 1h n'est pas fortement baissière.
+    Returns: True si la dernière bougie 1h est positive ou neutre.
+    Filtre renforcé: exige que la bougie 1h ne soit pas baissière du tout.
     """
     if not bougies_1h or len(bougies_1h) < 2:
         return True  # si indispo, laisse passer
     derniere = bougies_1h[-1]
     var_bougie = ((derniere['cloture'] - derniere['ouverture']) / derniere['ouverture']) * 100
-    if var_bougie < -0.5:
-        return False  # bougie 1h fortement rouge (> 0.5% baissière)
+    # Filtre renforcé: bloque si la bougie 1h est baissière de plus de 0.2%
+    if var_bougie < -0.2:
+        return False  # bougie 1h rouge (> 0.2% baissière)
     return True
+
+def _momentum_1h_positif(bougies_1h):
+    """Vérifie si le momentum 1h est positif (au moins une des 2 dernières bougies verte).
+
+    Filtre strict pour downshift_rider: exige un momentum positif récent.
+    """
+    if not bougies_1h or len(bougies_1h) < 3:
+        return True
+    # Au moins une des 2 dernières bougies doit être verte
+    for i in range(-2, 0):
+        b = bougies_1h[i]
+        var = ((b['cloture'] - b['ouverture']) / b['ouverture']) * 100
+        if var > 0.1:  # bougie verte significative
+            return True
+    return False
+
+def _sl_consecutifs_crypto(symbole):
+    """Compte le nombre de SL consécutifs récents pour une crypto.
+
+    Returns: nombre de SL consécutifs (0 si pas de série).
+    Si 3+ SL consécutifs, la crypto doit être bloquée temporairement.
+    """
+    try:
+        paper_path = os.path.join(DOSSIER, "paper_trading.json")
+        if not os.path.exists(paper_path):
+            return 0
+        with open(paper_path) as f:
+            paper = json.load(f)
+        trades = paper.get("trades_fermes", [])
+        # Regarde les 10 derniers trades de cette crypto
+        trades_crypto = [t for t in trades if t.get("symbole") == symbole][-10:]
+        if not trades_crypto:
+            return 0
+        nb_sl = 0
+        for t in reversed(trades_crypto):
+            raison = t.get("raison", t.get("raison_fermeture", ""))
+            if "SL" in raison or "URGENCE" in raison:
+                nb_sl += 1
+            else:
+                break  # un trade gagnant ou autre raison casse la série
+        return nb_sl
+    except Exception:
+        return 0
 
 
 def _pertes_consecutives_prof():
@@ -349,9 +394,10 @@ def _peak_fader(symbole, bougies_1h):
     """Détecte un retournement haussier après survente sur 1h.
 
     Règles (adapté du backtest):
-    - RSI était < 30 (survente) dans les 5 dernières bougies
-    - RSI actuel > 30 et < 45 (sortie de survente = retournement)
+    - RSI était < 35 (survente élargie) dans les 8 dernières bougies
+    - RSI actuel > 30 et < 55 (sortie de survente = retournement)
     - Le prix a fait un bas plus haut (confirmation)
+    - Fenêtre élargie pour plus de signaux
 
     Returns: (score, raison) ou (0, "")
     """
@@ -368,9 +414,9 @@ def _peak_fader(symbole, bougies_1h):
     if rsi_actuel is None:
         return 0, ""
 
-    # RSI des 5 dernières bougies
+    # RSI des 8 dernières bougies (élargi de 5 à 8)
     rsi_recent = []
-    for i in range(-5, 0):
+    for i in range(-8, 0):
         idx = len(clotures) + i
         if idx >= 14:
             v = _rsi(clotures[:idx+1], 14)
@@ -380,14 +426,17 @@ def _peak_fader(symbole, bougies_1h):
     score = 0
     raisons = []
 
-    # 1. RSI sort de survente (était < 30, maintenant > 30)
-    rsi_etait_survente = any(r < 30 for r in rsi_recent)
+    # 1. RSI sort de survente (était < 35, maintenant > 30) — seuil élargi
+    rsi_etait_survente = any(r < 35 for r in rsi_recent)
     if rsi_etait_survente and 30 <= rsi_actuel < 45:
         score += 3
-        raisons.append(f"RSI 1h sort de survente ({rsi_actuel:.1f}, etait < 30)")
+        raisons.append(f"RSI 1h sort de survente ({rsi_actuel:.1f}, etait < 35)")
     elif rsi_etait_survente and 45 <= rsi_actuel < 55:
         score += 2
         raisons.append(f"RSI 1h en retournement ({rsi_actuel:.1f}, sorti de survente)")
+    elif rsi_etait_survente and 55 <= rsi_actuel < 65:
+        score += 1
+        raisons.append(f"RSI 1h en récupération ({rsi_actuel:.1f}, sorti de survente)")
     elif rsi_actuel < 30:
         score += 1
         raisons.append(f"RSI 1h en survente ({rsi_actuel:.1f}) — attendre confirmation")
@@ -399,6 +448,11 @@ def _peak_fader(symbole, bougies_1h):
         if bas2 > bas1:
             score += 1
             raisons.append("Bas ascendant sur 1h (structure haussiere)")
+
+    # 3. Bonus: RSI en accélération haussière
+    if len(rsi_recent) >= 2 and rsi_recent[-1] > rsi_recent[-2]:
+        score += 1
+        raisons.append("RSI en accélération haussière")
 
     if score >= 2:
         return score, " | ".join(raisons)
@@ -674,12 +728,15 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
         if not bougies_1h and not bougies_4h:
             continue
 
-        # === STRATÉGIE 1: Downshift Rider (MACD 4h) ===
+        # === STRATÉGIE 1: Downshift Rider (MACD 4h) — FILTRE RENFORCÉ ===
         score_rider, raison_rider = 0, ""
         if bougies_4h:
-            # Filtre momentum 1h: ne pas acheter si la dernière bougie 1h est baissière
+            # Filtre 1: bougie 1h pas baissière
             if not _momentum_1h_porteur(bougies_1h):
                 print(f"  [PROF] Downshift Rider sur {nom}: SKIP (bougie 1h baissière — anti couteau)")
+            # Filtre 2: momentum 1h positif (au moins une bougie verte récente)
+            elif not _momentum_1h_positif(bougies_1h):
+                print(f"  [PROF] Downshift Rider sur {nom}: SKIP (momentum 1h négatif — pas de confirmation)")
             else:
                 score_rider, raison_rider = _downshift_rider(symbole, bougies_4h)
                 if score_rider > 0:
@@ -714,6 +771,13 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
         else:
             strategie = "peak_fader"
             raison = raison_fader
+
+        # === FILTRE SL CONSÉCUTIFS ===
+        # Si une crypto a 3 SL consécutifs récents, la bloquer temporairement
+        sl_consecutifs = _sl_consecutifs_crypto(symbole)
+        if sl_consecutifs >= 3:
+            print(f"  [PROF] {nom} BLOQUE (3 SL consécutifs — cooldown)")
+            continue
 
         # === CATALYSEUR CYCLOP ===
         score_catalyseur, raison_catalyseur = 0, ""
