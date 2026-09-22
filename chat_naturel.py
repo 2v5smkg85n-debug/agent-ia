@@ -424,6 +424,10 @@ def _construire_contexte():
         perte_moy = sum(pertes) / len(pertes) if pertes else 0
 
         ctx = f"\n\n=== CONTEXTE BOT (tu gères aussi un bot de trading crypto sur ce VPS — info utile si l'utilisateur en parle) ===\n"
+        ctx += f"IMPORTANT: Tu as ACCES DIRECT a l'historique complet des trades du bot. Tu n'as PAS besoin qu'on t'envoie quoi que ce soit. "
+        ctx += f"Tu peux analyser les trades, les strategies, les performances par crypto, le win rate, le P&L, tout est dans ce contexte. "
+        ctx += f"Si l'utilisateur te demande d'analyser les trades, les performances, ou le historique, UTILISE LES DONNEES CI-DESSOUS. "
+        ctx += f"Ne dis JAMAIS que tu n'as pas acces aux trades — c'est FAUX, tu les as.\n\n"
         ctx += f"Capital: {total:.2f} EUR (P&L: {pnl:+.2f} EUR, {pnl_pct:+.1f}%)\n"
         ctx += f"Liquidités: {liquidites:.0f} EUR | Positions ouvertes: {len(positions)}\n"
         ctx += f"Trades fermés: {len(trades)} | Win rate: {wr:.0f}% | Frais: {frais:.2f} EUR\n"
@@ -442,15 +446,41 @@ def _construire_contexte():
                 ctx += f"  {sym}: {val:.0f} EUR (TP={tp}% SL={sl}% {strat})\n"
 
         if trades:
-            recents = trades[-5:]
-            ctx += "Derniers trades:\n"
+            # Stats par strategie
+            from collections import defaultdict
+            stats_strat = defaultdict(lambda: {"n": 0, "g": 0, "pnl": 0.0})
+            stats_crypto = defaultdict(lambda: {"n": 0, "g": 0, "pnl": 0.0})
+            for t in trades:
+                s = t.get("strategie", t.get("source", "inconnu"))
+                sym = t.get("symbole", "?")
+                g = t.get("gain_eur", 0)
+                stats_strat[s]["n"] += 1
+                stats_strat[s]["pnl"] += g
+                if g > 0:
+                    stats_strat[s]["g"] += 1
+                stats_crypto[sym]["n"] += 1
+                stats_crypto[sym]["pnl"] += g
+                if g > 0:
+                    stats_crypto[sym]["g"] += 1
+            ctx += "\nStats par strategie:\n"
+            for s, d in sorted(stats_strat.items(), key=lambda x: x[1]["pnl"], reverse=True):
+                wr_s = (d["g"] / d["n"] * 100) if d["n"] else 0
+                ctx += f"  {s}: {d['n']} trades, {wr_s:.0f}% WR, {d['pnl']:+.2f}EUR\n"
+            ctx += "\nStats par crypto (top 8):\n"
+            for sym, d in sorted(stats_crypto.items(), key=lambda x: x[1]["pnl"], reverse=True)[:8]:
+                wr_c = (d["g"] / d["n"] * 100) if d["n"] else 0
+                ctx += f"  {sym}: {d['n']} trades, {wr_c:.0f}% WR, {d['pnl']:+.2f}EUR\n"
+            # Derniers 20 trades (au lieu de 5)
+            recents = trades[-20:]
+            ctx += f"\nDerniers {len(recents)} trades:\n"
             for t in reversed(recents):
                 sym = t.get("symbole", "?")
                 gain = t.get("gain_eur", 0)
                 var = t.get("variation_pct", 0)
+                strat = t.get("strategie", t.get("source", "?"))[:20]
                 raison = (t.get("raison", t.get("raison_fermeture", "?")))[:40]
                 emoji = "✅" if gain > 0 else "❌"
-                ctx += f"  {emoji} {sym}: {gain:+.2f} EUR ({var:+.1f}%) {raison}\n"
+                ctx += f"  {emoji} {sym}: {gain:+.2f}EUR ({var:+.1f}%) [{strat}] {raison}\n"
 
         parties.append(ctx)
     else:
