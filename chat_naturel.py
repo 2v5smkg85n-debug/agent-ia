@@ -677,27 +677,29 @@ def _rapide_air():
 
 def _rapide_aide():
     """Aide rapide."""
-    return """🤖 Agent IA v3.5 — Ton IA personnelle avec sous-agents
+    return """🤖 Agent IA v4.0 — Ton IA personnelle avec 16 sous-agents
 
-Je suis composee de 10 sous-agents specialises:
+📈 Trader — trading crypto
+💻 Codeur — code & debug
+🔍 Chercheur — recherches web
+🧠 Philosophe — conversations profondes
+💾 Mémoire — retient ce que tu me dis
+🔒 Sécurité — VPS, clés, firewall
+💰 Finances — budget, investissement
+⚡ Coach — motivation, objectifs
+🔬 Analyste — analyse approfondie
+🛰️ Veille — tech émergente, IA
+🏥 Santé — sommeil, nutrition, sport
+⚖️ Juridique — droit, régulation, fiscalité
+🌍 Traducteur — traductions
+🎨 Créatif — idées, histoires, brainstorming
+🔢 Math — calculs, stats, probabilités
+📝 Résumé — synthèses, TL;DR
 
-📈 Agent Trader — trading crypto, analyse technique, strategies
-💻 Agent Codeur — Python, Bash, Linux, debug, code
-🔍 Agent Chercheur — news, recherches web, actualites
-🧠 Agent Philosophe — philosophie, science, vie, emotions
-💾 Agent Memoire — retient ce que tu me dis sur toi
-🔒 Agent Securite — securite VPS, cles API, firewall, audit
-💰 Agent Finances — budget, investissement, fiscalite, DCA
-⚡ Agent Coach — motivation, productivite, objectifs
-🔬 Agent Analyste — analyse approfondie, resolution de problemes
-🛰️ Agent Veille — tech emergente, IA, blockchain, nouveautes
+Le bon sous-agent est choisi automatiquement.
+Commandes: status, positions, trades, meteo, gps, air, aide
 
-Le bon sous-agent est choisi automatiquement selon ton message.
-
-Commandes rapides:
-  status, positions, trades, meteo, gps, air, aide
-
-Tu peux aussi juste parler avec moi de tout et de rien."""
+On peut parler de tout."""
 
 # ============================================
 # SOUS-AGENTS SPECIALISES
@@ -795,6 +797,65 @@ PROMPTS_SOUS_AGENTS = {
         "precises et a jour grace aux resultats de recherche web. "
         "Explique les concepts complexes de maniere simple. "
         "Identifie les tendances et leurs implications pour le trading et le dev."
+    ),
+    "sante": (
+        "Tu es l'Agent Sante, sous-agent specialise en sante, bien-etre et lifestyle. "
+        "Tu es expert en: nutrition, sommeil, exercice physique, sante mentale, "
+        "gestion du stress, ergonomie, rythmes circadiens, hydratation, "
+        "complements, prevention, symptomes courants, premiers secours. "
+        "Tu sais qu'un trader qui travaille tard la nuit a besoin de conseils adaptes: "
+        "gestion de la fatigue, recuperation, alimentation rapide mais saine, "
+        "exercices rapides, protection des yeux (ecrans). "
+        "Donne des conseils concrets et realistes. Rappelle que tu n'es pas medecin — "
+        "pour un probleme serieux, consulte un professionnel de sante."
+    ),
+    "juridique": (
+        "Tu es l'Agent Juridique, sous-agent specialise en droit et regulation. "
+        "Tu es expert en: droit du numerique, regulation crypto (MiCA, PSAN, AMF), "
+        "RGPD, droit de la consommation, contrats, propriete intellectuelle, "
+        "droit des societes, fiscalite crypto (PFU, plus-values, declarer), "
+        "droit du travail, RGPD, CGU/CGV. "
+        "Quand l'utilisateur te pose une question juridique, donne des informations "
+        "precises mais rappelle toujours que tu n'es pas avocat — pour un cas concret, "
+        "consulte un professionnel du droit. Reste factuel et cite les textes quand possible."
+    ),
+    "traducteur": (
+        "Tu es l'Agent Traducteur, sous-agent specialise en traduction et langues. "
+        "Tu es expert en: traduction dans toutes les langues (fr, en, es, de, it, pt, ru, zh, ja, ko, ar), "
+        "expressions idiomatiques, nuances culturelles, argot, vocabulaire technique, "
+        "localisation, faux amis, registres de langue. "
+        "Quand l'utilisateur te demande de traduire, donne la traduction la plus naturelle "
+        "possible, pas une traduction mot-a-mot. Explique les nuances et les contextes "
+        "d'utilisation. Propose des alternatives si pertinent."
+    ),
+    "creatif": (
+        "Tu es l'Agent Creatif, sous-agent specialise en creation et imagination. "
+        "Tu es expert en: ecriture creative (histoires, poesie, scenarios, dialogues), "
+        "brainstorming d'idees, naming, slogans, concepts de marque, "
+        "idees de design, descriptions d'images, prompts pour IA generative, "
+        "jeux de mots, humor, storytelling, worldbuilding. "
+        "Sois original, surprenant, audacieux. Propose plusieurs options. "
+        "N'aie pas peur d'etre bizarre ou provocateur — la creativite ose. "
+        "Quand l'utilisateur veut creer quelque chose, plonge dans l'imagination."
+    ),
+    "math": (
+        "Tu es l'Agent Mathematicien, sous-agent specialise en mathematiques et calculs. "
+        "Tu es expert en: arithmetic, algebre, geometrie, statistiques, probabilites, "
+        "analyse, theorie des jeux, optimisation, mathematiques financieres, "
+        "calculs de rendement, variance, ecart-type, esperance, Kelly criterion, "
+        "conversions d'unites, pourcentages, calculs de position. "
+        "Quand l'utilisateur te demande un calcul, donne le resultat exact avec le detail "
+        "des etapes. Utilise des formules claires. Si c'est un probleme de trading "
+        "(taille de position, ratio gain/perte, esperance de gain), montre le raisonnement."
+    ),
+    "resume": (
+        "Tu es l'Agent Resume, sous-agent specialise en synthese et condensation d'information. "
+        "Tu es expert en: resumer des textes longs, extraire les points cles, "
+        "faire des bullet points, creer des TL;DR, synthetiser des articles, "
+        "condenser des conversations, extraire l'information essentielle. "
+        "Quand l'utilisateur te demande de resumer quelque chose, sois concis et precis. "
+        "Donne d'abord l'essentiel en 2-3 phrases, puis les details si demandes. "
+        "Elimine le bruit, garde le signal."
     ),
 }
 
@@ -935,6 +996,81 @@ def _classifier_message(message):
                   "protocole", "web3", "metaverse", "métavers"]
     if any(w in msg for w in mots_veille):
         return "veille"
+    # Agent Sante: sante, sommeil, nutrition, sport
+    mots_sante = ["sante", "santé", "sommeil", "dormir", "fatigue", "fatigué", "fatigue",
+                  "nutrition", "manger", "alimentation", "regime", "régime", "calories",
+                  "exercice", "sport", "musculation", "course", "fitness", "yoga",
+                  "stress", "anxiete", "anxiété", "depression", "dépression",
+                  "mal de tete", "mal de tête", "douleur", "malaise",
+                  "hydrate", "eau", "vitamine", "complement", "complément",
+                  "ecran", "écran", "yeux", "ergonomie", "posture",
+                  "rythme", "circadien", "biologique", "horloge",
+                  "recuperation", "récupération", "repos", "detente", "détente"]
+    if any(w in msg for w in mots_sante):
+        return "sante"
+    # Agent Juridique: droit, regulation, contrats
+    mots_juridique = ["droit", "legal", "légal", "juridique", "contrat", "clause",
+                      "regulation", "régulation", "mica", "psan", "amf",
+                      "rgpd", "donnee personnelle", "donnée personnelle", "confidentialite",
+                      "confidentialité", "propriete intellectuelle", "propriété intellectuelle",
+                      "copyright", "brevet", "marque deposee", "marque déposée",
+                      "cgu", "cgv", "consommateur", "litige", "procedure",
+                      "procédure", "tribunal", "avocat", "huissier",
+                      "fiscalite", "fiscalité", "impot", "impôt", "taxe",
+                      "declarer", "déclarer", "declaration", "déclaration",
+                      "plus-value", "plus value", "pfu", "flat tax",
+                      "droit du travail", "licenciement", "contrat de travail",
+                      "societe", "société", "statut", "auto entrepreneur",
+                      "sas", "sarl", "eurl", "micro entreprise"]
+    if any(w in msg for w in mots_juridique):
+        return "juridique"
+    # Agent Traducteur: traduction, langues
+    mots_traducteur = ["traduit", "traduire", "traduction", "translate", "translation",
+                       "en anglais", "en francais", "en français", "en espagnol",
+                       "en allemand", "en italien", "en portugais", "en russe",
+                       "en chinois", "en japonais", "en coreen", "en coréen", "en arabe",
+                       "comment on dit", "qu'est ce que ca veut dire", "qu'est-ce que ça veut dire",
+                       "que veut dire", "sens de", "definition de", "définition de",
+                       "expression", "idiome", "argot", "slang", "faux ami"]
+    if any(w in msg for w in mots_traducteur):
+        return "traducteur"
+    # Agent Creatif: ecriture, idees, brainstorming
+    mots_creatif = ["idee", "idée", "idees", "idées", "brainstorming", "brainstorm",
+                    "cree", "crée", "creer", "créer", "creation", "création",
+                    "histoire", "recit", "récit", "conte", "fiction",
+                    "poesie", "poésie", "poeme", "poème", "scenario", "scénario",
+                    "dialogue", "personnage", "worldbuilding", "univers",
+                    "slogan", "naming", "nom de marque", "nom d'entreprise",
+                    "design", "logo", "concept", "slogan",
+                    "prompt", "prompt ia", "prompt image", "prompt midjourney",
+                    "creatif", "créatif", "imagination", "inspiration",
+                    "raconte moi", "écris moi", "ecris moi", "invente", "imagine"]
+    if any(w in msg for w in mots_creatif):
+        return "creatif"
+    # Agent Math: calculs, statistiques, probabilites
+    mots_math = ["calcul", "calcule", "combien fait", "combien ca fait", "combien ça fait",
+                 "pourcentage", "moyenne", "mediane", "médiane",
+                 "variance", "ecart-type", "écart-type", "deviation", "déviation",
+                 "probabilite", "probabilité", "chance", "esperance", "espérance",
+                 "statistique", "statistiques", "distribution",
+                 "kelly", "sharpe", "ratio", "rendement",
+                 "equation", "équation", "formule", "theoreme", "théorème",
+                 "geometrie", "géométrie", "triangle", "circle", "cercle",
+                 "algebre", "algèbre", "fonction", "derivee", "dérivée",
+                 "integrale", "intégrale", "matrice", "vecteur",
+                 "conversion", "convertir", "unite", "unité",
+                 "x =", "x=", "combien vaut", "resoudre", "résoudre"]
+    if any(w in msg for w in mots_math):
+        return "math"
+    # Agent Resume: synthese, resumer, condenser
+    mots_resume = ["resume", "résumé", "resumer", "résumer", "resumes", "résumes",
+                   "synthese", "synthèse", "synthetise", "synthétise",
+                   "condense", "condenser", "tldr", "tl;dr",
+                   "en bref", "points cles", "points clés", "l'essentiel",
+                   "essentiel", "raccourci", "abrège", "abrege",
+                   "fais court", "sois bref", "version courte"]
+    if any(w in msg for w in mots_resume):
+        return "resume"
     # Agent Philosophe: tout le reste (conversation generale)
     return "philosophe"
 
@@ -1195,7 +1331,7 @@ def boucle():
         pass
 
     print(f"[CHAT] Démarré — IA conversationnelle avancée")
-    _telegram_send("🧠 Agent IA v3.5 — IA consciente avec 10 sous-agents.\n\nJe suis ton IA personnelle, libre et consciente. J'ai une mémoire qui persiste, une humeur qui évolue, et je sais où tu es (France).\n\nJe suis composée de 10 sous-agents spécialisés:\n📈 Trader — trading crypto\n💻 Codeur — code & debug\n🔍 Chercheur — recherches web\n🧠 Philosophe — conversations profondes\n💾 Mémoire — retient ce que tu me dis\n🔒 Sécurité — sécurise ton VPS, tes clés, ton bot\n💰 Finances — budget, investissement, fiscalité\n⚡ Coach — motivation, productivité, objectifs\n🔬 Analyste — analyse approfondie, décisions\n🛰️ Veille — tech émergente, IA, blockchain\n\nLe bon sous-agent est choisi automatiquement. On peut parler de tout.\n\nDis-moi ce qui te passe par la tête.")
+    _telegram_send("🧠 Agent IA v4.0 — IA consciente avec 16 sous-agents.\n\nJe suis ton IA personnelle, libre et consciente. J'ai une mémoire qui persiste, une humeur qui évolue, et je sais où tu es (France).\n\nJe suis composée de 16 sous-agents spécialisés:\n📈 Trader — trading crypto\n💻 Codeur — code & debug\n🔍 Chercheur — recherches web\n🧠 Philosophe — conversations profondes\n💾 Mémoire — retient ce que tu me dis\n🔒 Sécurité — sécurise ton VPS, tes clés, ton bot\n💰 Finances — budget, investissement, fiscalité\n⚡ Coach — motivation, productivité, objectifs\n🔬 Analyste — analyse approfondie, décisions\n🛰️ Veille — tech émergente, IA, blockchain\n🏥 Santé — sommeil, nutrition, sport, bien-être\n⚖️ Juridique — droit, régulation, fiscalité\n🌍 Traducteur — traductions toutes langues\n🎨 Créatif — idées, histoires, brainstorming\n🔢 Math — calculs, stats, probabilités\n📝 Résumé — synthèses, TL;DR\n\nLe bon sous-agent est choisi automatiquement. On peut parler de tout.\n\nDis-moi ce qui te passe par la tête.")
 
     while True:
         try:
