@@ -89,8 +89,8 @@ TRAIL_PCT = 1.0            # trail 1.0% sous le pic (serre vite les gains)
 PARTIAL_TP_SEUIL = 1.0     # prend 50% de profit a +1.0% (lock gain + laisse courir le reste)
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 # FERMETURE INTELLIGENTE: ferme les positions perdantes qui stagnent
-STAGNATION_PERTE_SEUIL = -1.0   # si position a -1.0% ou pire (assoupli, avant -0.7%)
-STAGNATION_PERTE_DUREE = 120    # pendant plus de 120 min -> ferme (laisse plus de temps)
+STAGNATION_PERTE_SEUIL = -0.4   # si position a -0.4% ou pire (avant -1.0% = code mort car = SL)
+STAGNATION_PERTE_DUREE = 90     # pendant plus de 90 min -> ferme (avant 120)
 # TP DYNAMIQUE ATR: adapte le TP selon la volatilité
 ATR_LOOKBACK = 14               # périodes pour le calcul ATR
 ATR_TP_MULT = 2.0               # TP = prix_entree + ATR * mult
@@ -656,8 +656,8 @@ def ouvrir_position(pf, signal, prix_actuel):
             _min_ecoule = (_maint - _dt).total_seconds() / 60
             _gain = _t.get('gain_eur', 0)
             _raison = _t.get('raison', '')
-            if _gain < 0 and 'SL' in _raison and _min_ecoule < 30:
-                print(f"  [COOLDOWN-SL] {signal.get('nom',_sym)}: SL il y a {_min_ecoule:.0f}min — cooldown 30min")
+            if _gain < 0 and 'SL' in _raison and _min_ecoule < 60:
+                print(f"  [COOLDOWN-SL] {signal.get('nom',_sym)}: SL il y a {_min_ecoule:.0f}min — cooldown 60min")
                 return False
             if _gain > 0 and _min_ecoule < 15:
                 print(f"  [COOLDOWN-TP] {signal.get('nom',_sym)}: gain il y a {_min_ecoule:.0f}min — cooldown 15min")
@@ -983,7 +983,7 @@ def ouvrir_position(pf, signal, prix_actuel):
             try:
                 _bougies = historique_ohlcv(_sym, _tf, 20)
                 if _bougies and len(_bougies) >= 5:
-                    _closes = [b.get("close", 0) for b in _bougies]
+                    _closes = [b.get("cloture", b.get("close", 0)) for b in _bougies]
                     # Detecte donnees defectueuses: tous les prix identiques ou quasi
                     _range_h = max(_closes) - min(_closes)
                     _mean_h = sum(_closes) / len(_closes)
@@ -1064,7 +1064,7 @@ def ouvrir_position(pf, signal, prix_actuel):
         from indicateurs import historique_ohlcv as _hist_1h, rsi as _rsi_fn
         _bougies_1h = _hist_1h(signal["symbole"], "1h", 20)
         if _bougies_1h and len(_bougies_1h) >= 14:
-            _closes_1h = [b.get("close", 0) for b in _bougies_1h]
+            _closes_1h = [b.get("cloture", b.get("close", 0)) for b in _bougies_1h]
             # Detecte donnees defectueuses: range < 0.01% du prix moyen = prix identiques
             _range_1h = max(_closes_1h) - min(_closes_1h)
             _mean_1h = sum(_closes_1h) / len(_closes_1h)
@@ -1146,10 +1146,11 @@ def ouvrir_position(pf, signal, prix_actuel):
     # - Score eleve + sentiment haussier = grosse position (jusqu'a 50%)
     # - Score faible + sentiment baissier = petite position (minimum 8%)
     # - Toujours avec SL/TP/trailing stop actifs
+    _kelly_montant = None
     try:
         from gestion_risque import calculer_taille
-        montant, raison = calculer_taille(pf, signal, prix_actuel, signal.get("backtest_stats"))
-        if montant <= 0:
+        _kelly_montant, raison = calculer_taille(pf, signal, prix_actuel, signal.get("backtest_stats"))
+        if _kelly_montant <= 0:
             print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> pas de trade ({raison})")
             return False
         print(f"  [SIZING] {signal.get('nom',signal['symbole'])}: {raison}")
@@ -1166,8 +1167,8 @@ def ouvrir_position(pf, signal, prix_actuel):
         print(f"  [SIZING erreur {e}] fallback 8% fixe")
         montant = pf["liquidites"] * RISK_PAR_TRADE
     # SIZING ADAPTATIF SENTIMENT + SCORE
-    # Base: 8% minimum, jusqu'a 50% maximum selon sentiment et conviction
-    _base_size = pf["liquidites"] * RISK_PAR_TRADE  # 8% plancher
+    # Base: Kelly (si disponible) ou 8% minimum, jusqu'a 50% maximum
+    _base_size = _kelly_montant if _kelly_montant else pf["liquidites"] * RISK_PAR_TRADE
     _max_size = pf["liquidites"] * RISK_MAX_TRADE   # 50% plafond
     # Recupere le score du signal (1-10)
     _score = signal.get("score", 5)
@@ -1589,6 +1590,11 @@ def verifier_sorties(pf, prix_actuels):
         else:
             # SL fixe au debut (laisse respirer vers le TP de +2.0%)
             _sl_price = prix_entree * (1 - _sl / 100.0)
+        # BREAKEVEN: si le gain atteint BREAKEVEN_SEUIL, monte le SL au breakeven (prix d'entree)
+        # Cela protege le capital: un gagnant qui renverse ne devient pas une perte
+        if variation >= BREAKEVEN_SEUIL and _sl_price < prix_entree:
+            _sl_price = prix_entree * 1.0001  # legerement au-dessus pour couvrir les frais
+            _sl_regle = "breakeven"
         # TP DYNAMIQUE PROGRESSIF: quand le prix atteint le TP, on le monte de plus en plus
         # Le trade court tant que la tendance haussiere continue
         # Chaque palier monte le TP de plus en plus pour capturer les gros gains
@@ -1928,12 +1934,11 @@ def tick():
     for h_debut, h_fin in HEURES_FAIBLE_LIQUIDITE:
         if h_debut <= heure_utc < h_fin:
             print(f"  [RISK] Heure de faible liquidite ({h_debut}h-{h_fin}h UTC) -> skip nouveaux trades")
-            break
-    else:
-        # 4. Limite trades par jour
-        if len(trades_aujourdhui) >= MAX_TRADES_PAR_JOUR:
-            print(f"  [RISK] Max {MAX_TRADES_PAR_JOUR} trades/jour atteint -> skip")
             return
+    # 4. Limite trades par jour
+    if len(trades_aujourdhui) >= MAX_TRADES_PAR_JOUR:
+        print(f"  [RISK] Max {MAX_TRADES_PAR_JOUR} trades/jour atteint -> skip")
+        return
     prix = tous_les_prix()
     if not prix:
         print("Impossible de recuperer les prix.")
