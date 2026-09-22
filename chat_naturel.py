@@ -1736,6 +1736,57 @@ def _cerveau_proactif():
         print(f"[PROACTIF] {msg[:60]}...")
         time.sleep(1)
 
+def _analyser_trade_auto(trade, total_capital):
+    """Envoie un trade ferme a Gemini pour analyse et scoring automatique."""
+    sym = trade.get("symbole", "?")
+    gain = trade.get("gain_eur", 0)
+    var = trade.get("variation_pct", 0)
+    strat = trade.get("strategie", trade.get("source", "?"))
+    raison_ouv = trade.get("raison", "")
+    raison_ferm = trade.get("raison_fermeture", trade.get("raison", "?"))
+    montant = trade.get("montant_eur", 0)
+    duree = trade.get("duree", "?")
+    score_entree = trade.get("score", "?")
+    prix_entree = trade.get("prix_entree", 0)
+    prix_sortie = trade.get("prix_sortie", 0)
+    tp = trade.get("tp_adaptatif", 0)
+    sl = trade.get("sl_adaptatif", 0)
+    emoji = "GAIN" if gain > 0 else "PERTE"
+    prompt = f"""Tu es l'Agent Trader. Un trade vient d'etre ferme. Analyse-le et note-le automatiquement.
+
+TRADE FERME:
+- Symbole: {sym}
+- Resultat: {emoji} {gain:+.2f}EUR ({var:+.1f}%)
+- Montant: {montant:.0f}EUR
+- Strategie: {strat}
+- Score d'entree: {score_entree}
+- TP cible: +{tp}% | SL: {sl}%
+- Prix entree: {prix_entree}
+- Prix sortie: {prix_sortie}
+- Raison ouverture: {raison_ouv[:100]}
+- Raison fermeture: {raison_ferm[:100]}
+- Duree: {duree}
+- Capital actuel: {total_capital:.2f}EUR
+
+Donne ton analyse en 4-5 lignes max:
+1. Note /10 (qualite du setup d'entree)
+2. L'execution etait-elle optimale? (TP trop tot? SL trop serre? bonne sortie?)
+3. Ce trade etait-il evitable? (mauvaise entree ou juste variance de marche?)
+4. Conseil concret pour le prochain trade similaire
+
+Sois direct, technique, pas de blabla. Format compact."""
+    modeles = ["gemini-2.5-flash", "gemini-2.0-flash"]
+    for modele in modeles:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
+            payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.5, "maxOutputTokens": 400}}
+            r = requests.post(url, json=payload, timeout=20)
+            if r.status_code == 200:
+                return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        except Exception:
+            continue
+    return None
+
 def _verifier_changements_bot():
     """Verifie si le bot a ouvert/ferme des positions et envoie des notifications."""
     global _dernier_etat_bot
@@ -1766,7 +1817,7 @@ def _verifier_changements_bot():
             msg = f"📈 Position ouverte: {sym}\nMontant: {val:.0f}€ | Score: {score}\nTP: +{tp}% | SL: {sl}%\nStrategie: {strat}\nCapital: {total:.2f}€"
             _telegram_send(msg)
             print(f"[CHAT] Notification: position ouverte {sym}")
-    # Position fermee (trade ferme)
+    # Position fermee (trade ferme) — avec analyse auto
     if nb_trades_actuel > nb_trades_ancien and nb_trades_ancien > 0:
         nb_nouveaux = nb_trades_actuel - nb_trades_ancien
         for i in range(nb_nouveaux):
@@ -1775,10 +1826,20 @@ def _verifier_changements_bot():
             gain = t.get("gain_eur", 0)
             var = t.get("variation_pct", 0)
             raison = (t.get("raison", t.get("raison_fermeture", "?")))[:30]
+            strat = t.get("strategie", t.get("source", "?"))[:25]
             emoji = "✅" if gain > 0 else "❌"
-            msg = f"{emoji} Trade ferme: {sym}\nGain: {gain:+.2f}€ ({var:+.1f}%)\nRaison: {raison}\nCapital: {total:.2f}€"
+            msg = f"{emoji} Trade ferme: {sym}\nGain: {gain:+.2f}€ ({var:+.1f}%)\nStrategie: {strat}\nRaison: {raison}\nCapital: {total:.2f}€"
             _telegram_send(msg)
             print(f"[CHAT] Notification: trade ferme {sym} {gain:+.2f}€")
+            # Analyse automatique du trade par Gemini
+            try:
+                analyse = _analyser_trade_auto(t, total)
+                if analyse:
+                    msg_analyse = f"🧠 Analyse auto — {sym}:\n\n{analyse}"
+                    _telegram_send(msg_analyse)
+                    print(f"[CHAT] Analyse auto envoyee pour {sym}")
+            except Exception as e:
+                print(f"[CHAT] Erreur analyse auto {sym}: {e}")
     # Met a jour l'etat
     _dernier_etat_bot["positions"] = symboles_actuels
     _dernier_etat_bot["nb_trades"] = nb_trades_actuel
