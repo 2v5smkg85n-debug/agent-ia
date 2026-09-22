@@ -629,6 +629,200 @@ def _entree_bloquee_weekend(signal, maintenant=None):
     _jour = maintenant.weekday()  # 0=lun ... 4=ven, 5=sam, 6=dim
     return _jour == 4 or _jour >= 5
 
+# ============================================
+# SOUS-AGENTS DE TRADING (validation pre-ouverture)
+# ============================================
+# Chaque sous-agent verifie un aspect different avant l'ouverture d'un trade.
+# Un VETO d'un seul agent bloque le trade. Les WARN reduisent le score.
+
+SOUS_AGENTS_TRADE = {
+    "risque": {"emoji": "🛡️", "nom": "Agent Risque"},
+    "sentiment": {"emoji": "🎭", "nom": "Agent Sentiment"},
+    "volatilite": {"emoji": "📊", "nom": "Agent Volatilite"},
+    "timing": {"emoji": "⏰", "nom": "Agent Timing"},
+    "correlation": {"emoji": "🔗", "nom": "Agent Correlation"},
+}
+
+def _sous_agent_risque(pf, signal, prix_actuel):
+    """Agent Risque: verifie drawdown, exposition, liquidite, max trades.
+    Returns: (ok, score_mod, raison)
+    """
+    capital = pf.get("liquidites", 0) + sum(p.get("montant_eur", 0) for p in pf.get("positions", []))
+    capital_initial = pf.get("capital_initial", 1000)
+    drawdown_pct = (capital_initial - capital) / capital_initial * 100 if capital_initial > 0 else 0
+    # VETO: drawdown > 5%
+    if drawdown_pct > 5:
+        return False, 0, f"Drawdown {drawdown_pct:.1f}% > 5% — stop trading"
+    # VETO: liquidite insuffisante
+    if pf.get("liquidites", 0) < LIQUIDITE_MIN:
+        return False, 0, f"Liquidite {pf['liquidites']:.0f}EUR < {LIQUIDITE_MIN:.0f}EUR minimum"
+    # WARN: drawdown > 3% (mode defensif)
+    if drawdown_pct > 3:
+        return True, -1, f"Drawdown {drawdown_pct:.1f}% — mode defensif (-1 score)"
+    # WARN: beaucoup de positions ouvertes
+    nb_pos = len(pf.get("positions", []))
+    if nb_pos >= MAX_POSITIONS - 1:
+        return True, -0.5, f"{nb_pos} positions ouvertes — exposition elevee (-0.5)"
+    # WARN: max trades par jour atteint
+    trades_aujourdhui = [t for t in pf.get("trades_fermes", []) if t.get("date", "").startswith(datetime.now().strftime("%Y-%m-%d"))]
+    if len(trades_aujourdhui) >= MAX_TRADES_PAR_JOUR - 2:
+        return True, -0.5, f"{len(trades_aujourdhui)} trades aujourd'hui — proche limite (-0.5)"
+    # APPROVE
+    return True, 0, f"Risque OK (drawdown {drawdown_pct:.1f}%, liquidite {pf['liquidites']:.0f}EUR)"
+
+def _sous_agent_sentiment(pf, signal, prix_actuel):
+    """Agent Sentiment: verifie le Fear & Greed et le regime de marche.
+    Returns: (ok, score_mod, raison)
+    """
+    try:
+        from sentiment_marche import get_fear_greed
+        fg = get_fear_greed()
+    except Exception:
+        return True, 0, "Sentiment indisponible — approve par defaut"
+    # VETO: Extreme Greed + score faible = bulle, ne pas acheter
+    score = signal.get("score", 0)
+    if fg > 80 and score < 5:
+        return False, 0, f"Extreme Greed ({fg}/100) + score faible — bulle, veto"
+    # WARN: Greed fort
+    if fg > 70:
+        return True, -1, f"Greed ({fg}/100) — euphorie, prudence (-1)"
+    # WARN: Extreme Greed meme avec bon score
+    if fg > 75:
+        return True, -1.5, f"Extreme Greed ({fg}/100) — tres euphorique (-1.5)"
+    # APPROVE: Fear = bonne opportunite d'achat
+    if fg < 35:
+        return True, 0.5, f"Fear ({fg}/100) — bonne opportunite d'achat (+0.5)"
+    # APPROVE
+    return True, 0, f"Sentiment neutre ({fg}/100)"
+
+def _sous_agent_volatilite(pf, signal, prix_actuel):
+    """Agent Volatilite: verifie l'ATR et la volatilite de la crypto.
+    Returns: (ok, score_mod, raison)
+    """
+    symbole = signal.get("symbole", "")
+    try:
+        from indicateurs import historique_ohlcv
+        bougies = historique_ohlcv(symbole, "1h", 24)
+        if not bougies or len(bougies) < 20:
+            return True, 0, "Volatilite: donnees insuffisantes — approve"
+        # Calcule l'ATR simple (amplitude moyenne des 20 dernieres bougies)
+        amplitudes = []
+        for b in bougies[-20:]:
+            if b.get("haut") and b.get("bas") and b.get("cloture", 0) > 0:
+                amp = (b["haut"] - b["bas"]) / b["cloture"] * 100
+                amplitudes.append(amp)
+        if not amplitudes:
+            return True, 0, "Volatilite: pas d'amplitude — approve"
+        atr_pct = sum(amplitudes) / len(amplitudes)
+        # VETO: volatilite extreme (> 8% par bougie 1h) = trop risque
+        if atr_pct > 8:
+            return False, 0, f"ATR {atr_pct:.1f}% > 8% — volatilite extreme, veto"
+        # WARN: volatilite elevee (> 5%)
+        if atr_pct > 5:
+            return True, -0.5, f"ATR {atr_pct:.1f}% — volatilite elevee (-0.5)"
+        # APPROVE: volatilite saine (1-5%)
+        if 1 <= atr_pct <= 5:
+            return True, 0, f"ATR {atr_pct:.1f}% — volatilite saine"
+        # WARN: volatilite tres faible (< 1%) = pas de mouvement
+        if atr_pct < 1:
+            return True, -0.3, f"ATR {atr_pct:.1f}% — volatilite faible, peu de mouvement (-0.3)"
+        return True, 0, f"ATR {atr_pct:.1f}%"
+    except Exception:
+        return True, 0, "Volatilite: erreur — approve par defaut"
+
+def _sous_agent_timing(pf, signal, prix_actuel):
+    """Agent Timing: verifie l'heure, le jour, les sessions de marche.
+    Returns: (ok, score_mod, raison)
+    """
+    maintenant = datetime.utcnow()
+    heure_utc = maintenant.hour
+    jour = maintenant.weekday()  # 0=lun ... 6=dim
+    # VETO: heures bloquees (0% WR historique)
+    for h_debut, h_fin in HEURES_FAIBLE_LIQUIDITE:
+        if h_debut <= heure_utc < h_fin:
+            return False, 0, f"Heure faible liquidite ({heure_utc}h UTC) — bloque"
+    # VETO: dimanche (marche crypto le moins liquide)
+    if jour == 6 and heure_utc < 8:
+        return False, 0, "Dimanche matin UTC — marche le moins liquide"
+    # WARN: weekend
+    if jour >= 5:
+        return True, -0.5, "Weekend — liquidite reduite (-0.5)"
+    # APPROVE: heures de fort volume
+    for h_debut, h_fin in HEURES_FORT_VOLUME:
+        if h_debut <= heure_utc < h_fin:
+            return True, 0.5, f"Heure fort volume ({heure_utc}h UTC) (+0.5)"
+    # APPROVE
+    return True, 0, f"Timing neutre ({heure_utc}h UTC)"
+
+def _sous_agent_correlation(pf, signal, prix_actuel):
+    """Agent Correlation: verifie la correlation avec les positions existantes.
+    Returns: (ok, score_mod, raison)
+    """
+    symbole = signal.get("symbole", "")
+    positions = pf.get("positions", [])
+    if not positions:
+        return True, 0, "Aucune position ouverte — pas de correlation"
+    # VETO: deja une position sur le meme actif
+    for p in positions:
+        if p.get("symbole") == symbole:
+            return False, 0, f"Position deja ouverte sur {symbole} — veto"
+    # WARN: plus de 3 positions sur des cryptos similaires
+    nb_crypto = sum(1 for p in positions if p.get("marche") == "crypto")
+    if nb_crypto >= 3 and signal.get("marche") == "crypto":
+        return True, -0.5, f"{nb_crypto} positions crypto — concentration elevee (-0.5)"
+    # WARN: 2 positions sur le meme actif (multi-entree)
+    nb_meme = sum(1 for p in positions if p.get("symbole") == symbole)
+    if nb_meme >= 1:
+        return True, -1, f"Multi-entree sur {symbole} — risque concentration (-1)"
+    # APPROVE
+    return True, 0, f"Correlation OK ({len(positions)} positions ouvertes)"
+
+def _valider_sous_agents_trade(pf, signal, prix_actuel):
+    """Appelle tous les sous-agents de trading pour valider un signal.
+
+    Returns: (ok, score_mod_total, raisons)
+        - ok=False si un seul agent met un VETO
+        - score_mod_total: somme des modifications de score
+        - raisons: liste des verdicts de chaque agent
+    """
+    agents = [
+        ("risque", _sous_agent_risque),
+        ("sentiment", _sous_agent_sentiment),
+        ("volatilite", _sous_agent_volatilite),
+        ("timing", _sous_agent_timing),
+        ("correlation", _sous_agent_correlation),
+    ]
+    score_mod_total = 0
+    raisons = []
+    vetos = []
+    warns = []
+    for nom_agent, func in agents:
+        try:
+            ok, score_mod, raison = func(pf, signal, prix_actuel)
+        except Exception as e:
+            ok, score_mod, raison = True, 0, f"Erreur {nom_agent}: {e} — approve"
+        info = SOUS_AGENTS_TRADE.get(nom_agent, {})
+        emoji = info.get("emoji", "")
+        nom_complet = info.get("nom", nom_agent)
+        if not ok:
+            vetos.append(f"{emoji} {nom_complet}: VETO — {raison}")
+            raisons.append(f"{emoji} {nom_complet}: VETO — {raison}")
+        elif score_mod < 0:
+            warns.append(f"{emoji} {nom_complet}: {raison}")
+            raisons.append(f"{emoji} {nom_complet}: WARN — {raison}")
+            score_mod_total += score_mod
+        else:
+            raisons.append(f"{emoji} {nom_complet}: OK — {raison}")
+            score_mod_total += score_mod
+    if vetos:
+        for v in vetos:
+            print(f"  {v}")
+        return False, 0, raisons
+    if warns:
+        for w in warns:
+            print(f"  {w}")
+    return True, score_mod_total, raisons
+
 def ouvrir_position(pf, signal, prix_actuel):
     # PROTECTION: bloquer si prix invalide (0 ou None)
     if not prix_actuel or prix_actuel <= 0:
@@ -2218,6 +2412,14 @@ def tick():
                     print(f"  [STAGGER] {MAX_NOUVELLES_PAR_CYCLE} nouvelles positions ce cycle — attente prochain cycle")
                     break
                 if nb_par_actif[signal["symbole"]] < MAX_POS_PAR_ACTIF:
+                    # === SOUS-AGENTS DE TRADING: validation pre-ouverture ===
+                    sa_ok, sa_score_mod, sa_raisons = _valider_sous_agents_trade(pf, signal, prix[signal["symbole"]])
+                    if not sa_ok:
+                        print(f"  [SOUS-AGENTS] {signal.get('nom',signal['symbole'])} BLOQUE par sous-agent(s)")
+                        continue
+                    if sa_score_mod != 0:
+                        signal["score"] = signal.get("score", 0) + sa_score_mod
+                        print(f"  [SOUS-AGENTS] {signal.get('nom',signal['symbole'])}: score ajuste {sa_score_mod:+.1f} -> {signal['score']:.1f}")
                     if ouvrir_position(pf, signal, prix[signal["symbole"]]):
                         nb_par_actif[signal["symbole"]] += 1
         else:
