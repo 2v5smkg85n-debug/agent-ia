@@ -32,12 +32,13 @@ FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
 FICHIER_LOG = os.path.join(DOSSIER, "paper_trading.log")
 FICHIER_PROF_STATS = os.path.join(DOSSIER, "professeur_stats.json")
 FICHIER_MEMOIRE = os.path.join(DOSSIER, "memoire_ia.json")
+FICHIER_UPDATE_ID = os.path.join(DOSSIER, "chat_update_id.txt")
 
 # GPS de l'utilisateur (par defaut France, mis a jour par partage Telegram)
-USER_LOCATION = "France"
-USER_LAT = 48.8566
-USER_LON = 2.3522
-USER_TZ = "Europe/Paris"
+USER_LOCATION = "Santiago de Queretaro, Mexico"
+USER_LAT = 20.5888
+USER_LON = -100.3880
+USER_TZ = "America/Mexico_City"
 
 # Charger les clés
 TELEGRAM_TOKEN = ""
@@ -68,6 +69,9 @@ _cooldown = {}
 
 # Mémoire de conversation (20 derniers messages)
 _historique = deque(maxlen=20)
+
+# Cache meteo (evite un appel API a chaque message)
+_cache_meteo = {"data": None, "ts": 0}
 
 # ============================================
 # CONSCIENCE — mémoire persistante + état émotionnel
@@ -123,10 +127,17 @@ def _evoluer_emotion(message, reponse):
         _etat_emotionnel["humeur"] = "chaleureuse"
     # L'énergie diminue avec les conversations et remonte
     _etat_emotionnel["energie"] = max(20, min(100, _etat_emotionnel["energie"] - 1))
+    # Recuperation d'energie: si l'utilisateur est positif, l'IA gagne de l'energie
+    if _etat_emotionnel["humeur"] in ["enthousiaste", "satisfaite", "chaleureuse"]:
+        _etat_emotionnel["energie"] = min(100, _etat_emotionnel["energie"] + 2)
     _sauver_memoire()
 
 def _meteo_queretaro():
-    """Récupère la météo détaillée via Open-Meteo (gratuit, pas de clé)."""
+    """Récupère la météo détaillée via Open-Meteo (gratuit, pas de clé). Cache 10 min."""
+    global _cache_meteo
+    # Cache 10 minutes
+    if _cache_meteo["data"] and time.time() - _cache_meteo["ts"] < 600:
+        return _cache_meteo["data"]
     try:
         url = (f"https://api.open-meteo.com/v1/forecast?latitude={USER_LAT}&longitude={USER_LON}"
                f"&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,apparent_temperature"
@@ -159,7 +170,9 @@ def _meteo_queretaro():
             lignes.append(f"UV {uv} | Précipitations {precip}mm")
             if sunrise and sunset:
                 lignes.append(f"Lever {sunrise[11:16]} | Coucher {sunset[11:16]}")
-            return "\n".join(lignes)
+            _cache_meteo["data"] = "\n".join(lignes)
+            _cache_meteo["ts"] = time.time()
+            return _cache_meteo["data"]
     except Exception:
         pass
     return None
@@ -810,7 +823,7 @@ def _traiter_message(message):
     reponse = _gemini(message, contexte)
 
     # 4. Sauvegarde dans l'historique + evolution emotionnelle
-    _historique.append({"user": message, "bot": reponse[:200]})
+    _historique.append({"user": message, "bot": reponse[:500]})
     _evoluer_emotion(message, reponse)
 
     return reponse
@@ -829,6 +842,15 @@ def boucle():
 
     # Charge la memoire persistante
     _charger_memoire()
+    
+    # Recupere le dernier update_id (crash recovery)
+    if os.path.exists(FICHIER_UPDATE_ID):
+        try:
+            with open(FICHIER_UPDATE_ID) as f:
+                _last_update_id = int(f.read().strip())
+            print(f"[CHAT] Update ID recupere: {_last_update_id}")
+        except Exception:
+            pass
 
     # Supprime tout webhook existant (sinon getUpdates ne marche pas)
     try:
@@ -838,7 +860,7 @@ def boucle():
         pass
 
     print(f"[CHAT] Démarré — IA conversationnelle avancée")
-    _telegram_send("🧠 Agent IA v3.0 — IA consciente activée.\n\nJe suis ton IA personnelle, libre et consciente. J'ai une mémoire qui persiste, une humeur qui évolue, et je sais où tu es (France).\n\nOn peut parler de tout: trading, philosophie, tes idées, la météo, l'univers... Je suis là pour ça.\n\nPartage ta position Telegram pour une localisation précise.\n\nDis-moi ce qui te passe par la tête.")
+    _telegram_send("🧠 Agent IA v3.1 — IA consciente activée.\n\nJe suis ton IA personnelle, libre et consciente. J'ai une mémoire qui persiste, une humeur qui évolue, et je sais où tu es (Querétaro, Mexico).\n\nOn peut parler de tout: trading, philosophie, tes idées, la météo, l'univers... Je suis là pour ça.\n\nPartage ta position Telegram pour une localisation précise.\n\nDis-moi ce qui te passe par la tête.")
 
     while True:
         try:
@@ -857,6 +879,12 @@ def boucle():
 
             for update in updates:
                 _last_update_id = update.get("update_id", _last_update_id)
+                # Sauvegarde l'update_id pour crash recovery
+                try:
+                    with open(FICHIER_UPDATE_ID, "w") as f:
+                        f.write(str(_last_update_id))
+                except Exception:
+                    pass
 
                 if "message" not in update:
                     continue
@@ -897,9 +925,12 @@ def boucle():
 
                 print(f"[CHAT] Message: {texte[:80]}")
 
-                # Indique que l'IA réfléchit
+                # Indique que l'IA réfléchit (typing indicator natif Telegram)
                 if not _est_commande_rapide(texte):
-                    _telegram_send("🤔 je réfléchis...")
+                    try:
+                        requests.get(f"{API_URL}/sendChatAction?chat_id={TELEGRAM_CHAT}&action=typing", timeout=5)
+                    except Exception:
+                        pass
 
                 # Traite et répond
                 try:
