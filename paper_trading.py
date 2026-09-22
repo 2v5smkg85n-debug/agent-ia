@@ -49,15 +49,15 @@ MAX_NOUVELLES_PAR_CYCLE = 1    # max 1 nouvelle position par cycle (stagger stri
 LIQUIDITE_MIN = 200.0          # garde au moins 200 EUR de liquidites (user request)
 FENETRE_CORRELATION_MIN = 10    # anti-double-exposition: 10min entre entrees meme actif (multi-entrees)
 MAX_POS_PAR_ACTIF = 1          # 1 position max par actif (FINI multi-entrees = moins de risque)
-RISK_PAR_TRADE = 0.30         # 30% fixe (~300 EUR par position) -> moins de trades, plus de gain net
+RISK_PAR_TRADE = 0.20         # 20% fixe (~200 EUR par position) -> 5 positions x 200 = 1000 EUR max
 RISK_MAX_TRADE = 0.50         # 50% max pour haute conviction (~500 EUR)
 RISK_HAUTE_CONVICTION = 0.50  # 50% (500 EUR) pour score >= 8 + TradingView STRONG_BUY
 INTERVALLE_BOUCLE = 180        # 3 min (plus reactif = plus de trades)
 # RISK MANAGEMENT AVANCE
-MAX_TRADES_PAR_JOUR = 60       # limite: 60 trades/jour (plus de trades)
+MAX_TRADES_PAR_JOUR = 15       # limite: 15 trades/jour (qualite > quantite)
 PERTE_JOUR_MAX_PCT = 3.0      # stop trading si -3% en une journee (30 EUR sur 1000)
 CIRCUIT_BREAKER_CONSECUTIF = 3 # pause apres 3 pertes consecutives (plus de room)
-DRAWDOWN_REDUCTION_SEUIL = 0.95 # si capital < 95% du initial, reduit positions de 50%
+DRAWDOWN_REDUCTION_SEUIL = 0.97 # si capital < 97% du initial (-30EUR), reduit positions de 50%
 COMPOUND_AUTOMATIQUE = True
 HEURES_FAIBLE_LIQUIDITE = [(12, 13), (8, 9)] # bloque 12h et 8h UTC (0% WR historique)
 # DIVERSIFICATION TEMPORELLE: boost le score pendant les heures a fort volume
@@ -65,13 +65,13 @@ HEURES_FAIBLE_LIQUIDITE = [(12, 13), (8, 9)] # bloque 12h et 8h UTC (0% WR histo
 HEURES_FORT_VOLUME = [(8, 11), (13, 17)]  # UTC
 HEURES_FORT_BOOST = 1  # +1 au score pendant ces heures
 # Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
-TAKE_PROFIT_PCT = 0.8          # +0.8% (300 EUR x 0.8% = 2.40 EUR - 0.42 frais = 1.98 EUR net par trade)
+TAKE_PROFIT_PCT = 2.0          # +2.0% (ratio TP:SL = 2:1 — laisse courir les gagnants, coupe vite les perdants)
 STOP_LOSS_PCT = 1.0            # -1.0% (300 EUR x 1% = 3 EUR max perte, laisse respirer la volatilite crypto)
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
 # est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
 # Idee utilisateur + valide par backtest elargi (9 marches, 30 trades, plateau a tp_ext=4).
 EXTEND_CRYPTOS = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "LDOUSDT", "AAVEUSDT", "UNIUSDT", "PENDLEUSDT", "ARBUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "OPUSDT", "INJUSDT", "NEARUSDT"}
-EXTEND_SEUIL = 0.5        # active l'extension a partir de +0.5% de gain
+EXTEND_SEUIL = 1.5        # active l'extension a partir de +1.5% de gain (avant 0.5% trop tot)
 EXTEND_TP_PCT = 4.0       # TP monte a 4% une fois en profit (avant 5% trop greedy)
 EXTEND_DUREE_MAX = 480    # cap duree des positions extended (8h, vs 90min normal)
 SORTIE_DUREE_MIN = 1440         # ferme apres 24h si en gain (laisse le TP dynamique travailler)
@@ -83,10 +83,10 @@ DUREE_PETIT_GAIN = 180        # gain 0.30-0.45%: respire 2h (était 90min) pour 
 DUREE_GAIN_PROGRESS = 240    # gain 0.45-0.60%: respire 3h
 DUREE_GAGNANT_MAX = 360         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
 DUREE_BONUS_STRATEGIE = 60    # stratégie prouvée (live_n>=3, wr>=60%, pnl>0): +1h de respiration
-BREAKEVEN_SEUIL = 2.0      # +2.0% -> SL monte au breakeven (laisse respirer)
-TRAIL_ACTIF = 4.0          # +4.0% -> trailing stop (apres un vrai move)
+BREAKEVEN_SEUIL = 1.5      # +1.5% -> SL monte au breakeven (protege plus vite)
+TRAIL_ACTIF = 2.5          # +2.5% -> trailing stop (active plus tot pour proteger les gains)
 TRAIL_PCT = 1.0            # trail 1.0% sous le pic (serre vite les gains)
-PARTIAL_TP_SEUIL = 999     # DESACTIVE — coupait les gains a +0.4% trop tot
+PARTIAL_TP_SEUIL = 1.0     # prend 50% de profit a +1.0% (lock gain + laisse courir le reste)
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 # FERMETURE INTELLIGENTE: ferme les positions perdantes qui stagnent
 STAGNATION_PERTE_SEUIL = -1.0   # si position a -1.0% ou pire (assoupli, avant -0.7%)
@@ -1188,40 +1188,40 @@ def ouvrir_position(pf, signal, prix_actuel):
         _fg = get_fear_greed()
     except Exception:
         pass
-    # Calcul du multiplicateur sentiment (0.5x a 3.0x)
-    # Extreme Fear (0-25): x0.5 (prudent)
-    # Fear (25-45): x0.8
+    # Calcul du multiplicateur sentiment CONTRARIEN (comme Joe007)
+    # Extreme Fear (0-25): x1.5 (achat opportuniste — prix bas)
+    # Fear (25-45): x1.2 (legere prudence)
     # Neutral (45-55): x1.0
-    # Greed (55-75): x1.5 (confiant)
-    # Extreme Greed (75-100): x2.0 (tres confiant)
+    # Greed (55-75): x0.8 (prudence — euphorie = risque de correction)
+    # Extreme Greed (75-100): x0.5 (tres prudent — bulle)
     if _fg < 25:
-        _sent_mult = 0.5
+        _sent_mult = 1.5
         _sent_label = "Extreme Fear"
     elif _fg < 45:
-        _sent_mult = 0.8
+        _sent_mult = 1.2
         _sent_label = "Fear"
     elif _fg < 55:
         _sent_mult = 1.0
         _sent_label = "Neutral"
     elif _fg < 75:
-        _sent_mult = 1.5
+        _sent_mult = 0.8
         _sent_label = "Greed"
     else:
-        _sent_mult = 2.0
+        _sent_mult = 0.5
         _sent_label = "Extreme Greed"
-    # Multiplicateur score (0.5x a 2.0x)
-    # Score 1-3: x0.5 (signal faible)
+    # Multiplicateur score (0.7x a 1.5x) — plus prudent
+    # Score 1-3: x0.7 (signal faible)
     # Score 4-6: x1.0 (signal moyen)
-    # Score 7-8: x1.5 (signal fort)
-    # Score 9-10: x2.0 (signal tres fort)
+    # Score 7-8: x1.2 (signal fort)
+    # Score 9-10: x1.5 (signal tres fort)
     if _score <= 3:
-        _score_mult = 0.5
+        _score_mult = 0.7
     elif _score <= 6:
         _score_mult = 1.0
     elif _score <= 8:
-        _score_mult = 1.5
+        _score_mult = 1.2
     else:
-        _score_mult = 2.0
+        _score_mult = 1.5
     # Montant dynamique = base x sentiment x score
     _montant_dyn = _base_size * _sent_mult * _score_mult
     _montant_dyn = min(_montant_dyn, _max_size)  # plafond 50%
@@ -1574,20 +1574,20 @@ def verifier_sorties(pf, prix_actuels):
             _pic = prix_actuel
             pos["prix_peak"] = _pic
         _var_pic = (_pic - prix_entree) / prix_entree * 100
-        if _var_pic >= 6.0:
+        if _var_pic >= 4.0:
             # Tres en profit: trail serre a 0.5% sous le pic (protege fortement)
             _sl_price = _pic * (1 - 0.5 / 100.0)
             _sl_regle = "suiveur-serre"
-        elif _var_pic >= 4.0:
-            # Bien en profit: trail a 1.0% sous le pic
-            _sl_price = _pic * (1 - 1.0 / 100.0)
-            _sl_regle = "suiveur-proche"
         elif _var_pic >= 2.5:
-            # En profit: trail a 1.5% sous le pic (laisse respirer vers le TP)
+            # Bien en profit: trail a 0.8% sous le pic
+            _sl_price = _pic * (1 - 0.8 / 100.0)
+            _sl_regle = "suiveur-proche"
+        elif _var_pic >= 1.5:
+            # En profit: trail a 1.0% sous le pic (laisse respirer vers le TP)
             _sl_price = _pic * (1 - 1.0 / 100.0)
             _sl_regle = "suiveur"
         else:
-            # SL fixe au debut (laisse respirer vers le TP de +3%)
+            # SL fixe au debut (laisse respirer vers le TP de +2.0%)
             _sl_price = prix_entree * (1 - _sl / 100.0)
         # TP DYNAMIQUE PROGRESSIF: quand le prix atteint le TP, on le monte de plus en plus
         # Le trade court tant que la tendance haussiere continue
@@ -1645,8 +1645,8 @@ def verifier_sorties(pf, prix_actuels):
         if prix_actuel <= _sl_price:
             positions_a_fermer.append((pos, prix_actuel, f"STOP-SUIVEUR (pic {_var_pic:+.1f}%, ferme a {variation:+.1f}%)", variation))
             continue
-        # SORTIE PATTERN BOUGIE: ferme si un pattern baissier fort est detecte (en profit)
-        if variation > 0.5:
+        # SORTIE PATTERN BOUGIE: ferme si un pattern baissier fort est detecte (en profit >= 0.8%)
+        if variation > 0.8:
             try:
                 from indicateurs import detecter_patterns_bougies, historique_ohlcv
                 _bougies_pos = historique_ohlcv(sym, "1h", 10)

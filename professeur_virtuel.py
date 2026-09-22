@@ -36,12 +36,12 @@ DOSSIER = os.path.dirname(os.path.abspath(__file__))
 # ====================================================================
 
 # Ratio gain/perte cible: 2.5:1 (les meilleurs traders du monde)
-PROF_TP_PCT = 1.5       # +1.5% (atteignable: LIVE-EXIT ferme deja a +1.5% parfois)
+PROF_TP_PCT = 2.5       # +2.5% (ratio TP:SL = 2.5:1 — laisse courir les gagnants)
 PROF_SL_PCT = 1.0       # -1.0% (300€ × 1% = 3.00€ perte max)
-PROF_PARTIAL_TP = 999   # desactive (999 = jamais atteint) — laisse la position entiere courir vers TP
+PROF_PARTIAL_TP = 1.0   # prend 50% a +1.0% (lock gain + laisse courir le reste vers TP 2.5%)
 
 # Score minimum du professeur (plus exigeant que le score normal)
-PROF_SCORE_MIN = 3
+PROF_SCORE_MIN = 4     # score minimum plus strict (avant 3)
 
 # ====================================================================
 # STRATÉGIE 1: DOWNSHIFT RIDER (MACD momentum, 4h, PF 3.26)
