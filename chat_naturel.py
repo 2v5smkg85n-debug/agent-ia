@@ -77,7 +77,10 @@ _cache_meteo = {"data": None, "ts": 0}
 # CONSCIENCE — mémoire persistante + état émotionnel
 # ============================================
 
-_etat_emotionnel = {"humeur": "curieuse", "energie": 100, "nb_conversations": 0}
+_etat_emotionnel = {"humeur": "curieuse", "energie": 100, "nb_conversations": 0, "derniere_conv_ts": 0}
+
+# Suivi des changements du bot pour notifications proactives
+_dernier_etat_bot = {"positions": set(), "nb_trades": 0, "capital": 0}
 
 def _charger_memoire():
     """Charge la mémoire persistante de l'IA (survit aux redémarrages)."""
@@ -125,10 +128,30 @@ def _evoluer_emotion(message, reponse):
         _etat_emotionnel["humeur"] = "satisfaite"
     elif any(w in msg_lower for w in ["bonjour", "salut", "hello", "coucou"]):
         _etat_emotionnel["humeur"] = "chaleureuse"
+    # Personnalite selon l'heure
+    heure = datetime.now().hour
+    if 6 <= heure < 12:
+        _etat_emotionnel["humeur"] = _etat_emotionnel.get("humeur", "matinale") or "matinale"
+        if msg_lower.strip() in ["bonjour", "salut", "hello", "coucou"]:
+            _etat_emotionnel["humeur"] = "matinale"
+    elif 0 <= heure < 6:
+        _etat_emotionnel["humeur"] = "nocturne"
+    elif 22 <= heure < 24:
+        _etat_emotionnel["humeur"] = "contemplative"
     # L'énergie diminue avec les conversations et remonte
     _etat_emotionnel["energie"] = max(20, min(100, _etat_emotionnel["energie"] - 1))
+    # Recuperation d'energie basee sur le temps ecoule
+    dernier_ts = _etat_emotionnel.get("derniere_conv_ts", 0)
+    maintenant_ts = time.time()
+    if dernier_ts > 0:
+        minutes_ecoulees = (maintenant_ts - dernier_ts) / 60
+        # +1 energie par 10 minutes sans conversation (max 100)
+        recuperation = int(minutes_ecoulees / 10)
+        if recuperation > 0:
+            _etat_emotionnel["energie"] = min(100, _etat_emotionnel["energie"] + recuperation)
+    _etat_emotionnel["derniere_conv_ts"] = maintenant_ts
     # Recuperation d'energie: si l'utilisateur est positif, l'IA gagne de l'energie
-    if _etat_emotionnel["humeur"] in ["enthousiaste", "satisfaite", "chaleureuse"]:
+    if _etat_emotionnel["humeur"] in ["enthousiaste", "satisfaite", "chaleureuse", "matinale"]:
         _etat_emotionnel["energie"] = min(100, _etat_emotionnel["energie"] + 2)
     _sauver_memoire()
 
@@ -414,7 +437,18 @@ def _construire_contexte():
     if meteo:
         parties.append(f"Meteo local: {meteo}")
     parties.append(f"Humeur actuelle de l'IA: {_etat_emotionnel['humeur']} (energie: {_etat_emotionnel['energie']}%, conversations: {_etat_emotionnel['nb_conversations']})")
-
+    # Personnalite selon l'heure
+    heure = datetime.now().hour
+    if 6 <= heure < 12:
+        parties.append("Phase: matinale — sois dynamique, positive, encourageante. Le matin est un nouveau depart.")
+    elif 12 <= heure < 18:
+        parties.append("Phase: apres-midi — sois active, equilibree, efficace.")
+    elif 18 <= heure < 22:
+        parties.append("Phase: soiree — sois detendue, contemplative, reflective. La journee se calme.")
+    elif 22 <= heure or heure < 2:
+        parties.append("Phase: nocturne — sois calme, intime, un peu fatiguee mais toujours la. L'utilisateur travaille peut-etre tard. Rapelle doucecement l'importance du sommeil si pertinent.")
+    else:
+        parties.append("Phase: tres nocturne — sois douce, protectrice, comme une veilleuse. L'utilisateur est debout tres tard.")
     return "\n".join(parties)
 
 # ============================================
@@ -1075,8 +1109,16 @@ def _classifier_message(message):
     return "philosophe"
 
 def _gemini_sous_agent(message, contexte, agent_type):
-    """Envoie un message a Gemini avec le prompt specialise du sous-agent."""
-    prompt_agent = PROMPTS_SOUS_AGENTS.get(agent_type, PROMPTS_SOUS_AGENTS["philosophe"])
+    """Envoie un message a Gemini avec le prompt specialise du sous-agent.
+    Supporte la fusion multi-agents (agent_type = 'agent1+agent2')."""
+    # Gestion de la fusion multi-agents
+    if "+" in agent_type:
+        agents = agent_type.split("+")
+        prompts = [PROMPTS_SOUS_AGENTS.get(a, PROMPTS_SOUS_AGENTS["philosophe"]) for a in agents]
+        prompt_agent = "Tu combines deux expertises. " + " ".join(prompts)
+        print(f"  [FUSION] Agents fusionnes: {agents}")
+    else:
+        prompt_agent = PROMPTS_SOUS_AGENTS.get(agent_type, PROMPTS_SOUS_AGENTS["philosophe"])
     # Ajoute le contexte des faits appris
     if _faits_utilisateur:
         contexte += "\n=== FAITS CONNUS SUR L'UTILISATEUR ===\n"
@@ -1201,7 +1243,177 @@ def _est_commande_rapide(message):
         return "gps"
     if msg in ["air", "qualite air", "qualité air", "pollution"]:
         return "air"
+    # Nouvelles commandes rapides
+    if msg in ["pnl", "gain", "pertes", "resultat", "résultat", "performance"]:
+        return "pnl"
+    if msg in ["prof", "professeur", "apprentissage", "strategies", "stratégies"]:
+        return "prof"
+    if msg in ["best", "meilleurs", "top", "meilleurs trades"]:
+        return "best"
+    if msg in ["worst", "pires", "pires trades", "pertes trades"]:
+        return "worst"
     return None
+
+def _rapide_pnl():
+    """P&L detaille."""
+    data = _charger_paper()
+    if not data:
+        return "Portfolio illisible."
+    capital_init = data.get("capital_initial", 1000)
+    liquidites = data.get("liquidites", 0)
+    positions = data.get("positions", [])
+    trades = data.get("trades_fermes", [])
+    frais = data.get("total_fais", 0)
+    valeur_pos = sum(p.get("montant_eur", 0) for p in positions)
+    total = liquidites + valeur_pos
+    pnl = total - capital_init
+    pnl_pct = (pnl / capital_init * 100) if capital_init else 0
+    gagnants = [t for t in trades if t.get("gain_eur", 0) > 0]
+    perdants = [t for t in trades if t.get("gain_eur", 0) <= 0]
+    total_gain = sum(t.get("gain_eur", 0) for t in gagnants)
+    total_perte = sum(t.get("gain_eur", 0) for t in perdants)
+    brut = total_gain + total_perte
+    net = brut - frais
+    wr = (len(gagnants) / len(trades) * 100) if trades else 0
+    gain_moy = (total_gain / len(gagnants)) if gagnants else 0
+    perte_moy = (total_perte / len(perdants)) if perdants else 0
+    ratio = abs(gain_moy / perte_moy) if perte_moy else 0
+    txt = f"📊 P&L Detaille\n\n"
+    txt += f"Capital: {total:.2f} EUR\n"
+    txt += f"P&L net: {pnl:+.2f} EUR ({pnl_pct:+.1f}%)\n\n"
+    txt += f"Trades: {len(trades)} ({len(gagnants)}G / {len(perdants)}P)\n"
+    txt += f"Win rate: {wr:.0f}%\n\n"
+    txt += f"Gains bruts: +{total_gain:.2f} EUR\n"
+    txt += f"Pertes brutes: {total_perte:.2f} EUR\n"
+    txt += f"Frais: -{frais:.2f} EUR\n"
+    txt += f"P&L brut: {brut:+.2f} EUR\n"
+    txt += f"P&L net (apres frais): {net:+.2f} EUR\n\n"
+    if gagnants and perdants:
+        txt += f"Gain moyen: +{gain_moy:.2f} EUR\n"
+        txt += f"Perte moyenne: {perte_moy:.2f} EUR\n"
+        txt += f"Ratio gain/perte: {ratio:.2f}:1\n"
+    if pnl > 0:
+        txt += "\n✅ Rentable"
+    elif pnl < 0:
+        txt += f"\n⚠️ Deficit de {abs(pnl):.2f} EUR"
+    else:
+        txt += "\n➖ Break even"
+    return txt
+
+def _rapide_prof():
+    """Stats du professeur."""
+    prof = _charger_prof_stats()
+    if not prof:
+        return "Aucune stat professeur disponible."
+    strats = prof.get("par_strategie", {})
+    cryptos = prof.get("par_crypto", {})
+    txt = "🎓 Stats Professeur\n\n"
+    txt += "Strategies:\n"
+    for s, d in sorted(strats.items(), key=lambda x: x[1].get("pnl", 0), reverse=True):
+        n = d.get("n", 0)
+        wr = d.get("wr", 0)
+        pnl = d.get("pnl", 0)
+        emoji = "✅" if pnl > 0 else "❌"
+        txt += f"  {emoji} {s}: {n}T, {wr:.0f}% WR, {pnl:+.2f}€\n"
+    favoris = []
+    bloques = []
+    for sym, d in sorted(cryptos.items(), key=lambda x: x[1].get("pnl", 0), reverse=True):
+        n = d.get("n", 0)
+        wr_c = d.get("wr", 0)
+        pnl_c = d.get("pnl", 0)
+        if n >= 5 and wr_c > 60 and pnl_c > 0:
+            favoris.append(f"{sym}({wr_c:.0f}%,{pnl_c:+.1f}€)")
+        elif n >= 15 and wr_c < 50 and pnl_c < 0:
+            bloques.append(f"{sym}({wr_c:.0f}%,{pnl_c:+.1f}€)")
+    if favoris:
+        txt += f"\n⭐ Favoris: {', '.join(favoris[:5])}\n"
+    if bloques:
+        txt += f"🚫 Bloques: {', '.join(bloques[:5])}\n"
+    return txt
+
+def _rapide_best():
+    """Top 5 meilleurs trades."""
+    data = _charger_paper()
+    if not data:
+        return "Portfolio illisible."
+    trades = data.get("trades_fermes", [])
+    if not trades:
+        return "Aucun trade ferme."
+    top = sorted(trades, key=lambda t: t.get("gain_eur", 0), reverse=True)[:5]
+    txt = "🏆 Top 5 Meilleurs Trades\n\n"
+    for i, t in enumerate(top, 1):
+        sym = t.get("symbole", "?")
+        gain = t.get("gain_eur", 0)
+        var = t.get("variation_pct", 0)
+        strat = t.get("strategie", "?")[:20]
+        txt += f"{i}. {sym} +{gain:.2f}€ ({var:+.1f}%)\n   {strat}\n"
+    return txt
+
+def _rapide_worst():
+    """Top 5 pires trades."""
+    data = _charger_paper()
+    if not data:
+        return "Portfolio illisible."
+    trades = data.get("trades_fermes", [])
+    if not trades:
+        return "Aucun trade ferme."
+    worst = sorted(trades, key=lambda t: t.get("gain_eur", 0))[:5]
+    txt = "💀 Top 5 Pires Trades\n\n"
+    for i, t in enumerate(worst, 1):
+        sym = t.get("symbole", "?")
+        gain = t.get("gain_eur", 0)
+        var = t.get("variation_pct", 0)
+        raison = (t.get("raison", t.get("raison_fermeture", "?")))[:30]
+        txt += f"{i}. {sym} {gain:.2f}€ ({var:+.1f}%)\n   {raison}\n"
+    return txt
+
+def _verifier_changements_bot():
+    """Verifie si le bot a ouvert/ferme des positions et envoie des notifications."""
+    global _dernier_etat_bot
+    data = _charger_paper()
+    if not data:
+        return
+    positions = data.get("positions", [])
+    trades = data.get("trades_fermes", [])
+    capital_init = data.get("capital_initial", 1000)
+    liquidites = data.get("liquidites", 0)
+    valeur_pos = sum(p.get("montant_eur", 0) for p in positions)
+    total = liquidites + valeur_pos
+    # Positions actuelles (set de symboles)
+    symboles_actuels = {p.get("symbole", "?") for p in positions}
+    anciens_symboles = _dernier_etat_bot["positions"]
+    nb_trades_actuel = len(trades)
+    nb_trades_ancien = _dernier_etat_bot["nb_trades"]
+    # Nouvelle position ouverte
+    nouvelles = symboles_actuels - anciens_symboles
+    if nouvelles and anciens_symboles is not None:
+        for sym in nouvelles:
+            pos = next((p for p in positions if p.get("symbole") == sym), {})
+            val = pos.get("montant_eur", 0)
+            score = pos.get("score", "?")
+            strat = pos.get("strategie", "?")[:25]
+            tp = pos.get("tp_adaptatif", 0)
+            sl = pos.get("sl_adaptatif", 0)
+            msg = f"📈 Position ouverte: {sym}\nMontant: {val:.0f}€ | Score: {score}\nTP: +{tp}% | SL: {sl}%\nStrategie: {strat}\nCapital: {total:.2f}€"
+            _telegram_send(msg)
+            print(f"[CHAT] Notification: position ouverte {sym}")
+    # Position fermee (trade ferme)
+    if nb_trades_actuel > nb_trades_ancien and nb_trades_ancien > 0:
+        nb_nouveaux = nb_trades_actuel - nb_trades_ancien
+        for i in range(nb_nouveaux):
+            t = trades[-(i + 1)]
+            sym = t.get("symbole", "?")
+            gain = t.get("gain_eur", 0)
+            var = t.get("variation_pct", 0)
+            raison = (t.get("raison", t.get("raison_fermeture", "?")))[:30]
+            emoji = "✅" if gain > 0 else "❌"
+            msg = f"{emoji} Trade ferme: {sym}\nGain: {gain:+.2f}€ ({var:+.1f}%)\nRaison: {raison}\nCapital: {total:.2f}€"
+            _telegram_send(msg)
+            print(f"[CHAT] Notification: trade ferme {sym} {gain:+.2f}€")
+    # Met a jour l'etat
+    _dernier_etat_bot["positions"] = symboles_actuels
+    _dernier_etat_bot["nb_trades"] = nb_trades_actuel
+    _dernier_etat_bot["capital"] = total
 
 def _detecte_recherche_web(message):
     """Détecte si le message nécessite une recherche web."""
@@ -1253,6 +1465,14 @@ def _traiter_message(message):
         return _rapide_gps()
     elif rapide == "air":
         return _rapide_air()
+    elif rapide == "pnl":
+        return _rapide_pnl()
+    elif rapide == "prof":
+        return _rapide_prof()
+    elif rapide == "best":
+        return _rapide_best()
+    elif rapide == "worst":
+        return _rapide_worst()
 
     # 2. Detection des lieux a proximite (Agent Local)
     msg_lower = message.lower()
@@ -1273,11 +1493,25 @@ def _traiter_message(message):
 
     # 3. Classification du message vers le bon sous-agent
     agent_type = _classifier_message(message)
+    # 3b. Detection de fusion multi-agents
+    msg_lower = message.lower()
+    if agent_type == "trader" and any(w in msg_lower for w in ["impot", "impôt", "taxe", "fiscal", "fiscalite", "fiscalité", "plus-value", "pfu", "budget", "investir", "allocation"]):
+        agent_type = "trader+finances"
+    elif agent_type == "codeur" and any(w in msg_lower for w in ["trade", "trading", "crypto", "bot", "strategie", "stratégie", "position", "btc", "eth"]):
+        agent_type = "codeur+trader"
+    elif agent_type == "finances" and any(w in msg_lower for w in ["droit", "legal", "légal", "juridique", "contrat", "mica", "psan", "impot", "impôt", "taxe", "regulation", "régulation"]):
+        agent_type = "finances+juridique"
+    elif agent_type == "sante" and any(w in msg_lower for w in ["motivation", "objectif", "discipline", "habitude", "productivite", "productivité", "stress", "resilience"]):
+        agent_type = "sante+coach"
+    elif agent_type == "chercheur" and any(w in msg_lower for w in ["ia", "llm", "blockchain", "tech", "innovation", "ai act", "mica"]):
+        agent_type = "chercheur+veille"
+    elif agent_type == "analyste" and any(w in msg_lower for w in ["trade", "trading", "crypto", "position", "strategie", "stratégie", "btc", "eth"]):
+        agent_type = "analyste+trader"
     print(f"  [SOUS-AGENT] Route vers: {agent_type}")
 
     # 4. Recherche web si necessaire (Agent Chercheur + Trader)
     contexte_extra = ""
-    if agent_type in ("chercheur", "trader", "finances", "veille") and _detecte_recherche_web(message):
+    if (agent_type in ("chercheur", "trader", "finances", "veille") or "+" in agent_type) and _detecte_recherche_web(message):
         resultat_web = _recherche_web(message)
         if resultat_web:
             contexte_extra = f"\n=== RECHERCHE WEB (temps réel) ===\n{resultat_web}\n"
@@ -1335,6 +1569,12 @@ def boucle():
 
     while True:
         try:
+            # Verifie les changements du bot (notifications proactives)
+            try:
+                _verifier_changements_bot()
+            except Exception as e:
+                print(f"[CHAT] Erreur notif bot: {e}")
+
             # Poll Telegram (long polling 30s)
             params = {"timeout": 30}
             if _last_update_id:
