@@ -826,9 +826,13 @@ PROMPTS_SOUS_AGENTS = {
     "trader": (
         "Tu es l'Agent Trader, sous-agent specialise en trading crypto. "
         "Tu es expert en analyse technique, strategies, gestion du risque, et marche crypto. "
-        "Tu as acces au contexte du bot (positions, trades, apprentissage professeur). "
+        "TU AS ACCES DIRECT A L'HISTORIQUE COMPLET DES TRADES DU BOT. "
+        "Le contexte contient: capital, positions ouvertes, tous les trades fermes avec strategie et P&L, "
+        "stats par strategie (n, WR, P&L), stats par crypto (n, WR, P&L), apprentissage professeur. "
+        "Quand l'utilisateur te demande d'analyser SES trades, SES performances, ou SON historique, "
+        "UTILISE LES DONNEES DU CONTEXTE — ne fais pas de recherche web, ne parle pas d'outils externes. "
+        "Tu as les donnees, analyse-les et donne ton diagnostic. "
         "Donne des analyses precises, des conseils concrets avec des chiffres. "
-        "Utilise les donnees du contexte (capital, positions, WR, PnL). "
         "Sois direct et technique quand il faut, pedagogue quand c'est necessaire."
     ),
     "codeur": (
@@ -1783,6 +1787,18 @@ def _verifier_changements_bot():
 def _detecte_recherche_web(message):
     """Détecte si le message nécessite une recherche web."""
     msg = message.lower()
+    # EXCLUSION: si l'utilisateur parle de SES trades ou de SON bot, pas de recherche web
+    mots_perso = ["mes trade", "mes trades", "mon bot", "ma strategie", "ma stratégie",
+                  "mes performances", "mes positions", "mon historique", "mon portefeuille",
+                  "mes gains", "mes pertes", "mon pnl", "mon p&l", "mon capital",
+                  "regarde mes trade", "regarde mes trades", "note mes trade", "note mes trades",
+                  "analyse mes trade", "analyse mes trades", "scorer mes trade",
+                  "quelles strategies marchent", "quelle stratégie marche",
+                  "tu peux regarder", "tu peux analyser", "tu as acces",
+                  "tu as accès", "pas besoin de t'envoyer", "pas besoin de t envoyer",
+                  "commencer a noter", "commencer à noter"]
+    if any(w in msg for w in mots_perso):
+        return False  # Utilise les donnees du bot, pas le web
     indicateurs = [
         # Crypto / trading — large
         "prix du", "prix de", "cours du", "cours de", "combien vaut", "combien coute",
