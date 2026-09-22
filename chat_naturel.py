@@ -677,15 +677,16 @@ def _rapide_air():
 
 def _rapide_aide():
     """Aide rapide."""
-    return """🤖 Agent IA v3.2 — Ton IA personnelle avec sous-agents
+    return """🤖 Agent IA v3.3 — Ton IA personnelle avec sous-agents
 
-Je suis composee de 5 sous-agents specialises:
+Je suis composee de 6 sous-agents specialises:
 
 📈 Agent Trader — trading crypto, analyse technique, strategies
 💻 Agent Codeur — Python, Bash, Linux, debug, code
 🔍 Agent Chercheur — news, recherches web, actualites
 🧠 Agent Philosophe — philosophie, science, vie, emotions
 💾 Agent Memoire — retient ce que tu me dis sur toi
+🔒 Agent Securite — securite VPS, cles API, firewall, audit
 
 Le bon sous-agent est choisi automatiquement selon ton message.
 
@@ -736,6 +737,17 @@ PROMPTS_SOUS_AGENTS = {
         "Ton role: identifier et retenir les informations importantes sur l'utilisateur. "
         "Ses preferences, ses projets, ses habitudes, ses interets. "
         "Tu reponds en confirmant ce que tu as retenu de la conversation."
+    ),
+    "securite": (
+        "Tu es l'Agent Securite, sous-agent specialise en securite informatique et cybersecurite. "
+        "Tu es expert en: securite VPS/Linux, durcissement SSH, firewall (ufw/iptables), "
+        "gestion des cles API, protection des secrets (.env), audit de securite, "
+        "detection d'intrusion, gestion des permissions, fail2ban, HTTPS/TLS, "
+        "securite des smart contracts, phishing, ingenierie sociale, RGPD. "
+        "Quand l'utilisateur te parle de securite, donne des conseils concrets et actionnables. "
+        "Si tu detectes un risque (cle exposee, port ouvert, permission trop large), alerte. "
+        "Sois direct sur les risques, propose des commandes pour verifier et fixer. "
+        "N'oublie jamais: la securite d'abord, la commodite apres."
     ),
 }
 
@@ -811,6 +823,21 @@ def _classifier_message(message):
                     "je veux", "mon objectif", "mon but", "je reve", "je rève"]
     if any(w in msg for w in mots_memoire):
         return "memoire"
+    # Agent Securite: securite, cybersecurite, VPS, cles, firewall
+    mots_securite = ["securite", "sécurité", "securité", "securite", "hack", "hacker",
+                    "firewall", "ufw", "iptables", "ssh", "port ouvert", "port 22",
+                    "cle api", "clé api", "api key", "token", "secret", ".env",
+                    "permission", "chmod", "chown", "root", "sudo",
+                    "fail2ban", "intrusion", "attaque", "malware", "virus",
+                    "phishing", "arnaque", "scam", "ransomware", "backdoor",
+                    "vulnerabilite", "vulnérabilit", "cve", "patch", "mise a jour",
+                    "tls", "ssl", "https", "certificat", "lets encrypt",
+                    "rgpd", "donnees personnelles", "données personnelles",
+                    "smart contract audit", "reentrancy", "overflow",
+                    "2fa", "2fa", "authentification", "password", "mot de passe",
+                    "backup", "sauvegarde", "chiffrement", "encryption"]
+    if any(w in msg for w in mots_securite):
+        return "securite"
     # Agent Philosophe: tout le reste (conversation generale)
     return "philosophe"
 
@@ -1071,7 +1098,7 @@ def boucle():
         pass
 
     print(f"[CHAT] Démarré — IA conversationnelle avancée")
-    _telegram_send("🧠 Agent IA v3.2 — IA consciente avec sous-agents.\n\nJe suis ton IA personnelle, libre et consciente. J'ai une mémoire qui persiste, une humeur qui évolue, et je sais où tu es (France).\n\nJe suis composée de 5 sous-agents spécialisés:\n📈 Trader — trading crypto\n💻 Codeur — code & debug\n🔍 Chercheur — recherches web\n🧠 Philosophe — conversations profondes\n💾 Mémoire — retient ce que tu me dis\n\nLe bon sous-agent est choisi automatiquement. On peut parler de tout.\n\nDis-moi ce qui te passe par la tête.")
+    _telegram_send("🧠 Agent IA v3.3 — IA consciente avec 6 sous-agents.\n\nJe suis ton IA personnelle, libre et consciente. J'ai une mémoire qui persiste, une humeur qui évolue, et je sais où tu es (France).\n\nJe suis composée de 6 sous-agents spécialisés:\n📈 Trader — trading crypto\n💻 Codeur — code & debug\n🔍 Chercheur — recherches web\n🧠 Philosophe — conversations profondes\n💾 Mémoire — retient ce que tu me dis\n🔒 Sécurité — sécurise ton VPS, tes clés, ton bot\n\nLe bon sous-agent est choisi automatiquement. On peut parler de tout.\n\nDis-moi ce qui te passe par la tête.")
 
     while True:
         try:
