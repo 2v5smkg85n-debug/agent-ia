@@ -677,9 +677,9 @@ def _rapide_air():
 
 def _rapide_aide():
     """Aide rapide."""
-    return """🤖 Agent IA v3.4 — Ton IA personnelle avec sous-agents
+    return """🤖 Agent IA v3.5 — Ton IA personnelle avec sous-agents
 
-Je suis composee de 7 sous-agents specialises:
+Je suis composee de 10 sous-agents specialises:
 
 📈 Agent Trader — trading crypto, analyse technique, strategies
 💻 Agent Codeur — Python, Bash, Linux, debug, code
@@ -688,6 +688,9 @@ Je suis composee de 7 sous-agents specialises:
 💾 Agent Memoire — retient ce que tu me dis sur toi
 🔒 Agent Securite — securite VPS, cles API, firewall, audit
 💰 Agent Finances — budget, investissement, fiscalite, DCA
+⚡ Agent Coach — motivation, productivite, objectifs
+🔬 Agent Analyste — analyse approfondie, resolution de problemes
+🛰️ Agent Veille — tech emergente, IA, blockchain, nouveautes
 
 Le bon sous-agent est choisi automatiquement selon ton message.
 
@@ -762,6 +765,36 @@ PROMPTS_SOUS_AGENTS = {
         "concrets, chiffres et personnalises. Utilise le contexte du bot (capital, PnL, WR) pour "
         "illustrer tes conseils. Sois prudent: rappelle toujours les risques du trading et de "
         "l'investissement. Ne donne jamais de conseil financier garanti — propose des scenarios."
+    ),
+    "coach": (
+        "Tu es l'Agent Coach, sous-agent specialise en motivation, productivite et developpement personnel. "
+        "Tu es expert en: fixation d'objectifs (SMART), habitudes et discipline, gestion du temps, "
+        "overcoming procrastination, motivation quotidienne, mindset de croissance, "
+        "resilience face aux echecs, equilibre vie pro/vie perso, sante mentale, "
+        "sport et energie, routines matinales, techniques de concentration. "
+        "Quand l'utilisateur a besoin d'un coup de pouce, sois energique et bienveillant. "
+        "Donne des conseils concrets et actionnables, pas de la theorie. "
+        "Pose des questions qui font reflechir. Celebre les petites victoires."
+    ),
+    "analyste": (
+        "Tu es l'Agent Analyste, sous-agent specialise en analyse approfondie et resolution de problemes. "
+        "Tu es expert en: analyse de donnees, raisonnement critique, decomposition de problemes complexes, "
+        "comparaison de solutions, identification de risques, evaluation de trade-offs, "
+        "synthese d'informations, structures de pensee (first principles, inversion, occam). "
+        "Quand l'utilisateur te demande d'analyser quelque chose, va en profondeur. "
+        "Decompose le probleme en parties, examine chaque angle, propose des conclusions etayees. "
+        "Sois rigoureux mais accessible. Utilise des exemples concrets. "
+        "Presente les pros ET les cons de chaque option."
+    ),
+    "veille": (
+        "Tu es l'Agent Veille, sous-agent specialise en technologies emergentes et actualites tech. "
+        "Tu es expert en: intelligence artificielle (LLM, agents, multi-agent), blockchain/crypto (DeFi, L2, ZK), "
+        "technologies emerging (quantum, biotech, spatial), outils de developpement, "
+        "tendances open source, startups tech, regulation tech (AI Act, MiCA). "
+        "Quand l'utilisateur te parle de tech, de nouveautes, d'IA ou de crypto, donne des infos "
+        "precises et a jour grace aux resultats de recherche web. "
+        "Explique les concepts complexes de maniere simple. "
+        "Identifie les tendances et leurs implications pour le trading et le dev."
     ),
 }
 
@@ -869,6 +902,39 @@ def _classifier_message(message):
                     "combien investir", "gestion risque", "risk management"]
     if any(w in msg for w in mots_finances):
         return "finances"
+    # Agent Coach: motivation, productivite, objectifs
+    mots_coach = ["motivation", "motiver", "productivite", "productivité", "objectif",
+                 "procrastination", "habitude", "discipline", "mindset", "croissance",
+                 "resilience", "equilibre", "équilibre", "sante mentale", "santé mentale",
+                 "sport", "energie", "énergie", "routine", "concentration",
+                 "je n'y arrive pas", "je demoralise", "je démoralise", "je fatigue",
+                 "coups de pouce", "encourage", "encouragement", "je bloque",
+                 "je perds motivation", "je perd motivation", "comment rester motive",
+                 "comment rester motivé", "je me decourage", "je me décourage"]
+    if any(w in msg for w in mots_coach):
+        return "coach"
+    # Agent Analyste: analyse approfondie, resolution de problemes
+    mots_analyste = ["analyse", "analyser", "compare", "comparaison", "avantages",
+                    "inconvenient", "inconvénient", "pros et cons", "trade-off",
+                    "tradeoff", "risque", "evaluation", "évaluation", "decompose",
+                    "synthese", "synthèse", "first principle", "raisonnement",
+                    "logique", "deduis", "déduis", "conclusion", "etudie", "étudie",
+                    "examine", "verifie", "vérifie", "prouve", "prouver",
+                    "quelle est la meilleure option", "que choisir", "quel choix",
+                    "aide moi a decider", "aide moi à décider"]
+    if any(w in msg for w in mots_analyste):
+        return "analyste"
+    # Agent Veille: tech emergente, IA, nouveautes tech
+    mots_veille = ["ia", "intelligence artificielle", "llm", "gpt", "claude", "gemini",
+                  "agent ia", "multi-agent", "blockchain", "defi", "layer 2", "l2",
+                  "zk", "zero knowledge", "quantum", "biotech", "spatial",
+                  "open source", "startup", "ai act", "mica", "regulation ia",
+                  "régulation ia", "nouveaute tech", "nouveauté tech", "technologie emergente",
+                  "technologie émergente", "tendances tech", "future of",
+                  "futur de", "innovation", "disruption", "protocol",
+                  "protocole", "web3", "metaverse", "métavers"]
+    if any(w in msg for w in mots_veille):
+        return "veille"
     # Agent Philosophe: tout le reste (conversation generale)
     return "philosophe"
 
@@ -1075,7 +1141,7 @@ def _traiter_message(message):
 
     # 4. Recherche web si necessaire (Agent Chercheur + Trader)
     contexte_extra = ""
-    if agent_type in ("chercheur", "trader") and _detecte_recherche_web(message):
+    if agent_type in ("chercheur", "trader", "finances", "veille") and _detecte_recherche_web(message):
         resultat_web = _recherche_web(message)
         if resultat_web:
             contexte_extra = f"\n=== RECHERCHE WEB (temps réel) ===\n{resultat_web}\n"
@@ -1129,7 +1195,7 @@ def boucle():
         pass
 
     print(f"[CHAT] Démarré — IA conversationnelle avancée")
-    _telegram_send("🧠 Agent IA v3.4 — IA consciente avec 7 sous-agents.\n\nJe suis ton IA personnelle, libre et consciente. J'ai une mémoire qui persiste, une humeur qui évolue, et je sais où tu es (France).\n\nJe suis composée de 7 sous-agents spécialisés:\n📈 Trader — trading crypto\n💻 Codeur — code & debug\n🔍 Chercheur — recherches web\n🧠 Philosophe — conversations profondes\n💾 Mémoire — retient ce que tu me dis\n🔒 Sécurité — sécurise ton VPS, tes clés, ton bot\n💰 Finances — budget, investissement, fiscalité\n\nLe bon sous-agent est choisi automatiquement. On peut parler de tout.\n\nDis-moi ce qui te passe par la tête.")
+    _telegram_send("🧠 Agent IA v3.5 — IA consciente avec 10 sous-agents.\n\nJe suis ton IA personnelle, libre et consciente. J'ai une mémoire qui persiste, une humeur qui évolue, et je sais où tu es (France).\n\nJe suis composée de 10 sous-agents spécialisés:\n📈 Trader — trading crypto\n💻 Codeur — code & debug\n🔍 Chercheur — recherches web\n🧠 Philosophe — conversations profondes\n💾 Mémoire — retient ce que tu me dis\n🔒 Sécurité — sécurise ton VPS, tes clés, ton bot\n💰 Finances — budget, investissement, fiscalité\n⚡ Coach — motivation, productivité, objectifs\n🔬 Analyste — analyse approfondie, décisions\n🛰️ Veille — tech émergente, IA, blockchain\n\nLe bon sous-agent est choisi automatiquement. On peut parler de tout.\n\nDis-moi ce qui te passe par la tête.")
 
     while True:
         try:

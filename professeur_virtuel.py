@@ -777,16 +777,173 @@ def _boost_apprentissage_prof(strategie, symbole):
 # FONCTION PRINCIPALE: générer les signaux du professeur
 # ====================================================================
 
+# ====================================================================
+# SYSTEME MULTI-PROFESSEURS
+# ====================================================================
+
+PROFESSEURS = {
+    "momentum": {
+        "nom": "Professeur Momentum",
+        "philosophie": "La tendance est ton amie. Je surfe les vagues MACD.",
+        "emoji": "🚀",
+    },
+    "reversion": {
+        "nom": "Professeur Reversion",
+        "philosophie": "Tout revient a la moyenne. J'achete la peur, je vends l'euphorie.",
+        "emoji": "🔄",
+    },
+    "contrarien": {
+        "nom": "Professeur Contrarien",
+        "philosophie": "Je prends l'autre cote des rallys. Quand les autres pleurent, j'achete.",
+        "emoji": "🎭",
+    },
+    "patterns": {
+        "nom": "Professeur Patterns",
+        "philosophie": "Je lis les bougies comme un livre. Les patterns ne mentent jamais.",
+        "emoji": "📊",
+    },
+    "tendance": {
+        "nom": "Professeur Tendance",
+        "philosophie": "La direction du marche est reine. Je suis les tendances longues.",
+        "emoji": "📈",
+    },
+}
+
+def _professeur_tendance(symbole, bougies_4h):
+    """Professeur Tendance: EMA crossover sur 4h.
+
+    Detecte:
+    - EMA 20 croise au-dessus de EMA 50 (croisement haussier recent)
+    - Prix au-dessus de EMA 20 et EMA 50 (tendance confirmee)
+    - EMA 20 au-dessus de EMA 50 avec ecart croissant (acceleration)
+
+    Returns: (score, raison) ou (0, "")
+    """
+    if not bougies_4h or len(bougies_4h) < 55:
+        return 0, ""
+    clotures = [b["cloture"] for b in bougies_4h]
+    try:
+        from indicateurs import ema as _ema
+    except Exception:
+        return 0, ""
+    prix = clotures[-1]
+    ema20_vals, ema50_vals = [], []
+    for i in range(len(clotures)):
+        v20 = _ema(clotures[:i+1], 20)
+        v50 = _ema(clotures[:i+1], 50)
+        if v20 is not None:
+            ema20_vals.append(v20)
+        if v50 is not None:
+            ema50_vals.append(v50)
+    if len(ema20_vals) < 3 or len(ema50_vals) < 3:
+        return 0, ""
+    ema20, ema50 = ema20_vals[-1], ema50_vals[-1]
+    ema20_prev, ema50_prev = ema20_vals[-2], ema50_vals[-2]
+    score = 0
+    raisons = []
+    # 1. Croisement haussier recent (EMA20 passe au-dessus de EMA50 dans les 5 dernieres bougies)
+    croisement_recent = False
+    for i in range(-5, 0):
+        idx20 = len(ema20_vals) + i
+        idx50 = len(ema50_vals) + i
+        if idx20 >= 1 and idx50 >= 1:
+            if ema20_vals[idx20-1] <= ema50_vals[idx50-1] and ema20_vals[idx20] > ema50_vals[idx50]:
+                croisement_recent = True
+                break
+    if croisement_recent:
+        score += 3
+        raisons.append("Croisement haussier EMA20/EMA50 recent (signal d'entree tendance)")
+    # 2. Tendance confirmee: prix > EMA20 > EMA50
+    if prix > ema20 and ema20 > ema50:
+        score += 2
+        raisons.append(f"Tendance 4h confirmee: prix({prix:.4f}) > EMA20({ema20:.4f}) > EMA50({ema50:.4f})")
+    # 3. Acceleration: ecart EMA20-EMA50 qui s'elargit
+    ecart_actuel = ema20 - ema50
+    ecart_precedent = ema20_prev - ema50_prev
+    if ecart_actuel > ecart_precedent and ecart_actuel > 0:
+        score += 1
+        raisons.append("Ecart EMA20/EMA50 s'elargit (acceleration tendance)")
+    # 4. Prix au-dessus de EMA50 mais sous EMA20 (tendance en formation)
+    if prix > ema50 and prix <= ema20 and ema20 > ema50:
+        score += 1
+        raisons.append("Prix au-dessus de EMA50 (tendance en formation)")
+    if score >= 2:
+        return score, " | ".join(raisons)
+    return 0, ""
+
+def _professeur_contrarien_signal():
+    """Professeur Contrarien: genere un signal d'achat base sur le Fear & Greed.
+
+    Contrairement au filtre Joe007 (qui modifie le score), ce professeur genere
+    un signal INDEPENDANT: en Extreme Fear, il recommande l'achat.
+
+    Returns: (score, raison) ou (0, "")
+    """
+    try:
+        from sentiment_marche import get_fear_greed
+        fg = get_fear_greed()
+    except Exception:
+        return 0, ""
+    if fg < 25:
+        return 3, f"Extreme Fear ({fg}/100) — opportunité d'achat contrarienne"
+    elif fg < 35:
+        return 2, f"Fear ({fg}/100) — zone d'achat (peur dans le marche)"
+    elif fg < 45:
+        return 1, f"Fear modere ({fg}/100) — le marche a peur, c'est le moment d'observer"
+    return 0, ""
+
+def _consensus_professeurs(votes):
+    """Agrege les votes des 5 professeurs en un consensus.
+
+    Args:
+        votes: dict {professeur: (score, raison)} — les votes de chaque prof
+
+    Returns: (score_consensus, conviction, raisons_par_prof, multiplicateur_taille)
+        - score_consensus: score final agregé
+        - conviction: "HAUTE" (3+ profs), "MOYENNE" (2 profs), "FAIBLE" (1 prof)
+        - raisons_par_prof: liste de strings "Prof nom: raison"
+        - multiplicateur_taille: 1.5 (haute), 1.0 (moyenne), 0.5 (faible)
+    """
+    profs_actifs = [(nom, score, raison) for nom, (score, raison) in votes.items() if score > 0]
+    nb_profs = len(profs_actifs)
+    score_total = sum(score for _, score, _ in profs_actifs)
+    raisons_par_prof = []
+    for nom, score, raison in profs_actifs:
+        info = PROFESSEURS.get(nom, {})
+        emoji = info.get("emoji", "")
+        nom_complet = info.get("nom", nom)
+        raisons_par_prof.append(f"{emoji} {nom_complet}: {raison} (score {score})")
+    if nb_profs >= 3:
+        conviction = "HAUTE"
+        mult_taille = 1.5
+        bonus_consensus = 2
+        score_total += bonus_consensus
+    elif nb_profs == 2:
+        conviction = "MOYENNE"
+        mult_taille = 1.0
+        bonus_consensus = 1
+        score_total += bonus_consensus
+    else:
+        conviction = "FAIBLE"
+        mult_taille = 0.5
+        bonus_consensus = 0
+    return score_total, conviction, raisons_par_prof, mult_taille, nb_profs
+
+
 def generer_signaux_professeur(prix_actuels, marches_paper):
-    """Génère des signaux en utilisant les stratégies du Professeur Virtuel.
+    """Génère des signaux en utilisant le systeme multi-professeurs.
 
     Pipeline:
-    1. Récupère les bougies 1h et 4h pour chaque crypto
-    2. Applique les 3 stratégies backtestées (Downshift Rider, Exhaustion Snap, Peak Fader)
-    3. Applique le filtre contrarien Joe007 (Fear & Greed)
-    4. Détecte les catalyseurs Cyclop
-    5. Applique l'apprentissage du professeur (boost par stratégie/crypto)
-    6. Retourne les signaux avec TP/SL du professeur (ratio 2.5:1)
+    1. Recupere les bougies 1h et 4h pour chaque crypto
+    2. Chaque professeur scanne independamment:
+       - Professeur Momentum (MACD 4h)
+       - Professeur Reversion (RSI 1h)
+       - Professeur Contrarien (Fear & Greed)
+       - Professeur Patterns (bougies japonaises)
+       - Professeur Tendance (EMA crossover 4h)
+    3. Consensus: 3+ profs = HAUTE conviction, 2 = MOYENNE, 1 = FAIBLE
+    4. Filtres: garde BTC, bougies pro veto, apprentissage, SL consecutifs
+    5. Retourne les signaux avec TP/SL du professeur (ratio 2.5:1)
 
     Returns: liste de signaux (format compatible avec paper_trading.py)
     """
@@ -796,21 +953,26 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
         print("  [PROF] indicateurs indisponibles")
         return []
 
-    # Filtre contrarien Joe007 (une seule fois pour tous les signaux)
-    mod_score_joe, mult_taille_joe, raison_joe = _filtre_contrarien_joe007()
-    if mod_score_joe != 0:
-        print(f"  [PROF] Joe007: {raison_joe}")
-
-    # === GARDE BTC: si BTC chute, tout le marché suit ===
+    # === GARDE BTC: si BTC chute, tout le marche suit ===
     btc_ok, raison_btc = _garde_btc(prix_actuels, marches_paper)
     if not btc_ok:
         print(f"  [PROF] {raison_btc} — AUCUN signal ce cycle")
         return []
 
-    # === PERTES CONSÉCUTIVES: mode prudent/défensif ===
+    # === PERTES CONSECUTIVES: mode prudent/defensif ===
     nb_pertes, penalty_pertes = _pertes_consecutives_prof()
     if penalty_pertes < 0:
-        print(f"  [PROF] Mode prudent: {nb_pertes} pertes récentes, penalty {penalty_pertes}")
+        print(f"  [PROF] Mode prudent: {nb_pertes} pertes recentes, penalty {penalty_pertes}")
+
+    # === PROFESSEUR CONTRARIEN: signal global (Fear & Greed) ===
+    score_contrarien, raison_contrarien = _professeur_contrarien_signal()
+    if score_contrarien > 0:
+        print(f"  [PROF] 🎭 Professeur Contrarien: {raison_contrarien}")
+
+    # Filtre Joe007 (modificateur de score global)
+    mod_score_joe, mult_taille_joe, raison_joe = _filtre_contrarien_joe007()
+    if mod_score_joe != 0:
+        print(f"  [PROF] Joe007: {raison_joe}")
 
     signaux = []
 
@@ -823,7 +985,7 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
         prix = prix_actuels[symbole]
         nom = config.get("nom", symbole)
 
-        # Récupère les bougies 1h et 4h
+        # Recupere les bougies 1h et 4h
         try:
             bougies_1h = historique_ohlcv(symbole, "1h", 100)
             bougies_4h = historique_ohlcv(symbole, "4h", 100)
@@ -833,86 +995,89 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
         if not bougies_1h and not bougies_4h:
             continue
 
-        # === STRATÉGIE 1: Downshift Rider (MACD 4h) — FILTRE RENFORCÉ ===
-        score_rider, raison_rider = 0, ""
-        if bougies_4h:
-            # Filtre 1: bougie 1h pas baissière
-            if not _momentum_1h_porteur(bougies_1h):
-                print(f"  [PROF] Downshift Rider sur {nom}: SKIP (bougie 1h baissière — anti couteau)")
-            # Filtre 2: momentum 1h positif (au moins une bougie verte récente)
-            elif not _momentum_1h_positif(bougies_1h):
-                print(f"  [PROF] Downshift Rider sur {nom}: SKIP (momentum 1h négatif — pas de confirmation)")
-            else:
-                score_rider, raison_rider = _downshift_rider(symbole, bougies_4h)
-                if score_rider > 0:
-                    print(f"  [PROF] Downshift Rider sur {nom}: score {score_rider} — {raison_rider}")
-
-        # === STRATÉGIE 2: Exhaustion Snap — DÉSACTIVÉE ===
-        # Backtest: 653 trades, 46% WR, -550€ PnL — stratégie perdante
-        score_snap, raison_snap = 0, ""
-
-        # === STRATÉGIE 3: Peak Fader (RSI 1h) — 83% WR, +11€ ===
-        score_fader, raison_fader = 0, ""
-        if bougies_1h:
-            # Filtre de tendance: ne pas acheter en tendance baissiere
-            if _tendance_haussiere(symbole, bougies_4h or bougies_1h):
-                score_fader, raison_fader = _peak_fader(symbole, bougies_1h)
-                if score_fader > 0:
-                    print(f"  [PROF] Peak Fader sur {nom}: score {score_fader} — {raison_fader}")
-            else:
-                print(f"  [PROF] Peak Fader sur {nom}: SKIP (tendance baissiere)")
-
-        # Prend la meilleure stratégie
-        best_score = max(score_rider, score_snap, score_fader)
-        if best_score == 0:
-            continue
-
-        if best_score == score_rider and score_rider > 0:
-            strategie = "downshift_rider"
-            raison = raison_rider
-        elif best_score == score_snap and score_snap > 0:
-            strategie = "exhaustion_snap"
-            raison = raison_snap
-        else:
-            strategie = "peak_fader"
-            raison = raison_fader
-
-        # === FILTRE SL CONSÉCUTIFS ===
-        # Si une crypto a 2 SL consécutifs récents, la bloquer temporairement
+        # === FILTRE SL CONSECUTIFS ===
         sl_consecutifs = _sl_consecutifs_crypto(symbole)
         if sl_consecutifs >= 2:
-            print(f"  [PROF] {nom} BLOQUE ({sl_consecutifs} SL consécutifs — cooldown)")
+            print(f"  [PROF] {nom} BLOQUE ({sl_consecutifs} SL consecutifs — cooldown)")
             continue
 
-        # === LECTURE BOUGIES PRO (candlestick patterns) ===
-        # Le professeur lit les bougies comme un pro avant d'entrer
+        # === FILTRE BOUGIES PRO (candlestick patterns) ===
+        # Le Professeur Patterns lit les bougies en premier (veto possible)
         score_bougies, raison_bougies = _lire_bougies_pro(symbole, bougies_1h, bougies_4h)
         if score_bougies == -99:
             print(f"  [PROF] {nom} BLOQUE par bougies pro: {raison_bougies}")
             continue
         if score_bougies != 0:
-            print(f"  [PROF] Bougies pro sur {nom}: {raison_bougies} (score {score_bougies:+d})")
+            print(f"  [PROF] 📊 Professeur Patterns sur {nom}: {raison_bougies} (score {score_bougies:+d})")
 
-        # === CATALYSEUR CYCLOP ===
+        # === CHAQUE PROFESSEUR SCANNE INDEPENDAMMENT ===
+        votes = {}
+
+        # 1. Professeur Momentum (MACD 4h)
+        score_momentum, raison_momentum = 0, ""
+        if bougies_4h:
+            if not _momentum_1h_porteur(bougies_1h):
+                print(f"  [PROF] 🚀 Momentum sur {nom}: SKIP (bougie 1h baissiere)")
+            elif not _momentum_1h_positif(bougies_1h):
+                print(f"  [PROF] 🚀 Momentum sur {nom}: SKIP (momentum 1h negatif)")
+            else:
+                score_momentum, raison_momentum = _downshift_rider(symbole, bougies_4h)
+                if score_momentum > 0:
+                    print(f"  [PROF] 🚀 Professeur Momentum sur {nom}: score {score_momentum} — {raison_momentum}")
+        votes["momentum"] = (score_momentum, raison_momentum)
+
+        # 2. Professeur Reversion (RSI 1h)
+        score_reversion, raison_reversion = 0, ""
+        if bougies_1h:
+            if _tendance_haussiere(symbole, bougies_4h or bougies_1h):
+                score_reversion, raison_reversion = _peak_fader(symbole, bougies_1h)
+                if score_reversion > 0:
+                    print(f"  [PROF] 🔄 Professeur Reversion sur {nom}: score {score_reversion} — {raison_reversion}")
+            else:
+                print(f"  [PROF] 🔄 Reversion sur {nom}: SKIP (tendance baissiere)")
+        votes["reversion"] = (score_reversion, raison_reversion)
+
+        # 3. Professeur Contrarien (Fear & Greed — signal global)
+        votes["contrarien"] = (score_contrarien, raison_contrarien)
+
+        # 4. Professeur Patterns (bougies japonaises)
+        score_patterns = max(0, score_bougies)
+        raison_patterns = raison_bougies if score_bougies > 0 else ""
+        votes["patterns"] = (score_patterns, raison_patterns)
+
+        # 5. Professeur Tendance (EMA crossover 4h)
+        score_tendance, raison_tendance = 0, ""
+        if bougies_4h:
+            score_tendance, raison_tendance = _professeur_tendance(symbole, bougies_4h)
+            if score_tendance > 0:
+                print(f"  [PROF] 📈 Professeur Tendance sur {nom}: score {score_tendance} — {raison_tendance}")
+        votes["tendance"] = (score_tendance, raison_tendance)
+
+        # === CONSENSUS DES PROFESSEURS ===
+        score_consensus, conviction, raisons_par_prof, mult_consensus, nb_profs = _consensus_professeurs(votes)
+
+        if score_consensus == 0:
+            continue
+
+        # === CATALYSEUR CYCLOP (bonus) ===
         score_catalyseur, raison_catalyseur = 0, ""
         if bougies_1h:
             score_catalyseur, raison_catalyseur = _detecter_catalyseur_cyclop(symbole, bougies_1h)
             if score_catalyseur > 0:
                 print(f"  [PROF] Catalyseur Cyclop sur {nom}: +{score_catalyseur} — {raison_catalyseur}")
 
-        # === FILTRE CONTRARIEN JOE007 ===
-        # mod_score_joe déjà calculé au début
-        # (appliqué à tous les signaux)
-
         # === APPRENTISSAGE DU PROFESSEUR ===
+        # Determine la strategie dominante pour l'apprentissage
+        best_prof = max(votes.items(), key=lambda x: x[1][0])
+        strategie = best_prof[0] if best_prof[1][0] > 0 else "consensus"
         boost_prof, raison_prof = _boost_apprentissage_prof(strategie, symbole)
         if boost_prof != 0:
             print(f"  [PROF] Apprentissage: {raison_prof}")
 
-        # Score final du professeur (inclut le score bougies pro)
-        score_final = best_score + score_catalyseur + mod_score_joe + boost_prof + penalty_pertes + score_bougies
+        # Score final = consensus + catalyseur + Joe007 + apprentissage + pertes
+        score_final = score_consensus + score_catalyseur + mod_score_joe + boost_prof + penalty_pertes
 
-        # Blocage dur: crypto perdante (boost -10 = blocage total)
+        # Blocage dur: crypto perdante
         if score_final < 0:
             print(f"  [PROF] {nom} BLOQUE par apprentissage (score {score_final})")
             continue
@@ -920,19 +1085,18 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
         if score_final < PROF_SCORE_MIN:
             continue
 
-        # Construit la raison complète
-        raisons_complete = [f"PROF {strategie} (score {best_score})"]
+        # Construit la raison complete
+        raisons_complete = [f"CONSENSUS {conviction} ({nb_profs}/5 profs, score {score_consensus})"]
+        raisons_complete.extend(raisons_par_prof)
         if raison_catalyseur:
-            raisons_complete.append(f"Catalyseur +{score_catalyseur}")
-        if raison_bougies:
-            raisons_complete.append(f"Bougies: {raison_bougies}")
+            raisons_complete.append(f"Catalyseur Cyclop +{score_catalyseur}")
         if raison_joe:
             raisons_complete.append(f"Joe007: {raison_joe}")
         if raison_prof:
             raisons_complete.append(raison_prof)
 
-        # Multiplicateur de taille (Joe007 + apprentissage)
-        mult_taille = mult_taille_joe
+        # Multiplicateur de taille: consensus x Joe007
+        mult_taille = mult_consensus * mult_taille_joe
 
         signal = {
             "symbole": symbole,
@@ -941,23 +1105,24 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
             "marche": "crypto",
             "etoile": config.get("etoile", False),
             "source": "professeur_virtuel",
-            "strategie": strategie,
+            "strategie": f"consensus_{strategie}",
             "score": score_final,
             "raison": " | ".join(raisons_complete),
-            # Paramètres du professeur (ratio 2.5:1)
             "prof_tp": PROF_TP_PCT,
             "prof_sl": PROF_SL_PCT,
             "prof_partial_tp": PROF_PARTIAL_TP,
             "prof_mult_taille": mult_taille,
+            "prof_conviction": conviction,
+            "prof_nb_consensus": nb_profs,
         }
 
-        print(f"  [PROF] ACHAT {nom} score {score_final} — {signal['raison']}")
+        print(f"  [PROF] ACHAT {nom} score {score_final} — CONSENSUS {conviction} ({nb_profs}/5) — {signal['raison'][:80]}")
         signaux.append(signal)
 
     if not signaux:
         print("  [PROF] Aucun signal du professeur ce cycle")
     else:
-        print(f"  [PROF] {len(signaux)} signal(s) du professeur")
+        print(f"  [PROF] {len(signaux)} signal(s) du professeur (consensus multi-professeurs)")
 
     return signaux
 
