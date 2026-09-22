@@ -289,17 +289,17 @@ def tous_les_prix():
     # 1. BATCH COINGECKO: toutes les cryptos en un seul appel (pas de geo-blocage)
     try:
         import prix_revolut as pr
-        prix_batch = pr.get_prix_coingecko_batch(syms_crypto)
+        # KuCoin EN PRIORITE (pas de 429, pas de geo-blocage, EUR direct)
+        prix_batch = pr.get_prix_kucoin_batch(syms_crypto, force_fresh=True)
         if prix_batch:
             prix.update(prix_batch)
-            print(f"  [COINGECKO-BATCH] {len(prix_batch)}/{len(syms_crypto)} cryptos recuperees")
+            print(f"  [KUCOIN-BATCH] {len(prix_batch)}/{len(syms_crypto)} cryptos recuperees")
         else:
-            print(f"  [COINGECKO-BATCH] 0 prix - fallback KuCoin")
-            # Fallback KuCoin si CoinGecko echoue (pas de 429, pas de geo-blocage)
-            prix_batch = pr.get_prix_kucoin_batch(syms_crypto, force_fresh=True)
+            print(f"  [KUCOIN-BATCH] 0 prix - fallback CoinGecko")
+            prix_batch = pr.get_prix_coingecko_batch(syms_crypto)
             if prix_batch:
                 prix.update(prix_batch)
-                print(f"  [KUCOIN-BATCH] {len(prix_batch)} cryptos (fallback)")
+                print(f"  [COINGECKO-BATCH] {len(prix_batch)} cryptos (fallback)")
             else:
                 # Dernier recours: Binance
                 prix_batch = pr.get_prix_binance_batch(syms_crypto)
@@ -318,7 +318,7 @@ def tous_les_prix():
                 prix[sym] = p  # ecrase le prix Binance avec le prix Revolut X
         except Exception:
             pass
-        time.sleep(1.0)
+        time.sleep(0.3)
 
     # 3. Yahoo pour les non-crypto (si activé)
     for sym in prix_par_source["yahoo"]:
@@ -1615,10 +1615,10 @@ def verifier_sorties(pf, prix_actuels):
             _partial_seuil = pos.get("prof_partial_tp", 1.0)
         if variation >= _partial_seuil and not pos.get("partiellement_clote"):
             fermer_position_partielle(pf, pos, prix_actuel, PARTIAL_FRACTION, "PARTIAL-TP", variation)
-        # HARD STOP D'URGENCE: si la perte depasse 1.5x le SL, ferme immédiatement
-        # Simuler un ordre stop: fermer au seuil d'urgence avec 0.1% slippage
-        if variation <= -(_sl * 1.5):
-            _urg_sl = _sl * 1.5
+        # HARD STOP D'URGENCE: si la perte depasse 2x le SL, ferme immédiatement
+        # (le SL-URGENCE-ABSOLU a -1.5% est deja verifie plus haut, celui-ci est le filet de securite final)
+        if variation <= -(_sl * 2.0):
+            _urg_sl = _sl * 2.0
             _urg_price = prix_entree * (1 - _urg_sl / 100.0) * (1 - 0.1 / 100.0)
             _urg_var = (_urg_price - prix_entree) / prix_entree * 100
             positions_a_fermer.append((pos, _urg_price, f"SL-URGENCE ({_urg_var:+.2f}%, SL={_sl}%)", _urg_var))
@@ -1817,7 +1817,7 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
     try:
         import apprentissage_trader as ap
         trades = pf.get("trades_fermes", [])
-        if trades and len(trades) % 1 == 0:
+        if trades and len(trades) % 5 == 0:
             ap.analyser_trades(trades)
             print(f"  [LEARNING] Apprentissage mis a jour ({len(trades)} trades analyses)")
     except Exception as e:
