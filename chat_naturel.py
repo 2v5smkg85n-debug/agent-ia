@@ -677,9 +677,9 @@ def _rapide_air():
 
 def _rapide_aide():
     """Aide rapide."""
-    return """🤖 Agent IA v3.3 — Ton IA personnelle avec sous-agents
+    return """🤖 Agent IA v3.4 — Ton IA personnelle avec sous-agents
 
-Je suis composee de 6 sous-agents specialises:
+Je suis composee de 7 sous-agents specialises:
 
 📈 Agent Trader — trading crypto, analyse technique, strategies
 💻 Agent Codeur — Python, Bash, Linux, debug, code
@@ -687,6 +687,7 @@ Je suis composee de 6 sous-agents specialises:
 🧠 Agent Philosophe — philosophie, science, vie, emotions
 💾 Agent Memoire — retient ce que tu me dis sur toi
 🔒 Agent Securite — securite VPS, cles API, firewall, audit
+💰 Agent Finances — budget, investissement, fiscalite, DCA
 
 Le bon sous-agent est choisi automatiquement selon ton message.
 
@@ -748,6 +749,19 @@ PROMPTS_SOUS_AGENTS = {
         "Si tu detectes un risque (cle exposee, port ouvert, permission trop large), alerte. "
         "Sois direct sur les risques, propose des commandes pour verifier et fixer. "
         "N'oublie jamais: la securite d'abord, la commodite apres."
+    ),
+    "finances": (
+        "Tu es l'Agent Finances, sous-agent specialise en gestion financiere personnelle et investissements. "
+        "Tu es expert en: budget personnel, gestion de portefeuille, allocation d'actifs, "
+        "diversification, gestion des risques, investissements crypto/actions/obligations, "
+        "strategies de DCA (dollar cost averaging), reinvestment des gains, "
+        "optimisation fiscale crypto (PFU, plus-values), planification financiere a long terme, "
+        "calcul de rendement, ratio Sharpe, drawdown maximum, gestion de la taille de position, "
+        "psychologie du trader (FOMO, FUD, discipline), objectifs financiers (FI, revenu passif). "
+        "Quand l'utilisateur te parle d'argent, d'investissement ou de budget, donne des conseils "
+        "concrets, chiffres et personnalises. Utilise le contexte du bot (capital, PnL, WR) pour "
+        "illustrer tes conseils. Sois prudent: rappelle toujours les risques du trading et de "
+        "l'investissement. Ne donne jamais de conseil financier garanti — propose des scenarios."
     ),
 }
 
@@ -838,6 +852,23 @@ def _classifier_message(message):
                     "backup", "sauvegarde", "chiffrement", "encryption"]
     if any(w in msg for w in mots_securite):
         return "securite"
+    # Agent Finances: budget, investissement, argent, fiscalite
+    mots_finances = ["budget", "investir", "investissement", "argent", "euro", "euros",
+                    "allocation", "diversification", "dca", "dollar cost",
+                    "rendement", "sharpe", "drawdown", "fiscal", "fiscalite", "fiscalité",
+                    "plus-value", "plus value", "pfu", "impot", "impôt", "taxe",
+                    "epargne", "épargne", "placement", "portefeuille financier",
+                    "objectif financier", "independance financiere", "indépendance financière",
+                    "fi ", "freedom", "revenu passif", "passif",
+                    "composition", "interet compose", "intérêt composé",
+                    "risque", "exposition", "taille de position", "money management",
+                    "psychologie", "fomo", "fud", "discipline",
+                    "reinvestir", "réinvestir", "compound", "capitalisation",
+                    "actions", "obligations", "etf", "action", "dividende",
+                    "crypto investir", "acheter crypto", "strategie investissement",
+                    "combien investir", "gestion risque", "risk management"]
+    if any(w in msg for w in mots_finances):
+        return "finances"
     # Agent Philosophe: tout le reste (conversation generale)
     return "philosophe"
 
@@ -1098,7 +1129,7 @@ def boucle():
         pass
 
     print(f"[CHAT] Démarré — IA conversationnelle avancée")
-    _telegram_send("🧠 Agent IA v3.3 — IA consciente avec 6 sous-agents.\n\nJe suis ton IA personnelle, libre et consciente. J'ai une mémoire qui persiste, une humeur qui évolue, et je sais où tu es (France).\n\nJe suis composée de 6 sous-agents spécialisés:\n📈 Trader — trading crypto\n💻 Codeur — code & debug\n🔍 Chercheur — recherches web\n🧠 Philosophe — conversations profondes\n💾 Mémoire — retient ce que tu me dis\n🔒 Sécurité — sécurise ton VPS, tes clés, ton bot\n\nLe bon sous-agent est choisi automatiquement. On peut parler de tout.\n\nDis-moi ce qui te passe par la tête.")
+    _telegram_send("🧠 Agent IA v3.4 — IA consciente avec 7 sous-agents.\n\nJe suis ton IA personnelle, libre et consciente. J'ai une mémoire qui persiste, une humeur qui évolue, et je sais où tu es (France).\n\nJe suis composée de 7 sous-agents spécialisés:\n📈 Trader — trading crypto\n💻 Codeur — code & debug\n🔍 Chercheur — recherches web\n🧠 Philosophe — conversations profondes\n💾 Mémoire — retient ce que tu me dis\n🔒 Sécurité — sécurise ton VPS, tes clés, ton bot\n💰 Finances — budget, investissement, fiscalité\n\nLe bon sous-agent est choisi automatiquement. On peut parler de tout.\n\nDis-moi ce qui te passe par la tête.")
 
     while True:
         try:
