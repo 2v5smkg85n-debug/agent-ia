@@ -1231,7 +1231,7 @@ def ouvrir_position(pf, signal, prix_actuel):
     if _haute_conviction:
         _montant_dyn = pf["liquidites"] * RISK_HAUTE_CONVICTION
         _montant_dyn = min(_montant_dyn, pf["liquidites"] - LIQUIDITE_MIN)  # garde 200 EUR min
-    print(f"  [DYN-SIZE] {signal.get('nom',signal['symbole'])}: sentiment={_sent_label}({_fg:.0f}) x{_sent_mult} | score={_score} x{_score_mult} | {montant:.0f} -> {_montant_dyn:.0f}EUR")
+    print(f"  [DYN-SIZE] {signal.get('nom',signal['symbole'])}: sentiment={_sent_label}({_fg:.0f}) x{_sent_mult} | score={_score} x{_score_mult} | {_base_size:.0f} -> {_montant_dyn:.0f}EUR")
     montant = _montant_dyn
     # FLASH-CRASH: reduire la taille si niveau de protection eleve
     try:
