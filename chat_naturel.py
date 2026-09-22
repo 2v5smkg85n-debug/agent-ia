@@ -1525,6 +1525,52 @@ def _rapide_health():
         txt += f"\n⚠️ {services_total - services_actifs} service(s) down"
     return txt
 
+def _detecter_action_vps(message):
+    """Detecte si le message demande une action VPS en langage naturel et execute."""
+    msg = message.lower()
+    # Detecte les demandes de logs
+    if any(w in msg for w in ["log", "journal", "quoi de neuf", "quoi de beau", "activite", "activit", "dernier", "recent", "qu'est-ce qui se passe", "que se passe"]):
+        if any(w in msg for w in ["bot", "trade", "trading", "position", "log", "journal", "activit", "quoi"]):
+            try:
+                result = subprocess.run(f'tail -30 {FICHIER_LOG}', shell=True, capture_output=True, text=True, timeout=10)
+                if result.stdout:
+                    lignes = result.stdout.strip().split('\n')
+                    importantes = [l for l in lignes if any(k in l for k in ["ACHAT", "VENTE", "TP", "SL", "PROF", "CONSENSUS", "SOUS-AGENT", "Erreur", "Position", "Trade", "SKIP", "BLOQUE", "COOLDOWN"])]
+                    contenu = "\n".join(importantes[-20:]) if importantes else "\n".join(lignes[-15:])
+                    return f"\n=== RESULTAT COMMANDE VPS (logs) ===\n{contenu}\n"
+            except Exception:
+                pass
+    # Detecte les demandes de sante VPS / services
+    if any(w in msg for w in ["vps", "serveur", "service", "systemd", "sante", "sant", "health", "marche", "tourne", "fonctionne", "down", "up", "status", "etat", "tat"]):
+        if any(w in msg for w in ["comment", "quel", "quelle", "est-ce", "verifie", "check", "controle", "va", "marche", "tourne", "fonctionne", "down", "up", "sante", "sant", "vps", "service", "serveur", "etat"]):
+            resultats = []
+            # Services
+            for svc in ["paper_trading", "dashboard", "watchdog", "chat_naturel"]:
+                try:
+                    r = subprocess.run(f'systemctl is-active {svc}.service', shell=True, capture_output=True, text=True, timeout=3)
+                    status = r.stdout.strip()
+                    emoji = "actif" if status == "active" else "DOWN"
+                    resultats.append(f"{svc}: {emoji}")
+                except Exception:
+                    pass
+            # RAM
+            try:
+                r = subprocess.run('free -h | grep Mem', shell=True, capture_output=True, text=True, timeout=5)
+                if r.stdout:
+                    resultats.append(f"RAM: {r.stdout.strip()}")
+            except Exception:
+                pass
+            # Disque
+            try:
+                r = subprocess.run('df -h / | tail -1', shell=True, capture_output=True, text=True, timeout=5)
+                if r.stdout:
+                    resultats.append(f"Disque: {r.stdout.strip()}")
+            except Exception:
+                pass
+            if resultats:
+                return f"\n=== RESULTAT COMMANDE VPS (sante) ===\n" + "\n".join(resultats) + "\n"
+    return None
+
 def _verifier_changements_bot():
     """Verifie si le bot a ouvert/ferme des positions et envoie des notifications."""
     global _dernier_etat_bot
@@ -1688,6 +1734,12 @@ def _traiter_message(message):
         resultat_web = _recherche_web(message)
         if resultat_web:
             contexte_extra = f"\n=== RECHERCHE WEB (temps réel) ===\n{resultat_web}\n"
+
+    # 4b. Detection d'action VPS en langage naturel
+    action_vps = _detecter_action_vps(message)
+    if action_vps:
+        contexte_extra += action_vps
+        print(f"  [VPS] Action detectee en langage naturel")
 
     # 5. Appelle le sous-agent specialise
     contexte = _construire_contexte()
