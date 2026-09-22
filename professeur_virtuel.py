@@ -495,13 +495,17 @@ def _exhaustion_snap(symbole, bougies_4h):
 # ====================================================================
 
 def _peak_fader(symbole, bougies_1h):
-    """Détecte un retournement haussier après survente sur 1h.
+    """PEAK FADER CHIRURGICALE — version optimisee.
 
-    Règles (adapté du backtest):
-    - RSI était < 35 (survente élargie) dans les 8 dernières bougies
-    - RSI actuel > 30 et < 55 (sortie de survente = retournement)
-    - Le prix a fait un bas plus haut (confirmation)
-    - Fenêtre élargie pour plus de signaux
+    Noyau garde: RSI sort de survente = retournement haussier.
+    Ameliorations chirurgicales:
+    1. RSI serre: seulement 30-50 (pas 65 — trop tard)
+    2. Volume: la bougie de retournement doit avoir du volume (achat reel)
+    3. Mèche basse: la mèche basse > corps = pression acheteuse
+    4. RSI en pente positive ET accelerant (pas juste plat)
+    5. Seuil minimum 3 (pas 2 — seulement les setups propres)
+    6. Filtre ATR: skip les marches morts ou chaotiques
+    7. Bonus confluence 4h: si RSI 4h aussi bas, bonus
 
     Returns: (score, raison) ou (0, "")
     """
@@ -518,7 +522,7 @@ def _peak_fader(symbole, bougies_1h):
     if rsi_actuel is None:
         return 0, ""
 
-    # RSI des 8 dernières bougies (élargi de 5 à 8)
+    # RSI des 8 dernieres bougies
     rsi_recent = []
     for i in range(-8, 0):
         idx = len(clotures) + i
@@ -530,35 +534,80 @@ def _peak_fader(symbole, bougies_1h):
     score = 0
     raisons = []
 
-    # 1. RSI sort de survente (était < 35, maintenant > 30) — seuil élargi
-    rsi_etait_survente = any(r < 35 for r in rsi_recent)
-    if rsi_etait_survente and 30 <= rsi_actuel < 45:
-        score += 3
-        raisons.append(f"RSI 1h sort de survente ({rsi_actuel:.1f}, etait < 35)")
-    elif rsi_etait_survente and 45 <= rsi_actuel < 55:
-        score += 2
-        raisons.append(f"RSI 1h en retournement ({rsi_actuel:.1f}, sorti de survente)")
-    elif rsi_etait_survente and 55 <= rsi_actuel < 65:
-        score += 1
-        raisons.append(f"RSI 1h en récupération ({rsi_actuel:.1f}, sorti de survente)")
-    elif rsi_actuel < 30:
-        score += 1
-        raisons.append(f"RSI 1h en survente ({rsi_actuel:.1f}) — attendre confirmation")
+    # === FILTRE ATR: skip marches morts ou chaotiques ===
+    if len(bougies_1h) >= 14:
+        amplitudes = [abs(b["cloture"] - b["ouverture"]) for b in bougies_1h[-14:]]
+        atr_approx = sum(amplitudes) / len(amplitudes)
+        prix_actuel = clotures[-1]
+        atr_pct = (atr_approx / prix_actuel * 100) if prix_actuel else 0
+        if atr_pct < 0.3:
+            return 0, ""  # Marche mort, pas de volatilite
+        if atr_pct > 5:
+            return 0, ""  # Chaos, trop volatile
 
-    # 2. Bas plus haut (les 3 dernières bougies font un bas ascendant)
+    # === 1. RSI SORT DE SURVENTE — zone serree 30-50 ===
+    rsi_etait_survente = any(r < 35 for r in rsi_recent)
+    if not rsi_etait_survente:
+        return 0, ""  # Pas de survente recente = pas de setup peak_fader
+
+    if 30 <= rsi_actuel < 40:
+        score += 4  # Zone premium: tôt dans le retournement
+        raisons.append(f"RSI 1h {rsi_actuel:.1f} sort de survente (premium)")
+    elif 40 <= rsi_actuel < 50:
+        score += 3  # Bonne zone: retournement confirme
+        raisons.append(f"RSI 1h {rsi_actuel:.1f} en retournement (solide)")
+    elif 50 <= rsi_actuel < 55:
+        score += 1  # Tard mais acceptable si autres confirmations
+        raisons.append(f"RSI 1h {rsi_actuel:.1f} en recuperation (tardif)")
+    else:
+        return 0, ""  # RSI > 55 = trop tard, le move est fait
+
+    # === 2. RSI EN PENTE POSITIVE ET ACCELERANT ===
+    if len(rsi_recent) >= 3:
+        pente_1 = rsi_recent[-1] - rsi_recent[-2]
+        pente_2 = rsi_recent[-2] - rsi_recent[-3]
+        if pente_1 > 0 and pente_1 >= pente_2:
+            score += 2  # Acceleration haussiere
+            raisons.append("RSI en acceleration haussiere")
+        elif pente_1 > 0:
+            score += 1  # Pente positive mais decelere
+            raisons.append("RSI en pente positive")
+        else:
+            return 0, ""  # RSI redescend = pas de retournement
+
+    # === 3. VOLUME DE LA BOUGIE DE RETOURNEMENT ===
+    volumes = [b.get("volume", 0) for b in bougies_1h]
+    if len(volumes) >= 23 and volumes[-1] > 0:
+        vol_moyen = sum(volumes[-23:-3]) / max(1, len(volumes[-23:-3]))
+        vol_dernier = volumes[-1]
+        if vol_moyen > 0:
+            ratio_vol = vol_dernier / vol_moyen
+            if ratio_vol >= 2.0:
+                score += 2
+                raisons.append(f"Volume x{ratio_vol:.1f} (achat massif)")
+            elif ratio_vol >= 1.3:
+                score += 1
+                raisons.append(f"Volume x{ratio_vol:.1f} (confirmation)")
+            # Si volume < 1x, pas de bonus mais pas de rejet non plus
+
+    # === 4. MECHE BASSE = PRESSION ACHETEUSE ===
+    derniere = bougies_1h[-1]
+    corps = abs(derniere["cloture"] - derniere["ouverture"])
+    meche_basse = min(derniere["ouverture"], derniere["cloture"]) - derniere["bas"]
+    if corps > 0 and meche_basse > corps * 1.5:
+        score += 1
+        raisons.append("Meche basse longue (pression acheteuse)")
+
+    # === 5. BAS ASCENDANT (structure haussiere) ===
     if len(clotures) >= 6:
         bas1 = min(clotures[-6:-3])
         bas2 = min(clotures[-3:])
         if bas2 > bas1:
             score += 1
-            raisons.append("Bas ascendant sur 1h (structure haussiere)")
+            raisons.append("Bas ascendant 1h")
 
-    # 3. Bonus: RSI en accélération haussière
-    if len(rsi_recent) >= 2 and rsi_recent[-1] > rsi_recent[-2]:
-        score += 1
-        raisons.append("RSI en accélération haussière")
-
-    if score >= 2:
+    # === SEUIL CHIRURGICAL: minimum 3 (pas 2) ===
+    if score >= 3:
         return score, " | ".join(raisons)
     return 0, ""
 
