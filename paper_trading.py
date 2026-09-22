@@ -1436,7 +1436,7 @@ def ouvrir_position(pf, signal, prix_actuel):
         "intel_fg": signal.get("intel_fg"),
         "intel_regime": signal.get("intel_regime"),
         "mtf_confirmation": signal.get("mtf_confirmation"),
-        "prof_partial_tp": signal.get("prof_partial_tp", 1.0),
+        "prof_partial_tp": signal.get("prof_partial_tp", 1.5),
     }
     pf["positions"].append(position)
     print(f"  [ACHAT] {signal.get('nom',signal['symbole'])} ({signal.get('marche','?')}) @ {prix_actuel:.2f} | {montant:.2f} EUR | qty {quantite:.6f}")
@@ -1584,9 +1584,9 @@ def verifier_sorties(pf, prix_actuels):
             _sl_price = _pic * (1 - 0.8 / 100.0)
             _sl_regle = "suiveur-proche"
         elif _var_pic >= 1.5:
-            # En profit: trail a 1.0% sous le pic (laisse respirer vers le TP)
-            _sl_price = _pic * (1 - 1.0 / 100.0)
-            _sl_regle = "suiveur"
+            # En profit: SL au breakeven uniquement (laisse respirer vers le TP sans trailing premature)
+            _sl_price = prix_entree * 1.0001
+            _sl_regle = "breakeven-potent"
         else:
             # SL fixe au debut (laisse respirer vers le TP de +2.0%)
             _sl_price = prix_entree * (1 - _sl / 100.0)
@@ -1609,10 +1609,10 @@ def verifier_sorties(pf, prix_actuels):
                 _tp_actuel = _tp_actuel + 1.0  # +1% par palier au debut
             pos["tp_dynamique"] = _tp_actuel
             print(f"  [TP-EXTEND] {sym}: TP monte a +{_tp_actuel:.1f}% (pic {_var_pic:+.1f}%, stop {_sl_regle})")
-        # Partial take-profit: encaisse 50% au seuil (0.4% normal, 1.0% professeur)
+        # Partial take-profit: encaisse 50% au seuil (1.5% normal, 1.5% professeur)
         _partial_seuil = PARTIAL_TP_SEUIL
         if pos.get("source") == "professeur_virtuel":
-            _partial_seuil = pos.get("prof_partial_tp", 1.0)
+            _partial_seuil = pos.get("prof_partial_tp", 1.5)
         if variation >= _partial_seuil and not pos.get("partiellement_clote"):
             fermer_position_partielle(pf, pos, prix_actuel, PARTIAL_FRACTION, "PARTIAL-TP", variation)
         # HARD STOP D'URGENCE: si la perte depasse 2x le SL, ferme immédiatement
