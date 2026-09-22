@@ -1021,9 +1021,8 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
             elif not _momentum_1h_positif(bougies_1h):
                 print(f"  [PROF] 🚀 Momentum sur {nom}: SKIP (momentum 1h negatif)")
             else:
-                score_momentum, raison_momentum = _downshift_rider(symbole, bougies_4h)
-                if score_momentum > 0:
-                    print(f"  [PROF] 🚀 Professeur Momentum sur {nom}: score {score_momentum} — {raison_momentum}")
+                # downshift_rider DESACTIVE (aspirateur a capital — analyse IA v4.4)
+                score_momentum, raison_momentum = 0, ""
         votes["momentum"] = (score_momentum, raison_momentum)
 
         # 2. Professeur Reversion (RSI 1h)
