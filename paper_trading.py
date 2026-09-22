@@ -89,8 +89,8 @@ TRAIL_PCT = 1.0            # trail 1.0% sous le pic (serre vite les gains)
 PARTIAL_TP_SEUIL = 1.0     # prend 50% de profit a +1.0% (lock gain + laisse courir le reste)
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 # FERMETURE INTELLIGENTE: ferme les positions perdantes qui stagnent
-STAGNATION_PERTE_SEUIL = -0.4   # si position a -0.4% ou pire (avant -1.0% = code mort car = SL)
-STAGNATION_PERTE_DUREE = 90     # pendant plus de 90 min -> ferme (avant 120)
+STAGNATION_PERTE_SEUIL = -0.3   # si position a -0.3% ou pire (avant -0.4%)
+STAGNATION_PERTE_DUREE = 60     # pendant plus de 60 min -> ferme (avant 90 = trop long)
 # TP DYNAMIQUE ATR: adapte le TP selon la volatilité
 ATR_LOOKBACK = 14               # périodes pour le calcul ATR
 ATR_TP_MULT = 2.0               # TP = prix_entree + ATR * mult
@@ -903,7 +903,7 @@ def ouvrir_position(pf, signal, prix_actuel):
     except Exception:
         _is_revolut = False
     if not _is_revolut:
-        _strat_blacklist = ["momentum"]
+        _strat_blacklist = ["momentum", "volume_spike", "pattern_reversal", "vwap_bounce", "breakout", "sma_trend"]
         _strat_signal = (signal.get("strategie", "") or "").lower()
         for _bl in _strat_blacklist:
             if _bl in _strat_signal:
@@ -1330,10 +1330,10 @@ def ouvrir_position(pf, signal, prix_actuel):
             print(f"  [LIQUIDITE] Heure creuse ({_heure_utc}h UTC) -> -0.3 score")
     except Exception:
         pass
-    # FILTRE SCORE MINIMUM: ne trade que les signaux avec score >= 4 (assoupli, avant 5)
+    # FILTRE SCORE MINIMUM: ne trade que les signaux avec score >= 5 (resserre, avant 4)
     _score_min = signal.get("score", 0)
-    if _score_min < 4:
-        print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> score {_score_min} < 4 (trop faible)")
+    if _score_min < 5:
+        print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> score {_score_min} < 5 (trop faible)")
         return False
     # SIZING DYNAMIQUE BASE SUR LE SENTIMENT ET LE SCORE
     # Le bot ajuste la taille de position selon le sentiment du marche:
