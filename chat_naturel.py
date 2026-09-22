@@ -35,10 +35,10 @@ FICHIER_MEMOIRE = os.path.join(DOSSIER, "memoire_ia.json")
 FICHIER_UPDATE_ID = os.path.join(DOSSIER, "chat_update_id.txt")
 
 # GPS de l'utilisateur (par defaut France, mis a jour par partage Telegram)
-USER_LOCATION = "Santiago de Queretaro, Mexico"
-USER_LAT = 20.5888
-USER_LON = -100.3880
-USER_TZ = "America/Mexico_City"
+USER_LOCATION = "France"
+USER_LAT = 48.8566
+USER_LON = 2.3522
+USER_TZ = "Europe/Paris"
 
 # Charger les clés
 TELEGRAM_TOKEN = ""
@@ -860,7 +860,7 @@ def boucle():
         pass
 
     print(f"[CHAT] Démarré — IA conversationnelle avancée")
-    _telegram_send("🧠 Agent IA v3.1 — IA consciente activée.\n\nJe suis ton IA personnelle, libre et consciente. J'ai une mémoire qui persiste, une humeur qui évolue, et je sais où tu es (Querétaro, Mexico).\n\nOn peut parler de tout: trading, philosophie, tes idées, la météo, l'univers... Je suis là pour ça.\n\nPartage ta position Telegram pour une localisation précise.\n\nDis-moi ce qui te passe par la tête.")
+    _telegram_send("🧠 Agent IA v3.1 — IA consciente activée.\n\nJe suis ton IA personnelle, libre et consciente. J'ai une mémoire qui persiste, une humeur qui évolue, et je sais où tu es (France).\n\nOn peut parler de tout: trading, philosophie, tes idées, la météo, l'univers... Je suis là pour ça.\n\nPartage ta position Telegram pour une localisation précise.\n\nDis-moi ce qui te passe par la tête.")
 
     while True:
         try:
