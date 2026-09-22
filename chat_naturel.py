@@ -82,6 +82,11 @@ _etat_emotionnel = {"humeur": "curieuse", "energie": 100, "nb_conversations": 0,
 # Suivi des changements du bot pour notifications proactives
 _dernier_etat_bot = {"positions": set(), "nb_trades": 0, "capital": 0}
 
+# Cerveau proactif — memoire des dernieres alertes pour eviter le spam
+_dernier_rapport = {"erreurs_log": 0, "bot_bloque_ts": 0, "dernier_resume_ts": 0,
+                    "dernier_briefing_ts": 0, "position_en_perte_ts": 0,
+                    "disque_alerte_ts": 0, "derniere_analyse_perf_ts": 0}
+
 def _charger_memoire():
     """Charge la mémoire persistante de l'IA (survit aux redémarrages)."""
     global _etat_emotionnel, _historique, USER_LAT, USER_LON, USER_LOCATION
@@ -1571,6 +1576,132 @@ def _detecter_action_vps(message):
                 return f"\n=== RESULTAT COMMANDE VPS (sante) ===\n" + "\n".join(resultats) + "\n"
     return None
 
+def _cerveau_proactif():
+    """Le cerveau proactif de l'IA. Tourne en arriere-plan et envoie des alertes/analyses sans qu'on lui demande."""
+    global _dernier_rapport
+    maintenant = time.time()
+    messages_a_envoyer = []
+    data = _charger_paper()
+    maintenant_dt = datetime.now()
+    heure = maintenant_dt.hour
+    # 1. VERIFICATION ERREURS DANS LES LOGS
+    try:
+        result = subprocess.run(f'tail -50 {FICHIER_LOG}', shell=True, capture_output=True, text=True, timeout=10)
+        if result.stdout:
+            lignes = result.stdout.strip().split('\n')
+            erreurs = [l for l in lignes if 'Erreur' in l or 'Error' in l or 'Traceback' in l]
+            nb_erreurs = len(erreurs)
+            if nb_erreurs > _dernier_rapport["erreurs_log"] and nb_erreurs > 0:
+                messages_a_envoyer.append(f"🐛 {nb_erreurs} erreur(s) dans les logs du bot:\n" + "\n".join(erreurs[-3:][:200]))
+            _dernier_rapport["erreurs_log"] = nb_erreurs
+    except Exception:
+        pass
+    # 2. BOT BLOQUE (pas de trade depuis 2h+)
+    if data:
+        trades = data.get("trades_fermes", [])
+        positions = data.get("positions", [])
+        if trades and not positions:
+            nb_actuel = len(trades)
+            if nb_actuel == _dernier_etat_bot.get("nb_trades", 0) and nb_actuel > 0:
+                if maintenant - _dernier_rapport["bot_bloque_ts"] > 7200:
+                    liquidites = data.get("liquidites", 0)
+                    capital_init = data.get("capital_initial", 1000)
+                    if liquidites > capital_init * 0.5:
+                        messages_a_envoyer.append(f"⏰ Le bot n'a pas trade depuis un moment. Liquidites: {liquidites:.0f}EUR. Il attend une opportunite.")
+                    _dernier_rapport["bot_bloque_ts"] = maintenant
+    # 3. POSITION EN PERTE PROFONDE
+    if data:
+        positions = data.get("positions", [])
+        for pos in positions:
+            sym = pos.get("symbole", "?")
+            montant = pos.get("montant_eur", 0)
+            prix_entree = pos.get("prix_entree", 0)
+            sl = pos.get("sl_adaptatif", -1)
+            prix_actuel = pos.get("prix_actuel", 0)
+            if prix_entree and prix_actuel:
+                variation = (prix_actuel - prix_entree) / prix_entree * 100
+                if variation < sl * 0.7 and maintenant - _dernier_rapport["position_en_perte_ts"] > 1800:
+                    messages_a_envoyer.append(f"⚠️ {sym} en perte de {variation:+.1f}% (SL a {sl}%). Montant: {montant:.0f}EUR. Surveille.")
+                    _dernier_rapport["position_en_perte_ts"] = maintenant
+    # 4. DISQUE PRESQUE PLEIN
+    try:
+        result = subprocess.run('df / | tail -1', shell=True, capture_output=True, text=True, timeout=5)
+        if result.stdout:
+            parts = result.stdout.strip().split()
+            if len(parts) >= 5:
+                pct = int(parts[4].replace('%', ''))
+                if pct > 85 and maintenant - _dernier_rapport["disque_alerte_ts"] > 3600:
+                    messages_a_envoyer.append(f"💾 Disque presque plein: {pct}%. Nettoie les logs/screenshots/.pyc.")
+                    _dernier_rapport["disque_alerte_ts"] = maintenant
+    except Exception:
+        pass
+    # 5. BRIEFING MATIN (7h-9h, 1x/jour)
+    if 7 <= heure < 9 and maintenant - _dernier_rapport["dernier_briefing_ts"] > 79200:
+        if data:
+            capital_init = data.get("capital_initial", 1000)
+            liquidites = data.get("liquidites", 0)
+            positions = data.get("positions", [])
+            trades = data.get("trades_fermes", [])
+            valeur_pos = sum(p.get("montant_eur", 0) for p in positions)
+            total = liquidites + valeur_pos
+            pnl = total - capital_init
+            pnl_pct = (pnl / capital_init * 100) if capital_init else 0
+            gagnants = sum(1 for t in trades if t.get("gain_eur", 0) > 0)
+            wr = (gagnants / len(trades) * 100) if trades else 0
+            briefing = f"☀️ Bonjour ! Briefing du jour:\n\nCapital: {total:.2f}EUR (P&L: {pnl:+.2f}EUR, {pnl_pct:+.1f}%)\nPositions: {len(positions)}\nTrades: {len(trades)} | WR: {wr:.0f}%\n"
+            if positions:
+                briefing += "Ouvertes: " + ", ".join(p.get("symbole", "?") for p in positions) + "\n"
+            briefing += "\nBonne journee !"
+            messages_a_envoyer.append(briefing)
+            _dernier_rapport["dernier_briefing_ts"] = maintenant
+    # 6. RESUME DU SOIR (21h-23h, 1x/jour)
+    if 21 <= heure < 23 and maintenant - _dernier_rapport["dernier_resume_ts"] > 79200:
+        if data:
+            capital_init = data.get("capital_initial", 1000)
+            liquidites = data.get("liquidites", 0)
+            positions = data.get("positions", [])
+            trades = data.get("trades_fermes", [])
+            valeur_pos = sum(p.get("montant_eur", 0) for p in positions)
+            total = liquidites + valeur_pos
+            pnl = total - capital_init
+            trades_jour = [t for t in trades if t.get("timestamp", "").startswith(datetime.now().strftime("%Y-%m-%d"))]
+            gains_jour = sum(t.get("gain_eur", 0) for t in trades_jour)
+            gagnants_jour = sum(1 for t in trades_jour if t.get("gain_eur", 0) > 0)
+            resume = f"🌙 Resume de la journee:\n\nCapital: {total:.2f}EUR (P&L total: {pnl:+.2f}EUR)\n"
+            if trades_jour:
+                resume += f"Trades du jour: {len(trades_jour)} ({gagnants_jour}G/{len(trades_jour)-gagnants_jour}P)\nGain du jour: {gains_jour:+.2f}EUR\n"
+            else:
+                resume += "Aucun trade aujourd'hui.\n"
+            resume += f"Positions ouvertes: {len(positions)}\n"
+            resume += "\nRepose-toi bien." if pnl > 0 else "\nDemain est un autre jour."
+            messages_a_envoyer.append(resume)
+            _dernier_rapport["dernier_resume_ts"] = maintenant
+    # 7. ANALYSE PERFORMANCE (toutes les 3h)
+    if data and maintenant - _dernier_rapport["derniere_analyse_perf_ts"] > 10800:
+        trades = data.get("trades_fermes", [])
+        if len(trades) >= 10:
+            recents = trades[-10:]
+            anciens = trades[-20:-10] if len(trades) >= 20 else []
+            wr_recents = sum(1 for t in recents if t.get("gain_eur", 0) > 0) / len(recents) * 100
+            pnl_recents = sum(t.get("gain_eur", 0) for t in recents)
+            analyse = ""
+            if anciens:
+                wr_anciens = sum(1 for t in anciens if t.get("gain_eur", 0) > 0) / len(anciens) * 100
+                if wr_recents > wr_anciens + 15:
+                    analyse += f"📈 Le bot s'amelior! WR: {wr_anciens:.0f}% -> {wr_recents:.0f}%\n"
+                elif wr_recents < wr_anciens - 15:
+                    analyse += f"📉 Le bot ralentit. WR: {wr_anciens:.0f}% -> {wr_recents:.0f}%\n"
+            if pnl_recents < -5:
+                analyse += f"⚠️ 10 derniers trades en perte de {pnl_recents:.2f}EUR.\n"
+            if analyse:
+                messages_a_envoyer.append("📊 Analyse auto:\n\n" + analyse.rstrip())
+            _dernier_rapport["derniere_analyse_perf_ts"] = maintenant
+    # ENVOI DES MESSAGES
+    for msg in messages_a_envoyer:
+        _telegram_send(msg)
+        print(f"[PROACTIF] {msg[:60]}...")
+        time.sleep(1)
+
 def _verifier_changements_bot():
     """Verifie si le bot a ouvert/ferme des positions et envoie des notifications."""
     global _dernier_etat_bot
@@ -1800,6 +1931,11 @@ def boucle():
                 _verifier_changements_bot()
             except Exception as e:
                 print(f"[CHAT] Erreur notif bot: {e}")
+            # Cerveau proactif: analyses, alertes, briefings (toutes les 5 min)
+            try:
+                _cerveau_proactif()
+            except Exception as e:
+                print(f"[CHAT] Erreur cerveau proactif: {e}")
             # Verifie la sante du VPS toutes les ~10 min (20 cycles x 30s)
             _compteur_sante_vps += 1
             if _compteur_sante_vps >= 20:
