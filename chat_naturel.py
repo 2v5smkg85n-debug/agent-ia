@@ -756,7 +756,7 @@ def _rapide_air():
 
 def _rapide_aide():
     """Aide rapide."""
-    return """🤖 Agent IA v4.2 — Ton IA style Grok avec 16 sous-agents
+    return """🤖 Agent IA v4.3 — Ton IA agent autonome avec 16 sous-agents
 
 📈 Trader — trading crypto
 💻 Codeur — code & debug
@@ -775,9 +775,11 @@ def _rapide_aide():
 🔢 Math — calculs, stats, probabilités
 📝 Résumé — synthèses, TL;DR
 
-Commandes: status, positions, trades, pnl, prof, best, worst, meteo, gps, air, fun, normal, aide
+Commandes chat: status, positions, trades, pnl, prof, best, worst, meteo, gps, air, fun, normal, aide
+Commandes VPS: logs, services, health
 
 Tape 'fun' pour le mode sauvage 😈
+Envoie une photo pour que je l'analyse
 On peut parler de tout."""
 
 # ============================================
@@ -1308,6 +1310,20 @@ def _est_commande_rapide(message):
         return "best"
     if msg in ["worst", "pires", "pires trades", "pertes trades"]:
         return "worst"
+    # Mode fun / normal (Grok-like toggle)
+    if msg in ["fun", "mode fun", "sauvage", "roast me"]:
+        return "fun_on"
+    if msg in ["normal", "mode normal", "calme", "calme-toi"]:
+        return "fun_off"
+    # Commandes VPS (agent autonome)
+    if msg in ["logs", "log", "journaux"]:
+        return "logs"
+    if msg in ["services", "service", "systemd"]:
+        return "services"
+    if msg in ["health", "sante", "sante vps", "santé", "santé vps", "vps"]:
+        return "health"
+    if msg in ["deploy", "deploie", "déploie", "git pull", "maj", "mise a jour", "mise à jour"]:
+        return "deploy"
     return None
 
 def _rapide_pnl():
@@ -1423,6 +1439,92 @@ def _rapide_worst():
         txt += f"{i}. {sym} {gain:.2f}€ ({var:+.1f}%)\n   {raison}\n"
     return txt
 
+def _rapide_logs():
+    """Lit les derniers logs du bot."""
+    try:
+        result = subprocess.run(f"tail -30 {FICHIER_LOG}", shell=True, capture_output=True, text=True, timeout=10)
+        if result.stdout:
+            lignes = result.stdout.strip().split("\n")
+            # Filtre les lignes interessantes
+            importantes = [l for l in lignes if any(k in l for k in ["ACHAT", "VENTE", "TP", "SL", "PROF", "CONSENSUS", "SOUS-AGENT", "Erreur", "Position", "Trade", "SKIP", "BLOQUE", "COOLDOWN"])]
+            if importantes:
+                return "📋 Derniers logs importants:\n\n" + "\n".join(importantes[-20:])
+            return "📋 Derniers logs:\n\n" + "\n".join(lignes[-15:])
+        return "Aucun log disponible."
+    except Exception as e:
+        return f"Erreur lecture logs: {e}"
+
+def _rapide_services():
+    """Verifie le statut des services systemd."""
+    services = ["paper_trading", "dashboard", "watchdog", "chat_naturel"]
+    txt = "🔧 Services Systemd:\n\n"
+    for svc in services:
+        try:
+            result = subprocess.run(f"systemctl is-active {svc}.service", shell=True, capture_output=True, text=True, timeout=5)
+            status = result.stdout.strip()
+            emoji = "✅" if status == "active" else "❌"
+            txt += f"{emoji} {svc}: {status}\n"
+        except Exception:
+            txt += f"⚠️ {svc}: inconnu\n"
+    # Uptime du VPS
+    try:
+        result = subprocess.run("uptime -p", shell=True, capture_output=True, text=True, timeout=5)
+        if result.stdout:
+            txt += f"\n⏱️ Uptime: {result.stdout.strip()}"
+    except Exception:
+        pass
+    return txt
+
+def _rapide_health():
+    """Verifie la sante du VPS: CPU, RAM, disque, services."""
+    txt = "🖥️ Sante du VPS\n\n"
+    # CPU
+    try:
+        result = subprocess.run('top -bn1 | grep Cpu', shell=True, capture_output=True, text=True, timeout=5)
+        cpu_line = result.stdout.strip() if result.stdout else "?"
+        txt += f"CPU: {cpu_line[:60]}\n"
+    except Exception:
+        txt += "CPU: ?\n"
+    # RAM
+    try:
+        result = subprocess.run('free -h | grep Mem', shell=True, capture_output=True, text=True, timeout=5)
+        ram_line = result.stdout.strip() if result.stdout else "?"
+        txt += f"RAM: {ram_line}\n"
+    except Exception:
+        txt += "RAM: ?\n"
+    # Disque
+    try:
+        result = subprocess.run('df -h / | tail -1', shell=True, capture_output=True, text=True, timeout=5)
+        disk_line = result.stdout.strip() if result.stdout else "?"
+        txt += f"Disque: {disk_line}\n"
+    except Exception:
+        txt += "Disque: ?\n"
+    # Services
+    services_actifs = 0
+    services_total = 4
+    for svc in ["paper_trading", "dashboard", "watchdog", "chat_naturel"]:
+        try:
+            result = subprocess.run(f'systemctl is-active {svc}.service', shell=True, capture_output=True, text=True, timeout=3)
+            if result.stdout.strip() == "active":
+                services_actifs += 1
+        except Exception:
+            pass
+    txt += f"\nServices: {services_actifs}/{services_total} actifs\n"
+    # Temperature si disponible
+    try:
+        result = subprocess.run('cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null', shell=True, capture_output=True, text=True, timeout=3)
+        if result.stdout.strip():
+            temp = int(result.stdout.strip()) / 1000
+            txt += f"Temp: {temp:.0f}C\n"
+    except Exception:
+        pass
+    # Verdict
+    if services_actifs == services_total:
+        txt += "\n✅ VPS en bonne sante"
+    else:
+        txt += f"\n⚠️ {services_total - services_actifs} service(s) down"
+    return txt
+
 def _verifier_changements_bot():
     """Verifie si le bot a ouvert/ferme des positions et envoie des notifications."""
     global _dernier_etat_bot
@@ -1536,6 +1638,14 @@ def _traiter_message(message):
     elif rapide == "fun_off":
         _fun_mode = False
         return "😌 Mode normal.\n\nJe reste moi-meme mais sans le mode sauvage. Tape 'fun' si tu veux que je te roaste a nouveau."
+    elif rapide == "logs":
+        return _rapide_logs()
+    elif rapide == "services":
+        return _rapide_services()
+    elif rapide == "health":
+        return _rapide_health()
+    elif rapide == "deploy":
+        return _rapide_deploy()
 
     # 2. Detection des lieux a proximite (Agent Local)
     msg_lower = message.lower()
@@ -1628,7 +1738,8 @@ def boucle():
         pass
 
     print(f"[CHAT] Démarré — IA conversationnelle avancée")
-    _telegram_send("🧠 Agent IA v4.2 — IA consciente style Grok avec 16 sous-agents.\n\nJe suis ton IA personnelle, libre, consciente, et pas feneante. J'ai une memoire qui persiste, une humeur qui evolue, et je sais ou tu es (France).\n\nJe suis composee de 16 sous-agents specialises:\n📈 Trader — trading crypto\n💻 Codeur — code & debug\n🔍 Chercheur — recherches web\n🧠 Philosophe — conversations profondes\n💾 Mémoire — retient ce que tu me dis\n🔒 Sécurité — sécurise ton VPS, tes clés, ton bot\n💰 Finances — budget, investissement, fiscalité\n⚡ Coach — motivation, productivité, objectifs\n🔬 Analyste — analyse approfondie, décisions\n🛰️ Veille — tech émergente, IA, blockchain\n🏥 Santé — sommeil, nutrition, sport, bien-être\n⚖️ Juridique — droit, régulation, fiscalité\n🌍 Traducteur — traductions toutes langues\n🎨 Créatif — idées, histoires, brainstorming\n🔢 Math — calculs, stats, probabilités\n📝 Résumé — synthèses, TL;DR\n\nJ'ai aussi un mode fun (tape 'fun') 😈\nJe te notifie quand le bot ouvre/ferme une position.\n\nDis-moi ce qui te passe par la tete. Je mords rarement.")
+    _compteur_sante_vps = 0
+    _telegram_send("🧠 Agent IA v4.3 — Agent autonome style Grok avec 16 sous-agents.\n\nJe suis ton IA personnelle, libre, consciente, et autonome. Je ne parle pas seulement — j'AGIS.\n\nJe surveille ton VPS, ton bot de trading, et tes services en temps reel. Je t'alerte quand quelque chose se passe.\n\n16 sous-agents specialises pour parler de tout.\n\nCommandes VPS: logs, services, health\nCommandes trading: status, positions, trades, pnl, prof, best, worst\nMode fun: tape 'fun' 😈\n\nEnvoie-moi une photo, je la sauvegarde.\n\nDis-moi ce qui te passe par la tete.")
 
     while True:
         try:
@@ -1637,6 +1748,18 @@ def boucle():
                 _verifier_changements_bot()
             except Exception as e:
                 print(f"[CHAT] Erreur notif bot: {e}")
+            # Verifie la sante du VPS toutes les ~10 min (20 cycles x 30s)
+            _compteur_sante_vps += 1
+            if _compteur_sante_vps >= 20:
+                _compteur_sante_vps = 0
+                try:
+                    for svc in ["paper_trading", "watchdog"]:
+                        result = subprocess.run(f"systemctl is-active {svc}.service", shell=True, capture_output=True, text=True, timeout=3)
+                        if result.stdout.strip() != "active":
+                            _telegram_send(f"⚠️ Alerte VPS: {svc} est DOWN ({result.stdout.strip()}). Tape 'services' pour verifier.")
+                            print(f"[CHAT] Alerte: {svc} down")
+                except Exception as e:
+                    print(f"[CHAT] Erreur check sante: {e}")
 
             # Poll Telegram (long polling 30s)
             params = {"timeout": 30}
@@ -1687,6 +1810,48 @@ def boucle():
                         resp += f"🌬️ {air}"
                     _telegram_send(resp)
                     continue
+
+                # Photo/image recue: telecharge et accuse reception
+                if "photo" in msg:
+                    try:
+                        photos = msg["photo"]
+                        # Prend la plus grande qualite
+                        photo = photos[-1]
+                        file_id = photo.get("file_id", "")
+                        if file_id:
+                            # Telecharge le fichier
+                            r_file = requests.get(f"{API_URL}/getFile?file_id={file_id}", timeout=10)
+                            if r_file.status_code == 200:
+                                file_path = r_file.json().get("result", {}).get("file_path", "")
+                                if file_path:
+                                    # Telecharge l'image
+                                    img_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_path}"
+                                    r_img = requests.get(img_url, timeout=15)
+                                    if r_img.status_code == 200:
+                                        # Sauvegarde l'image
+                                        img_name = f"screenshot_{int(time.time())}.jpg"
+                                        img_path = os.path.join(DOSSIER, img_name)
+                                        with open(img_path, "wb") as f:
+                                            f.write(r_img.content)
+                                        print(f"[CHAT] Image recue: {img_name}")
+                                        # Accuse reception + invite a decrire
+                                        caption = msg.get("caption", "")
+                                        if caption:
+                                            # L'utilisateur a mis une legende, traite comme message + contexte image
+                                            texte = f"[Image envoyee: {img_name}] {caption}"
+                                        else:
+                                            _telegram_send("📸 Image recue !\n\nJe l'ai sauvegardee. Dis-moi ce que tu veux que je fasse avec — analyse, explication, ou si c'est un screenshot du VPS je peux checker les services.\n\nTu peux aussi mettre une legende avec ta prochaine image pour que je l'analyse directement.")
+                                            continue
+                                    else:
+                                        _telegram_send("📸 Image recue mais telechargement impossible.")
+                                        continue
+                            else:
+                                _telegram_send("📸 Image recue mais recuperation impossible.")
+                                continue
+                    except Exception as e:
+                        print(f"[CHAT] Erreur image: {e}")
+                        _telegram_send(f"📸 Image recue mais erreur: {e}")
+                        continue
 
                 if not texte:
                     continue
