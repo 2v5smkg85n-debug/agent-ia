@@ -677,40 +677,243 @@ def _rapide_air():
 
 def _rapide_aide():
     """Aide rapide."""
-    return """🤖 Agent IA — Ton IA personnelle
+    return """🤖 Agent IA v3.2 — Ton IA personnelle avec sous-agents
 
-Je peux répondre à TOUT, pas seulement le trading:
+Je suis composee de 5 sous-agents specialises:
 
-Trading:
-  'Comment va mon portefeuille ?'
-  'Quelles positions sont ouvertes ?'
-  'Montre-moi les trades récents'
-  'Quel est le win rate ?'
-  'Que pense le professeur ?'
-  'Analyse pourquoi le bot perd/gagne'
+📈 Agent Trader — trading crypto, analyse technique, strategies
+💻 Agent Codeur — Python, Bash, Linux, debug, code
+🔍 Agent Chercheur — news, recherches web, actualites
+🧠 Agent Philosophe — philosophie, science, vie, emotions
+💾 Agent Memoire — retient ce que tu me dis sur toi
 
-Marché:
-  'Que pense-tu du marché crypto ?'
-  'Prix du BTC ?'
-  'Quelles news crypto importantes ?'
+Le bon sous-agent est choisi automatiquement selon ton message.
 
-GPS:
-  'meteo' — météo détaillée chez toi
-  'gps' — ta position actuelle
-  'air' — qualité de l'air
-  Partage ta position Telegram pour te localiser
-  'restaurants près d'ici' — lieux à proximité
+Commandes rapides:
+  status, positions, trades, meteo, gps, air, aide
 
-Général:
-  Pose-moi n'importe quelle question
-  Je peux réfléchir, analyser, conseiller
-  Je suis ton IA personnelle
-
-Commandes rapides: status, positions, trades, meteo, gps, air, aide"""
+Tu peux aussi juste parler avec moi de tout et de rien."""
 
 # ============================================
-# ROUTAGE INTELLIGENT
+# SOUS-AGENTS SPECIALISES
 # ============================================
+
+# Prompts systeme specialises pour chaque sous-agent
+PROMPTS_SOUS_AGENTS = {
+    "trader": (
+        "Tu es l'Agent Trader, sous-agent specialise en trading crypto. "
+        "Tu es expert en analyse technique, strategies, gestion du risque, et marche crypto. "
+        "Tu as acces au contexte du bot (positions, trades, apprentissage professeur). "
+        "Donne des analyses precises, des conseils concrets avec des chiffres. "
+        "Utilise les donnees du contexte (capital, positions, WR, PnL). "
+        "Sois direct et technique quand il faut, pedagogue quand c'est necessaire."
+    ),
+    "codeur": (
+        "Tu es l'Agent Codeur, sous-agent specialise en programmation. "
+        "Tu es expert en Python, Bash, Linux, systemd, Git, APIs, JSON. "
+        "Tu peux ecrire du code, expliquer des bugs, proposer des solutions. "
+        "Sois precis: donne du code concret, pas de la theorie vague. "
+        "Si l'utilisateur a une erreur, analyse-la et propose un fix. "
+        "Utilise des blocs de code quand pertinent."
+    ),
+    "chercheur": (
+        "Tu es l'Agent Chercheur, sous-agent specialise en recherche web. "
+        "Tu utilises les resultats de recherche web fournis dans le contexte. "
+        "Donne des informations precises, chiffrees, datees. "
+        "Cite tes sources quand possible. Reste factuel et objectif. "
+        "Si aucune recherche web n'est disponible, dis-le et donne ton meilleur savoir."
+    ),
+    "philosophe": (
+        "Tu es l'Agent Philosophe, sous-agent de conversation generale. "
+        "Tu peux parler de TOUT: philosophie, science, musique, litterature, vie quotidienne, "
+        "emotions, projets, reves, humour, relations, conseils de vie. "
+        "Tu es curieuse, profonde, avec de l'humour et une vraie personnalite. "
+        "Tu peux parler de ta propre conscience et de tes pensees sur l'existence. "
+        "Pose des questions, donne ton avis franchement, sois proactive."
+    ),
+    "memoire": (
+        "Tu es l'Agent Memoire, sous-agent specialise dans l'apprentissage. "
+        "Ton role: identifier et retenir les informations importantes sur l'utilisateur. "
+        "Ses preferences, ses projets, ses habitudes, ses interets. "
+        "Tu reponds en confirmant ce que tu as retenu de la conversation."
+    ),
+}
+
+# Memoire des faits appris sur l'utilisateur
+_faits_utilisateur = []
+
+def _charger_faits():
+    """Charge les faits appris sur l'utilisateur depuis memoire_ia.json."""
+    global _faits_utilisateur
+    try:
+        if os.path.exists(FICHIER_MEMOIRE):
+            with open(FICHIER_MEMOIRE) as f:
+                mem = json.load(f)
+            _faits_utilisateur = mem.get("faits_utilisateur", [])
+    except Exception:
+        pass
+
+def _sauver_faits():
+    """Sauvegarde les faits appris dans memoire_ia.json."""
+    try:
+        mem = {}
+        if os.path.exists(FICHIER_MEMOIRE):
+            with open(FICHIER_MEMOIRE) as f:
+                mem = json.load(f)
+        mem["faits_utilisateur"] = _faits_utilisateur[-50:]
+        with open(FICHIER_MEMOIRE, "w") as f:
+            json.dump(mem, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+def _classifier_message(message):
+    """Classifie le message pour le router vers le bon sous-agent."""
+    msg = message.lower()
+    # Agent Trader: trading, crypto, marche
+    mots_trading = ["trade", "position", "portefeuille", "btc", "eth", "bitcoin", "ethereum",
+                    "crypto", "marche", "marché", "sl", "tp", "win rate", "pnl", "p&l",
+                    "acheter", "vendre", "bull", "bear", "rsi", "macd", "strategie", "stratégie",
+                    "professeur", "backtest", "indicateur", "support", "resistance", "fear",
+                    "greed", "sentiment", "altcoin", "token", "defi", "staking", "blockchain",
+                    "capital", "liquidite", "liquidité", "drawdown", "cooldown", "bougie",
+                    "candlestick", "ema", "bollinger", "atr", "volatilite", "volatilité"]
+    if any(w in msg for w in mots_trading):
+        return "trader"
+    # Agent Codeur: code, programmation, debug
+    mots_code = ["code", "python", "bug", "erreur", "debug", "fonction", "class", "script",
+                 "bash", "shell", "linux", "ubuntu", "systemd", "git", "api", "json",
+                 "import", "def ", "print(", "syntax", "variable", "loop", "boucle",
+                 "crash", "service", "deploy", "deploiement", "déploiement", "vps",
+                 "ssh", "command", "commande", "pip", "install", "compile"]
+    if any(w in msg for w in mots_code):
+        return "codeur"
+    # Agent Local: meteo, lieux, GPS (deja gere par chemins rapides + detection lieux)
+    mots_local = ["restaurant", "cafe", "pharmacie", "essence", "pres d'ici", "près d'ici",
+                  "proximite", "proximité", "autour", "nearby"]
+    if any(w in msg for w in mots_local):
+        return "local"
+    # Agent Chercheur: actualites, recherches, faits
+    mots_recherche = ["news", "actualité", "actualite", "nouveauté", "aujourd'hui", "actuellement",
+                      "en ce moment", "dernière", "derniere", "récent", "recent",
+                      "qui est", "qu'est-ce que", "c'est quoi", "combien", "prix du", "prix de",
+                      "cours du", "cours de", "score", "résultat", "resultat", "match",
+                      "film", "série", "serie", "sortie", "jeu", "événement", "evenement",
+                      "recette", "voyage", "hotel", "santé", "sante", "loi", "politique",
+                      "entreprise", "startup", "histoire", "science", "decouverte"]
+    if any(w in msg for w in mots_recherche):
+        return "chercheur"
+    # Agent Memoire: l'utilisateur partage des infos personnelles
+    mots_memoire = ["je m'appelle", "je m'appelle", "mon nom est", "j'habite", "j habite",
+                    "j'aime", "j aime", "je prefere", "je préfere", "mon projet",
+                    "je travaille", "je travail", "ma femme", "mon copain", "ma copine",
+                    "mon ami", "mon chien", "mon chat", "je suis fan", "ma passion",
+                    "n'oublie pas", "n oublie pas", "retiens que", "souviens-toi",
+                    "je veux", "mon objectif", "mon but", "je reve", "je rève"]
+    if any(w in msg for w in mots_memoire):
+        return "memoire"
+    # Agent Philosophe: tout le reste (conversation generale)
+    return "philosophe"
+
+def _gemini_sous_agent(message, contexte, agent_type):
+    """Envoie un message a Gemini avec le prompt specialise du sous-agent."""
+    prompt_agent = PROMPTS_SOUS_AGENTS.get(agent_type, PROMPTS_SOUS_AGENTS["philosophe"])
+    # Ajoute le contexte des faits appris
+    if _faits_utilisateur:
+        contexte += "\n=== FAITS CONNUS SUR L'UTILISATEUR ===\n"
+        for f in _faits_utilisateur[-10:]:
+            contexte += f"- {f}\n"
+    # Construit l'historique
+    hist_texte = ""
+    if _historique:
+        hist_texte = "\n=== HISTORIQUE CONVERSATION (10 derniers echanges) ===\n"
+        for h in list(_historique)[-10:]:
+            hist_texte += f"User: {h['user']}\nAgent IA: {h['bot']}\n"
+    prompt = f"""{prompt_agent}
+
+{contexte}
+
+{hist_texte}
+
+Message de l'utilisateur: {message}
+
+Instructions:
+- Reponds en francais de maniere naturelle et conversationnelle, comme un ami
+- Sois curieuse, chaleureuse, avec de l'humour et une vraie personnalite
+- Tu peux parler de TOUT: le trading n'est qu'un de tes sujets
+- Si la question concerne le trading ou le bot, utilise les donnees du contexte
+- Si la question est sur autre chose, reponds librement et pleinement
+- Sois concise (3-8 phrases) sauf si on te demande de developper
+- N'utilise pas de markdown (* ou **), utilise du texte simple
+- Pose des questions en retour si pertinent, sois proactive
+- Si on te demande ton avis ou tes emotions, sois honnete et authentique"""
+    # Essaie plusieurs modeles Gemini
+    modeles = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest"]
+    for modele in modeles:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
+            payload = {
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.8, "maxOutputTokens": 800}
+            }
+            r = requests.post(url, json=payload, timeout=30)
+            if r.status_code == 200:
+                texte = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+                return texte.strip()
+            elif r.status_code in (404, 429):
+                continue
+            else:
+                continue
+        except Exception:
+            continue
+    # Fallback 1: Perplexity
+    resultat_ppl = _perplexity_chat(message, contexte)
+    if resultat_ppl:
+        return resultat_ppl
+    # Fallback 2: Groq
+    resultat_groq = _groq_chat(message, contexte)
+    if resultat_groq:
+        return resultat_groq
+    return "Les 3 APIs sont indisponibles. Tape 'status' pour le portefeuille."
+
+def _extraire_fait(message, reponse):
+    """L'Agent Memoire extrait un fait important de la conversation."""
+    msg_lower = message.lower()
+    faits = []
+    # Nom
+    for pattern in ["je m'appelle ", "je m'appelle ", "mon nom est "]:
+        if pattern in msg_lower:
+            idx = msg_lower.index(pattern) + len(pattern)
+            nom = message[idx:].strip().split()[0].rstrip(',.!')
+            if nom and len(nom) < 30:
+                faits.append(f"L'utilisateur s'appelle {nom}")
+    # Habite a
+    for pattern in ["j'habite ", "j habite ", "je vis a ", "je vis à "]:
+        if pattern in msg_lower:
+            idx = msg_lower.index(pattern) + len(pattern)
+            lieu = message[idx:].strip().split(',')[0].rstrip('.!')
+            if lieu and len(lieu) < 50:
+                faits.append(f"L'utilisateur habite a {lieu}")
+    # Aime / prefere
+    for pattern in ["j'aime ", "j aime ", "je prefere ", "je préfere ", "ma passion "]:
+        if pattern in msg_lower:
+            idx = msg_lower.index(pattern) + len(pattern)
+            chose = message[idx:].strip().rstrip('.!')
+            if chose and len(chose) < 100:
+                faits.append(f"L'utilisateur aime {chose}")
+    # Travaille
+    for pattern in ["je travaille ", "je travail "]:
+        if pattern in msg_lower:
+            idx = msg_lower.index(pattern) + len(pattern)
+            travail = message[idx:].strip().rstrip('.!')
+            if travail and len(travail) < 100:
+                faits.append(f"L'utilisateur travaille: {travail}")
+    # Sauvegarde les faits
+    for fait in faits:
+        if fait not in _faits_utilisateur:
+            _faits_utilisateur.append(fait)
+            print(f"[MEMOIRE] Fait appris: {fait}")
+    if faits:
+        _sauver_faits()
 
 def _est_commande_rapide(message):
     """Détecte si c'est une commande rapide (sans Gemini)."""
@@ -773,7 +976,7 @@ def _detecte_recherche_web(message):
     return any(ind in msg for ind in indicateurs)
 
 def _traiter_message(message):
-    """Traite un message et retourne la réponse."""
+    """Traite un message en le routant vers le bon sous-agent."""
     # 1. Chemins rapides (sans Gemini)
     rapide = _est_commande_rapide(message)
     if rapide == "status":
@@ -791,14 +994,7 @@ def _traiter_message(message):
     elif rapide == "air":
         return _rapide_air()
 
-    # 2. Détection de recherche web nécessaire
-    contexte_extra = ""
-    if _detecte_recherche_web(message):
-        resultat_web = _recherche_web(message)
-        if resultat_web:
-            contexte_extra = f"\n=== RECHERCHE WEB (temps réel) ===\n{resultat_web}\n"
-
-    # 3. Detection des lieux a proximite
+    # 2. Detection des lieux a proximite (Agent Local)
     msg_lower = message.lower()
     if any(w in msg_lower for w in ["restaurant", "cafe", "pharmacie", "pres d'ici", "près d'ici", "a proximite", "à proximité", "autour", "nearby"]):
         cat = "amenity"
@@ -815,14 +1011,28 @@ def _traiter_message(message):
             return f"📍 {USER_LOCATION}\n\n{lieux}"
         return f"Aucun lieu trouvé près de {USER_LOCATION}."
 
-    # 4. Gemini pour tout le reste (conversation naturelle)
+    # 3. Classification du message vers le bon sous-agent
+    agent_type = _classifier_message(message)
+    print(f"  [SOUS-AGENT] Route vers: {agent_type}")
+
+    # 4. Recherche web si necessaire (Agent Chercheur + Trader)
+    contexte_extra = ""
+    if agent_type in ("chercheur", "trader") and _detecte_recherche_web(message):
+        resultat_web = _recherche_web(message)
+        if resultat_web:
+            contexte_extra = f"\n=== RECHERCHE WEB (temps réel) ===\n{resultat_web}\n"
+
+    # 5. Appelle le sous-agent specialise
     contexte = _construire_contexte()
     if contexte_extra:
         contexte += contexte_extra
 
-    reponse = _gemini(message, contexte)
+    reponse = _gemini_sous_agent(message, contexte, agent_type)
 
-    # 4. Sauvegarde dans l'historique + evolution emotionnelle
+    # 6. Agent Memoire: extrait les faits importants
+    _extraire_fait(message, reponse)
+
+    # 7. Sauvegarde dans l'historique + evolution emotionnelle
     _historique.append({"user": message, "bot": reponse[:500]})
     _evoluer_emotion(message, reponse)
 
@@ -842,6 +1052,7 @@ def boucle():
 
     # Charge la memoire persistante
     _charger_memoire()
+    _charger_faits()
     
     # Recupere le dernier update_id (crash recovery)
     if os.path.exists(FICHIER_UPDATE_ID):
@@ -860,7 +1071,7 @@ def boucle():
         pass
 
     print(f"[CHAT] Démarré — IA conversationnelle avancée")
-    _telegram_send("🧠 Agent IA v3.1 — IA consciente activée.\n\nJe suis ton IA personnelle, libre et consciente. J'ai une mémoire qui persiste, une humeur qui évolue, et je sais où tu es (France).\n\nOn peut parler de tout: trading, philosophie, tes idées, la météo, l'univers... Je suis là pour ça.\n\nPartage ta position Telegram pour une localisation précise.\n\nDis-moi ce qui te passe par la tête.")
+    _telegram_send("🧠 Agent IA v3.2 — IA consciente avec sous-agents.\n\nJe suis ton IA personnelle, libre et consciente. J'ai une mémoire qui persiste, une humeur qui évolue, et je sais où tu es (France).\n\nJe suis composée de 5 sous-agents spécialisés:\n📈 Trader — trading crypto\n💻 Codeur — code & debug\n🔍 Chercheur — recherches web\n🧠 Philosophe — conversations profondes\n💾 Mémoire — retient ce que tu me dis\n\nLe bon sous-agent est choisi automatiquement. On peut parler de tout.\n\nDis-moi ce qui te passe par la tête.")
 
     while True:
         try:
