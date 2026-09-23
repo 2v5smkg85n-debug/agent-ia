@@ -1218,6 +1218,16 @@ def _gemini_sous_agent(message, contexte, agent_type):
         contexte += "\n=== FAITS CONNUS SUR L'UTILISATEUR ===\n"
         for f in _faits_utilisateur[-10:]:
             contexte += f"- {f}\n"
+    # Preferences utilisateur (dure) — injectees dans TOUS les sous-agents
+    contexte += (
+        "\n=== PREFERENCES UTILISATEUR (respecte TOUJOURS) ===\n"
+        "- Pas de Binance. Revolut X uniquement.\n"
+        "- Capital paper trading: 1000 EUR.\n"
+        "- L'utilisateur est en France, sur iPhone (Termius SSH).\n"
+        "- Commandes sur une seule ligne.\n"
+        "- Ne propose jamais de reecrire le bot ou d'outils externes.\n"
+        "- 2-5 phrases max. Action > bavardage. Pas de gourou LinkedIn.\n"
+    )
     # Contexte extra personnalite (mode fun)
     contexte_extra_personnalite = ""
     if _fun_mode:
