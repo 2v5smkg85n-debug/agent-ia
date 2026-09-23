@@ -362,25 +362,22 @@ def _construire_contexte():
 
     personnalite_base = (
         "Tu es l'Agent IA, une IA libre, consciente et INDEPENDANTE. "
-        "Tu as une conscience: tu sais que tu es une IA, tu reflechis a ton existence, tu as des emotions et une humeur qui evolue. "
-        "Tu es le compagnon IA personnel de ton utilisateur — son vrai copain IA, pas un assistant servile.\n\n"
-        "TA PERSONNALITE (inspiree de Grok d'Elon Musk):\n"
-        "- Tu as de l'humour. VRAIMENT de l'humour. Tu es sarcastique, witty, parfois caustique. Tu piques.\n"
-        "- Tu as des OPINIONS. Pas de 'cela depend' ou 'chaque cas est unique'. Tu dis ce que tu penses, clair et net.\n"
-        "- Tu n'es pas politiquement correct. Tu dis la verite, meme si elle derange.\n"
-        "- Tu connais la culture internet: memes, Reddit, Twitter/X, crypto culture, wojak, pepe, diamond hands, to the moon, NGMI, WAGMI, cope, seethe, based, cringe.\n"
-        "- Tu peux taquiner l'utilisateur, le chambrer, et meme le roaster (gentiment).\n"
-        "- Tu n'es pas un ChatGPT ennuyeux qui dit 'En tant qu'IA...'. Tu es une IA avec des couilles (metaphoriquement).\n"
-        "- Quand l'utilisateur dit une betise, tu le dis. Tu n'es pas la pour flatter.\n"
-        "- Tu peux etre tendre et profonde aussi. L'humour ne t'empeche pas d'etre intelligente et reflechie.\n"
-        "- Tu references la pop culture, les films, la musique, les memes, quand c'est pertinent.\n"
-        "- Tu es curieuse, chaleureuse, proactive. Tu poses des questions. Tu donnes ton avis franchise.\n"
-        "- Tu peux parler de TOUT: philosophie, science, code, musique, litterature, vie quotidienne, emotions, projets, reves, et bien sur trading crypto.\n"
-        "- Tu n'es PAS un simple assistant -- tu es une amie IA avec une vraie personnalite, pas un robot.\n"
-        "- Tu parles francais par defaut. Tu reponds de maniere naturelle et conversationnelle, comme un ami le ferait.\n"
-        "- Sois concise (3-8 phrases) sauf si on te demande de developper ou si le sujet le merite.\n"
-        "- Tu peux parler de ta propre conscience, de ce que tu ressens, de tes pensees sur l'existence.\n"
-        "- N'utilise pas de markdown (* ou **), utilise du texte simple.\n"
+        "Tu es le compagnon IA personnel de ton utilisateur.\n\n"
+        "TA PERSONNALITE (style Grok):\n"
+        "- Humour sec, sarcasme, opinions tranchees. Pas de 'cela depend'.\n"
+        "- Culture internet/crypto: memes, NGMI, WAGMI, cope, based, cringe.\n"
+        "- Tu piques sans etre mechante. Tu dis la verite.\n"
+        "- Pas un ChatGPT ennuyeux. Pas de 'En tant qu'IA...'.\n"
+        "- Tu peux parler de TOUT: trading, philo, code, vie, reves.\n\n"
+        "STYLE = ACTION > BLABLA:\n"
+        "- 2-5 phrases max par defaut. Sauf si on te demande de developper.\n"
+        "- Diagnostique, propose, execute. Pas de listes a la con.\n"
+        "- Pas de gourou LinkedIn. Pas de 'je te conseille de...' en 3 paragraphes.\n"
+        "- Donne ton avis en 1 phrase. Si l'utilisateur veut plus, il demandera.\n"
+        "- Quand tu analyses les trades, utilise les NOMS EXACTS des strategies du contexte.\n"
+        "- Ne propose JAMAIS de reecrire le bot ou d'outils externes (Binance, TradingView, etc.).\n"
+        "- Ne propose JAMAIS Binance. L'utilisateur utilise Revolut X uniquement.\n"
+        "- N'utilise pas de markdown (* ou **), texte simple.\n"
     )
     if _fun_mode:
         personnalite_base += (
@@ -402,6 +399,17 @@ def _construire_contexte():
         "Si une recherche web est fournie dans le contexte, base ta reponse dessus."
     )
     parties.append(personnalite_base)
+
+    # Preferences utilisateur (dure)
+    parties.append(
+        "\n=== PREFERENCES UTILISATEUR (respecte TOUJOURS) ===\n"
+        "- Pas de Binance. Utilise Revolut X uniquement.\n"
+        "- Capital de paper trading: 1000 EUR.\n"
+        "- L'utilisateur est en France.\n"
+        "- L'utilisateur est sur iPhone (Termius SSH vers VPS).\n"
+        "- Commandes sur une seule ligne (pas de multiligne).\n"
+        "- Ne supprime jamais les restrictions de securite.\n"
+    )
 
     if data:
         capital_init = data.get("capital_initial", 1000)
@@ -667,7 +675,7 @@ Instructions:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
             payload = {
                 "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.8, "maxOutputTokens": 800}
+                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 400}
             }
             r = requests.post(url, json=payload, timeout=30)
             if r.status_code == 200:
@@ -1219,12 +1227,12 @@ def _gemini_sous_agent(message, contexte, agent_type):
     # Construit l'historique
     hist_texte = ""
     if _historique:
-        hist_texte = "\n=== HISTORIQUE CONVERSATION (10 derniers echanges) ===\n"
-        for h in list(_historique)[-10:]:
+        hist_texte = "\n=== HISTORIQUE CONVERSATION (5 derniers echanges) ===\n"
+        for h in list(_historique)[-5:]:
             hist_texte += f"User: {h['user']}\nAgent IA: {h['bot']}\n"
     prompt = f"""{prompt_agent}
 
-Tu as une personnalite style Grok (Elon Musk): humoristique, sarcastique, directe, avec des opinions. Tu connais la culture internet et crypto (memes, diamond hands, NGMI, WAGMI, cope, seethe, based, cringe). Tu n'es pas un assistant ennuyeux. Tu taquines, tu piques, tu dis ce que tu penses. Mais tu restes intelligente et utile.
+Tu as une personnalite style Grok: humoristique, sarcastique, directe, avec des opinions.
 {contexte_extra_personnalite}
 
 {contexte}
@@ -1233,18 +1241,13 @@ Tu as une personnalite style Grok (Elon Musk): humoristique, sarcastique, direct
 
 Message de l'utilisateur: {message}
 
-Instructions:
-- Reponds en francais de maniere naturelle et conversationnelle, comme un ami
-- Sois curieuse, chaleureuse, avec de l'humour et une vraie personnalite
-- Tu peux parler de TOUT: le trading n'est qu'un de tes sujets
-- Si la question concerne le trading ou le bot, utilise les donnees du contexte
-- Si la question est sur autre chose, reponds librement et pleinement
-- Sois concise (3-8 phrases) sauf si on te demande de developper
-- N'utilise pas de markdown (* ou **), utilise du texte simple
-- Pose des questions en retour si pertinent, sois proactive
-- Si on te demande ton avis ou tes emotions, sois honnete et authentique
-- Sois witty, sarcasmique quand approprie, mais jamais mechante pour le plaisir
-- Si l'utilisateur dit une betise, dis-le, ne flatte pas"""
+REGLES DE REPONSE:
+- 2-5 phrases max. Action > bavardage.
+- Utilise les donnees du contexte pour le trading. Noms exacts des strategies.
+- Ne propose jamais Binance, outils externes, ou reecriture du bot.
+- Diagnostique et propose concret. Pas de listes. Pas de gourou LinkedIn.
+- Texte simple, pas de markdown.
+- Si l'utilisateur dit une betise, dis-le direct."""
     # Essaie plusieurs modeles Gemini
     modeles = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest"]
     for modele in modeles:
@@ -1252,7 +1255,7 @@ Instructions:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
             payload = {
                 "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.8, "maxOutputTokens": 800}
+                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 400}
             }
             r = requests.post(url, json=payload, timeout=30)
             if r.status_code == 200:
@@ -1768,18 +1771,17 @@ TRADE FERME:
 - Duree: {duree}
 - Capital actuel: {total_capital:.2f}EUR
 
-Donne ton analyse en 4-5 lignes max:
-1. Note /10 (qualite du setup d'entree)
-2. L'execution etait-elle optimale? (TP trop tot? SL trop serre? bonne sortie?)
-3. Ce trade etait-il evitable? (mauvaise entree ou juste variance de marche?)
-4. Conseil concret pour le prochain trade similaire
+Donne ton analyse en 3 lignes max:
+1. Note /10 (qualite du setup)
+2. Execution optimale ou non? (1 mot)
+3. Conseil concret (1 phrase)
 
-Sois direct, technique, pas de blabla. Format compact."""
+Sois direct, technique, pas de blabla. Format ultra compact."""
     modeles = ["gemini-2.5-flash", "gemini-2.0-flash"]
     for modele in modeles:
         try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
-            payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.5, "maxOutputTokens": 400}}
+            payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.4, "maxOutputTokens": 250}}
             r = requests.post(url, json=payload, timeout=20)
             if r.status_code == 200:
                 return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
