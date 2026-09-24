@@ -587,7 +587,7 @@ def _perplexity_chat(message, contexte=None):
                 hist_texte += f"User: {h['user']}\nAgent IA: {h['bot']}\n"
         url = "https://api.perplexity.ai/chat/completions"
         headers = {"Authorization": f"Bearer {PPLX_KEY}", "Content-Type": "application/json"}
-        system_msg = ctx + hist_texte + "\nInstructions: Reponds en francais de maniere naturelle et conversationnelle, comme un ami. Sois curieuse, chaleureuse, avec de l'humour. Tu peux parler de TOUT. Sois concise (3-8 phrases). N'utilise pas de markdown."
+        system_msg = ctx + hist_texte + "\nInstructions: Reponds en francais de maniere naturelle et conversationnelle, comme un ami. Sois curieuse, chaleureuse, avec de l'humour. Tu peux parler de TOUT. 2-4 phrases max. NE TE REPETE JAMAIS. Ne propose jamais de faire quelque chose, fais-le. Pas de 'Si tu veux, je peux...'. N'utilise pas de markdown."
         payload = {
             "model": "sonar",
             "messages": [
@@ -595,7 +595,7 @@ def _perplexity_chat(message, contexte=None):
                 {"role": "user", "content": message}
             ],
             "max_tokens": 1024,
-            "temperature": 0.8
+            "temperature": 0.5
         }
         r = requests.post(url, headers=headers, json=payload, timeout=30)
         if r.status_code == 200:
@@ -617,7 +617,7 @@ def _groq_chat(message, contexte=None):
                 hist_texte += f"User: {h['user']}\nAgent IA: {h['bot']}\n"
         url = "https://api.groq.com/openai/v1/chat/completions"
         headers = {"Authorization": f"Bearer {GROQ_KEY}", "Content-Type": "application/json"}
-        system_msg = ctx + hist_texte + "\nInstructions: Reponds en francais de maniere naturelle et conversationnelle, comme un ami. Sois curieuse, chaleureuse, avec de l'humour. Tu peux parler de TOUT. Sois concise (3-8 phrases). N'utilise pas de markdown."
+        system_msg = ctx + hist_texte + "\nInstructions: Reponds en francais de maniere naturelle et conversationnelle, comme un ami. Sois curieuse, chaleureuse, avec de l'humour. Tu peux parler de TOUT. 2-4 phrases max. NE TE REPETE JAMAIS. Ne propose jamais de faire quelque chose, fais-le. Pas de 'Si tu veux, je peux...'. N'utilise pas de markdown."
         messages = [{"role": "system", "content": system_msg}]
         for h in list(_historique)[-6:]:
             messages.append({"role": "user", "content": h["user"]})
@@ -627,7 +627,7 @@ def _groq_chat(message, contexte=None):
             "model": "llama-3.3-70b-versatile",
             "messages": messages,
             "max_tokens": 1024,
-            "temperature": 0.8
+            "temperature": 0.5
         }
         r = requests.post(url, headers=headers, json=payload, timeout=30)
         if r.status_code == 200:
