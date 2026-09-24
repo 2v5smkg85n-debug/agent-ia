@@ -66,29 +66,22 @@ def _fetch_daily_kucoin(symbole, start_ts=None, end_ts=None):
 
 
 def _fetch_all_history(symbole):
-    """Fetch all available daily history for one crypto (chunked by 2 years)."""
+    """Fetch daily history for one crypto. 1 chunk de 2 ans (730 bougies).
+    Suffit pour MA200, RSI hebdo, ATH, rendements."""
     now = int(time.time())
-    start = int(datetime(2018, 1, 1).timestamp())
-    all_bougies = []
-    chunk_start = start
-    while chunk_start < now:
-        chunk_end = min(chunk_start + 730 * 86400, now)  # 2 ans par chunk
-        chunk = _fetch_daily_kucoin(symbole, chunk_start, chunk_end)
-        if not chunk:
-            break
-        all_bougies.extend(chunk)
-        if len(chunk) < 730:
-            break
-        chunk_start = chunk[-1]["t"] + 86400
-        time.sleep(0.3)
-    # Deduplicate
-    seen = set()
-    unique = []
-    for b in all_bougies:
-        if b["t"] not in seen:
-            seen.add(b["t"])
-            unique.append(b)
-    return unique
+    start = now - 730 * 86400  # 2 ans en arriere
+    # Essai 1: chunk de 2 ans
+    chunk = _fetch_daily_kucoin(symbole, start, now)
+    if chunk:
+        return chunk
+    # Retry apres 10s si echec (rate limit)
+    time.sleep(10)
+    chunk = _fetch_daily_kucoin(symbole, start, now)
+    if chunk:
+        return chunk
+    # Dernier essai: sans date range (100 dernieres bougies)
+    time.sleep(5)
+    return _fetch_daily_kucoin(symbole)
 
 
 # ============================================
@@ -210,7 +203,7 @@ def mettre_a_jour():
                 print("pas assez de donnees")
         else:
             print("echec KuCoin")
-        time.sleep(0.5)
+        time.sleep(2)  # 2s entre cryptos pour eviter rate limit
 
     bull = sum(1 for m in metrics.values() if m.get("regime") == "bull")
     bear = sum(1 for m in metrics.values() if m.get("regime") == "bear")
