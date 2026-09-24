@@ -44,7 +44,7 @@ _CACHE_TTL = 280  # 4min40 (sous l'intervalle de 5min)
 
 # --- Rate limiter ---
 _last_api_call = 0
-_MIN_INTERVAL = 1.0  # min 1s entre appels API (parallèle = moins de pression)
+_MIN_INTERVAL = 3.0  # min 3s entre appels API (évite 429 Gemini)
 _verrou_rate = threading.Lock()
 
 # --- Clés API (chargées une fois) ---
@@ -103,13 +103,16 @@ def _call_perplexity_model(prompt, model_name):
     try:
         url = "https://api.perplexity.ai/chat/completions"
         headers = {"Authorization": f"Bearer {_PPLX_KEY}", "Content-Type": "application/json"}
-        body = {"model": model_name, "messages": [{"role": "user", "content": prompt}]}
-        r = requests.post(url, headers=headers, json=body, timeout=60)
-        if r.status_code == 200:
-            return model_name, r.json()["choices"][0]["message"]["content"]
-        elif r.status_code == 429:
-            return model_name, f"[Erreur: 429 {model_name}]"
-        else:
+        body = {"model": model_name, "messages": [{"role": "user", "content": prompt}], "max_tokens": 1000}
+        for _essai in range(2):
+            r = requests.post(url, headers=headers, json=body, timeout=60)
+            if r.status_code == 200:
+                return model_name, r.json()["choices"][0]["message"]["content"]
+            elif r.status_code == 429 and _essai == 0:
+                time.sleep(5)
+                continue
+            break
+        if r.status_code != 200:
             return model_name, f"[Erreur: {r.status_code} {model_name}]"
     except Exception as e:
         return model_name, f"[Erreur {model_name}: {e}]"
@@ -124,12 +127,15 @@ def _call_gemini_model(prompt, model_name):
     _rate_limit()
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={_GEM_KEY}"
-        r = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=60)
-        if r.status_code == 200:
-            return model_name, r.json()["candidates"][0]["content"]["parts"][0]["text"]
-        elif r.status_code == 429:
-            return model_name, f"[Erreur: 429 {model_name}]"
-        else:
+        for _essai in range(2):
+            r = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=60)
+            if r.status_code == 200:
+                return model_name, r.json()["candidates"][0]["content"]["parts"][0]["text"]
+            elif r.status_code == 429 and _essai == 0:
+                time.sleep(5)
+                continue
+            break
+        if r.status_code != 200:
             return model_name, f"[Erreur: {r.status_code} {model_name}]"
     except Exception as e:
         return model_name, f"[Erreur {model_name}: {e}]"
@@ -343,7 +349,7 @@ def _call_models_routed(signaux, prix, fg_value, fg_class):
         "reasoning":  ("reasoning",  _call_perplexity_model, _prompt_sonar_reasoning(signaux_str, fg_value, fg_class), "sonar-reasoning"),
         "pro":        ("pro",        _call_perplexity_model, _prompt_sonar_pro(signaux_str, fg_value, fg_class), "sonar-pro"),
         "gem-flash":  ("gem-flash",  _call_gemini_model,     _prompt_gemini_flash(signaux_str, fg_value, fg_class), "gemini-2.5-flash"),
-        "gem-pro":    ("gem-pro",    _call_gemini_model,     _prompt_gemini_pro(signaux_str, fg_value, fg_class), "gemini-2.5-pro"),
+        "gem-pro":    ("gem-pro",    _call_gemini_model,     _prompt_gemini_pro(signaux_str, fg_value, fg_class), "gemini-2.0-flash"),
     }
     
     # Filtre les tâches selon le routeur
