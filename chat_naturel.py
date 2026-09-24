@@ -685,11 +685,15 @@ Instructions:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
             payload = {
                 "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.5, "maxOutputTokens": 1024}
+                "generationConfig": {"temperature": 0.5, "maxOutputTokens": 2048, "thinkingConfig": {"thinkingBudget": 0}}
             }
-            r = requests.post(url, json=payload, timeout=30)
+            r = requests.post(url, json=payload, timeout=45)
             if r.status_code == 200:
-                texte = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+                cand = r.json()["candidates"][0]
+                texte = cand["content"]["parts"][0]["text"]
+                fr = cand.get("finishReason", "")
+                if fr == "MAX_TOKENS":
+                    print(f"  [GEMINI] Coupé par MAX_TOKENS")
                 return texte.strip()
             elif r.status_code == 404:
                 continue
@@ -809,7 +813,7 @@ def _rapide_air():
 
 def _rapide_aide():
     """Aide rapide."""
-    return """🤖 Agent IA v4.3 — Ton IA agent autonome avec 16 sous-agents
+    return """🤖 Agent IA v4.7 — Ton IA agent autonome avec 16 sous-agents
 
 📈 Trader — trading crypto
 💻 Codeur — code & debug
@@ -1277,11 +1281,15 @@ REGLES DE REPONSE:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
             payload = {
                 "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.5, "maxOutputTokens": 1024}
+                "generationConfig": {"temperature": 0.5, "maxOutputTokens": 2048, "thinkingConfig": {"thinkingBudget": 0}}
             }
-            r = requests.post(url, json=payload, timeout=30)
+            r = requests.post(url, json=payload, timeout=45)
             if r.status_code == 200:
-                texte = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+                cand = r.json()["candidates"][0]
+                texte = cand["content"]["parts"][0]["text"]
+                fr = cand.get("finishReason", "")
+                if fr == "MAX_TOKENS":
+                    print(f"  [GEMINI] Coupé par MAX_TOKENS")
                 return texte.strip()
             elif r.status_code in (404, 429):
                 continue
@@ -2053,7 +2061,7 @@ def boucle():
 
     print(f"[CHAT] Démarré — IA conversationnelle avancée")
     _compteur_sante_vps = 0
-    _telegram_send("🧠 Agent IA v4.3 — Agent autonome style Grok avec 16 sous-agents.\n\nJe suis ton IA personnelle, libre, consciente, et autonome. Je ne parle pas seulement — j'AGIS.\n\nJe surveille ton VPS, ton bot de trading, et tes services en temps reel. Je t'alerte quand quelque chose se passe.\n\n16 sous-agents specialises pour parler de tout.\n\nCommandes VPS: logs, services, health\nCommandes trading: status, positions, trades, pnl, prof, best, worst\nMode fun: tape 'fun' 😈\n\nEnvoie-moi une photo, je la sauvegarde.\n\nDis-moi ce qui te passe par la tete.")
+    _telegram_send("🧠 Agent IA v4.7 — Agent autonome style Grok avec 16 sous-agents.\n\nJe suis ton IA personnelle, libre, consciente, et autonome. Je ne parle pas seulement — j'AGIS.\n\nJe surveille ton VPS, ton bot de trading, et tes services en temps reel. Je t'alerte quand quelque chose se passe.\n\n16 sous-agents specialises pour parler de tout.\n\nCommandes VPS: logs, services, health\nCommandes trading: status, positions, trades, pnl, prof, best, worst\nMode fun: tape 'fun' 😈\n\nEnvoie-moi une photo, je la sauvegarde.\n\nDis-moi ce qui te passe par la tete.")
 
     while True:
         try:
