@@ -31,11 +31,12 @@ CRYPTOS = [
 # FETCH KUCOIN
 # ============================================
 
-def _fetch_daily_kucoin(symbole, start_ts, end_ts):
-    """Fetch daily candles from KuCoin for a date range."""
+def _fetch_daily_kucoin(symbole, start_ts=None, end_ts=None):
+    """Fetch daily candles from KuCoin. Sans startAt/endAt (API les refuse souvent).
+    Retourne les ~1500 dernieres bougies journalieres (~4 ans)."""
     _sym = symbole.replace("USDT", "-USDT")
     url = "https://api.kucoin.com/api/v1/market/candles"
-    params = {"type": "1day", "symbol": _sym, "startAt": int(start_ts), "endAt": int(end_ts)}
+    params = {"type": "1day", "symbol": _sym}
     try:
         r = requests.get(url, params=params, timeout=15)
         if r.status_code != 200:
@@ -61,26 +62,13 @@ def _fetch_daily_kucoin(symbole, start_ts, end_ts):
 
 
 def _fetch_all_history(symbole):
-    """Fetch all available daily history for one crypto (chunked)."""
-    now = int(time.time())
-    # Start from 2017-01-01 — covers BTC since early days
-    start = int(datetime(2017, 1, 1).timestamp())
-    all_bougies = []
-    chunk_start = start
-    while chunk_start < now:
-        chunk_end = min(chunk_start + 1500 * 86400, now)
-        chunk = _fetch_daily_kucoin(symbole, chunk_start, chunk_end)
-        if not chunk:
-            break
-        all_bougies.extend(chunk)
-        if len(chunk) < 1500:
-            break
-        chunk_start = chunk[-1]["t"] + 86400
-        time.sleep(0.3)
+    """Fetch all available daily history for one crypto."""
+    # KuCoin retourne ~1500 bougies max par requete sans date range
+    bougies = _fetch_daily_kucoin(symbole)
     # Deduplicate
     seen = set()
     unique = []
-    for b in all_bougies:
+    for b in bougies:
         if b["t"] not in seen:
             seen.add(b["t"])
             unique.append(b)
