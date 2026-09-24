@@ -1008,6 +1008,15 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
         print(f"  [PROF] {raison_btc} — AUCUN signal ce cycle")
         return []
 
+    # === CONTEXTE HISTORIQUE LONG-TERME ===
+    try:
+        from historique_crypto import contexte_pour_bot
+        ctx_hist = contexte_pour_bot()
+        if ctx_hist:
+            print(f"  [PROF] {ctx_hist}")
+    except Exception:
+        pass
+
     # === PERTES CONSECUTIVES: mode prudent/defensif ===
     nb_pertes, penalty_pertes = _pertes_consecutives_prof()
     if penalty_pertes < 0:

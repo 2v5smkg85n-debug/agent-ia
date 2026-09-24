@@ -517,6 +517,15 @@ def _construire_contexte():
             ctx_prof += f"Cryptos bloqués: {', '.join(bloques)}\n"
         parties.append(ctx_prof)
 
+    # Contexte historique long-terme
+    try:
+        from historique_crypto import contexte_pour_chat
+        ctx_hist = contexte_pour_chat()
+        if ctx_hist:
+            parties.append("\n=== " + ctx_hist + " ===")
+    except Exception:
+        pass
+
     # Heure et date + GPS
     maintenant = datetime.now()
     parties.append(f"\nDate/heure: {maintenant.strftime('%Y-%m-%d %H:%M')}")
