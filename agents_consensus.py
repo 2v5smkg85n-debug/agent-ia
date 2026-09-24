@@ -303,32 +303,31 @@ def _detecter_contexte(signaux, fg_value, fg_class):
 def _router_modeles(contexte):
     """
     Choisit quels modèles appeler selon le contexte.
-    Comme Perplexity Computer: route chaque sous-tâche vers le meilleur modèle.
     
-    Retourne une liste de labels de modèles à appeler.
+    Règles (simplifiées — seuls sonar + sonar-pro répondent fiablement):
+    - Base: sonar (web) — toujours appelé
+    - Conviction moyenne: + sonar-pro (analyse approfondie)
+    - Conviction forte: + sonar-pro (analyse approfondie)
+    - Sentiment extrême: + sonar-pro (contrarien)
+    - Volatilité haute: + sonar-pro (analyse approfondie)
     
-    Règles:
-    - Base: sonar (web) + gemini-flash (risque) — toujours appelés
-    - Conviction moyenne: + sonar-reasoning (logique)
-    - Conviction forte: + sonar-pro (approfondi) + gemini-pro (contrarien)
-    - Sentiment extrême: + gemini-pro (contrarien obligatoire, même si conviction faible)
-    - Volatilité haute: + sonar-pro (analyse approfondi, même si conviction moyenne)
+    Gemini et sonar-reasoning désactivés (404/429/400 systématiques).
     """
-    modeles = ["sonar", "gem-flash"]  # Base: toujours 2 modèles
+    modeles = ["sonar"]  # Base: sonar toujours
     
     conviction = contexte["conviction"]
     
     if conviction == "moyenne":
-        modeles.append("reasoning")
+        modeles.append("pro")
     elif conviction == "forte":
-        modeles.extend(["reasoning", "pro", "gem-pro"])
+        modeles.extend(["pro"])
     
-    # Overrides: ajoute des modèles spécifiques selon le contexte
-    if contexte["sentiment_extreme"] and "gem-pro" not in modeles:
-        modeles.append("gem-pro")  # Contrarien obligatoire en sentiment extrême
+    # Overrides
+    if contexte["sentiment_extreme"] and "pro" not in modeles:
+        modeles.append("pro")
     
     if contexte["volatilite_haute"] and "pro" not in modeles:
-        modeles.append("pro")  # Analyse approfondie en haute volatilité
+        modeles.append("pro")
     
     return modeles
 
