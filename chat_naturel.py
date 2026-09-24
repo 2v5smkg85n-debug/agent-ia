@@ -594,7 +594,7 @@ def _perplexity_chat(message, contexte=None):
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": message}
             ],
-            "max_tokens": 800,
+            "max_tokens": 1024,
             "temperature": 0.8
         }
         r = requests.post(url, headers=headers, json=payload, timeout=30)
@@ -626,7 +626,7 @@ def _groq_chat(message, contexte=None):
         payload = {
             "model": "llama-3.3-70b-versatile",
             "messages": messages,
-            "max_tokens": 800,
+            "max_tokens": 1024,
             "temperature": 0.8
         }
         r = requests.post(url, headers=headers, json=payload, timeout=30)
@@ -675,7 +675,7 @@ Instructions:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
             payload = {
                 "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 600}
+                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024}
             }
             r = requests.post(url, json=payload, timeout=30)
             if r.status_code == 200:
@@ -1265,7 +1265,7 @@ REGLES DE REPONSE:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
             payload = {
                 "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 600}
+                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024}
             }
             r = requests.post(url, json=payload, timeout=30)
             if r.status_code == 200:
@@ -1791,7 +1791,7 @@ Sois direct, technique, pas de blabla. Format ultra compact."""
     for modele in modeles:
         try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
-            payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.4, "maxOutputTokens": 250}}
+            payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.4, "maxOutputTokens": 400}}
             r = requests.post(url, json=payload, timeout=20)
             if r.status_code == 200:
                 return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
