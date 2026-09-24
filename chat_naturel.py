@@ -675,7 +675,7 @@ Instructions:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
             payload = {
                 "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 400}
+                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 600}
             }
             r = requests.post(url, json=payload, timeout=30)
             if r.status_code == 200:
@@ -1265,7 +1265,7 @@ REGLES DE REPONSE:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
             payload = {
                 "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 400}
+                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 600}
             }
             r = requests.post(url, json=payload, timeout=30)
             if r.status_code == 200:
