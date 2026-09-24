@@ -42,7 +42,7 @@ def _fetch_daily_kucoin(symbole, start_ts=None, end_ts=None):
         if r.status_code != 200:
             return []
         data = r.json()
-        if not data or data.get("code") != "200":
+        if not data or data.get("code") not in ("200", "200000"):
             return []
         items = data.get("data", [])
         bougies = []
