@@ -662,10 +662,11 @@ Instructions:
 - Sois curieuse, chaleureuse, avec de l'humour et une vraie personnalité
 - Tu peux parler de TOUT: le trading n'est qu'un de tes sujets
 - Si la question concerne le trading ou le bot, utilise les données du contexte
-- Si la question est sur autre chose, réponds librement et pleinement
-- Sois concise (3-8 phrases) sauf si on te demande de développer
+- Si la question est sur autre chose, réponds librement
+- 2-4 phrases max. Chaque phrase doit apporter quelque chose de nouveau.
+- NE TE REPETE JAMAIS. Dis chaque chose une seule fois, sans reformuler.
+- Ne propose jamais de faire quelque chose. Fais-le ou dis-le, point. Pas de "Si tu veux, je peux...".
 - N'utilise pas de markdown (* ou **), utilise du texte simple
-- Pose des questions en retour si pertinent, sois proactive
 - Si on te demande ton avis ou tes émotions, sois honnête et authentique"""
 
     # Essaie plusieurs modeles Gemini
@@ -675,7 +676,7 @@ Instructions:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
             payload = {
                 "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024}
+                "generationConfig": {"temperature": 0.5, "maxOutputTokens": 1024}
             }
             r = requests.post(url, json=payload, timeout=30)
             if r.status_code == 200:
@@ -1252,10 +1253,12 @@ Tu as une personnalite style Grok: humoristique, sarcastique, directe, avec des 
 Message de l'utilisateur: {message}
 
 REGLES DE REPONSE:
-- 2-5 phrases max. Action > bavardage.
+- 2-4 phrases max. Action > bavardage.
+- NE TE REPETE JAMAIS. Chaque phrase dit quelque chose de nouveau. Pas de reformulation.
+- Ne propose jamais de faire quelque chose. Fais-le. Pas de "Si tu veux, je peux...".
 - Utilise les donnees du contexte pour le trading. Noms exacts des strategies.
 - Ne propose jamais Binance, outils externes, ou reecriture du bot.
-- Diagnostique et propose concret. Pas de listes. Pas de gourou LinkedIn.
+- Diagnostique et agis. Pas de listes. Pas de gourou LinkedIn.
 - Texte simple, pas de markdown.
 - Si l'utilisateur dit une betise, dis-le direct."""
     # Essaie plusieurs modeles Gemini
@@ -1265,7 +1268,7 @@ REGLES DE REPONSE:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
             payload = {
                 "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024}
+                "generationConfig": {"temperature": 0.5, "maxOutputTokens": 1024}
             }
             r = requests.post(url, json=payload, timeout=30)
             if r.status_code == 200:
