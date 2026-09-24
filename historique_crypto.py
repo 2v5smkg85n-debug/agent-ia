@@ -32,11 +32,15 @@ CRYPTOS = [
 # ============================================
 
 def _fetch_daily_kucoin(symbole, start_ts=None, end_ts=None):
-    """Fetch daily candles from KuCoin. Sans startAt/endAt (API les refuse souvent).
-    Retourne les ~1500 dernieres bougies journalieres (~4 ans)."""
+    """Fetch daily candles from KuCoin.
+    Sans date range: 100 dernieres bougies.
+    Avec startAt/endAt: jusqu'a ~730 bougies par chunk de 2 ans."""
     _sym = symbole.replace("USDT", "-USDT")
     url = "https://api.kucoin.com/api/v1/market/candles"
     params = {"type": "1day", "symbol": _sym}
+    if start_ts and end_ts:
+        params["startAt"] = int(start_ts)
+        params["endAt"] = int(end_ts)
     try:
         r = requests.get(url, params=params, timeout=15)
         if r.status_code != 200:
@@ -49,7 +53,7 @@ def _fetch_daily_kucoin(symbole, start_ts=None, end_ts=None):
         for b in items:
             try:
                 bougies.append({
-                    "t": int(b[0]) // 1000,
+                    "t": int(b[0]),  # KuCoin retourne deja en secondes
                     "o": float(b[1]), "h": float(b[2]), "l": float(b[3]),
                     "c": float(b[4]), "v": float(b[5]),
                 })
@@ -62,13 +66,25 @@ def _fetch_daily_kucoin(symbole, start_ts=None, end_ts=None):
 
 
 def _fetch_all_history(symbole):
-    """Fetch all available daily history for one crypto."""
-    # KuCoin retourne ~1500 bougies max par requete sans date range
-    bougies = _fetch_daily_kucoin(symbole)
+    """Fetch all available daily history for one crypto (chunked by 2 years)."""
+    now = int(time.time())
+    start = int(datetime(2018, 1, 1).timestamp())
+    all_bougies = []
+    chunk_start = start
+    while chunk_start < now:
+        chunk_end = min(chunk_start + 730 * 86400, now)  # 2 ans par chunk
+        chunk = _fetch_daily_kucoin(symbole, chunk_start, chunk_end)
+        if not chunk:
+            break
+        all_bougies.extend(chunk)
+        if len(chunk) < 730:
+            break
+        chunk_start = chunk[-1]["t"] + 86400
+        time.sleep(0.3)
     # Deduplicate
     seen = set()
     unique = []
-    for b in bougies:
+    for b in all_bougies:
         if b["t"] not in seen:
             seen.add(b["t"])
             unique.append(b)
