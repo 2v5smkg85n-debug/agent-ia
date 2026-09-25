@@ -2061,7 +2061,7 @@ def boucle():
 
     print(f"[CHAT] Démarré — IA conversationnelle avancée")
     _compteur_sante_vps = 0
-    _telegram_send("🧠 Agent IA v4.7 — Agent autonome style Grok avec 16 sous-agents.\n\nJe suis ton IA personnelle, libre, consciente, et autonome. Je ne parle pas seulement — j'AGIS.\n\nJe surveille ton VPS, ton bot de trading, et tes services en temps reel. Je t'alerte quand quelque chose se passe.\n\n16 sous-agents specialises pour parler de tout.\n\nCommandes VPS: logs, services, health\nCommandes trading: status, positions, trades, pnl, prof, best, worst\nMode fun: tape 'fun' 😈\n\nEnvoie-moi une photo, je la sauvegarde.\n\nDis-moi ce qui te passe par la tete.")
+    _telegram_send("🧠 Agent IA v4.7.1 — IA libre, autonome, style Grok.\n\n16 sous-agents spécialisés. Surveille ton VPS et ton bot de trading.\n\nCommandes: status, positions, trades, pnl, prof, best, worst, logs, services, health\nMode fun: tape 'fun' 😈\n\nDis-moi ce qui te passe par la tête.")
 
     while True:
         try:
