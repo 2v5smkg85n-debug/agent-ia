@@ -1831,9 +1831,87 @@ def _fermer_position(symbole):
     emoji = "✅" if gain > 0 else "❌"
     return f"{emoji} Position {sym} fermee. Gain: {gain:+.2f}EUR ({variation:+.1f}%). Liquidites: {data['liquidites']:.0f}EUR."
 
+def _verifier_achat_ia(symbole):
+    """L'IA verifie si c'est le bon moment pour acheter une crypto. Retourne (ok, raison)."""
+    try:
+        import prix_revolut as pr
+        import indicateurs as ind
+    except Exception:
+        return True, "Modules indisponibles, achat autorise par defaut"
+    # Recupere prix + RSI
+    prix = None
+    rsi = None
+    try:
+        prix = pr.prix(symbole)
+    except Exception:
+        pass
+    try:
+        rsi = ind.rsi(symbole, periode=14)
+    except Exception:
+        pass
+    if not prix:
+        return False, f"Prix introuvable pour {symbole}"
+    # Construit le prompt pour Gemini
+    rsi_str = f"RSI(14)={rsi:.1f}" if rsi else "RSI indisponible"
+    prompt = f"""Tu es un trader crypto expert. L'utilisateur veut acheter {symbole} a {prix:.4f}EUR. {rsi_str}
+
+Analyse si c'est le bon moment pour acheter. Reponds en JSON exact:
+{{"verdict": "OK"|"NON", "raison": "..."}}
+
+Regles:
+- OK si RSI < 35 (survente) ou momentum haussier clair
+- NON si RSI > 65 (surachat) ou marche defavorable
+- Sois direct et concis (2-3 phrases max dans la raison)
+- NE TE REPETE JAMAIS"""
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_KEY}"
+        payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.3, "maxOutputTokens": 512, "thinkingConfig": {"thinkingBudget": 0}}}
+        r = requests.post(url, json=payload, timeout=30)
+        if r.status_code == 200:
+            texte = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+            import re
+            match = re.search(r'\{.*\}', texte, re.DOTALL)
+            if match:
+                decision = json.loads(match.group())
+                return decision.get("verdict") == "OK", decision.get("raison", "")
+    except Exception:
+        pass
+    # Fallback: utilise le RSI directement si Gemini echoue
+    if rsi is not None:
+        if rsi > 65:
+            return False, f"RSI a {rsi:.0f} — surachat, pas le moment d'acheter."
+        if rsi < 35:
+            return True, f"RSI a {rsi:.0f} — survente, bon point d'entree."
+    return True, "Pas de signal contre-indique, achat autorise."
+
 def _detecter_action_bot(message):
     """Detecte les actions sur le bot de trading en langage naturel et execute."""
     msg = message.lower().strip()
+    # 0. ACHETER / OUVRIR UNE POSITION (avec verification IA)
+    mots_acheter = ["achete", "acheter", "ouvre", "ouvrir", "prends", "prendre", "long", "go long", "entre sur"]
+    if any(w in msg for w in mots_acheter):
+        import prix_revolut as pr
+        for sym in pr.REVOLUT_X_CRYPTO:
+            base = sym.replace("USDT", "").lower()
+            if base in msg or sym.lower() in msg:
+                # L'IA verifie si c'est le bon moment
+                ok, raison = _verifier_achat_ia(sym)
+                if not ok:
+                    return f"🚫 Achat {sym} refuse par l'IA. {raison}"
+                # Verifie les conditions du portefeuille
+                data = _charger_paper()
+                if data:
+                    positions = data.get("positions", [])
+                    liquidites = data.get("liquidites", 0)
+                    if any(p.get("symbole") == sym for p in positions):
+                        return f"Position deja ouverte sur {sym}."
+                    if len(positions) >= 5:
+                        return "Max 5 positions atteint."
+                    if liquidites < 200:
+                        return f"Liquidites insuffisantes ({liquidites:.0f}EUR)."
+                    montant = min(200, liquidites * 0.8)
+                    return _ouvrir_position_auto(sym, montant, f"Demande utilisateur: {raison}")
+                return "Portefeuille illisible."
     # 1. FERMER UNE POSITION
     mots_fermer = ["ferme", "fermer", "vends", "vendre", "claquer", "claque", "liquid", "debarrasse", "debarrasse-toi"]
     if any(w in msg for w in mots_fermer):
