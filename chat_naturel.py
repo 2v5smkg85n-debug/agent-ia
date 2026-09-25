@@ -1771,7 +1771,7 @@ def _cerveau_proactif():
             _dernier_rapport["erreurs_log"] = nb_erreurs
     except Exception:
         pass
-    # 2. BOT BLOQUE (pas de trade depuis 2h+)
+    # 2. BOT BLOQUE — AUTO-RESTART si pas de trade depuis 3h et liquidites disponibles
     if data:
         trades = data.get("trades_fermes", [])
         positions = data.get("positions", [])
@@ -1782,9 +1782,14 @@ def _cerveau_proactif():
                     liquidites = data.get("liquidites", 0)
                     capital_init = data.get("capital_initial", 1000)
                     if liquidites > capital_init * 0.5:
-                        messages_a_envoyer.append(f"⏰ Le bot n'a pas trade depuis un moment. Liquidites: {liquidites:.0f}EUR. Il attend une opportunite.")
+                        # AUTO-RESTART: le bot est bloque, on le relance
+                        try:
+                            subprocess.run("sudo systemctl restart paper_trading.service", shell=True, capture_output=True, text=True, timeout=15)
+                            messages_a_envoyer.append(f"🔧 Bot bloque detecte. Redemarrage automatique. Liquidites: {liquidites:.0f}EUR.")
+                        except Exception:
+                            messages_a_envoyer.append(f"⏰ Bot bloque mais redemarrage impossible. Liquidites: {liquidites:.0f}EUR.")
                     _dernier_rapport["bot_bloque_ts"] = maintenant
-    # 3. POSITION EN PERTE PROFONDE
+    # 3. POSITION EN PERTE PROFONDE — AUTO-CLOSE si au-dela du SL
     if data:
         positions = data.get("positions", [])
         for pos in positions:
@@ -1796,7 +1801,9 @@ def _cerveau_proactif():
             if prix_entree and prix_actuel:
                 variation = (prix_actuel - prix_entree) / prix_entree * 100
                 if variation < sl * 0.7 and maintenant - _dernier_rapport["position_en_perte_ts"] > 1800:
-                    messages_a_envoyer.append(f"⚠️ {sym} en perte de {variation:+.1f}% (SL a {sl}%). Montant: {montant:.0f}EUR. Surveille.")
+                    # AUTO-CLOSE: la position depasse le SL, on ferme
+                    resultat = _fermer_position(sym)
+                    messages_a_envoyer.append(f"⚡ Fermeture auto: {sym} en perte de {variation:+.1f}% (SL a {sl}%). {resultat}")
                     _dernier_rapport["position_en_perte_ts"] = maintenant
     # 4. DISQUE PRESQUE PLEIN
     try:
@@ -1851,7 +1858,7 @@ def _cerveau_proactif():
             resume += "\nRepose-toi bien." if pnl > 0 else "\nDemain est un autre jour."
             messages_a_envoyer.append(resume)
             _dernier_rapport["dernier_resume_ts"] = maintenant
-    # 7. ANALYSE PERFORMANCE (toutes les 3h)
+    # 7. ANALYSE PERFORMANCE (toutes les 3h) — AUTO-BLACKLIST des mauvaises strategies
     if data and maintenant - _dernier_rapport["derniere_analyse_perf_ts"] > 10800:
         trades = data.get("trades_fermes", [])
         if len(trades) >= 10:
@@ -1868,6 +1875,19 @@ def _cerveau_proactif():
                     analyse += f"📉 Le bot ralentit. WR: {wr_anciens:.0f}% -> {wr_recents:.0f}%\n"
             if pnl_recents < -5:
                 analyse += f"⚠️ 10 derniers trades en perte de {pnl_recents:.2f}EUR.\n"
+            # AUTO-BLACKLIST: si une strategie a <30% WR sur 15+ trades, on alerte
+            from collections import defaultdict
+            stats_strat = defaultdict(lambda: {"n": 0, "g": 0, "pnl": 0.0})
+            for t in trades:
+                s = t.get("strategie", t.get("source", "inconnu"))
+                g = t.get("gain_eur", 0)
+                stats_strat[s]["n"] += 1
+                stats_strat[s]["pnl"] += g
+                if g > 0:
+                    stats_strat[s]["g"] += 1
+            for s, d in stats_strat.items():
+                if d["n"] >= 15 and d["g"] / d["n"] < 0.30 and d["pnl"] < -3:
+                    analyse += f"🚫 Strategie {s}: {d['n']} trades, {d['g']/d['n']*100:.0f}% WR, {d['pnl']:+.2f}EUR — a blacklister.\n"
             if analyse:
                 messages_a_envoyer.append("📊 Analyse auto:\n\n" + analyse.rstrip())
             _dernier_rapport["derniere_analyse_perf_ts"] = maintenant
