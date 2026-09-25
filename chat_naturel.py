@@ -1678,7 +1678,7 @@ def _ouvrir_position_auto(symbole, montant, raison):
     # Recupere le prix actuel
     try:
         import prix_revolut as pr
-        prix = pr.prix(symbole)
+        prix = pr.get_prix_revolut(symbole)
     except Exception:
         prix = None
     if not prix:
@@ -1724,14 +1724,17 @@ def _analyser_marche_auto():
     rsi_data = {}
     for sym in cryptos_a_analyser:
         try:
-            p = pr.prix(sym)
+            p = pr.get_prix_revolut(sym)
             if p:
                 prix_data[sym] = p
                 # RSI si disponible
                 try:
-                    rsi = ind.rsi(sym, periode=14)
-                    if rsi:
-                        rsi_data[sym] = rsi
+                    candles = pr.get_candles_revolut(sym, intervalle=60, nombre=30)
+                    if candles and len(candles) >= 16:
+                        clotures = [c["close"] for c in candles]
+                        rsi = ind.rsi(clotures, 14)
+                        if rsi:
+                            rsi_data[sym] = rsi
                 except Exception:
                     pass
         except Exception:
@@ -1803,7 +1806,7 @@ def _fermer_position(symbole):
     # Recupere le prix actuel
     try:
         import prix_revolut as pr
-        prix_actuel = pr.prix(sym)
+        prix_actuel = pr.get_prix_revolut(sym)
     except Exception:
         prix_actuel = prix_entree
     if not prix_actuel:
@@ -1842,11 +1845,14 @@ def _verifier_achat_ia(symbole):
     prix = None
     rsi = None
     try:
-        prix = pr.prix(symbole)
+        prix = pr.get_prix_revolut(symbole)
     except Exception:
         pass
     try:
-        rsi = ind.rsi(symbole, periode=14)
+        candles = pr.get_candles_revolut(symbole, intervalle=60, nombre=30)
+        if candles and len(candles) >= 16:
+            clotures = [c["close"] for c in candles]
+            rsi = ind.rsi(clotures, 14)
     except Exception:
         pass
     if not prix:
