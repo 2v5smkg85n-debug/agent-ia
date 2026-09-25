@@ -90,7 +90,9 @@ PARTIAL_TP_SEUIL = 1.0     # prend 50% de profit a +1.0% (lock gain + laisse cou
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 # FERMETURE INTELLIGENTE: ferme les positions perdantes qui stagnent
 STAGNATION_PERTE_SEUIL = -0.3   # si position a -0.3% ou pire (avant -0.4%)
-STAGNATION_PERTE_DUREE = 60     # pendant plus de 60 min -> ferme (avant 90 = trop long)
+STAGNATION_PERTE_DUREE = 90     # pendant plus de 90 min -> ferme (60 trop agressif)
+STAGNATION_PLAFOND = 0.1        # ne coupe que si la position est sous +0.1% (pas en gain)
+STAGNATION_SL_PROCHE = -0.8    # ne coupe pas si proche du SL, laisse le SL faire
 # TP DYNAMIQUE ATR: adapte le TP selon la volatilité
 ATR_LOOKBACK = 14               # périodes pour le calcul ATR
 ATR_TP_MULT = 2.0               # TP = prix_entree + ATR * mult
@@ -1873,8 +1875,15 @@ def verifier_sorties(pf, prix_actuels):
             try:
                 dt_ouv = datetime.strptime(pos.get("date_ouverture", ""), "%Y-%m-%d %H:%M")
                 age_min = (maintenant - dt_ouv).total_seconds() / 60
-                if variation <= STAGNATION_PERTE_SEUIL and age_min >= STAGNATION_PERTE_DUREE:
-                    positions_a_fermer.append((pos, prix_actuel, f"CUT-STAGNATION ({variation:+.2f}% après {age_min:.0f}min)", variation))
+                tp_pos = pos.get("tp", 2.0)
+                sl_pos = pos.get("sl", -1.0)
+                # Ne coupe que si: en perte leger + sous le plafond + pas proche du SL
+                if (variation <= STAGNATION_PERTE_SEUIL 
+                    and variation < STAGNATION_PLAFOND
+                    and variation > STAGNATION_SL_PROCHE
+                    and age_min >= STAGNATION_PERTE_DUREE):
+                    raison = f"CUT-STAGNATION ({variation:+.2f}% apres {age_min:.0f}min, TP={tp_pos:+.1f}% SL={sl_pos:+.1f}%)"
+                    positions_a_fermer.append((pos, prix_actuel, raison, variation))
                     continue
             except Exception:
                 pass
