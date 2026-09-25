@@ -85,7 +85,8 @@ _dernier_etat_bot = {"positions": set(), "nb_trades": 0, "capital": 0}
 # Cerveau proactif — memoire des dernieres alertes pour eviter le spam
 _dernier_rapport = {"erreurs_log": 0, "bot_bloque_ts": 0, "dernier_resume_ts": 0,
                     "dernier_briefing_ts": 0, "position_en_perte_ts": 0,
-                    "disque_alerte_ts": 0, "derniere_analyse_perf_ts": 0}
+                    "disque_alerte_ts": 0, "derniere_analyse_perf_ts": 0,
+                    "auto_ouverture_ts": 0}
 
 def _charger_memoire():
     """Charge la mémoire persistante de l'IA (survit aux redémarrages)."""
@@ -1658,6 +1659,133 @@ def _detecter_action_vps(message):
                 return f"\n=== RESULTAT COMMANDE VPS (sante) ===\n" + "\n".join(resultats) + "\n"
     return None
 
+def _ouvrir_position_auto(symbole, montant, raison):
+    """Ouvre une position manuellement via le chat IA (autonome)."""
+    data = _charger_paper()
+    if not data:
+        return "Portefeuille illisible."
+    positions = data.get("positions", [])
+    # Verifie pas deja ouvert
+    if any(p.get("symbole") == symbole for p in positions):
+        return f"Position deja ouverte sur {symbole}."
+    # Verifie liquidites
+    liquidites = data.get("liquidites", 0)
+    if liquidites < montant:
+        return f"Liquidites insuffisantes ({liquidites:.0f}EUR < {montant:.0f}EUR)."
+    # Verifie max positions
+    if len(positions) >= 5:
+        return f"Max 5 positions atteint."
+    # Recupere le prix actuel
+    try:
+        import prix_revolut as pr
+        prix = pr.prix(symbole)
+    except Exception:
+        prix = None
+    if not prix:
+        return f"Prix introuvable pour {symbole}."
+    # Ouvre la position
+    pos = {
+        "symbole": symbole, "montant_eur": montant, "prix_entree": prix,
+        "prix_actuel": prix, "sl_adaptatif": -1.0, "tp_adaptatif": 2.0,
+        "strategie": "ia_autonome", "source": "ouverture_ia_chat",
+        "raison": raison[:200], "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "score": 7, "tp": 2.0, "sl": -1.0,
+    }
+    positions.append(pos)
+    data["positions"] = positions
+    data["liquidites"] = liquidites - montant
+    try:
+        with open(FICHIER_PAPER, "w") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        return "Erreur lors de l'ouverture."
+    return f"✅ Position {symbole} ouverte a {prix:.4f}EUR. Montant: {montant:.0f}EUR. Liquidites: {data['liquidites']:.0f}EUR."
+
+def _analyser_marche_auto():
+    """L'IA analyse le marche et ouvre une position si elle trouve une opportunite."""
+    data = _charger_paper()
+    if not data:
+        return None
+    positions = data.get("positions", [])
+    liquidites = data.get("liquidites", 0)
+    # Conditions: moins de 5 positions et au moins 200EUR de liquidites
+    if len(positions) >= 5 or liquidites < 200:
+        return None
+    # Recupere les prix des top cryptos Revolut
+    try:
+        import prix_revolut as pr
+        import indicateurs as ind
+    except Exception:
+        return None
+    # Cryptos a analyser (top 10 par volume/interet)
+    cryptos_a_analyser = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "LDOUSDT", "AVAXUSDT",
+                          "LINKUSDT", "ARBUSDT", "NEARUSDT", "AAVEUSDT", "DOGEUSDT"]
+    prix_data = {}
+    rsi_data = {}
+    for sym in cryptos_a_analyser:
+        try:
+            p = pr.prix(sym)
+            if p:
+                prix_data[sym] = p
+                # RSI si disponible
+                try:
+                    rsi = ind.rsi(sym, periode=14)
+                    if rsi:
+                        rsi_data[sym] = rsi
+                except Exception:
+                    pass
+        except Exception:
+            continue
+        time.sleep(0.3)
+    if len(prix_data) < 3:
+        return None
+    # Construit le prompt pour Gemini
+    lignes_marche = []
+    for sym in prix_data:
+        rsi_str = f" RSI={rsi_data.get(sym, '?')}" if sym in rsi_data else ""
+        lignes_marche.append(f"{sym}: {prix_data[sym]:.4f}EUR{rsi_str}")
+    prompt = f"""Tu es un trader crypto expert. Analyse ce marche et decide si il faut ouvrir une position.
+
+PRIX ACTUELS:
+{chr(10).join(lignes_marche)}
+
+PORTFEUILLE: {len(positions)} positions ouvertes, {liquidites:.0f}EUR de liquidites.
+Capital: 1000EUR. Risk par trade: 200EUR. TP: 2%, SL: -1%.
+
+REGLES:
+- Reponds en JSON exact: {{"action": "ACHAT"|"RIEN", "symbole": "XXXUSDT", "raison": "..."}}
+- ACHAT seulement si RSI < 35 (survente) ou signal technique clair
+- Pas d'achat si RSI > 70 (surachat)
+- 1 seule crypto max
+- Si rien d'interessant, repond RIEN
+- NE TE REPETE JAMAIS"""
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_KEY}"
+        payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.3, "maxOutputTokens": 512, "thinkingConfig": {"thinkingBudget": 0}}}
+        r = requests.post(url, json=payload, timeout=30)
+        if r.status_code != 200:
+            return None
+        texte = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        # Parse le JSON
+        import re
+        match = re.search(r'\{.*\}', texte, re.DOTALL)
+        if not match:
+            return None
+        decision = json.loads(match.group())
+        if decision.get("action") != "ACHAT":
+            return None
+        symbole = decision.get("symbole", "").upper()
+        raison = decision.get("raison", "")
+        # Verifie que le symbole est valide
+        if symbole not in prix_data:
+            return None
+        # Ouvre la position
+        montant = min(200, liquidites * 0.8)
+        resultat = _ouvrir_position_auto(symbole, montant, f"IA autonome: {raison}")
+        return f"🤖 Ouverture auto par l'IA: {symbole} a {prix_data[symbole]:.4f}EUR. {raison[:100]}\n{resultat}"
+    except Exception:
+        return None
+
 def _fermer_position(symbole):
     """Ferme une position manuellement via le chat."""
     data = _charger_paper()
@@ -1891,6 +2019,15 @@ def _cerveau_proactif():
             if analyse:
                 messages_a_envoyer.append("📊 Analyse auto:\n\n" + analyse.rstrip())
             _dernier_rapport["derniere_analyse_perf_ts"] = maintenant
+    # 8. AUTO-OUVERTURE DE POSITION (toutes les 30 min si le bot n'a pas assez de positions)
+    if data and maintenant - _dernier_rapport["auto_ouverture_ts"] > 1800:
+        positions = data.get("positions", [])
+        liquidites = data.get("liquidites", 0)
+        if len(positions) < 3 and liquidites >= 200:
+            resultat = _analyser_marche_auto()
+            if resultat:
+                messages_a_envoyer.append(resultat)
+        _dernier_rapport["auto_ouverture_ts"] = maintenant
     # ENVOI DES MESSAGES
     for msg in messages_a_envoyer:
         _telegram_send(msg)
