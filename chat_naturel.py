@@ -1658,6 +1658,99 @@ def _detecter_action_vps(message):
                 return f"\n=== RESULTAT COMMANDE VPS (sante) ===\n" + "\n".join(resultats) + "\n"
     return None
 
+def _fermer_position(symbole):
+    """Ferme une position manuellement via le chat."""
+    data = _charger_paper()
+    if not data:
+        return "Portefeuille illisible."
+    positions = data.get("positions", [])
+    pos = next((p for p in positions if symbole.upper().replace("USDT", "USDT") in p.get("symbole", "").upper()), None)
+    if not pos:
+        return f"Aucune position ouverte sur {symbole}."
+    # Ferme la position au prix actuel
+    import random
+    sym = pos["symbole"]
+    montant = pos.get("montant_eur", 0)
+    prix_entree = pos.get("prix_entree", 0)
+    # Recupere le prix actuel
+    try:
+        import prix_revolut as pr
+        prix_actuel = pr.prix(sym)
+    except Exception:
+        prix_actuel = prix_entree
+    if not prix_actuel:
+        prix_actuel = prix_entree
+    variation = ((prix_actuel - prix_entree) / prix_entree * 100) if prix_entree else 0
+    gain = montant * variation / 100
+    # Ajoute aux trades fermes
+    trade = {
+        "symbole": sym, "montant_eur": montant, "prix_entree": prix_entree,
+        "prix_sortie": prix_actuel, "variation_pct": variation, "gain_eur": gain,
+        "strategie": pos.get("strategie", "manuel"), "source": "fermeture_manuelle_chat",
+        "raison_fermeture": "Fermeture manuelle via chat IA",
+        "date_fermeture": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    if "trades_fermes" not in data:
+        data["trades_fermes"] = []
+    data["trades_fermes"].append(trade)
+    data["positions"] = [p for p in positions if p.get("symbole") != sym]
+    data["liquidites"] = data.get("liquidites", 0) + montant
+    try:
+        with open(FICHIER_PAPER, "w") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        return "Erreur lors de la fermeture."
+    emoji = "✅" if gain > 0 else "❌"
+    return f"{emoji} Position {sym} fermee. Gain: {gain:+.2f}EUR ({variation:+.1f}%). Liquidites: {data['liquidites']:.0f}EUR."
+
+def _detecter_action_bot(message):
+    """Detecte les actions sur le bot de trading en langage naturel et execute."""
+    msg = message.lower().strip()
+    # 1. FERMER UNE POSITION
+    mots_fermer = ["ferme", "fermer", "vends", "vendre", "claquer", "claque", "liquid", "debarrasse", "debarrasse-toi"]
+    if any(w in msg for w in mots_fermer):
+        # Extrait le symbole crypto dans le message
+        import prix_revolut as pr
+        for sym in pr.REVOLUT_X_CRYPTO:
+            base = sym.replace("USDT", "").lower()
+            if base in msg or sym.lower() in msg:
+                return _fermer_position(sym)
+    # 2. RELANCER LE BOT
+    mots_relance = ["relance le bot", "relancer le bot", "redemarre le bot", "redemarrer le bot",
+                    "relance le trading", "relancer le trading", "restart le bot",
+                    "redemarre paper", "relance paper", "relance le trade"]
+    if any(w in msg for w in mots_relance):
+        try:
+            subprocess.run("sudo systemctl restart paper_trading.service", shell=True, capture_output=True, text=True, timeout=15)
+            return "Bot relance. Il reprend ses cycles de trading."
+        except Exception as e:
+            return f"Erreur relance bot: {e}"
+    # 3. ACTIVITE DU BOT EN TEMPS REEL
+    mots_activite = ["que fait le bot", "que pense le prof", "qu'est-ce que le bot fait", "activite du bot",
+                     "le bot fait quoi", "le prof pense quoi", "signaux en cours", "que fait le professeur",
+                     "le bot trade", "le bot cherche", "le bot scan"]
+    if any(w in msg for w in mots_activite):
+        try:
+            result = subprocess.run(f'tail -40 {FICHIER_LOG}', shell=True, capture_output=True, text=True, timeout=10)
+            if result.stdout:
+                lignes = result.stdout.strip().split('\n')
+                importantes = [l for l in lignes if any(k in l for k in ["PROF", "CONSENSUS", "SCANNER", "ACHAT", "SKIP", "BLACKLIST", "ETOILE", "RISK", "STOP", "OUVERTURE", "FERMETURE", "TP", "SL", "STAGNATION"])]
+                contenu = "\n".join(importantes[-15:]) if importantes else "\n".join(lignes[-10:])
+                return f"\n=== ACTIVITE BOT EN TEMPS REEL ===\n{contenu}\n"
+        except Exception:
+            pass
+    # 4. FORCER UN SCAN
+    mots_scan = ["scanne le marche", "scanne le march", "cherche des opportunites", "cherche des opportunite",
+                "force un scan", "force le scan", "relance le scan", "scanne les crypto"]
+    if any(w in msg for w in mots_scan):
+        try:
+            # Relance le bot pour forcer un cycle immediat
+            subprocess.run("sudo systemctl restart paper_trading.service", shell=True, capture_output=True, text=True, timeout=15)
+            return "Scan force. Le bot relance un cycle complet de recherche d'opportunites."
+        except Exception as e:
+            return f"Erreur scan force: {e}"
+    return None
+
 def _cerveau_proactif():
     """Le cerveau proactif de l'IA. Tourne en arriere-plan et envoie des alertes/analyses sans qu'on lui demande."""
     global _dernier_rapport
@@ -2025,6 +2118,10 @@ def _traiter_message(message):
     if action_vps:
         contexte_extra += action_vps
         print(f"  [VPS] Action detectee en langage naturel")
+    # 4c. Detection d'action BOT en langage naturel (fermer position, relancer, etc.)
+    action_bot = _detecter_action_bot(message)
+    if action_bot:
+        return action_bot  # Action immediate, pas besoin de Gemini
 
     # 5. Appelle le sous-agent specialise
     contexte = _construire_contexte()
