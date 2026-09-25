@@ -111,7 +111,16 @@ def _charger_memoire():
 def _sauver_memoire():
     """Sauvegarde la mémoire persistante."""
     try:
-        mem = {"etat_emotionnel": _etat_emotionnel, "historique": list(_historique)[-20:]}
+        mem = {}
+        if os.path.exists(FICHIER_MEMOIRE):
+            try:
+                with open(FICHIER_MEMOIRE) as f:
+                    mem = json.load(f)
+            except Exception:
+                pass
+        mem["etat_emotionnel"] = _etat_emotionnel
+        mem["historique"] = list(_historique)[-20:]
+        mem["gps"] = {"lat": USER_LAT, "lon": USER_LON, "location": USER_LOCATION}
         with open(FICHIER_MEMOIRE, "w") as f:
             json.dump(mem, f, ensure_ascii=False, indent=2)
     except Exception:
@@ -1020,9 +1029,15 @@ def _sauver_faits():
     try:
         mem = {}
         if os.path.exists(FICHIER_MEMOIRE):
-            with open(FICHIER_MEMOIRE) as f:
-                mem = json.load(f)
+            try:
+                with open(FICHIER_MEMOIRE) as f:
+                    mem = json.load(f)
+            except Exception:
+                pass
         mem["faits_utilisateur"] = _faits_utilisateur[-50:]
+        mem["etat_emotionnel"] = _etat_emotionnel
+        mem["historique"] = list(_historique)[-20:]
+        mem["gps"] = {"lat": USER_LAT, "lon": USER_LON, "location": USER_LOCATION}
         with open(FICHIER_MEMOIRE, "w") as f:
             json.dump(mem, f, ensure_ascii=False, indent=2)
     except Exception:
@@ -1407,7 +1422,7 @@ def _rapide_pnl():
     liquidites = data.get("liquidites", 0)
     positions = data.get("positions", [])
     trades = data.get("trades_fermes", [])
-    frais = data.get("total_fais", 0)
+    frais = data.get("total_frais", data.get("total_fais", 0))
     valeur_pos = sum(p.get("montant_eur", 0) for p in positions)
     total = liquidites + valeur_pos
     pnl = total - capital_init
@@ -1811,8 +1826,8 @@ Sois direct, technique, pas de blabla. Format ultra compact."""
     for modele in modeles:
         try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
-            payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.4, "maxOutputTokens": 400}}
-            r = requests.post(url, json=payload, timeout=20)
+            payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.4, "maxOutputTokens": 1024, "thinkingConfig": {"thinkingBudget": 0}}}
+            r = requests.post(url, json=payload, timeout=30)
             if r.status_code == 200:
                 return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
         except Exception:
