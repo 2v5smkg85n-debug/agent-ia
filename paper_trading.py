@@ -1959,7 +1959,7 @@ def fermer_position_partielle(pf, position, prix_actuel, fraction, raison, varia
         "signal_raison": position.get("signal_raison", ""),
         "strategie": position.get("strategie", position.get("source", "")),
         "source": position.get("source", "") + "_PARTIAL",
-        "frais_total": position["frais_entree"] * fraction + frais,
+        "frais_total": position.get("frais_entree", position.get("montant_eur", 0) * 0.002) * fraction + frais,
         "date_ouverture": position["date_ouverture"],
         "date_fermeture": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
@@ -1988,7 +1988,7 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
         "signal_raison": position.get("signal_raison", ""),
         "strategie": position.get("strategie", position.get("source", "")),
         "source": position.get("source", ""),
-        "frais_total": position["frais_entree"] + frais,
+        "frais_total": position.get("frais_entree", position.get("montant_eur", 0) * 0.002) + frais,
         "date_ouverture": position["date_ouverture"],
         "date_fermeture": datetime.now().strftime("%Y-%m-%d %H:%M")
     }

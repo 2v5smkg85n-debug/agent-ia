@@ -1693,6 +1693,7 @@ def _ouvrir_position_auto(symbole, montant, raison):
         "raison": raison[:200], "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "date_ouverture": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "score": 7, "tp": 2.0, "sl": -1.0, "quantite": quantite,
+        "frais_entree": frais, "signal_raison": raison[:200],
     }
     positions.append(pos)
     data["positions"] = positions
