@@ -113,6 +113,8 @@ def _call_perplexity_model(prompt, model_name):
                 continue
             break
         if r.status_code != 200:
+            if r.status_code == 401:
+                return model_name, None  # Auth fail silencieux, Gemini prend le relais
             return model_name, f"[Erreur: {r.status_code} {model_name}]"
     except Exception as e:
         return model_name, f"[Erreur {model_name}: {e}]"
@@ -377,11 +379,13 @@ def _call_models_routed(signaux, prix, fg_value, fg_class):
             label = futures[future]
             try:
                 model_name, response = future.result(timeout=90)
-                if response and not response.startswith("[Erreur"):
+                if response and not str(response).startswith("[Erreur"):
                     results[label] = response
+                elif response is None:
+                    pass  # 401 silencieux (Perplexity indisponible, Gemini suffit)
                 else:
                     errors += 1
-                    print(f"  [AGENTS] {label} échec: {response[:60] if response else 'vide'}")
+                    print(f"  [AGENTS] {label} echec: {str(response)[:60]}")
             except Exception as e:
                 errors += 1
                 print(f"  [AGENTS] {label} timeout/erreur: {e}")
