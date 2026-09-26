@@ -1932,7 +1932,7 @@ def fermer_position_partielle(pf, position, prix_actuel, fraction, raison, varia
     garde la position OUVERTE (le reste ride le trailing stop)."""
     if fraction <= 0 or fraction >= 1.0:
         return
-    quantite_vendue = position["quantite"] * fraction
+    quantite_vendue = position.get("quantite", position.get("montant_eur", 0) / position.get("prix_entree", 1)) * fraction
     if quantite_vendue <= 0:
         return
     montant_recu = quantite_vendue * prix_actuel
@@ -1968,7 +1968,7 @@ def fermer_position_partielle(pf, position, prix_actuel, fraction, raison, varia
 
 
 def fermer_position(pf, position, prix_actuel, raison, variation):
-    montant_recu = position["quantite"] * prix_actuel
+    montant_recu = position.get("quantite", position.get("montant_eur", 0) / position.get("prix_entree", 1)) * prix_actuel
     frais = montant_recu * FRAIS_TRANSACTION
     pf["liquidites"] += montant_recu - frais
     pf["total_frais"] += frais
@@ -1979,7 +1979,7 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
         "marche": position.get("marche", "?"),
         "prix_entree": position["prix_entree"],
         "prix_sortie": prix_actuel,
-        "quantite": position["quantite"],
+        "quantite": position.get("quantite", position.get("montant_eur", 0) / position.get("prix_entree", 1)),
         "montant_eur": position["montant_eur"],
         "gain_eur": gain,
         "variation_pct": variation,
@@ -2469,7 +2469,7 @@ def tick():
 def valeur_totale(pf, prix=None):
     if not prix:
         prix = tous_les_prix()
-    valeur_positions = sum(p["quantite"] * prix.get(p["symbole"], p["prix_entree"]) for p in pf["positions"])
+    valeur_positions = sum(p.get("quantite", p.get("montant_eur", 0) / p.get("prix_entree", 1)) * prix.get(p["symbole"], p.get("prix_entree", 0)) for p in pf["positions"])
     return pf["liquidites"] + valeur_positions
 
 def afficher_solde(pf=None, prix=None):

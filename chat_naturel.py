@@ -1684,12 +1684,15 @@ def _ouvrir_position_auto(symbole, montant, raison):
     if not prix:
         return f"Prix introuvable pour {symbole}."
     # Ouvre la position
+    frais = montant * 0.002  # 0.2% frais
+    quantite = (montant - frais) / prix
     pos = {
         "symbole": symbole, "montant_eur": montant, "prix_entree": prix,
         "prix_actuel": prix, "sl_adaptatif": -1.0, "tp_adaptatif": 2.0,
         "strategie": "ia_autonome", "source": "ouverture_ia_chat",
         "raison": raison[:200], "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "score": 7, "tp": 2.0, "sl": -1.0,
+        "date_ouverture": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "score": 7, "tp": 2.0, "sl": -1.0, "quantite": quantite,
     }
     positions.append(pos)
     data["positions"] = positions
