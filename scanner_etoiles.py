@@ -15,11 +15,16 @@ CACHE_TTL = 300  # 5 minutes
 
 def _coingecko_get(url):
     """Fetch JSON from CoinGecko with rate-limit handling."""
-    import urllib.request
+    import urllib.request, urllib.error
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0", "accept": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            return None  # Rate-limit silencieux, KuCoin prend le relais
+        print(f"  [SCANNER] Erreur fetch {url}: {e}")
+        return None
     except Exception as e:
         print(f"  [SCANNER] Erreur fetch {url}: {e}")
         return None
