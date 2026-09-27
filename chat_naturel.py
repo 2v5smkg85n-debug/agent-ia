@@ -673,9 +673,9 @@ def _ollama_chat(message, contexte=None):
             {"role": "user", "content": message}
             ],
             "stream": False,
-            "options": {"temperature": 0.5, "num_predict": 512}
+            "options": {"temperature": 0.5, "num_predict": 256}
         }
-        r = requests.post(url, json=payload, timeout=60)
+        r = requests.post(url, json=payload, timeout=180)
         if r.status_code == 200:
             return r.json()["message"]["content"].strip()
         return None
