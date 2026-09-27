@@ -675,11 +675,18 @@ def _ollama_chat(message, contexte=None):
             "stream": False,
             "options": {"temperature": 0.5, "num_predict": 512}
         }
+        print(f"  [OLLAMA] Tentative sur {url}...")
         r = requests.post(url, json=payload, timeout=60)
+        print(f"  [OLLAMA] Status: {r.status_code}")
         if r.status_code == 200:
-            return r.json()["message"]["content"].strip()
+            texte = r.json()["message"]["content"].strip()
+            print(f"  [OLLAMA] Reponse OK ({len(texte)} chars)")
+            return texte
+        else:
+            print(f"  [OLLAMA] Erreur: {r.text[:200]}")
         return None
-    except Exception:
+    except Exception as e:
+        print(f"  [OLLAMA] Exception: {e}")
         return None
 
 def _gemini(message, contexte=None):
