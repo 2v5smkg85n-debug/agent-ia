@@ -1609,6 +1609,25 @@ def ouvrir_position(pf, signal, prix_actuel):
     else:
         _tp_etoile = signal.get("tp_learning") or 2.0
         _sl_etoile = signal.get("sl_learning") or 1.5
+        # TP dynamique pour macd_cross: utilise la resistance la plus proche
+        if signal.get("strategie") == "macd_cross":
+            try:
+                import indicateurs as _ind
+                _sup, _res = _ind.detecter_support_resistance(signal["symbole"], "1h", 50)
+                if _res and prix_actuel > 0:
+                    _tp_resistance = ((_res - prix_actuel) / prix_actuel * 100)
+                    # TP = distance a la resistance, cale entre 1.5% et 4%
+                    if 1.5 <= _tp_resistance <= 4.0:
+                        _tp_etoile = _tp_resistance
+                        print(f"  [MACD] TP dynamique: {_tp_etoile:.1f}% (resistance a {_res:.4f})")
+                    elif _tp_resistance > 4.0:
+                        _tp_etoile = 4.0
+                        print(f"  [MACD] TP cale a 4.0% (resistance loin a {_res:.4f})")
+                    elif _tp_resistance < 1.5 and _tp_resistance > 0.5:
+                        _tp_etoile = 1.5
+                        print(f"  [MACD] TP cale a 1.5% (resistance proche a {_res:.4f})")
+            except Exception:
+                pass
     position = {
         "symbole": signal["symbole"],
         "nom": signal.get("nom", signal["symbole"]),

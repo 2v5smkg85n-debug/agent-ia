@@ -936,10 +936,25 @@ def analyser_actif(symbole, intervalle="1h"):
             signaux.append("SMA: tendance baissiere (SMA20 < SMA50)")
             score -= 1  # penalite moderee (gate bougies complete)
 
-    # 2. RSI (survente/surachat) — seuils dynamiques
+    # 2. RSI (survente/surachat) — seuils dynamiques base sur volatilite (ATR)
     if rsi_val is not None:
-        if rsi_val < _rsi_achat:
-            signaux.append(f"RSI: survente ({rsi_val:.1f}) - opportunite d'achat")
+        # ATR pour ajuster le seuil RSI selon la volatilite
+        _rsi_seuil_dyn = _rsi_achat  # defaut
+        try:
+            if len(bougies) >= 15:
+                _trs = [b["haut"] - b["bas"] for b in bougies[-14:]]
+                _atr_val = sum(_trs) / len(_trs) if _trs else 0
+                _atr_pct = (_atr_val / prix * 100) if prix > 0 else 0
+                # Haute volatilite (ATR > 3%): seuil plus strict (30 au lieu de 35)
+                # Basse volatilite (ATR < 1%): seuil plus souple (38 au lieu de 35)
+                if _atr_pct > 3.0:
+                    _rsi_seuil_dyn = max(25, _rsi_achat - 5)
+                elif _atr_pct < 1.0:
+                    _rsi_seuil_dyn = min(40, _rsi_achat + 3)
+        except Exception:
+            pass
+        if rsi_val < _rsi_seuil_dyn:
+            signaux.append(f"RSI: survente ({rsi_val:.1f}, seuil {_rsi_seuil_dyn:.0f}) - opportunite d'achat")
             score += 2
         elif rsi_val > _rsi_surachat:
             signaux.append(f"RSI: surachat ({rsi_val:.1f}) - risque de correction")
