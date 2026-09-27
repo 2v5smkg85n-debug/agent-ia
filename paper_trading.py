@@ -90,7 +90,7 @@ PARTIAL_TP_SEUIL = 1.0     # prend 50% de profit a +1.0% (lock gain + laisse cou
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 # FERMETURE INTELLIGENTE: ferme les positions perdantes qui stagnent
 STAGNATION_PERTE_SEUIL = -0.3   # si position a -0.3% ou pire (avant -0.4%)
-STAGNATION_PERTE_DUREE = 90     # pendant plus de 90 min -> ferme (60 trop agressif)
+STAGNATION_PERTE_DUREE = 120    # pendant plus de 120 min -> ferme (90 trop agressif, 3 trades perdants)
 STAGNATION_PLAFOND = 0.1        # ne coupe que si la position est sous +0.1% (pas en gain)
 STAGNATION_SL_PROCHE = -0.8    # ne coupe pas si proche du SL, laisse le SL faire
 # TP DYNAMIQUE ATR: adapte le TP selon la volatilité
@@ -1897,13 +1897,31 @@ def verifier_sorties(pf, prix_actuels):
                 tp_pos = pos.get("tp", 2.0)
                 sl_pos = pos.get("sl", -1.0)
                 # Ne coupe que si: en perte leger + sous le plafond + pas proche du SL
-                if (variation <= STAGNATION_PERTE_SEUIL 
+                if (variation <= STAGNATION_PERTE_SEULE 
                     and variation < STAGNATION_PLAFOND
                     and variation > STAGNATION_SL_PROCHE
                     and age_min >= STAGNATION_PERTE_DUREE):
-                    raison = f"CUT-STAGNATION ({variation:+.2f}% apres {age_min:.0f}min, TP={tp_pos:+.1f}% SL={sl_pos:+.1f}%)"
-                    positions_a_fermer.append((pos, prix_actuel, raison, variation))
-                    continue
+                    # Check momentum: ne coupe pas si le momentum devient positif
+                    _couper = True
+                    try:
+                        from gestion_position_live import _get_indicateurs
+                        _indic_stag = _get_indicateurs(sym)
+                        if _indic_stag:
+                            _macd_l = _indic_stag.get("macd_line")
+                            _sig_l = _indic_stag.get("signal_line")
+                            _rsi_stag = _indic_stag.get("rsi")
+                            # Momentum positif: MACD > signal → ne pas couper (rebond probable)
+                            if _macd_l is not None and _sig_l is not None and _macd_l > _sig_l:
+                                _couper = False
+                            # RSI survente: rebond probable → ne pas couper
+                            if _rsi_stag is not None and _rsi_stag < _indic_stag.get("seuil_survente", 35):
+                                _couper = False
+                    except Exception:
+                        pass
+                    if _couper:
+                        raison = f"CUT-STAGNATION ({variation:+.2f}% apres {age_min:.0f}min, TP={tp_pos:+.1f}% SL={sl_pos:+.1f}%)"
+                        positions_a_fermer.append((pos, prix_actuel, raison, variation))
+                        continue
             except Exception:
                 pass
             # Sortie par duree: UNIQUEMENT si la position est en gain SUFFISANT.

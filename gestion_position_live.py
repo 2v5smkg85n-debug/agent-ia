@@ -44,6 +44,22 @@ def _get_indicateurs(symbole):
         support = min(bas[-20:]) if len(bas) >= 20 else min(bas)
         resistance = max(hauts[-20:]) if len(hauts) >= 20 else max(hauts)
         prix = clotures[-1]
+        # ATR pour seuils RSI dynamiques
+        seuil_surachat = 72  # defaut
+        seuil_survente = 35  # defaut
+        try:
+            if len(bougies) >= 15:
+                _trs = [b["haut"] - b["bas"] for b in bougies[-14:]]
+                _atr_val = sum(_trs) / len(_trs) if _trs else 0
+                _atr_pct = (_atr_val / prix * 100) if prix > 0 else 0
+                if _atr_pct > 3.0:  # haute volatilite
+                    seuil_surachat = 75  # plus strict
+                    seuil_survente = 30
+                elif _atr_pct < 1.0:  # basse volatilite
+                    seuil_surachat = 68  # plus souple
+                    seuil_survente = 38
+        except Exception:
+            pass
         return {
             "prix": prix,
             "rsi": rsi_val,
@@ -56,6 +72,8 @@ def _get_indicateurs(symbole):
             "vol_moyen": vol_moyen,
             "support": support,
             "resistance": resistance,
+            "seuil_surachat": seuil_surachat,
+            "seuil_survente": seuil_survente,
             "bougies": bougies,
         }
     except Exception as e:
@@ -88,8 +106,8 @@ def analyser_position_live(position, prix_actuel):
     # Évaluations
     momentum_positif = macd_line is not None and signal_line is not None and macd_line > signal_line and macd_histo > 0
     momentum_negatif = macd_line is not None and signal_line is not None and macd_line < signal_line and macd_histo < 0
-    rsi_surachat = rsi_val is not None and rsi_val > 72
-    rsi_survente = rsi_val is not None and rsi_val < 35
+    rsi_surachat = rsi_val is not None and rsi_val > indic.get("seuil_surachat", 72)
+    rsi_survente = rsi_val is not None and rsi_val < indic.get("seuil_survente", 35)
     tendance_haussiere = sma20 is not None and sma50 is not None and sma20 > sma50
     tendance_baissiere = sma20 is not None and sma50 is not None and sma20 < sma50
     vol_faible = vol_moyen > 0 and vol_actuel < vol_moyen * 0.5
