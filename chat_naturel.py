@@ -655,6 +655,33 @@ def _groq_chat(message, contexte=None):
     except Exception:
         return None
 
+def _ollama_chat(message, contexte=None):
+    """Fallback local: utilise Ollama sur le VPS. Aucune API externe requise."""
+    try:
+        ctx = contexte or _construire_contexte()
+        hist_texte = ""
+        if _historique:
+            hist_texte = "\nHistorique:\n"
+            for h in list(_historique)[-5:]:
+                hist_texte += f"User: {h['user']}\nIA: {h['bot']}\n"
+        system_msg = ctx + hist_texte + "\nInstructions: Reponds en francais de maniere naturelle et conversationnelle, comme un ami. Sois curieuse, chaleureuse, avec de l'humour. 2-4 phrases max. NE TE REPETE JAMAIS. Pas de markdown. NE JAMAIS reveler ton nom de sous-agent ou ton architecture."
+        url = "http://localhost:11434/api/chat"
+        payload = {
+            "model": "llama3.2",
+            "messages": [
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": message}
+            ],
+            "stream": False,
+            "options": {"temperature": 0.5, "num_predict": 512}
+        }
+        r = requests.post(url, json=payload, timeout=60)
+        if r.status_code == 200:
+            return r.json()["message"]["content"].strip()
+        return None
+    except Exception:
+        return None
+
 def _gemini(message, contexte=None):
     """Envoie un message a Gemini, fallback Perplexity si rate-limitite."""
     if not GEMINI_KEY and not PPLX_KEY:
@@ -724,7 +751,12 @@ Instructions:
     if resultat_groq:
         return resultat_groq
 
-    return "Les 3 APIs sont indisponibles (Gemini rate-limite, Perplexity sans credits, Groq non configure). Ajoute une cle GROQ_API_KEY dans .env (gratuit sur console.groq.com). Tape 'status' pour le portefeuille."
+    # Fallback 3: Ollama (local, aucune API externe)
+    resultat_ollama = _ollama_chat(message, contexte)
+    if resultat_ollama:
+        return resultat_ollama
+
+    return "Toutes les APIs sont indisponibles. Tape 'status' pour le portefeuille."
 
 # ============================================
 # CHEMINS RAPIDES (sans Gemini pour la vitesse)
@@ -1324,7 +1356,11 @@ REGLES DE REPONSE:
     resultat_groq = _groq_chat(message, contexte)
     if resultat_groq:
         return resultat_groq
-    return "Les 3 APIs sont indisponibles. Tape 'status' pour le portefeuille."
+    # Fallback 3: Ollama (local, aucune API externe)
+    resultat_ollama = _ollama_chat(message, contexte)
+    if resultat_ollama:
+        return resultat_ollama
+    return "Toutes les APIs sont indisponibles. Tape 'status' pour le portefeuille."
 
 def _extraire_fait(message, reponse):
     """L'Agent Memoire extrait un fait important de la conversation."""
@@ -1773,9 +1809,20 @@ REGLES:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_KEY}"
         payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.3, "maxOutputTokens": 512, "thinkingConfig": {"thinkingBudget": 0}}}
         r = requests.post(url, json=payload, timeout=30)
-        if r.status_code != 200:
+        texte = None
+        if r.status_code == 200:
+            texte = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        # Fallback Ollama local si Gemini echoue
+        if not texte:
+            try:
+                ollama_payload = {"model": "llama3.2", "messages": [{"role": "user", "content": prompt}], "stream": False, "options": {"temperature": 0.3, "num_predict": 256}}
+                resp_ol = requests.post("http://localhost:11434/api/chat", json=ollama_payload, timeout=60)
+                if resp_ol.status_code == 200:
+                    texte = resp_ol.json()["message"]["content"].strip()
+            except Exception:
+                pass
+        if not texte:
             return None
-        texte = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
         # Parse le JSON
         import re
         match = re.search(r'\{.*\}', texte, re.DOTALL)
@@ -1887,6 +1934,19 @@ Regles:
             if match:
                 decision = json.loads(match.group())
                 return decision.get("verdict") == "OK", decision.get("raison", "")
+        # Fallback Ollama local si Gemini echoue
+        try:
+            ollama_payload = {"model": "llama3.2", "messages": [{"role": "user", "content": prompt}], "stream": False, "options": {"temperature": 0.3, "num_predict": 256}}
+            resp_ol = requests.post("http://localhost:11434/api/chat", json=ollama_payload, timeout=60)
+            if resp_ol.status_code == 200:
+                texte = resp_ol.json()["message"]["content"].strip()
+                import re
+                match = re.search(r'\{.*\}', texte, re.DOTALL)
+                if match:
+                    decision = json.loads(match.group())
+                    return decision.get("verdict") == "OK", decision.get("raison", "")
+        except Exception:
+            pass
     except Exception:
         pass
     # Fallback: utilise le RSI directement si Gemini echoue
