@@ -66,7 +66,7 @@ HEURES_FORT_VOLUME = [(8, 11), (13, 17)]  # UTC
 HEURES_FORT_BOOST = 1  # +1 au score pendant ces heures
 # Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
 TAKE_PROFIT_PCT = 2.0          # +2.0% (ratio TP:SL = 2:1 — laisse courir les gagnants, coupe vite les perdants)
-STOP_LOSS_PCT = 1.0            # -1.0% (300 EUR x 1% = 3 EUR max perte, laisse respirer la volatilite crypto)
+STOP_LOSS_PCT = 1.5            # -1.5% (laisse respirer la volatilite crypto, evite les SL sur du bruit)
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
 # est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
 # Idee utilisateur + valide par backtest elargi (9 marches, 30 trades, plateau a tp_ext=4).
@@ -83,10 +83,10 @@ DUREE_PETIT_GAIN = 180        # gain 0.30-0.45%: respire 2h (était 90min) pour 
 DUREE_GAIN_PROGRESS = 240    # gain 0.45-0.60%: respire 3h
 DUREE_GAGNANT_MAX = 360         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
 DUREE_BONUS_STRATEGIE = 60    # stratégie prouvée (live_n>=3, wr>=60%, pnl>0): +1h de respiration
-BREAKEVEN_SEUIL = 1.5      # +1.5% -> SL monte au breakeven (protege plus vite)
-TRAIL_ACTIF = 2.5          # +2.5% -> trailing stop (active plus tot pour proteger les gains)
+BREAKEVEN_SEUIL = 1.0      # +1.0% -> SL monte au breakeven (protege plus tot)
+TRAIL_ACTIF = 1.5          # +1.5% -> trailing stop (active plus tot pour proteger les gains)
 TRAIL_PCT = 1.0            # trail 1.0% sous le pic (serre vite les gains)
-PARTIAL_TP_SEUIL = 1.0     # prend 50% de profit a +1.0% (lock gain + laisse courir le reste)
+PARTIAL_TP_SEUIL = 1.5     # prend 50% de profit a +1.5% (lock gain + laisse courir le reste)
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 # FERMETURE INTELLIGENTE: ferme les positions perdantes qui stagnent
 STAGNATION_PERTE_SEUIL = -0.3   # si position a -0.3% ou pire (avant -0.4%)
