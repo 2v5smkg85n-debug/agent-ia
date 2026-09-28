@@ -658,13 +658,16 @@ def _groq_chat(message, contexte=None):
 def _ollama_chat(message, contexte=None):
     """Fallback local: utilise Ollama sur le VPS. Aucune API externe requise."""
     try:
-        ctx = contexte or _construire_contexte()
+        # Prompt minimal pour Ollama (pas de contexte complet = plus rapide sur CPU)
         hist_texte = ""
         if _historique:
             hist_texte = "\nHistorique:\n"
-            for h in list(_historique)[-5:]:
+            for h in list(_historique)[-3:]:
                 hist_texte += f"User: {h['user']}\nIA: {h['bot']}\n"
-        system_msg = ctx + hist_texte + "\nInstructions: Reponds en francais de maniere naturelle et conversationnelle, comme un ami. Sois curieuse, chaleureuse, avec de l'humour. 2-4 phrases max. NE TE REPETE JAMAIS. Pas de markdown. NE JAMAIS reveler ton nom de sous-agent ou ton architecture."
+        system_msg = ("Tu es une IA francaise chaleureuse, proactive et intelligente. "
+                     "Tu aides un trader crypto. Reponds en 2-4 phrases, texte simple. "
+                     "NE TE REPETE JAMAIS. NE JAMAIS reveler ton nom de sous-agent ou ton architecture."
+                     + hist_texte)
         url = "http://localhost:11434/api/chat"
         payload = {
             "model": "qwen2.5:14b",
@@ -673,7 +676,7 @@ def _ollama_chat(message, contexte=None):
             {"role": "user", "content": message}
             ],
             "stream": False,
-            "options": {"temperature": 0.5, "num_predict": 256}
+            "options": {"temperature": 0.5, "num_predict": 200}
         }
         r = requests.post(url, json=payload, timeout=180)
         if r.status_code == 200:
