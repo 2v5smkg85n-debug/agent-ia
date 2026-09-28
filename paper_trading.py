@@ -402,6 +402,7 @@ def analyser_signaux_techniques(prix_actuels):
                     "etoile": config.get("etoile", False),
                     "source": "indicateurs",
                     "strategie": (
+                        "macd_cross" if any("MACD" in s for s in analyse.get("signaux", [])) else
                         "rsi_oversold" if any("survente" in s.lower() for s in analyse.get("signaux", [])) else
                         "bollinger_bounce" if any("bande basse" in s.lower() or "sous bande" in s.lower() for s in analyse.get("signaux", [])) else
                         "divergence_rsi" if any("DIVERGENCE" in s for s in analyse.get("signaux", [])) else
@@ -410,7 +411,6 @@ def analyser_signaux_techniques(prix_actuels):
                         "pattern_reversal" if any("BOUGIE" in s for s in analyse.get("signaux", [])) else
                         "momentum" if any("MOMENTUM" in s for s in analyse.get("signaux", [])) else
                         "breakout" if any("BREAKOUT" in s for s in analyse.get("signaux", [])) else
-                        "macd_cross" if any("MACD" in s for s in analyse.get("signaux", [])) else
                         "sma_trend" if any("SMA" in s for s in analyse.get("signaux", [])) else
                         "technique"
                     ),

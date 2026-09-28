@@ -965,11 +965,11 @@ def analyser_actif(symbole, intervalle="1h"):
         else:
             signaux.append(f"RSI: neutre ({rsi_val:.1f})")
 
-    # 3. MACD (momentum)
+    # 3. MACD (momentum) — priorite 1 (80% WR, +0.95 EUR/trade)
     if macd_line is not None and signal_line is not None:
         if macd_line > signal_line and histo > 0:
             signaux.append("MACD: momentum positif (croisement haussier)")
-            score += 1
+            score += 2  # +2 au lieu de +1 (meilleure strategie)
         elif macd_line < signal_line and histo < 0:
             signaux.append("MACD: momentum negatif (croisement baissier)")
             score -= 1
