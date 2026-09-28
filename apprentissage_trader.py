@@ -436,8 +436,8 @@ def filtrer_signaux_avec_apprentissage(signaux):
         _tp_sl_strat = learning.get("tp_sl_optimal_par_strategie", {})
         _ts = _tp_sl_strat.get(strat, {})
         if _ts.get("n", 0) >= 5:
-            signal["tp_learning"] = max(1.5, _ts.get("tp_optimal", 2.0))
-            signal["sl_learning"] = max(1.5, _ts.get("sl_optimal", 1.5))  # SL minimum 1.5%
+            signal["tp_learning"] = max(2.0, _ts.get("tp_optimal", 2.0))  # TP minimum 2.0%
+            signal["sl_learning"] = max(1.0, _ts.get("sl_optimal", 1.0))  # SL minimum 1.0%
             print(f"  [EVOLUTION] {strat} TP/SL adapte: TP={signal['tp_learning']:.1f}% SL={signal['sl_learning']:.1f}%")
 
         # BOOST HORAIRE PAR STRATEGIE (boost pendant les meilleures heures de chaque strategie)

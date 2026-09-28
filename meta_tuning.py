@@ -35,8 +35,8 @@ SL_DEFAUT = 1.5
 # Garde-fous
 MIN_TRADES = 5
 PAS = 0.25
-TP_MIN, TP_MAX = 1.0, 3.0
-SL_MIN, SL_MAX = 1.5, 2.5  # SL minimum 1.5% (evite les SL trop serres sur du bruit)
+TP_MIN, TP_MAX = 2.0, 3.0  # TP minimum 2.0%
+SL_MIN, SL_MAX = 1.0, 2.5  # SL minimum 1.0%
 WR_HAUT = 60.0    # win rate -> elargir TP
 WR_BAS = 40.0     # win rate -> serrer SL
 WR_TRES_BAS = 30.0  # -> serrer TP aussi
