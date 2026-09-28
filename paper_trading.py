@@ -1604,11 +1604,11 @@ def ouvrir_position(pf, signal, prix_actuel):
     elif signal.get("source") == "professeur_virtuel":
         # Professeur Virtuel: ratio gain/perte 2.5:1 (TP 2.5% / SL 1.0%)
         _tp_etoile = signal.get("prof_tp", 2.5)
-        _sl_etoile = signal.get("prof_sl", 1.0)
+        _sl_etoile = signal.get("prof_sl", 1.5)  # SL 1.5% (avant 1.0% trop serre)
         print(f"  [PROF] TP={_tp_etoile:.1f}% SL={_sl_etoile:.1f}% ratio {_tp_etoile/_sl_etoile:.1f}:1")
     else:
         _tp_etoile = signal.get("tp_learning") or 2.0
-        _sl_etoile = signal.get("sl_learning") or 1.5
+        _sl_etoile = signal.get("sl_learning") or 1.5  # SL minimum 1.5%
         # TP dynamique pour macd_cross: utilise la resistance la plus proche
         if signal.get("strategie") == "macd_cross":
             try:
