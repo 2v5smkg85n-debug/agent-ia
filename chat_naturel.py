@@ -670,7 +670,7 @@ def _ollama_chat(message, contexte=None):
                      + hist_texte)
         url = "http://localhost:11434/api/chat"
         payload = {
-            "model": "qwen2.5:14b",
+            "model": "qwen2.5:7b",
             "messages": [
             {"role": "system", "content": system_msg},
             {"role": "user", "content": message}
@@ -1818,7 +1818,7 @@ REGLES:
         # Fallback Ollama local si Gemini echoue
         if not texte:
             try:
-                ollama_payload = {"model": "qwen2.5:14b", "messages": [{"role": "user", "content": prompt}], "stream": False, "options": {"temperature": 0.3, "num_predict": 256}}
+                ollama_payload = {"model": "qwen2.5:7b", "messages": [{"role": "user", "content": prompt}], "stream": False, "options": {"temperature": 0.3, "num_predict": 256}}
                 resp_ol = requests.post("http://localhost:11434/api/chat", json=ollama_payload, timeout=60)
                 if resp_ol.status_code == 200:
                     texte = resp_ol.json()["message"]["content"].strip()
@@ -1939,7 +1939,7 @@ Regles:
                 return decision.get("verdict") == "OK", decision.get("raison", "")
         # Fallback Ollama local si Gemini echoue
         try:
-            ollama_payload = {"model": "qwen2.5:14b", "messages": [{"role": "user", "content": prompt}], "stream": False, "options": {"temperature": 0.3, "num_predict": 256}}
+            ollama_payload = {"model": "qwen2.5:7b", "messages": [{"role": "user", "content": prompt}], "stream": False, "options": {"temperature": 0.3, "num_predict": 256}}
             resp_ol = requests.post("http://localhost:11434/api/chat", json=ollama_payload, timeout=60)
             if resp_ol.status_code == 200:
                 texte = resp_ol.json()["message"]["content"].strip()
