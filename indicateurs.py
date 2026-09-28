@@ -871,7 +871,7 @@ def detecter_divergence_rsi(bougies, lookback=30):
         _, px2, r2 = prix_bas[-1]
         if px2 < px1 and r2 > r1 and r2 < 45:
             details.append(f"Divergence RSI haussiere (prix {px1:.4f}->{px2:.4f}, RSI {r1:.1f}->{r2:.1f})")
-            return 'haussiere', 2, details
+            return 'haussiere', 5, details  # +5 (strategie autonome)
     # Divergence baissiere
     if len(prix_hauts) >= 2:
         _, px1, r1 = prix_hauts[-2]
@@ -898,7 +898,7 @@ def detecter_volume_spike(bougies, lookback=20):
         return 0, []
     derniere = bougies[-1]
     if derniere["cloture"] > derniere["ouverture"]:
-        return 1, [f"Volume spike haussier (x{ratio:.1f} moyenne)"]
+        return 5, [f"Volume spike haussier (x{ratio:.1f} moyenne)"]  # +5 (strategie autonome)
     else:
         return -1, [f"Volume spike baissier (x{ratio:.1f} moyenne)"]
 
@@ -955,7 +955,7 @@ def analyser_actif(symbole, intervalle="1h"):
             pass
         if rsi_val < _rsi_seuil_dyn:
             signaux.append(f"RSI: survente ({rsi_val:.1f}, seuil {_rsi_seuil_dyn:.0f}) - opportunite d'achat")
-            score += 2
+            score += 5  # +5 (strategie autonome, atteint le seuil d'ouverture)
         elif rsi_val > _rsi_surachat:
             signaux.append(f"RSI: surachat ({rsi_val:.1f}) - risque de correction")
             score -= 2
@@ -969,7 +969,7 @@ def analyser_actif(symbole, intervalle="1h"):
     if macd_line is not None and signal_line is not None:
         if macd_line > signal_line and histo > 0:
             signaux.append("MACD: momentum positif (croisement haussier)")
-            score += 3  # +3 (meilleure strategie, atteint score 5 avec 1 autre signal)
+            score += 5  # +5 (strategie autonome, atteint le seuil d'ouverture)
         elif macd_line < signal_line and histo < 0:
             signaux.append("MACD: momentum negatif (croisement baissier)")
             score -= 1
@@ -985,7 +985,7 @@ def analyser_actif(symbole, intervalle="1h"):
         _squeeze = _bb_width < 0.03
         if prix <= bb_bas:
             signaux.append("Bollinger: prix sous bande basse (survente)")
-            score += 1
+            score += 5  # +5 (strategie autonome, atteint le seuil d'ouverture)
         elif _demi_bas > 0 and prix <= bb_bas + 0.25 * _demi_bas:
             # Prix proche de la bande basse (dans le quart inferieur) — signal range
             signaux.append(f"Bollinger: proche bande basse (zone d'achat range)")
