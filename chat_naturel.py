@@ -24,8 +24,13 @@ import time
 import re
 import subprocess
 import requests
+import threading
 from datetime import datetime
 from collections import deque
+
+# Verrou Ollama: un seul appel a la fois (CPU limite)
+_ollama_lock = threading.Lock()
+_ollama_disponible = True  # False si Ollama trop lent, skip les taches auto
 
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 FICHIER_PAPER = os.path.join(DOSSIER, "paper_trading.json")
@@ -657,6 +662,13 @@ def _groq_chat(message, contexte=None):
 
 def _ollama_chat(message, contexte=None):
     """Fallback local: utilise Ollama sur le VPS. Aucune API externe requise."""
+    global _ollama_disponible
+    if not _ollama_disponible:
+        return None
+    # Verrou: un seul appel Ollama a la fois (CPU limite)
+    if not _ollama_lock.acquire(blocking=False):
+        print("  [OLLAMA] Occupe, skip")
+        return None
     try:
         # Prompt minimal pour Ollama (pas de contexte complet = plus rapide sur CPU)
         hist_texte = ""
@@ -678,12 +690,14 @@ def _ollama_chat(message, contexte=None):
             "stream": False,
             "options": {"temperature": 0.5, "num_predict": 200}
         }
-        r = requests.post(url, json=payload, timeout=180)
+        r = requests.post(url, json=payload, timeout=120)
         if r.status_code == 200:
             return r.json()["message"]["content"].strip()
         return None
     except Exception:
         return None
+    finally:
+        _ollama_lock.release()
 
 def _gemini(message, contexte=None):
     """Envoie un message a Gemini, fallback Perplexity si rate-limitite."""
@@ -2174,13 +2188,18 @@ def _cerveau_proactif():
                 messages_a_envoyer.append("📊 Analyse auto:\n\n" + analyse.rstrip())
             _dernier_rapport["derniere_analyse_perf_ts"] = maintenant
     # 8. AUTO-OUVERTURE DE POSITION (toutes les 30 min si le bot n'a pas assez de positions)
+    # Skip si Ollama seul (CPU limite — garde le CPU pour le chat utilisateur)
     if data and maintenant - _dernier_rapport["auto_ouverture_ts"] > 1800:
         positions = data.get("positions", [])
         liquidites = data.get("liquidites", 0)
         if len(positions) < 3 and liquidites >= 200:
-            resultat = _analyser_marche_auto()
-            if resultat:
-                messages_a_envoyer.append(resultat)
+            # Si ni Gemini ni Perplexity ni Groq ne marchent, skip (Ollama trop lent pour auto)
+            if GEMINI_KEY or PPLX_KEY or GROQ_KEY:
+                resultat = _analyser_marche_auto()
+                if resultat:
+                    messages_a_envoyer.append(resultat)
+            else:
+                print("  [PROACTIF] Auto-ouverture skip (Ollama seul, CPU limite)")
         _dernier_rapport["auto_ouverture_ts"] = maintenant
     # ENVOI DES MESSAGES
     for msg in messages_a_envoyer:
@@ -2282,13 +2301,16 @@ def _verifier_changements_bot():
             msg = f"{emoji} Trade ferme: {sym}\nGain: {gain:+.2f}€ ({var:+.1f}%)\nStrategie: {strat}\nRaison: {raison}\nCapital: {total:.2f}€"
             _telegram_send(msg)
             print(f"[CHAT] Notification: trade ferme {sym} {gain:+.2f}€")
-            # Analyse automatique du trade par Gemini
+            # Analyse automatique du trade par Gemini (skip si Ollama seul — CPU limite)
             try:
-                analyse = _analyser_trade_auto(t, total)
-                if analyse:
-                    msg_analyse = f"🧠 Analyse auto — {sym}:\n\n{analyse}"
-                    _telegram_send(msg_analyse)
-                    print(f"[CHAT] Analyse auto envoyee pour {sym}")
+                if GEMINI_KEY or PPLX_KEY or GROQ_KEY:
+                    analyse = _analyser_trade_auto(t, total)
+                    if analyse:
+                        msg_analyse = f"🧠 Analyse auto — {sym}:\n\n{analyse}"
+                        _telegram_send(msg_analyse)
+                        print(f"[CHAT] Analyse auto envoyee pour {sym}")
+                else:
+                    print(f"  [CHAT] Analyse auto skip pour {sym} (Ollama seul, CPU limite)")
             except Exception as e:
                 print(f"[CHAT] Erreur analyse auto {sym}: {e}")
     # Met a jour l'etat
