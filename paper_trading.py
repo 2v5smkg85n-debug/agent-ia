@@ -72,7 +72,7 @@ STOP_LOSS_PCT = 1.0            # -1.0% ( coupe vite les perdants, pertes limitee
 # Idee utilisateur + valide par backtest elargi (9 marches, 30 trades, plateau a tp_ext=4).
 EXTEND_CRYPTOS = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "LDOUSDT", "AAVEUSDT", "UNIUSDT", "PENDLEUSDT", "ARBUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "OPUSDT", "INJUSDT", "NEARUSDT"}
 EXTEND_SEUIL = 1.5        # active l'extension a partir de +1.5% de gain (avant 0.5% trop tot)
-EXTEND_TP_PCT = 4.0       # TP monte a 4% une fois en profit (avant 5% trop greedy)
+EXTEND_TP_PCT = 5.0       # TP monte a 5% une fois en profit (objectif minimum)
 EXTEND_DUREE_MAX = 480    # cap duree des positions extended (8h, vs 90min normal)
 SORTIE_DUREE_MIN = 1440         # ferme apres 24h si en gain (laisse le TP dynamique travailler)
 STALE_DUREE_MAX = 360           # position stale apres 6h (laisse le temps au TP 3% d'etre atteint)
@@ -86,7 +86,7 @@ DUREE_BONUS_STRATEGIE = 60    # stratégie prouvée (live_n>=3, wr>=60%, pnl>0):
 BREAKEVEN_SEUIL = 2.0      # +2.0% -> SL monte au breakeven (laisse courir avant de proteger)
 TRAIL_ACTIF = 1.5          # +1.5% -> trailing stop (active plus tot pour proteger les gains)
 TRAIL_PCT = 1.0            # trail 1.0% sous le pic (serre vite les gains)
-PARTIAL_TP_SEUIL = 2.0     # prend 50% de profit a +2.0% (lock gain + laisse courir le reste)
+PARTIAL_TP_SEUIL = 3.0     # prend 50% de profit a +3.0% (laisse courir vers +5%)
 PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
 # FERMETURE INTELLIGENTE: ferme les positions perdantes qui stagnent
 STAGNATION_PERTE_SEUIL = -0.3   # si position a -0.3% ou pire (avant -0.4%)
@@ -1617,15 +1617,15 @@ def ouvrir_position(pf, signal, prix_actuel):
                 if _res and prix_actuel > 0:
                     _tp_resistance = ((_res - prix_actuel) / prix_actuel * 100)
                     # TP = distance a la resistance, cale entre 1.5% et 4%
-                    if 1.5 <= _tp_resistance <= 4.0:
+                    if 2.0 <= _tp_resistance <= 5.0:
                         _tp_etoile = _tp_resistance
                         print(f"  [MACD] TP dynamique: {_tp_etoile:.1f}% (resistance a {_res:.4f})")
-                    elif _tp_resistance > 4.0:
-                        _tp_etoile = 4.0
-                        print(f"  [MACD] TP cale a 4.0% (resistance loin a {_res:.4f})")
-                    elif _tp_resistance < 1.5 and _tp_resistance > 0.5:
-                        _tp_etoile = 1.5
-                        print(f"  [MACD] TP cale a 1.5% (resistance proche a {_res:.4f})")
+                    elif _tp_resistance > 5.0:
+                        _tp_etoile = 5.0
+                        print(f"  [MACD] TP cale a 5.0% (resistance loin a {_res:.4f})")
+                    elif _tp_resistance < 2.0 and _tp_resistance > 0.5:
+                        _tp_etoile = 2.0
+                        print(f"  [MACD] TP cale a 2.0% (resistance proche a {_res:.4f})")
             except Exception:
                 pass
     position = {
@@ -1790,21 +1790,22 @@ def verifier_sorties(pf, prix_actuels):
             _pic = prix_actuel
             pos["prix_peak"] = _pic
         _var_pic = (_pic - prix_entree) / prix_entree * 100
-        if _var_pic >= 4.0:
-            # Tres en profit: trail serre a 0.5% sous le pic (protege fortement)
-            _sl_price = _pic * (1 - 0.5 / 100.0)
-            _sl_regle = "suiveur-serre"
-        elif _var_pic >= 2.5:
-            # Bien en profit: trail a 0.8% sous le pic
+        if _var_pic >= 5.0:
+            # Tres en profit: trail serre a 0.8% sous le pic (protege les gros gains)
             _sl_price = _pic * (1 - 0.8 / 100.0)
+            _sl_regle = "suiveur-serre"
+        elif _var_pic >= 3.0:
+            # Bien en profit: trail a 1.2% sous le pic (laisse courir vers +5%)
+            _sl_price = _pic * (1 - 1.2 / 100.0)
             _sl_regle = "suiveur-proche"
-        elif _var_pic >= 1.5:
-            # En profit: SL au breakeven uniquement (laisse respirer vers le TP sans trailing premature)
+        elif _var_pic >= 2.0:
+            # En profit: SL au breakeven uniquement (laisse respirer vers +5%)
             _sl_price = prix_entree * 1.0001
             _sl_regle = "breakeven-potent"
         else:
-            # SL fixe au debut (laisse respirer vers le TP de +2.0%)
+            # SL fixe au debut (laisse respirer vers le TP)
             _sl_price = prix_entree * (1 - _sl / 100.0)
+
         # BREAKEVEN: si le gain atteint BREAKEVEN_SEUIL, monte le SL au breakeven (prix d'entree)
         # Cela protege le capital: un gagnant qui renverse ne devient pas une perte
         if variation >= BREAKEVEN_SEUIL and _sl_price < prix_entree:
