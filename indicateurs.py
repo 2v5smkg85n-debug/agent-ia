@@ -931,7 +931,7 @@ def analyser_actif(symbole, intervalle="1h"):
     if sma_courte and sma_longue:
         if sma_courte > sma_longue:
             signaux.append("SMA: tendance haussiere (SMA20 > SMA50)")
-            score += 2  # +2 au lieu de +1 (aide a atteindre score 5)
+            score += 5  # +5 (strategie autonome)
         else:
             signaux.append("SMA: tendance baissiere (SMA20 < SMA50)")
             score -= 1  # penalite moderee (gate bougies complete)
@@ -961,7 +961,7 @@ def analyser_actif(symbole, intervalle="1h"):
             score -= 2
         elif rsi_val < 50:
             signaux.append(f"RSI: legerement bas ({rsi_val:.1f}) - zone d'achat faible")
-            score += 1
+            score += 3  # +3 (zone d'achat, booste)
         else:
             signaux.append(f"RSI: neutre ({rsi_val:.1f})")
 
@@ -989,7 +989,7 @@ def analyser_actif(symbole, intervalle="1h"):
         elif _demi_bas > 0 and prix <= bb_bas + 0.25 * _demi_bas:
             # Prix proche de la bande basse (dans le quart inferieur) — signal range
             signaux.append(f"Bollinger: proche bande basse (zone d'achat range)")
-            score += 1
+            score += 3  # +3 (zone d'achat, booste)
         elif prix >= bb_haut:
             signaux.append("Bollinger: prix sur bande haute (surachat)")
             score -= 1

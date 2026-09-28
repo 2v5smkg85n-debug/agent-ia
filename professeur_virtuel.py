@@ -41,7 +41,7 @@ PROF_SL_PCT = 1.0       # -1.0% (300€ × 1% = 3.00€ perte max)
 PROF_PARTIAL_TP = 1.0   # prend 50% a +1.0% (lock gain + laisse courir le reste vers TP 2.5%)
 
 # Score minimum du professeur (plus exigeant que le score normal)
-PROF_SCORE_MIN = 5     # score minimum resserre (avant 4) — analyse IA v4.5
+PROF_SCORE_MIN = 2     # seuil d'entree bas (ouvre plus de positions)
 
 # ====================================================================
 # STRATÉGIE 1: DOWNSHIFT RIDER (MACD momentum, 4h, PF 3.26)

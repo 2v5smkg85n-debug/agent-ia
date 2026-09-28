@@ -683,7 +683,7 @@ def _sous_agent_sentiment(pf, signal, prix_actuel):
         return True, 0, "Sentiment indisponible — approve par defaut"
     # VETO: Extreme Greed + score faible = bulle, ne pas acheter
     score = signal.get("score", 0)
-    if fg > 80 and score < 5:
+    if fg > 80 and score < 2:
         return False, 0, f"Extreme Greed ({fg}/100) + score faible — bulle, veto"
     # WARN: Greed fort
     if fg > 70:
@@ -1332,10 +1332,10 @@ def ouvrir_position(pf, signal, prix_actuel):
             print(f"  [LIQUIDITE] Heure creuse ({_heure_utc}h UTC) -> -0.3 score")
     except Exception:
         pass
-    # FILTRE SCORE MINIMUM: ne trade que les signaux avec score >= 5 (resserre, avant 4)
+    # FILTRE SCORE MINIMUM: seuil 2 (ouvre plus de positions)
     _score_min = signal.get("score", 0)
-    if _score_min < 5:
-        print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> score {_score_min} < 5 (trop faible)")
+    if _score_min < 2:
+        print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> score {_score_min} < 2 (trop faible)")
         return False
     # SIZING DYNAMIQUE BASE SUR LE SENTIMENT ET LE SCORE
     # Le bot ajuste la taille de position selon le sentiment du marche:
