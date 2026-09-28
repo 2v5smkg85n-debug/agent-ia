@@ -931,7 +931,7 @@ def analyser_actif(symbole, intervalle="1h"):
     if sma_courte and sma_longue:
         if sma_courte > sma_longue:
             signaux.append("SMA: tendance haussiere (SMA20 > SMA50)")
-            score += 1
+            score += 2  # +2 au lieu de +1 (aide a atteindre score 5)
         else:
             signaux.append("SMA: tendance baissiere (SMA20 < SMA50)")
             score -= 1  # penalite moderee (gate bougies complete)
@@ -969,7 +969,7 @@ def analyser_actif(symbole, intervalle="1h"):
     if macd_line is not None and signal_line is not None:
         if macd_line > signal_line and histo > 0:
             signaux.append("MACD: momentum positif (croisement haussier)")
-            score += 2  # +2 au lieu de +1 (meilleure strategie)
+            score += 3  # +3 (meilleure strategie, atteint score 5 avec 1 autre signal)
         elif macd_line < signal_line and histo < 0:
             signaux.append("MACD: momentum negatif (croisement baissier)")
             score -= 1
