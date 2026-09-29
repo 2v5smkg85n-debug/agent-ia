@@ -852,8 +852,8 @@ def ouvrir_position(pf, signal, prix_actuel):
             _min_ecoule = (_maint - _dt).total_seconds() / 60
             _gain = _t.get('gain_eur', 0)
             _raison = _t.get('raison', '')
-            if _gain < 0 and 'SL' in _raison and _min_ecoule < 60:
-                print(f"  [COOLDOWN-SL] {signal.get('nom',_sym)}: SL il y a {_min_ecoule:.0f}min — cooldown 60min")
+            if _gain < 0 and 'SL' in _raison and _min_ecoule < 90:
+                print(f"  [COOLDOWN-SL] {signal.get('nom',_sym)}: SL il y a {_min_ecoule:.0f}min — cooldown 90min")
                 return False
             if _gain > 0 and _min_ecoule < 15:
                 print(f"  [COOLDOWN-TP] {signal.get('nom',_sym)}: gain il y a {_min_ecoule:.0f}min — cooldown 15min")
@@ -1738,10 +1738,19 @@ def verifier_sorties(pf, prix_actuels):
         # DETECTION POSITION PIEGEE: si la perte depasse le SL, le SL aurait du etre touche
         # Simuler un ordre stop-loss: fermer au prix du SL (avec 0.05% slippage)
         # Au lieu de fermer au prix en retard qui peut etre bien plus bas
-        if variation <= -_sl_check:
-            _sl_price = prix_entree * (1 - _sl_check / 100.0) * (1 - 0.05 / 100.0)
+        # SL ADAPTATIF PAR EVOLUTION: si la strategie est en declin, SL plus serre
+        _sl_effectif = _sl_check
+        try:
+            import apprentissage_trader as ap
+            _evo = ap.charger_learning().get("evolution_strategies", {}).get(pos.get("strategie", ""), {})
+            if _evo.get("tendance", 0) == -1:  # strategie en declin
+                _sl_effectif = max(0.7, _sl_check - 0.3)  # SL plus serre (0.7% min)
+        except Exception:
+            pass
+        if variation <= -_sl_effectif:
+            _sl_price = prix_entree * (1 - _sl_effectif / 100.0) * (1 - 0.05 / 100.0)
             _sl_var = (_sl_price - prix_entree) / prix_entree * 100
-            positions_a_fermer.append((pos, _sl_price, f"SL-EXEC (perte {_sl_var:+.1f}%, SL={_sl_check}%)", _sl_var))
+            positions_a_fermer.append((pos, _sl_price, f"SL-EXEC (perte {_sl_var:+.1f}%, SL={_sl_effectif}%)", _sl_var))
             continue
         # TP/SL: en mode scalping, les constantes globales priment sur meta_tuning
         if os.getenv('SCALPING', '0') == '1':
