@@ -21,8 +21,8 @@ def _coingecko_get(url):
         with urllib.request.urlopen(req, timeout=15) as resp:
             return json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
-        if e.code == 429:
-            return None  # Rate-limit silencieux, KuCoin prend le relais
+        if e.code in (429, 403):
+            return None  # Rate-limit ou blocage — silencieux, fallback KuCoin
         print(f"  [SCANNER] Erreur fetch {url}: {e}")
         return None
     except Exception as e:
@@ -45,30 +45,71 @@ def scanner_top_gainers():
             })
     return trending
 
+def _kucoin_markets():
+    """Fallback: recupere les marches depuis KuCoin (pas de blocage, pas de limite)."""
+    import urllib.request, urllib.error
+    try:
+        url = "https://api.kucoin.com/api/v1/market/allTickers"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0", "accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode())
+        tickers = data.get("data", {}).get("ticker", [])
+        if not tickers:
+            return []
+        marches = []
+        for t in tickers:
+            try:
+                symbole = t.get("symbol", "").replace("-USDT", "")
+                if not symbole:
+                    continue
+                prix = float(t.get("last", 0) or 0)
+                change_24h = float(t.get("changeRate", 0) or 0) * 100  # KuCoin donne en decimal
+                volume = float(t.get("volValue", 0) or 0)  # volume en USD
+                if prix <= 0 or volume < 1000000:
+                    continue
+                marches.append({
+                    "id": symbole.lower(),
+                    "nom": symbole,
+                    "symbole": symbole.upper(),
+                    "prix": prix,
+                    "change_24h": change_24h,
+                    "volume": volume,
+                    "rank": 999,  # KuCoin ne donne pas le rank
+                    "market_cap": 0,
+                })
+            except (ValueError, TypeError):
+                continue
+        return marches
+    except Exception:
+        return []
+
 def scanner_markets():
-    """Recupere les marches avec prix et variation 24h."""
+    """Recupere les marches avec prix et variation 24h (CoinGecko puis KuCoin)."""
     url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=24h"
     data = _coingecko_get(url)
-    if not data:
-        return []
-    marches = []
-    for coin in data:
-        change_24h = coin.get("price_change_percentage_24h", 0) or 0
-        volume = coin.get("total_volume", 0) or 0
-        prix = coin.get("current_price", 0) or 0
-        if prix <= 0 or volume < 1000000:
-            continue
-        marches.append({
-            "id": coin.get("id", ""),
-            "nom": coin.get("name", ""),
-            "symbole": coin.get("symbol", "").upper(),
-            "prix": prix,
-            "change_24h": change_24h,
-            "volume": volume,
-            "rank": coin.get("market_cap_rank", 999),
-            "market_cap": coin.get("market_cap", 0) or 0,
-        })
-    return marches
+    if data:
+        marches = []
+        for coin in data:
+            change_24h = coin.get("price_change_percentage_24h", 0) or 0
+            volume = coin.get("total_volume", 0) or 0
+            prix = coin.get("current_price", 0) or 0
+            if prix <= 0 or volume < 1000000:
+                continue
+            marches.append({
+                "id": coin.get("id", ""),
+                "nom": coin.get("name", ""),
+                "symbole": coin.get("symbol", "").upper(),
+                "prix": prix,
+                "change_24h": change_24h,
+                "volume": volume,
+                "rank": coin.get("market_cap_rank", 999),
+                "market_cap": coin.get("market_cap", 0) or 0,
+            })
+        if marches:
+            return marches
+    # Fallback KuCoin
+    print("  [SCANNER] CoinGecko bloque (403) -> fallback KuCoin")
+    return _kucoin_markets()
 
 def scanner_etoiles():
     """
