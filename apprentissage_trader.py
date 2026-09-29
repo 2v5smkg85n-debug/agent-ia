@@ -259,34 +259,9 @@ def analyser_trades(trades_fermes):
     learning["pnl_total"] = sum(t["gain_eur"] for t in trades_analyses)
     learning["win_rate_global"] = (learning["total_gagnants"] / len(trades_analyses) * 100) if trades_analyses else 0
 
-    # MERGE: seulement si trades_fermes a ete reset (moins de trades qu'avant)
-    # Normalement trades_analyses contient deja TOUS les trades -> pas de merge
-    if len(trades_analyses) < _anc_total:
-        # Reset detecte: merger les anciennes stats pour ne pas perdre l'apprentissage
-        for strat, old_d in _anc_stats_strat.items():
-            if strat not in learning.get("stats_strategies", {}):
-                learning["stats_strategies"][strat] = old_d
-            else:
-                new_d = learning["stats_strategies"][strat]
-                new_d["n"] = new_d.get("n", 0) + old_d.get("n", 0)
-                new_d["gagnants"] = new_d.get("gagnants", 0) + old_d.get("gagnants", 0)
-                new_d["pnl_total"] = new_d.get("pnl_total", 0) + old_d.get("pnl_total", 0)
-                new_d["win_rate"] = (new_d["gagnants"] / new_d["n"] * 100) if new_d["n"] > 0 else 0
-        for sym, old_d in _anc_stats_crypto.items():
-            if sym not in learning.get("stats_par_crypto", {}):
-                learning["stats_par_crypto"][sym] = old_d
-            else:
-                new_d = learning["stats_par_crypto"][sym]
-                new_d["n"] = new_d.get("n", 0) + old_d.get("n", 0)
-                new_d["gagnants"] = new_d.get("gagnants", 0) + old_d.get("gagnants", 0)
-                new_d["pnl_total"] = new_d.get("pnl_total", 0) + old_d.get("pnl_total", 0)
-        learning["total_trades"] = learning.get("total_trades", 0) + _anc_total
-        learning["total_gagnants"] = learning.get("total_gagnants", 0) + _anc_gagnants
-        learning["total_perdants"] = learning.get("total_perdants", 0) + _anc_perdants
-        learning["pnl_total"] = learning.get("pnl_total", 0) + _anc_pnl
-        if learning["total_trades"] > 0:
-            learning["win_rate_global"] = learning["total_gagnants"] / learning["total_trades"] * 100
-    # Sinon: trades_analyses contient deja TOUS les trades, les totaux sont corrects
+    # PAS DE MERGE DES TOTAUX: trades_analyses contient deja TOUS les trades.
+    # Les totaux sont exacts tels quels (calcules lignes 256-260).
+    # L'ancien merge causait un bug de double-comptage exponentiel.
 
     sauver_learning(learning)
     return learning
