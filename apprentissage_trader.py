@@ -299,11 +299,12 @@ def analyser_trades(trades_fermes):
         _derniers = _strat_trades[-5:]
         _gagnants_recents = sum(1 for t in _derniers if t["gagnant"])
         _tp_base = learning.get("tp_sl_optimal_par_strategie", {}).get(strat, {}).get("tp_optimal", 2.0)
+        _tp_base = max(2.0, _tp_base)  # FLOOR 2.0% minimum
         # Ajustement progressif
         if _gagnants_recents >= 4:
             _tp_base = min(_tp_base + 0.5, 6.0)  # monte le TP, max 6%
         elif _gagnants_recents <= 1:
-            _tp_base = max(_tp_base - 0.3, 2.0)  # baisse le TP, min 2%
+            _tp_base = max(_tp_base - 0.3, 2.0)  # baisse le TP, min 2.0%
         tp_progressif[strat] = round(_tp_base, 1)
     learning["tp_progressif"] = tp_progressif
 
@@ -551,11 +552,11 @@ def filtrer_signaux_avec_apprentissage(signaux):
         # TENDANCE: boost si la strategie s'amelior
         _evo = learning.get("evolution_strategies", {}).get(strat, {})
         if _evo.get("tendance", 0) == 1:
-            signal["score"] = signal.get("score", 0) + 2
-            print(f"  [EVOLUTION] {strat} sur {sym} — TENDANCE HAUSSIERE (WR {_evo.get('wr_ancien',0):.0f}% -> {_evo.get('wr_recent',0):.0f}%) -> +2 score")
+            signal["score"] = signal.get("score", 0) + 3  # +3 au lieu de +2 (amelioration forte)
+            print(f"  [EVOLUTION] {strat} sur {sym} — TENDANCE HAUSSIERE (WR {_evo.get('wr_ancien',0):.0f}% -> {_evo.get('wr_recent',0):.0f}%) -> +3 score")
         elif _evo.get("tendance", 0) == -1:
-            signal["score"] = signal.get("score", 0) - 1
-            print(f"  [EVOLUTION] {strat} sur {sym} — TENDANCE BAISSIERE (WR {_evo.get('wr_ancien',0):.0f}% -> {_evo.get('wr_recent',0):.0f}%) -> -1 score")
+            signal["score"] = signal.get("score", 0) - 4  # -4 au lieu de -1 (declin fort)
+            print(f"  [EVOLUTION] {strat} sur {sym} — TENDANCE BAISSIERE (WR {_evo.get('wr_ancien',0):.0f}% -> {_evo.get('wr_recent',0):.0f}%) -> -4 score (strategie en declin)")
 
         # STREAK: si suite de gains, boost; si suite de pertes, prudence
         _streak = learning.get("streak", {})
