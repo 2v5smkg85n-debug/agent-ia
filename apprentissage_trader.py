@@ -252,6 +252,130 @@ def analyser_trades(trades_fermes):
     learning["heures_par_strategie"] = {strat: {str(h): v for h, v in heures.items() if v["n"] >= 3} for strat, heures in heures_par_strat.items()}
     learning["tp_optimal_par_crypto"] = {k: v["meilleur_tp"] for k, v in stats_par_crypto.items()}
     learning["sl_optimal_par_crypto"] = {k: v["meilleur_sl"] for k, v in stats_par_crypto.items()}
+
+    # === EVOLUTION CONSTANTE ===
+    # 1. TENDANCE par strategie: recent vs ancien (amelioration ou declin?)
+    evolution_strat = {}
+    for strat, s in stats_strategies.items():
+        _n = s["n"]
+        if _n < 5:
+            continue
+        # Split: 70% anciens, 30% recents
+        _strat_trades = [t for t in trades_analyses if t["strategie"] == strat]
+        _split = int(len(_strat_trades) * 0.7)
+        _anciens = _strat_trades[:_split]
+        _recents = _strat_trades[_split:]
+        if not _recents or not _anciens:
+            continue
+        _wr_ancien = sum(1 for t in _anciens if t["gagnant"]) / len(_anciens) * 100
+        _wr_recent = sum(1 for t in _recents if t["gagnant"]) / len(_recents) * 100
+        _pnl_ancien = sum(t["gain_eur"] for t in _anciens)
+        _pnl_recent = sum(t["gain_eur"] for t in _recents)
+        # Tendance: +1 si amelioration, -1 si declin, 0 si stable
+        _tendance = 0
+        if _wr_recent > _wr_ancien + 5 and _pnl_recent > _pnl_ancien:
+            _tendance = 1  # en amelioration
+        elif _wr_recent < _wr_ancien - 5 and _pnl_recent < _pnl_ancien:
+            _tendance = -1  # en declin
+        evolution_strat[strat] = {
+            "wr_ancien": round(_wr_ancien, 1),
+            "wr_recent": round(_wr_recent, 1),
+            "pnl_ancien": round(_pnl_ancien, 2),
+            "pnl_recent": round(_pnl_recent, 2),
+            "tendance": _tendance,
+            "n_total": _n,
+        }
+    learning["evolution_strategies"] = evolution_strat
+
+    # 2. TP PROGRESSIF: monte quand une strategie gagne souvent
+    # Si les 5 derniers trades sont gagnants -> TP +0.5%
+    # Si les 5 derniers trades ont des pertes -> TP -0.3%
+    tp_progressif = {}
+    for strat, s in stats_strategies.items():
+        _n = s["n"]
+        if _n < 5:
+            continue
+        _strat_trades = [t for t in trades_analyses if t["strategie"] == strat]
+        _derniers = _strat_trades[-5:]
+        _gagnants_recents = sum(1 for t in _derniers if t["gagnant"])
+        _tp_base = learning.get("tp_sl_optimal_par_strategie", {}).get(strat, {}).get("tp_optimal", 2.0)
+        # Ajustement progressif
+        if _gagnants_recents >= 4:
+            _tp_base = min(_tp_base + 0.5, 6.0)  # monte le TP, max 6%
+        elif _gagnants_recents <= 1:
+            _tp_base = max(_tp_base - 0.3, 2.0)  # baisse le TP, min 2%
+        tp_progressif[strat] = round(_tp_base, 1)
+    learning["tp_progressif"] = tp_progressif
+
+    # 3. MEMOIRE DES ERREURS: analyse les raisons de sortie perdantes
+    erreurs = defaultdict(lambda: {"n": 0, "perte_total": 0, "strategies": []})
+    for t in trades_analyses:
+        if not t["gagnant"] and t["gain_eur"] < 0:
+            _raison = t.get("raison_fermeture", "inconnu")
+            # Normaliser la raison
+            _raison_courte = _raison.split("(")[0].strip()[:30]
+            erreurs[_raison_courte]["n"] += 1
+            erreurs[_raison_courte]["perte_total"] += t["gain_eur"]
+            if t["strategie"] not in erreurs[_raison_courte]["strategies"]:
+                erreurs[_raison_courte]["strategies"].append(t["strategie"])
+    # Trier par frequence
+    erreurs_triees = dict(sorted(erreurs.items(), key=lambda x: x[1]["n"], reverse=True)[:10])
+    learning["memoire_erreurs"] = {k: {"n": v["n"], "perte_total": round(v["perte_total"], 2), "strategies": v["strategies"]} for k, v in erreurs_triees.items()}
+
+    # 4. CONFIANCE PROGRESSIVE (anti-yoyo: monte vite, descend lentement)
+    _anc_confiance = learning.get("confiance_globale", 50.0)
+    _nouveaux = len(trades_analyses) - learning.get("_dernier_n_compte", 0)
+    if _nouveaux > 0:
+        _recents_trades = trades_analyses[-_nouveaux:] if _nouveaux <= len(trades_analyses) else trades_analyses
+        _gains_recents = sum(1 for t in _recents_trades if t["gagnant"])
+        _pertes_recentes = len(_recents_trades) - _gains_recents
+        # +0.8 par gain, -0.3 par perte (asymetrique: monte plus vite qu'elle descend)
+        _delta = (_gains_recents * 0.8) - (_pertes_recentes * 0.3)
+        _anc_confiance = max(20.0, min(100.0, _anc_confiance + _delta))
+    learning["confiance_globale"] = round(_anc_confiance, 1)
+    learning["_dernier_n_compte"] = len(trades_analyses)
+
+    # 5. STREAK TRACKING: suites de gains/pertes consecutifs
+    _streak_actuel = 0  # positif = suite de gains, negatif = suite de pertes
+    _meilleur_streak = 0
+    _pire_streak = 0
+    for t in trades_analyses:
+        if t["gagnant"]:
+            _streak_actuel = _streak_actuel + 1 if _streak_actuel > 0 else 1
+        else:
+            _streak_actuel = _streak_actuel - 1 if _streak_actuel < 0 else -1
+        _meilleur_streak = max(_meilleur_streak, _streak_actuel)
+        _pire_streak = min(_pire_streak, _streak_actuel)
+    # Streak recent (derniers trades)
+    _streak_recent = 0
+    for t in reversed(trades_analyses):
+        if t["gagnant"]:
+            _streak_recent = _streak_recent + 1 if _streak_recent > 0 else 1
+        else:
+            break
+    if _streak_recent == 0:
+        for t in reversed(trades_analyses):
+            if not t["gagnant"]:
+                _streak_recent = _streak_recent - 1 if _streak_recent < 0 else -1
+            else:
+                break
+    learning["streak"] = {
+        "actuel": _streak_recent,
+        "meilleur": _meilleur_streak,
+        "pire": _pire_streak,
+    }
+
+    # 6. PROGRESSION P&L: P&L par tranche de 20 trades (pour voir la courbe)
+    _pnl_par_tranche = []
+    _taille_tranche = max(10, len(trades_analyses) // 10) if len(trades_analyses) >= 20 else len(trades_analyses)
+    if _taille_tranche > 0:
+        for i in range(0, len(trades_analyses), _taille_tranche):
+            _tranche = trades_analyses[i:i + _taille_tranche]
+            _pnl_tranche = sum(t["gain_eur"] for t in _tranche)
+            _wr_tranche = sum(1 for t in _tranche if t["gagnant"]) / len(_tranche) * 100 if _tranche else 0
+            _pnl_par_tranche.append({"pnl": round(_pnl_tranche, 2), "wr": round(_wr_tranche, 1), "n": len(_tranche)})
+    learning["progression_pnl"] = _pnl_par_tranche
+
     learning["derniere_analyse"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     learning["total_trades"] = len(trades_analyses)
     learning["total_gagnants"] = sum(1 for t in trades_analyses if t["gagnant"])
@@ -417,6 +541,39 @@ def filtrer_signaux_avec_apprentissage(signaux):
             signal["sl_learning"] = max(1.0, _ts.get("sl_optimal", 1.0))  # SL minimum 1.0%
             print(f"  [EVOLUTION] {strat} TP/SL adapte: TP={signal['tp_learning']:.1f}% SL={signal['sl_learning']:.1f}%")
 
+        # TP PROGRESSIF: si la strategie est en feu (4/5 derniers gagnants), TP plus ambitieux
+        _tp_prog = learning.get("tp_progressif", {}).get(strat)
+        if _tp_prog is not None:
+            signal["tp_learning"] = max(signal.get("tp_learning", 2.0), _tp_prog)
+            if _tp_prog > 2.5:
+                print(f"  [EVOLUTION] {strat} TP progressif: {signal['tp_learning']:.1f}% (strategie en feu)")
+
+        # TENDANCE: boost si la strategie s'amelior
+        _evo = learning.get("evolution_strategies", {}).get(strat, {})
+        if _evo.get("tendance", 0) == 1:
+            signal["score"] = signal.get("score", 0) + 2
+            print(f"  [EVOLUTION] {strat} sur {sym} — TENDANCE HAUSSIERE (WR {_evo.get('wr_ancien',0):.0f}% -> {_evo.get('wr_recent',0):.0f}%) -> +2 score")
+        elif _evo.get("tendance", 0) == -1:
+            signal["score"] = signal.get("score", 0) - 1
+            print(f"  [EVOLUTION] {strat} sur {sym} — TENDANCE BAISSIERE (WR {_evo.get('wr_ancien',0):.0f}% -> {_evo.get('wr_recent',0):.0f}%) -> -1 score")
+
+        # STREAK: si suite de gains, boost; si suite de pertes, prudence
+        _streak = learning.get("streak", {})
+        _streak_actuel = _streak.get("actuel", 0)
+        if _streak_actuel >= 3:
+            signal["score"] = signal.get("score", 0) + 2
+            print(f"  [EVOLUTION] STREAK de {_streak_actuel} gains consecutifs -> +2 score")
+        elif _streak_actuel <= -3:
+            signal["score"] = signal.get("score", 0) - 2
+            print(f"  [EVOLUTION] STREAK de {abs(_streak_actuel)} pertes consecutives -> -2 score (prudence)")
+
+        # CONFIANCE GLOBALE: ajuste la taille de position
+        _confiance = learning.get("confiance_globale", 50.0)
+        if _confiance > 70:
+            signal["meta_confiance"] = signal.get("meta_confiance", 0.5) + 0.2
+        elif _confiance < 35:
+            signal["meta_confiance"] = signal.get("meta_confiance", 0.5) - 0.2
+
         # BOOST HORAIRE PAR STRATEGIE (boost pendant les meilleures heures de chaque strategie)
         _heures_strat = learning.get("heures_par_strategie", {})
         _hs = _heures_strat.get(strat, {})
@@ -502,6 +659,31 @@ def rapport_learning():
         lignes.append(f"\n--- A PRIVILEGIER ---")
         lignes.append(f"  Strategies: {', '.join(recs['strategies_a_privilegier'])}")
         lignes.append(f"  Cryptos: {', '.join(recs['cryptos_a_privilegier'])}")
+
+    # Evolution
+    lignes.append(f"\n--- EVOLUTION ---")
+    _conf = learning.get("confiance_globale", 50.0)
+    _streak = learning.get("streak", {})
+    lignes.append(f"  Confiance globale: {_conf:.1f}/100")
+    lignes.append(f"  Streak actuel: {_streak.get('actuel', 0)} (meilleur: {_streak.get('meilleur', 0)}, pire: {_streak.get('pire', 0)})")
+    _evo = learning.get("evolution_strategies", {})
+    for strat, e in sorted(_evo.items(), key=lambda x: x[1].get("tendance", 0), reverse=True):
+        _fleche = "^" if e.get("tendance", 0) == 1 else ("v" if e.get("tendance", 0) == -1 else "-")
+        lignes.append(f"  {_fleche} {strat:20s} | WR {e.get('wr_ancien',0):.0f}% -> {e.get('wr_recent',0):.0f}% | PnL {e.get('pnl_ancien',0):+.2f} -> {e.get('pnl_recent',0):+.2f}")
+    _tp_prog = learning.get("tp_progressif", {})
+    if _tp_prog:
+        lignes.append(f"  TP progressif: {', '.join(f'{k}={v}%' for k, v in _tp_prog.items())}")
+    _erreurs = learning.get("memoire_erreurs", {})
+    if _erreurs:
+        lignes.append(f"\n--- ERREURS FREQUENTES ---")
+        for raison, d in list(_erreurs.items())[:5]:
+            lignes.append(f"  {raison:30s} | {d['n']}x | {d['perte_total']:+.2f}EUR | {', '.join(d.get('strategies',[])[:3])}")
+    _prog = learning.get("progression_pnl", [])
+    if _prog:
+        lignes.append(f"\n--- PROGRESSION P&L ---")
+        for i, p in enumerate(_prog):
+            _barre = "+" * max(0, int(abs(p["pnl"]) * 2)) if p["pnl"] > 0 else "-" * max(0, int(abs(p["pnl"]) * 2))
+            lignes.append(f"  #{i+1:2d} | {p['n']:3d} trades | WR {p['wr']:5.1f}% | PnL {p['pnl']:+.2f}EUR {_barre}")
 
     return "\n".join(lignes)
 
