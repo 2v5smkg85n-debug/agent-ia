@@ -1775,7 +1775,7 @@ def _analyser_marche_auto():
     # Conditions: moins de 5 positions et au moins 200EUR de liquidites
     if len(positions) >= 5 or liquidites < 200:
         return None
-    # Recupere les prix des top cryptos Revolut
+    # Recupere les prix via KuCoin batch (1 appel pour tout)
     try:
         import prix_revolut as pr
         import indicateurs as ind
@@ -1786,24 +1786,35 @@ def _analyser_marche_auto():
                           "LINKUSDT", "ARBUSDT", "NEARUSDT", "AAVEUSDT", "DOGEUSDT"]
     prix_data = {}
     rsi_data = {}
+    # 1. KuCoin batch (pas de rate-limit)
+    try:
+        prix_batch = pr.get_prix_kucoin_batch(cryptos_a_analyser, force_fresh=True)
+        if prix_batch:
+            prix_data = {k: v for k, v in prix_batch.items() if k in cryptos_a_analyser}
+    except Exception:
+        pass
+    # 2. Fallback Revolut pour les cryptos manquantes
     for sym in cryptos_a_analyser:
+        if sym not in prix_data:
+            try:
+                p = pr.get_prix_revolut(sym)
+                if p:
+                    prix_data[sym] = p
+            except Exception:
+                continue
+            time.sleep(0.3)
+    # 3. RSI via historique_ohlcv (KuCoin/Binance/Revolut fallback)
+    for sym in list(prix_data.keys()):
         try:
-            p = pr.get_prix_revolut(sym)
-            if p:
-                prix_data[sym] = p
-                # RSI si disponible
-                try:
-                    candles = pr.get_candles_revolut(sym, intervalle=60, nombre=30)
-                    if candles and len(candles) >= 16:
-                        clotures = [c["close"] for c in candles]
-                        rsi = ind.rsi(clotures, 14)
-                        if rsi:
-                            rsi_data[sym] = rsi
-                except Exception:
-                    pass
+            bougies = ind.historique_ohlcv(sym, "1h", 30)
+            if bougies and len(bougies) >= 16:
+                clotures = [b["cloture"] for b in bougies]
+                _rsi = ind.rsi(clotures, 14)
+                if _rsi:
+                    rsi_data[sym] = _rsi
         except Exception:
-            continue
-        time.sleep(0.3)
+            pass
+        time.sleep(0.2)
     if len(prix_data) < 3:
         return None
     # Construit le prompt pour l'IA avec memoire d'apprentissage
