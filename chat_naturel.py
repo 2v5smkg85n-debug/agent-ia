@@ -1806,12 +1806,42 @@ def _analyser_marche_auto():
         time.sleep(0.3)
     if len(prix_data) < 3:
         return None
-    # Construit le prompt pour Gemini
+    # Construit le prompt pour l'IA avec memoire d'apprentissage
     lignes_marche = []
     for sym in prix_data:
         rsi_str = f" RSI={rsi_data.get(sym, '?')}" if sym in rsi_data else ""
         lignes_marche.append(f"{sym}: {prix_data[sym]:.4f}EUR{rsi_str}")
+    # === MEMOIRE D'APPRENTISSAGE ===
+    _memoire = ""
+    try:
+        import apprentissage_trader as ap
+        l = ap.charger_learning()
+        _conf = l.get("confiance_globale", 50)
+        _streak = l.get("streak", {})
+        _streak_actuel = _streak.get("actuel", 0)
+        # Cryptos gagnantes et perdantes
+        _recs = ap.get_recommandations()
+        _gagnantes = _recs.get("cryptos_a_privilegier", [])
+        _perdantes = _recs.get("cryptos_a_eviter", [])
+        # Erreurs frequentes
+        _erreurs = l.get("memoire_erreurs", {})
+        _top_erreurs = [f"{k} ({v['n']}x, {v['perte_total']:+.1f}EUR)" for k, v in list(_erreurs.items())[:3]]
+        # Progression recente
+        _prog = l.get("progression_pnl", [])
+        _prog_recente = _prog[-3:] if len(_prog) >= 3 else _prog
+        _memoire = f"""
+MEMOIRE D'APPRENTISSAGE (apprends de tes trades passes):
+- Confiance: {_conf}/100
+- Streak actuel: {_streak_actuel} (meilleur: {_streak.get('meilleur', 0)}, pire: {_streak.get('pire', 0)})
+- Cryptos ou tu gagnes: {', '.join(_gagnantes) if _gagnantes else 'aucune'}
+- Cryptos ou tu perds: {', '.join(_perdantes) if _perdantes else 'aucune'}
+- Erreurs frequentes: {'; '.join(_top_erreurs) if _top_erreurs else 'aucune'}
+- Progression recente: {'; '.join(f'WR {p["wr"]:.0f}% PnL {p["pnl"]:+.1f}EUR' for p in _prog_recente) if _prog_recente else 'n/a'}
+- EVITE les cryptos ou tu perds, PRIVILEGIE les cryptos ou tu gagnes"""
+    except Exception:
+        pass
     prompt = f"""Tu es un trader crypto expert. Analyse ce marche et decide si il faut ouvrir une position.
+{_memoire}
 
 PRIX ACTUELS:
 {chr(10).join(lignes_marche)}
@@ -1825,7 +1855,8 @@ REGLES:
 - Pas d'achat si RSI > 70 (surachat)
 - 1 seule crypto max
 - Si rien d'interessant, repond RIEN
-- NE TE REPETE JAMAIS (varie les cryptos)"""
+- NE TE REPETE JAMAIS (varie les cryptos)
+- Apprends de tes erreurs: evite les cryptos ou tu perds"""
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_KEY}"
         payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.3, "maxOutputTokens": 512, "thinkingConfig": {"thinkingBudget": 0}}}
