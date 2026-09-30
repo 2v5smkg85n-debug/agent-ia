@@ -1821,11 +1821,11 @@ Capital: 1000EUR. Risk par trade: 200EUR. TP: 2%, SL: -1%.
 
 REGLES:
 - Reponds en JSON exact: {{"action": "ACHAT"|"RIEN", "symbole": "XXXUSDT", "raison": "..."}}
-- ACHAT seulement si RSI < 35 (survente) ou signal technique clair
+- ACHAT si tu vois une opportunite: survente (RSI<35), momentum haussier, rebond technique, ou tendance favorable
 - Pas d'achat si RSI > 70 (surachat)
 - 1 seule crypto max
 - Si rien d'interessant, repond RIEN
-- NE TE REPETE JAMAIS"""
+- NE TE REPETE JAMAIS (varie les cryptos)"""
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_KEY}"
         payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.3, "maxOutputTokens": 512, "thinkingConfig": {"thinkingBudget": 0}}}
@@ -2192,18 +2192,14 @@ def _cerveau_proactif():
                 messages_a_envoyer.append("📊 Analyse auto:\n\n" + analyse.rstrip())
             _dernier_rapport["derniere_analyse_perf_ts"] = maintenant
     # 8. AUTO-OUVERTURE DE POSITION (toutes les 30 min si le bot n'a pas assez de positions)
-    # Skip si Ollama seul (CPU limite — garde le CPU pour le chat utilisateur)
+    # Auto-ouverture par l'IA (Ollama ou API)
     if data and maintenant - _dernier_rapport["auto_ouverture_ts"] > 1800:
         positions = data.get("positions", [])
         liquidites = data.get("liquidites", 0)
         if len(positions) < 3 and liquidites >= 200:
-            # Si ni Gemini ni Perplexity ni Groq ne marchent, skip (Ollama trop lent pour auto)
-            if GEMINI_KEY or PPLX_KEY or GROQ_KEY:
-                resultat = _analyser_marche_auto()
-                if resultat:
-                    messages_a_envoyer.append(resultat)
-            else:
-                print("  [PROACTIF] Auto-ouverture skip (Ollama seul, CPU limite)")
+            resultat = _analyser_marche_auto()
+            if resultat:
+                messages_a_envoyer.append(resultat)
         _dernier_rapport["auto_ouverture_ts"] = maintenant
     # ENVOI DES MESSAGES
     for msg in messages_a_envoyer:

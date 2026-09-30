@@ -905,7 +905,7 @@ def ouvrir_position(pf, signal, prix_actuel):
     except Exception:
         _is_revolut = False
     if not _is_revolut:
-        _strat_blacklist = ["momentum", "pattern_reversal", "vwap_bounce", "breakout", "sma_trend", "consensus_patterns", "consensus_tendance"]
+        _strat_blacklist = ["momentum", "pattern_reversal", "vwap_bounce", "breakout", "sma_trend", "consensus_patterns", "consensus_tendance", "rsi_oversold", "macd_cross", "bollinger_bounce", "volume_spike", "divergence_rsi", "peak_fader", "consensus_reversion", "technique"]
         _strat_signal = (signal.get("strategie", "") or "").lower()
         for _bl in _strat_blacklist:
             if _bl in _strat_signal:
