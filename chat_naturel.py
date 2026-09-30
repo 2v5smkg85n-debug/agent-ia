@@ -1840,7 +1840,16 @@ MEMOIRE D'APPRENTISSAGE (apprends de tes trades passes):
 - EVITE les cryptos ou tu perds, PRIVILEGIE les cryptos ou tu gagnes"""
     except Exception:
         pass
-    prompt = f"""Tu es un trader crypto expert. Analyse ce marche et decide si il faut ouvrir une position.
+    # === SAVOIR TRADER PRO ===
+    _savoir = ""
+    try:
+        from savoir_trader_pro import get_savoir_compact
+        _savoir = get_savoir_compact()
+    except Exception:
+        pass
+    prompt = f"""Tu es un trader crypto expert avec 20 ans d'experience. Analyse ce marche et decide si il faut ouvrir une position.
+{_savoir}
+
 {_memoire}
 
 PRIX ACTUELS:
@@ -1851,12 +1860,13 @@ Capital: 1000EUR. Risk par trade: 200EUR. TP: 2%, SL: -1%.
 
 REGLES:
 - Reponds en JSON exact: {{"action": "ACHAT"|"RIEN", "symbole": "XXXUSDT", "raison": "..."}}
-- ACHAT si tu vois une opportunite: survente (RSI<35), momentum haussier, rebond technique, ou tendance favorable
-- Pas d'achat si RSI > 70 (surachat)
+- ACHAT si tu vois une opportunite avec CONFLUENCE (2+ signaux): survente (RSI<35), momentum haussier, rebond technique, ou tendance favorable
+- Pas d'achat si RSI > 70 (surachat) ou Fear & Greed > 80 ( Extreme Greed)
 - 1 seule crypto max
 - Si rien d'interessant, repond RIEN
 - NE TE REPETE JAMAIS (varie les cryptos)
-- Apprends de tes erreurs: evite les cryptos ou tu perds"""
+- Apprends de tes erreurs: evite les cryptos ou tu perds
+- Respecte le ratio risque/recompense minimum 2:1"""
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_KEY}"
         payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.3, "maxOutputTokens": 512, "thinkingConfig": {"thinkingBudget": 0}}}
