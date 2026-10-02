@@ -1919,8 +1919,8 @@ REGLES:
             _montant_base = _l.get("montant_ia", 200)
             _streak = _l.get("streak", {}).get("actuel", 0)
             _confiance = _l.get("confiance_globale", 50)
-            # PALIERS: 100, 150, 200, 250, 300, 350, 400, 450, 500
-            _paliers = [100, 150, 200, 250, 300, 350, 400, 450, 500]
+            # PALIERS: 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700
+            _paliers = [100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700]
             _idx = _paliers.index(_montant_base) if _montant_base in _paliers else 3  # 200 par defaut
             # Dernier trade gagnant ou perdant?
             _trades = _l.get("trades_analyses", [])
@@ -1928,7 +1928,7 @@ REGLES:
                 _dernier = _trades[-1]
                 _dernier_gain = _dernier.get("gain_eur", 0)
                 if _dernier_gain > 0:
-                    # GAGNE: monte d'un palier (max 500)
+                    # GAGNE: monte d'un palier (max 700)
                     _idx = min(_idx + 1, len(_paliers) - 1)
                 else:
                     # PERDU: descend d'un palier (min 100)
@@ -1937,10 +1937,12 @@ REGLES:
             # Sauve le nouveau montant pour le prochain trade
             _l["montant_ia"] = _montant_base
             ap.sauver_learning(_l)
-            print(f"  [SIZING-IA] Streak={_streak} Confiance={_confiance:.0f} Palier #{_idx+1}/9 -> {_montant_base}EUR")
+            print(f"  [SIZING-IA] Streak={_streak} Confiance={_confiance:.0f} Palier #{_idx+1}/13 -> {_montant_base}EUR")
         except Exception:
             pass
-        montant = min(_montant_base, liquidites * 0.8)
+        # Plafond dynamique: garde toujours 200EUR de marge
+        _max_avec_marge = max(200, liquidites - 200)
+        montant = min(_montant_base, _max_avec_marge)
         resultat = _ouvrir_position_auto(symbole, montant, f"IA autonome: {raison}")
         return f"🤖 Ouverture auto par l'IA: {symbole} a {prix_data[symbole]:.4f}EUR. {raison[:100]}\n{resultat}"
     except Exception:
