@@ -1885,13 +1885,16 @@ REGLES:
         texte = None
         if r.status_code == 200:
             texte = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-        # Fallback Ollama local si Gemini echoue
+        # Fallback Ollama local si Gemini echoue — deepseek-r1:7b pour le trading (raisonnement)
         if not texte:
             try:
-                ollama_payload = {"model": "qwen2.5:7b", "messages": [{"role": "user", "content": prompt}], "stream": False, "options": {"temperature": 0.3, "num_predict": 256}}
-                resp_ol = requests.post("http://localhost:11434/api/chat", json=ollama_payload, timeout=60)
+                ollama_payload = {"model": "deepseek-r1:7b", "messages": [{"role": "user", "content": prompt}], "stream": False, "options": {"temperature": 0.6, "num_predict": 1024}}
+                resp_ol = requests.post("http://localhost:11434/api/chat", json=ollama_payload, timeout=120)
                 if resp_ol.status_code == 200:
                     texte = resp_ol.json()["message"]["content"].strip()
+                    # deepseek-r1 genere des balises <think> qu'il faut retirer pour le JSON
+                    import re as _re
+                    texte = _re.sub(r'<think>.*?</think>', '', texte, flags=_re.DOTALL).strip()
             except Exception:
                 pass
         if not texte:
