@@ -1869,10 +1869,20 @@ PRIX ACTUELS:
 PORTFEUILLE: {len(positions)} positions ouvertes, {liquidites:.0f}EUR de liquidites.
 Capital: 1000EUR. Risk par trade: 200EUR. TP: 2%, SL: -1%.
 
+GUIDE DES INDICATEURS (IMPORTANT):
+- RSI < 30 = SURVENTE = signal d'ACHAT (le prix a trop bais, rebond probable)
+- RSI > 70 = SURACHAT = signal de VENTE (le prix a trop monte, correction probable)
+- RSI 30-70 = NEUTRE
+- Fear & Greed 0-25 = PEUR EXTREME = bon moment pour ACHATER (contrarien)
+- Fear & Greed 25-45 = PEUR = possible ACHATER
+- Fear & Greed 45-55 = NEUTRE
+- Fear & Greed 55-75 = GREED = prudent, risque de correction
+- Fear & Greed 75-100 = GREED EXTREME = NE PAS ACHATER (risque de chute)
+
 REGLES:
 - Reponds en JSON exact: {{"action": "ACHAT"|"RIEN", "symbole": "XXXUSDT", "raison": "..."}}
 - ACHAT si tu vois une opportunite avec CONFLUENCE (2+ signaux): survente (RSI<35), momentum haussier, rebond technique, ou tendance favorable
-- Pas d'achat si RSI > 70 (surachat) ou Fear & Greed > 80 ( Extreme Greed)
+- Pas d'achat si RSI > 70 (surachat) ou Fear & Greed > 75 (Greed eleve)
 - 1 seule crypto max
 - Si rien d'interessant, repond RIEN
 - NE TE REPETE JAMAIS (varie les cryptos)
@@ -1885,16 +1895,13 @@ REGLES:
         texte = None
         if r.status_code == 200:
             texte = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-        # Fallback Ollama local si Gemini echoue — deepseek-r1:7b pour le trading (raisonnement)
+        # Fallback Ollama local si Gemini echoue
         if not texte:
             try:
-                ollama_payload = {"model": "deepseek-r1:7b", "messages": [{"role": "user", "content": prompt}], "stream": False, "options": {"temperature": 0.6, "num_predict": 1024}}
-                resp_ol = requests.post("http://localhost:11434/api/chat", json=ollama_payload, timeout=120)
+                ollama_payload = {"model": "qwen2.5:7b", "messages": [{"role": "user", "content": prompt}], "stream": False, "options": {"temperature": 0.3, "num_predict": 512}}
+                resp_ol = requests.post("http://localhost:11434/api/chat", json=ollama_payload, timeout=60)
                 if resp_ol.status_code == 200:
                     texte = resp_ol.json()["message"]["content"].strip()
-                    # deepseek-r1 genere des balises <think> qu'il faut retirer pour le JSON
-                    import re as _re
-                    texte = _re.sub(r'<think>.*?</think>', '', texte, flags=_re.DOTALL).strip()
             except Exception:
                 pass
         if not texte:
