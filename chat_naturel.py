@@ -1909,30 +1909,35 @@ REGLES:
         # Verifie que le symbole est valide
         if symbole not in prix_data:
             return None
-        # Ouvre la position avec sizing adaptatif base sur l'apprentissage
+        # Ouvre la position avec sizing adaptatif progressif
+        # Montant stocke dans learning_trader.json, monte/descend d'un palier par trade
         _montant_base = 200
         try:
             import apprentissage_trader as ap
             _l = ap.charger_learning()
+            # Recupere le montant actuel sauve
+            _montant_base = _l.get("montant_ia", 200)
             _streak = _l.get("streak", {}).get("actuel", 0)
             _confiance = _l.get("confiance_globale", 50)
-            # Sizing adaptatif: plus l'IA gagne, plus elle mise
-            if _streak >= 5:
-                _montant_base = 400  # feu: 5+ gains d'affilee
-            elif _streak >= 3:
-                _montant_base = 300  # bonne serie: 3+ gains
-            elif _streak >= 1:
-                _montant_base = 250  # un gain de plus
-            elif _streak <= -3:
-                _montant_base = 100  # prudence: 3+ pertes d'affilee
-            elif _streak <= -1:
-                _montant_base = 150  # legerement prudent
-            # Bonus confiance
-            if _confiance > 80:
-                _montant_base += 50
-            elif _confiance > 70:
-                _montant_base += 25
-            print(f"  [SIZING-IA] Streak={_streak} Confiance={_confiance:.0f} -> {_montant_base}EUR")
+            # PALIERS: 100, 150, 200, 250, 300, 350, 400, 450, 500
+            _paliers = [100, 150, 200, 250, 300, 350, 400, 450, 500]
+            _idx = _paliers.index(_montant_base) if _montant_base in _paliers else 3  # 200 par defaut
+            # Dernier trade gagnant ou perdant?
+            _trades = _l.get("trades_analyses", [])
+            if _trades:
+                _dernier = _trades[-1]
+                _dernier_gain = _dernier.get("gain_eur", 0)
+                if _dernier_gain > 0:
+                    # GAGNE: monte d'un palier (max 500)
+                    _idx = min(_idx + 1, len(_paliers) - 1)
+                else:
+                    # PERDU: descend d'un palier (min 100)
+                    _idx = max(_idx - 1, 0)
+            _montant_base = _paliers[_idx]
+            # Sauve le nouveau montant pour le prochain trade
+            _l["montant_ia"] = _montant_base
+            ap.sauver_learning(_l)
+            print(f"  [SIZING-IA] Streak={_streak} Confiance={_confiance:.0f} Palier #{_idx+1}/9 -> {_montant_base}EUR")
         except Exception:
             pass
         montant = min(_montant_base, liquidites * 0.8)
