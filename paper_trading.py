@@ -830,7 +830,7 @@ def ouvrir_position(pf, signal, prix_actuel):
     if not prix_actuel or prix_actuel <= 0:
         print(f"  [BLOCAGE] Prix invalide ({prix_actuel}) pour {signal.get('symbole','?')} - trade bloque")
         return False
-    # COOLDOWN APRES SL/TP: ne pas rouvrir une crypto qui vient d'etre fermee
+    # COOLDOWN APRES TOUTE FERMETURE: ne pas rouvrir une crypto qui vient d'etre fermee
     try:
         _sym = signal.get('symbole','')
         _trades = pf.get('trades_fermes', [])
@@ -852,11 +852,13 @@ def ouvrir_position(pf, signal, prix_actuel):
             _min_ecoule = (_maint - _dt).total_seconds() / 60
             _gain = _t.get('gain_eur', 0)
             _raison = _t.get('raison', '')
+            # Cooldown apres perte (SL): 90 min
             if _gain < 0 and 'SL' in _raison and _min_ecoule < 90:
                 print(f"  [COOLDOWN-SL] {signal.get('nom',_sym)}: SL il y a {_min_ecoule:.0f}min — cooldown 90min")
                 return False
-            if _gain > 0 and _min_ecoule < 15:
-                print(f"  [COOLDOWN-TP] {signal.get('nom',_sym)}: gain il y a {_min_ecoule:.0f}min — cooldown 15min")
+            # Cooldown apres TOUTE fermeture (gain ou perte): 30 min minimum
+            if _min_ecoule < 30:
+                print(f"  [COOLDOWN] {signal.get('nom',_sym)}: ferme il y a {_min_ecoule:.0f}min — cooldown 30min")
                 return False
             break
     except Exception:
