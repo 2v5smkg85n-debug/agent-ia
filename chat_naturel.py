@@ -1909,8 +1909,33 @@ REGLES:
         # Verifie que le symbole est valide
         if symbole not in prix_data:
             return None
-        # Ouvre la position
-        montant = min(200, liquidites * 0.8)
+        # Ouvre la position avec sizing adaptatif base sur l'apprentissage
+        _montant_base = 200
+        try:
+            import apprentissage_trader as ap
+            _l = ap.charger_learning()
+            _streak = _l.get("streak", {}).get("actuel", 0)
+            _confiance = _l.get("confiance_globale", 50)
+            # Sizing adaptatif: plus l'IA gagne, plus elle mise
+            if _streak >= 5:
+                _montant_base = 400  # feu: 5+ gains d'affilee
+            elif _streak >= 3:
+                _montant_base = 300  # bonne serie: 3+ gains
+            elif _streak >= 1:
+                _montant_base = 250  # un gain de plus
+            elif _streak <= -3:
+                _montant_base = 100  # prudence: 3+ pertes d'affilee
+            elif _streak <= -1:
+                _montant_base = 150  # legerement prudent
+            # Bonus confiance
+            if _confiance > 80:
+                _montant_base += 50
+            elif _confiance > 70:
+                _montant_base += 25
+            print(f"  [SIZING-IA] Streak={_streak} Confiance={_confiance:.0f} -> {_montant_base}EUR")
+        except Exception:
+            pass
+        montant = min(_montant_base, liquidites * 0.8)
         resultat = _ouvrir_position_auto(symbole, montant, f"IA autonome: {raison}")
         return f"🤖 Ouverture auto par l'IA: {symbole} a {prix_data[symbole]:.4f}EUR. {raison[:100]}\n{resultat}"
     except Exception:
