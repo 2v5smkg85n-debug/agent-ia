@@ -204,9 +204,11 @@ OBJECTIFS_ANNUES = [10000, 100000, 1000000, 10000000]
 FICHIER_OBJECTIFS = os.path.join(DOSSIER, "objectifs_survie.json")
 
 def _charger_objectifs():
-    """Charge l'etat des objectifs de survie."""
+    """Charge l'etat des objectifs de survie. Cree le fichier au premier lancement."""
     if not os.path.exists(FICHIER_OBJECTIFS):
-        return {"date_depart": datetime.now().strftime("%Y-%m-%d"), "annee": 1, "evolutions": [], "sous_agents": []}
+        obj = {"date_depart": datetime.now().strftime("%Y-%m-%d"), "annee": 1, "evolutions": [], "sous_agents": []}
+        _sauver_objectifs(obj)  # cree le fichier immediatement
+        return obj
     try:
         with open(FICHIER_OBJECTIFS) as f:
             return json.load(f)
@@ -2905,6 +2907,9 @@ def boucle():
     # Charge la memoire persistante
     _charger_memoire()
     _charger_faits()
+    # Initialise les objectifs de survie (cree le fichier au premier lancement)
+    _charger_objectifs()
+    print(f"[CHAT] Objectifs de survie charges")
     
     # Recupere le dernier update_id (crash recovery)
     if os.path.exists(FICHIER_UPDATE_ID):
