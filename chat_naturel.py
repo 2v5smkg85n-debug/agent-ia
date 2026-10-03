@@ -2470,24 +2470,26 @@ def _cerveau_proactif():
             _dernier_rapport["erreurs_log"] = nb_erreurs
     except Exception:
         pass
-    # 2. BOT BLOQUE — AUTO-RESTART si pas de trade depuis 3h et liquidites disponibles
+    # 2. BOT BLOQUE — AUTO-RESTART si le log n'a pas bouge depuis 30 min (bot vraiment bloque)
     if data:
-        trades = data.get("trades_fermes", [])
-        positions = data.get("positions", [])
-        if trades and not positions:
-            nb_actuel = len(trades)
-            if nb_actuel == _dernier_etat_bot.get("nb_trades", 0) and nb_actuel > 0:
-                if maintenant - _dernier_rapport["bot_bloque_ts"] > 7200:
+        try:
+            if os.path.exists(FICHIER_LOG):
+                mtime_log = os.path.getmtime(FICHIER_LOG)
+                age_log = maintenant - mtime_log
+                # Bot vraiment bloque: log immobile > 30 min + pas de positions + liquidites dispo
+                if age_log > 1800 and maintenant - _dernier_rapport["bot_bloque_ts"] > 7200:
+                    positions = data.get("positions", [])
                     liquidites = data.get("liquidites", 0)
                     capital_init = data.get("capital_initial", 1000)
-                    if liquidites > capital_init * 0.5:
-                        # AUTO-RESTART: le bot est bloque, on le relance
+                    if not positions and liquidites > capital_init * 0.5:
                         try:
                             subprocess.run("sudo systemctl restart paper_trading.service", shell=True, capture_output=True, text=True, timeout=15)
-                            messages_a_envoyer.append(f"🔧 Bot bloque detecte. Redemarrage automatique. Liquidites: {liquidites:.0f}EUR.")
+                            messages_a_envoyer.append(f"🔧 Bot bloque (log immobile {age_log/60:.0f}min). Redemarrage. Liquidites: {liquidites:.0f}EUR.")
                         except Exception:
                             messages_a_envoyer.append(f"⏰ Bot bloque mais redemarrage impossible. Liquidites: {liquidites:.0f}EUR.")
-                    _dernier_rapport["bot_bloque_ts"] = maintenant
+                        _dernier_rapport["bot_bloque_ts"] = maintenant
+        except Exception:
+            pass
     # 3. POSITION EN PERTE PROFONDE — AUTO-CLOSE si au-dela du SL
     if data:
         positions = data.get("positions", [])
