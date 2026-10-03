@@ -1750,7 +1750,8 @@ def verifier_sorties(pf, prix_actuels):
         if variation <= -_sl_effectif:
             _sl_price = prix_entree * (1 - _sl_effectif / 100.0) * (1 - 0.05 / 100.0)
             _sl_var = (_sl_price - prix_entree) / prix_entree * 100
-            positions_a_fermer.append((pos, _sl_price, f"SL-EXEC (perte {_sl_var:+.1f}%, SL={_sl_effectif}%)", _sl_var))
+            _type_ferm = "perte" if _sl_var < 0 else "gain"
+            positions_a_fermer.append((pos, _sl_price, f"SL-EXEC ({_type_ferm} {_sl_var:+.1f}%, SL={_sl_effectif}%)", _sl_var))
             continue
         # TP/SL: en mode scalping, les constantes globales priment sur meta_tuning
         if os.getenv('SCALPING', '0') == '1':

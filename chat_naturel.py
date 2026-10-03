@@ -1748,7 +1748,7 @@ def _ouvrir_position_auto(symbole, montant, raison):
     quantite = (montant - frais) / prix
     pos = {
         "symbole": symbole, "montant_eur": montant, "prix_entree": prix,
-        "prix_actuel": prix, "sl_adaptatif": -1.0, "tp_adaptatif": 2.0,
+        "prix_actuel": prix, "sl_adaptatif": 1.0, "tp_adaptatif": 2.0,
         "strategie": "ia_autonome", "source": "ouverture_ia_chat",
         "raison": raison[:200], "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "date_ouverture": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -2190,11 +2190,11 @@ def _cerveau_proactif():
             sym = pos.get("symbole", "?")
             montant = pos.get("montant_eur", 0)
             prix_entree = pos.get("prix_entree", 0)
-            sl = pos.get("sl_adaptatif", -1)
+            sl = pos.get("sl_adaptatif", 1)
             prix_actuel = pos.get("prix_actuel", 0)
             if prix_entree and prix_actuel:
                 variation = (prix_actuel - prix_entree) / prix_entree * 100
-                if variation < sl * 0.7 and maintenant - _dernier_rapport["position_en_perte_ts"] > 1800:
+                if variation < -sl * 0.7 and maintenant - _dernier_rapport["position_en_perte_ts"] > 1800:
                     # AUTO-CLOSE: la position depasse le SL, on ferme
                     resultat = _fermer_position(sym)
                     messages_a_envoyer.append(f"⚡ Fermeture auto: {sym} en perte de {variation:+.1f}% (SL a {sl}%). {resultat}")
