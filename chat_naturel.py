@@ -91,7 +91,7 @@ _dernier_etat_bot = {"positions": set(), "nb_trades": 0, "capital": 0}
 _dernier_rapport = {"erreurs_log": 0, "bot_bloque_ts": 0, "dernier_resume_ts": 0,
                     "dernier_briefing_ts": 0, "position_en_perte_ts": 0,
                     "disque_alerte_ts": 0, "derniere_analyse_perf_ts": 0,
-                    "auto_ouverture_ts": 0}
+                    "auto_ouverture_ts": 0, "evolution_ts": 0, "coma_ts": 0}
 
 # === BUDGET DE SURVIE ===
 # Le 1000EUR est le budget de vie de l'IA. Chaque action coute de l'argent.
@@ -193,6 +193,181 @@ def _intervalle_analyse():
     elif mode == "economie":
         return 2400   # 40min
     return 1800      # 30min (normal)
+
+# === OBJECTIFS DE SURVIE ANNUELS ===
+# L'IA doit atteindre des cibles pour continuer a vivre:
+# Annee 1: 10 000EUR (10x le capital initial)
+# Annee 2: 100 000EUR (10x l'annee 1)
+# Annee 3: 1 000 000EUR (10x l'annee 2)
+# Si l'IA n'atteint pas sa cible, elle entre en mode evolution (change de strategie)
+OBJECTIFS_ANNUES = [10000, 100000, 1000000, 10000000]
+FICHIER_OBJECTIFS = os.path.join(DOSSIER, "objectifs_survie.json")
+
+def _charger_objectifs():
+    """Charge l'etat des objectifs de survie."""
+    if not os.path.exists(FICHIER_OBJECTIFS):
+        return {"date_depart": datetime.now().strftime("%Y-%m-%d"), "annee": 1, "evolutions": [], "sous_agents": []}
+    try:
+        with open(FICHIER_OBJECTIFS) as f:
+            return json.load(f)
+    except Exception:
+        return {"date_depart": datetime.now().strftime("%Y-%m-%d"), "annee": 1, "evolutions": [], "sous_agents": []}
+
+def _sauver_objectifs(obj):
+    try:
+        with open(FICHIER_OBJECTIFS, "w") as f:
+            json.dump(obj, f, indent=2)
+    except Exception:
+        pass
+
+def _annee_actuelle():
+    """Retourne l'annee en cours (1, 2, 3...) et le jour dans l'annee."""
+    obj = _charger_objectifs()
+    try:
+        debut = datetime.strptime(obj["date_depart"], "%Y-%m-%d")
+    except Exception:
+        debut = datetime.now()
+    jours_ecoules = (datetime.now() - debut).days
+    annee = (jours_ecoules // 365) + 1
+    jour_dans_annee = (jours_ecoules % 365) + 1
+    return annee, jour_dans_annee
+
+def _objectif_actuel():
+    """Retourne l'objectif de capital pour l'annee en cours."""
+    annee, _ = _annee_actuelle()
+    idx = min(annee - 1, len(OBJECTIFS_ANNUES) - 1)
+    return OBJECTIFS_ANNUES[idx]
+
+def _progression_objectif():
+    """Retourne (capital_actuel, objectif, pct_progression, jours_restants, retard)."""
+    pf = _charger_paper()
+    if not pf:
+        return 0, 10000, 0, 365, False
+    capital_init = pf.get("capital_initial", 1000)
+    liquidites = pf.get("liquidites", 0)
+    positions = pf.get("positions", [])
+    valeur_pos = sum(p.get("montant_eur", 0) for p in positions)
+    total = liquidites + valeur_pos
+    objectif = _objectif_actuel()
+    pct = (total / objectif * 100) if objectif else 0
+    annee, jour = _annee_actuelle()
+    jours_restants = 365 - jour
+    # Retard: si on est a moins de 50% de l'objectif et plus de 50% de l'annee ecoulee
+    retard = (pct < 50 and jour > 182) or (pct < 25 and jour > 90)
+    return total, objectif, pct, jours_restants, retard
+
+def _doit_evoluer():
+    """Detecte si l'IA doit evoluer (changer de strategie).
+    Conditions: retard sur l'objectif OU WR < 40% sur 20 derniers trades OU P&L negatif sur 30 trades."""
+    pf = _charger_paper()
+    if not pf:
+        return False, ""
+    trades = pf.get("trades_fermes", [])
+    total, objectif, pct, jours_restants, retard = _progression_objectif()
+    raisons = []
+    # 1. Retard sur l'objectif annuel
+    if retard:
+        raisons.append(f"Retard objectif: {pct:.0f}% de {objectif}EUR (jour {_annee_actuelle()[1]}/365)")
+    # 2. WR trop bas
+    if len(trades) >= 20:
+        recents = trades[-20:]
+        wr = sum(1 for t in recents if t.get("gain_eur", 0) > 0) / len(recents) * 100
+        if wr < 40:
+            raisons.append(f"WR trop bas: {wr:.0f}% sur 20 derniers trades")
+    # 3. P&L negatif recent
+    if len(trades) >= 30:
+        pnl_recent = sum(t.get("gain_eur", 0) for t in trades[-30:])
+        if pnl_recent < -5:
+            raisons.append(f"P&L recent negatif: {pnl_recent:+.2f}EUR sur 30 trades")
+    return len(raisons) > 0, "; ".join(raisons)
+
+def _creer_sous_agent():
+    """Cree un sous-agent avec une strategie differente.
+    Chaque sous-agent a son propre style de trading et une portion du budget."""
+    obj = _charger_objectifs()
+    sous_agents = obj.get("sous_agents", [])
+    # Strategies disponibles pour les sous-agents
+    strategies = [
+        {"nom": "scalpeur", "style": "scalping rapide", "tp": 1.0, "sl": 0.5, "description": "Entrees/sorties rapides, petits gains repetes"},
+        {"nom": "swing", "style": "swing trading", "tp": 5.0, "sl": 2.0, "description": "Positions plus longues, gains plus grands"},
+        {"nom": "contrarien", "style": "contrarien", "tp": 3.0, "sl": 1.5, "description": "Achete quand le marché a peur, vend quand il est euphorique"},
+        {"nom": "momentum", "style": "momentum", "tp": 4.0, "sl": 1.5, "description": "Surf la tendance, entre sur momentum fort"},
+    ]
+    # Trouve une strategie pas encore utilisee
+    noms_utilises = [s["nom"] for s in sous_agents]
+    dispo = [s for s in strategies if s["nom"] not in noms_utilises]
+    if not dispo:
+        return None  # toutes les strategies sont deja utilisees
+    nouvelle = dispo[0]
+    sous_agent = {
+        "nom": nouvelle["nom"],
+        "style": nouvelle["style"],
+        "tp": nouvelle["tp"],
+        "sl": nouvelle["sl"],
+        "description": nouvelle["description"],
+        "budget_alloue": 0,
+        "trades": 0,
+        "gagnants": 0,
+        "pnl": 0.0,
+        "actif": True,
+        "cree_le": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+    sous_agents.append(sous_agent)
+    obj["sous_agents"] = sous_agents
+    _sauver_objectifs(obj)
+    return sous_agent
+
+def _verifier_evolution():
+    """Verifie si l'IA doit evoluer et crée un sous-agent si necessaire."""
+    doit, raisons = _doit_evoluer()
+    if not doit:
+        return None
+    obj = _charger_objectifs()
+    evolutions = obj.get("evolutions", [])
+    # Ne cree un sous-agent que toutes les 24h max
+    if evolutions:
+        derniere = evolutions[-1]
+        try:
+            dt = datetime.strptime(derniere.get("date", ""), "%Y-%m-%d %H:%M")
+            if (datetime.now() - dt).total_seconds() < 86400:
+                return None  # deja evolue dans les dernieres 24h
+        except Exception:
+            pass
+    # Cree le sous-agent
+    nouveau = _creer_sous_agent()
+    evolution = {
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "raison": raisons,
+        "sous_agent": nouveau["nom"] if nouveau else "aucun (tous utilises)",
+    }
+    evolutions.append(evolution)
+    obj["evolutions"] = evolutions
+    _sauver_objectifs(obj)
+    if nouveau:
+        msg = (f"🧬 EVOLUTION: L'IA cree un sous-agent '{nouveau['nom']}' ({nouveau['style']}).\n"
+               f"Raison: {raisons}\n"
+               f"Strategie: TP={nouveau['tp']}% SL={nouveau['sl']}% — {nouveau['description']}")
+        print(f"  [EVOLUTION] {msg}")
+        return msg
+    return None
+
+def _statut_survie():
+    """Retourne un resume du statut de survie pour le status et le briefing."""
+    total, objectif, pct, jours_restants, retard = _progression_objectif()
+    annee, jour = _annee_actuelle()
+    mode = _mode_survie()
+    obj = _charger_objectifs()
+    nb_sous_agents = len([s for s in obj.get("sous_agents", []) if s.get("actif")])
+    nb_evolutions = len(obj.get("evolutions", []))
+    mode_emoji = {"normal": "✅", "economie": "🟡", "critique": "🟠", "survie": "🔴", "coma": "💤"}
+    lignes = [
+        f"{mode_emoji.get(mode, '?')} Mode: {mode} | Annee {annee} | Jour {jour}/365",
+        f"🎯 Objectif annee {annee}: {objectif:,}EUR | Progression: {pct:.1f}% | {jours_restants}j restants",
+        f"💰 Capital: {total:.2f}EUR | 🧬 {nb_sous_agents} sous-agent(s) | {nb_evolutions} evolution(s)",
+    ]
+    if retard:
+        lignes.append("⚠️ RETARD sur l'objectif — evolution imminente")
+    return "\n".join(lignes)
 
 def _charger_memoire():
     """Charge la mémoire persistante de l'IA (survit aux redémarrages)."""
@@ -920,6 +1095,7 @@ def _rapide_status():
         f"Liquidités: {liquidites:.0f} EUR | Positions: {len(positions)}",
         f"Trades: {len(trades)} | WR: {wr:.0f}% | Frais: {frais:.2f} EUR",
         f"{mode_emoji.get(mode, '?')} Budget survie: {liquidites:.0f}EUR | Mode: {mode} | Coûts: {couts:.2f}EUR ({budget.get('nb_actions', 0)} actions)",
+        _statut_survie(),
     ]
     if positions:
         lignes.append("")
@@ -1993,7 +2169,8 @@ PRIX ACTUELS:
 
 PORTFEUILLE: {len(positions)} positions ouvertes, {liquidites:.0f}EUR de liquidites.
 Capital: 1000EUR. Budget de survie: {liquidites:.0f}EUR. Risk par trade: 200EUR. TP: 2%, SL: -1%.
-Chaque analyse te coute 0.10EUR. Tu dois etre profitable pour survivre.{_alerte_budget}
+Chaque analyse te coute 0.10EUR. Tu dois etre profitable pour survivre.
+OBJECTIF DE SURVIE: Atteindre {_objectif_actuel():,}EUR en {365 - _annee_actuelle()[1]}j restants cette annee. Actuellement a {liquidites:.0f}EUR. Si tu n'atteint pas l'objectif, tu dois evoluer et essayer une nouvelle strategie.{_alerte_budget}
 
 GUIDE DES INDICATEURS (IMPORTANT):
 - RSI < 30 = SURVENTE = signal d'ACHAT (le prix a trop bais, rebond probable)
@@ -2411,6 +2588,12 @@ def _cerveau_proactif():
             if analyse:
                 messages_a_envoyer.append("📊 Analyse auto:\n\n" + analyse.rstrip())
             _dernier_rapport["derniere_analyse_perf_ts"] = maintenant
+    # 7b. VERIFICATION EVOLUTION (toutes les 6h) — cree un sous-agent si l'IA est en retard
+    if data and maintenant - _dernier_rapport.get("evolution_ts", 0) > 21600:
+        msg_evol = _verifier_evolution()
+        if msg_evol:
+            messages_a_envoyer.append(msg_evol)
+        _dernier_rapport["evolution_ts"] = maintenant
     # 8. AUTO-OUVERTURE DE POSITION (intervalle adaptatif selon le budget de survie)
     # Auto-ouverture par l'IA (Ollama ou API)
     _intervalle = _intervalle_analyse()
