@@ -105,7 +105,8 @@ COUT_OUVERTURE = 0.20    # cout d'ouverture de position (frais deja comptes)
 SEUIL_ECONOMIE = 500     # en dessous: mode economie (analyses moins frequentes)
 SEUIL_CRITIQUE = 200     # en dessous: mode critique (trades haute conviction seulement)
 SEUIL_SURVIE = 50        # en dessous: mode survie (minimal, ultra selectif)
-SEUIL_MORT = 0           # a 0: l'IA meurt
+SEUIL_COMA = 20          # en dessous: coma (analyse minimale, ne meurt jamais)
+SEUIL_MORT = -999999     # l'IA ne meurt JAMAIS (seuil impossible a atteindre)
 
 FICHIER_BUDGET = os.path.join(DOSSIER, "budget_survie.json")
 
@@ -146,8 +147,10 @@ def _deduire_cout(montant, action="action"):
     nouveau_restant = pf["liquidites"]
     # Determine le mode de survie
     if nouveau_restant <= SEUIL_MORT:
-        budget["mode"] = "mort"
-        budget["mort"] = True
+        budget["mode"] = "coma"
+        budget["mort"] = False
+    elif nouveau_restant < SEUIL_COMA:
+        budget["mode"] = "coma"
     elif nouveau_restant < SEUIL_SURVIE:
         budget["mode"] = "survie"
     elif nouveau_restant < SEUIL_CRITIQUE:
@@ -167,7 +170,9 @@ def _mode_survie():
         return "normal"
     liquidites = pf.get("liquidites", 0)
     if liquidites <= SEUIL_MORT:
-        return "mort"
+        return "coma"
+    elif liquidites < SEUIL_COMA:
+        return "coma"
     elif liquidites < SEUIL_SURVIE:
         return "survie"
     elif liquidites < SEUIL_CRITIQUE:
@@ -179,8 +184,8 @@ def _mode_survie():
 def _intervalle_analyse():
     """Retourne l'intervalle d'analyse selon le mode de survie."""
     mode = _mode_survie()
-    if mode == "mort":
-        return 999999  # jamais (l'IA est morte)
+    if mode == "coma":
+        return 14400  # 4h (coma: analyse minimale, garde une chance de se relever)
     elif mode == "survie":
         return 7200   # 2h (minimal)
     elif mode == "critique":
@@ -908,7 +913,7 @@ def _rapide_status():
     mode = _mode_survie()
     couts = data.get("total_couts_survie", 0)
     budget = _charger_budget()
-    mode_emoji = {"normal": "✅", "economie": "🟡", "critique": "🟠", "survie": "🔴", "mort": "💀"}
+    mode_emoji = {"normal": "✅", "economie": "🟡", "critique": "🟠", "survie": "🔴", "coma": "💤"}
     lignes = [
         f"{emoji} Portefeuille — {datetime.now().strftime('%d/%m %H:%M')}",
         f"Capital: {total:.2f} EUR (P&L: {pnl:+.2f} EUR, {pnl_pct:+.1f}%)",
@@ -1975,9 +1980,9 @@ MEMOIRE D'APPRENTISSAGE (apprends de tes trades passes):
     elif _mode == "critique":
         _alerte_budget = "\n🟠 BUDGET CRITIQUE: Uniquement les setups exceptionnels (RSI<25 + F&G<30 + momentum fort). Sinon RIEN."
     elif _mode == "survie":
-        _alerte_budget = "\n🔴 BUDGET DE SURVIE: Tu es au bord de la mort. Uniquement les opportunitites exceptionnelles. Sinon RIEN."
-    elif _mode == "mort":
-        return None
+        _alerte_budget = "\n🔴 BUDGET DE SURVIE: Tu es au bord du coma. Uniquement les opportunitites exceptionnelles. Sinon RIEN."
+    elif _mode == "coma":
+        _alerte_budget = "\n💤 COMA: Tu es en etat de survie minimal. Une seule analyse toutes les 4h. Uniquement les setups parfaits (RSI<20 + F&G<25 + momentum fort). Sinon RIEN. Tu dois te relever."
     prompt = f"""Tu es un trader crypto expert avec 20 ans d'experience. Analyse ce marche et decide si il faut ouvrir une position.
 {_savoir}
 
@@ -2411,11 +2416,13 @@ def _cerveau_proactif():
     _intervalle = _intervalle_analyse()
     if data and maintenant - _dernier_rapport["auto_ouverture_ts"] > _intervalle:
         mode = _mode_survie()
-        # Mode mort: l'IA ne fait plus rien
-        if mode == "mort":
-            if maintenant - _dernier_rapport.get("mort_ts", 0) > 3600:
-                messages_a_envoyer.append("💀 BUDGET EPUISE. L'IA est morte. Capital a 0EUR. Les trades sont stoppes.")
-                _dernier_rapport["mort_ts"] = maintenant
+        # Mode coma: l'IA ralentit au maximum mais ne meurt jamais
+        if mode == "coma":
+            if maintenant - _dernier_rapport.get("coma_ts", 0) > 14400:
+                pf = _charger_paper()
+                liq = pf.get("liquidites", 0) if pf else 0
+                messages_a_envoyer.append(f"💤 L'IA est en coma. Budget: {liq:.0f}EUR. Analyse minimale toutes les 4h. Elle tente de se relever.")
+                _dernier_rapport["coma_ts"] = maintenant
         else:
             positions = data.get("positions", [])
             liquidites = data.get("liquidites", 0)
