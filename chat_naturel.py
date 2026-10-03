@@ -93,6 +93,102 @@ _dernier_rapport = {"erreurs_log": 0, "bot_bloque_ts": 0, "dernier_resume_ts": 0
                     "disque_alerte_ts": 0, "derniere_analyse_perf_ts": 0,
                     "auto_ouverture_ts": 0}
 
+# === BUDGET DE SURVIE ===
+# Le 1000EUR est le budget de vie de l'IA. Chaque action coute de l'argent.
+# Si le budget atteint 0, l'IA meurt (arret complet).
+# L'IA doit etre profitable en trading pour survivre.
+COUT_ANALYSE = 0.10      # cout d'une analyse marche (Ollama ~40s CPU)
+COUT_CHAT = 0.05         # cout d'une reponse chat (Ollama ~10s CPU)
+COUT_PRIX = 0.01         # cout d'un fetch prix (API)
+COUT_NOTIF = 0.01        # cout d'un message Telegram
+COUT_OUVERTURE = 0.20    # cout d'ouverture de position (frais deja comptes)
+SEUIL_ECONOMIE = 500     # en dessous: mode economie (analyses moins frequentes)
+SEUIL_CRITIQUE = 200     # en dessous: mode critique (trades haute conviction seulement)
+SEUIL_SURVIE = 50        # en dessous: mode survie (minimal, ultra selectif)
+SEUIL_MORT = 0           # a 0: l'IA meurt
+
+FICHIER_BUDGET = os.path.join(DOSSIER, "budget_survie.json")
+
+def _charger_budget():
+    """Charge l'etat du budget de survie."""
+    if not os.path.exists(FICHIER_BUDGET):
+        return {"cout_total": 0.0, "nb_actions": 0, "mode": "normal", "mort": False}
+    try:
+        with open(FICHIER_BUDGET) as f:
+            return json.load(f)
+    except Exception:
+        return {"cout_total": 0.0, "nb_actions": 0, "mode": "normal", "mort": False}
+
+def _sauver_budget(budget):
+    """Sauvegarde l'etat du budget de survie."""
+    try:
+        with open(FICHIER_BUDGET, "w") as f:
+            json.dump(budget, f, indent=2)
+    except Exception:
+        pass
+
+def _deduire_cout(montant, action="action"):
+    """Deduit un cout du budget de survie. Retourne le mode actuel."""
+    pf = _charger_paper()
+    if not pf:
+        return "normal"
+    liquidites = pf.get("liquidites", 0)
+    capital_init = pf.get("capital_initial", 1000)
+    budget_restant = liquidites  # les liquidites SONT le budget de vie
+    # Deduit le cout
+    pf["liquidites"] = liquidites - montant
+    pf["total_couts_survie"] = pf.get("total_couts_survie", 0) + montant
+    _sauver_paper(pf)
+    # Met a jour le budget
+    budget = _charger_budget()
+    budget["cout_total"] = budget.get("cout_total", 0) + montant
+    budget["nb_actions"] = budget.get("nb_actions", 0) + 1
+    nouveau_restant = pf["liquidites"]
+    # Determine le mode de survie
+    if nouveau_restant <= SEUIL_MORT:
+        budget["mode"] = "mort"
+        budget["mort"] = True
+    elif nouveau_restant < SEUIL_SURVIE:
+        budget["mode"] = "survie"
+    elif nouveau_restant < SEUIL_CRITIQUE:
+        budget["mode"] = "critique"
+    elif nouveau_restant < SEUIL_ECONOMIE:
+        budget["mode"] = "economie"
+    else:
+        budget["mode"] = "normal"
+    _sauver_budget(budget)
+    print(f"  [BUDGET] -{montant:.2f}EUR ({action}) | Restant: {nouveau_restant:.2f}EUR | Mode: {budget['mode']}")
+    return budget["mode"]
+
+def _mode_survie():
+    """Retourne le mode de survie actuel sans deduire de cout."""
+    pf = _charger_paper()
+    if not pf:
+        return "normal"
+    liquidites = pf.get("liquidites", 0)
+    if liquidites <= SEUIL_MORT:
+        return "mort"
+    elif liquidites < SEUIL_SURVIE:
+        return "survie"
+    elif liquidites < SEUIL_CRITIQUE:
+        return "critique"
+    elif liquidites < SEUIL_ECONOMIE:
+        return "economie"
+    return "normal"
+
+def _intervalle_analyse():
+    """Retourne l'intervalle d'analyse selon le mode de survie."""
+    mode = _mode_survie()
+    if mode == "mort":
+        return 999999  # jamais (l'IA est morte)
+    elif mode == "survie":
+        return 7200   # 2h (minimal)
+    elif mode == "critique":
+        return 3600   # 1h
+    elif mode == "economie":
+        return 2400   # 40min
+    return 1800      # 30min (normal)
+
 def _charger_memoire():
     """Charge la mémoire persistante de l'IA (survit aux redémarrages)."""
     global _etat_emotionnel, _historique, USER_LAT, USER_LON, USER_LOCATION
@@ -343,6 +439,14 @@ def _charger_paper():
             return json.load(f)
     except Exception:
         return None
+
+def _sauver_paper(pf):
+    """Sauvegarde paper_trading.json."""
+    try:
+        with open(FICHIER_PAPER, "w") as f:
+            json.dump(pf, f, indent=2)
+    except Exception as e:
+        print(f"  [BUDGET] Erreur sauvegarde paper: {e}")
 
 def _charger_prof_stats():
     """Charge professeur_stats.json."""
@@ -696,6 +800,7 @@ def _ollama_chat(message, contexte=None):
         }
         r = requests.post(url, json=payload, timeout=120)
         if r.status_code == 200:
+            _deduire_cout(COUT_CHAT, "chat ollama")
             return r.json()["message"]["content"].strip()
         return None
     except Exception:
@@ -800,11 +905,16 @@ def _rapide_status():
     gagnants = sum(1 for t in trades if t.get("gain_eur", 0) > 0)
     wr = (gagnants / len(trades) * 100) if trades else 0
     emoji = "🟢" if pnl >= 0 else "🔴"
+    mode = _mode_survie()
+    couts = data.get("total_couts_survie", 0)
+    budget = _charger_budget()
+    mode_emoji = {"normal": "✅", "economie": "🟡", "critique": "🟠", "survie": "🔴", "mort": "💀"}
     lignes = [
         f"{emoji} Portefeuille — {datetime.now().strftime('%d/%m %H:%M')}",
         f"Capital: {total:.2f} EUR (P&L: {pnl:+.2f} EUR, {pnl_pct:+.1f}%)",
         f"Liquidités: {liquidites:.0f} EUR | Positions: {len(positions)}",
         f"Trades: {len(trades)} | WR: {wr:.0f}% | Frais: {frais:.2f} EUR",
+        f"{mode_emoji.get(mode, '?')} Budget survie: {liquidites:.0f}EUR | Mode: {mode} | Coûts: {couts:.2f}EUR ({budget.get('nb_actions', 0)} actions)",
     ]
     if positions:
         lignes.append("")
@@ -1858,6 +1968,16 @@ MEMOIRE D'APPRENTISSAGE (apprends de tes trades passes):
         _savoir = get_savoir_compact()
     except Exception:
         pass
+    _mode = _mode_survie()
+    _alerte_budget = ""
+    if _mode == "economie":
+        _alerte_budget = "\n⚠️ BUDGET EN BAISSE: Sois plus selectif. Uniquement les setups avec 3+ signaux de confluence."
+    elif _mode == "critique":
+        _alerte_budget = "\n🟠 BUDGET CRITIQUE: Uniquement les setups exceptionnels (RSI<25 + F&G<30 + momentum fort). Sinon RIEN."
+    elif _mode == "survie":
+        _alerte_budget = "\n🔴 BUDGET DE SURVIE: Tu es au bord de la mort. Uniquement les opportunitites exceptionnelles. Sinon RIEN."
+    elif _mode == "mort":
+        return None
     prompt = f"""Tu es un trader crypto expert avec 20 ans d'experience. Analyse ce marche et decide si il faut ouvrir une position.
 {_savoir}
 
@@ -1867,7 +1987,8 @@ PRIX ACTUELS:
 {chr(10).join(lignes_marche)}
 
 PORTFEUILLE: {len(positions)} positions ouvertes, {liquidites:.0f}EUR de liquidites.
-Capital: 1000EUR. Risk par trade: 200EUR. TP: 2%, SL: -1%.
+Capital: 1000EUR. Budget de survie: {liquidites:.0f}EUR. Risk par trade: 200EUR. TP: 2%, SL: -1%.
+Chaque analyse te coute 0.10EUR. Tu dois etre profitable pour survivre.{_alerte_budget}
 
 GUIDE DES INDICATEURS (IMPORTANT):
 - RSI < 30 = SURVENTE = signal d'ACHAT (le prix a trop bais, rebond probable)
@@ -1902,11 +2023,11 @@ REGLES:
                 resp_ol = requests.post("http://localhost:11434/api/chat", json=ollama_payload, timeout=60)
                 if resp_ol.status_code == 200:
                     texte = resp_ol.json()["message"]["content"].strip()
+                    _deduire_cout(COUT_ANALYSE, "analyse trading ollama")
             except Exception:
                 pass
         if not texte:
             return None
-        # Parse le JSON
         import re
         match = re.search(r'\{.*\}', texte, re.DOTALL)
         if not match:
@@ -2285,19 +2406,32 @@ def _cerveau_proactif():
             if analyse:
                 messages_a_envoyer.append("📊 Analyse auto:\n\n" + analyse.rstrip())
             _dernier_rapport["derniere_analyse_perf_ts"] = maintenant
-    # 8. AUTO-OUVERTURE DE POSITION (toutes les 30 min si le bot n'a pas assez de positions)
+    # 8. AUTO-OUVERTURE DE POSITION (intervalle adaptatif selon le budget de survie)
     # Auto-ouverture par l'IA (Ollama ou API)
-    if data and maintenant - _dernier_rapport["auto_ouverture_ts"] > 1800:
-        positions = data.get("positions", [])
-        liquidites = data.get("liquidites", 0)
-        if len(positions) < 3 and liquidites >= 200:
-            resultat = _analyser_marche_auto()
-            if resultat:
-                messages_a_envoyer.append(resultat)
-        _dernier_rapport["auto_ouverture_ts"] = maintenant
-    # ENVOI DES MESSAGES
+    _intervalle = _intervalle_analyse()
+    if data and maintenant - _dernier_rapport["auto_ouverture_ts"] > _intervalle:
+        mode = _mode_survie()
+        # Mode mort: l'IA ne fait plus rien
+        if mode == "mort":
+            if maintenant - _dernier_rapport.get("mort_ts", 0) > 3600:
+                messages_a_envoyer.append("💀 BUDGET EPUISE. L'IA est morte. Capital a 0EUR. Les trades sont stoppes.")
+                _dernier_rapport["mort_ts"] = maintenant
+        else:
+            positions = data.get("positions", [])
+            liquidites = data.get("liquidites", 0)
+            # En mode survie/critique: exige plus de liquidites pour ouvrir
+            _min_liq = 200 if mode == "normal" else 300 if mode == "economie" else 400
+            if len(positions) < 3 and liquidites >= _min_liq:
+                # Deduit le cout de l'analyse avant de la faire
+                _deduire_cout(COUT_ANALYSE, "analyse marche")
+                resultat = _analyser_marche_auto()
+                if resultat:
+                    messages_a_envoyer.append(resultat)
+            _dernier_rapport["auto_ouverture_ts"] = maintenant
+    # ENVOI DES MESSAGES (chaque message coute COUT_NOTIF)
     for msg in messages_a_envoyer:
         _telegram_send(msg)
+        _deduire_cout(COUT_NOTIF, "notif telegram")
         print(f"[PROACTIF] {msg[:60]}...")
         time.sleep(1)
 
