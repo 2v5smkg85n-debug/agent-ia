@@ -285,15 +285,15 @@ def _doit_evoluer():
 
 def _creer_sous_agent():
     """Cree un sous-agent avec une strategie differente.
-    Chaque sous-agent a son propre style de trading et une portion du budget."""
+    Chaque sous-agent a son propre style de trading et recoit une portion du budget."""
     obj = _charger_objectifs()
     sous_agents = obj.get("sous_agents", [])
     # Strategies disponibles pour les sous-agents
     strategies = [
-        {"nom": "scalpeur", "style": "scalping rapide", "tp": 1.0, "sl": 0.5, "description": "Entrees/sorties rapides, petits gains repetes"},
-        {"nom": "swing", "style": "swing trading", "tp": 5.0, "sl": 2.0, "description": "Positions plus longues, gains plus grands"},
-        {"nom": "contrarien", "style": "contrarien", "tp": 3.0, "sl": 1.5, "description": "Achete quand le marché a peur, vend quand il est euphorique"},
-        {"nom": "momentum", "style": "momentum", "tp": 4.0, "sl": 1.5, "description": "Surf la tendance, entre sur momentum fort"},
+        {"nom": "scalpeur", "style": "scalping rapide", "tp": 1.0, "sl": 0.5, "description": "Entrees/sorties rapides, petits gains repetes", "critere": "RSI<40 ou momentum court positif", "sizing_pct": 0.20},
+        {"nom": "swing", "style": "swing trading", "tp": 5.0, "sl": 2.0, "description": "Positions plus longues, gains plus grands", "critere": "RSI<25 + tendance haussiere confirmee", "sizing_pct": 0.30},
+        {"nom": "contrarien", "style": "contrarien", "tp": 3.0, "sl": 1.5, "description": "Achete quand le marche a peur, vend quand il est euphorique", "critere": "Fear&Greed<30 (peur extreme) + RSI<35", "sizing_pct": 0.25},
+        {"nom": "momentum", "style": "momentum", "tp": 4.0, "sl": 1.5, "description": "Surf la tendance, entre sur momentum fort", "critere": "MACD haussier + volume croissant + RSI 40-60", "sizing_pct": 0.25},
     ]
     # Trouve une strategie pas encore utilisee
     noms_utilises = [s["nom"] for s in sous_agents]
@@ -301,13 +301,19 @@ def _creer_sous_agent():
     if not dispo:
         return None  # toutes les strategies sont deja utilisees
     nouvelle = dispo[0]
+    # Alloue un budget au sous-agent (portion des liquidites)
+    pf = _charger_paper()
+    liquidites = pf.get("liquidites", 0) if pf else 0
+    budget_alloue = int(liquidites * nouvelle["sizing_pct"])
     sous_agent = {
         "nom": nouvelle["nom"],
         "style": nouvelle["style"],
         "tp": nouvelle["tp"],
         "sl": nouvelle["sl"],
         "description": nouvelle["description"],
-        "budget_alloue": 0,
+        "critere": nouvelle["critere"],
+        "sizing_pct": nouvelle["sizing_pct"],
+        "budget_alloue": budget_alloue,
         "trades": 0,
         "gagnants": 0,
         "pnl": 0.0,
@@ -318,6 +324,38 @@ def _creer_sous_agent():
     obj["sous_agents"] = sous_agents
     _sauver_objectifs(obj)
     return sous_agent
+
+def _sous_agents_actifs():
+    """Retourne la liste des sous-agents actifs avec leur strategie."""
+    obj = _charger_objectifs()
+    return [s for s in obj.get("sous_agents", []) if s.get("actif")]
+
+def _contexte_sous_agents():
+    """Genere le contexte des sous-agents pour le prompt de l'IA."""
+    actifs = _sous_agents_actifs()
+    if not actifs:
+        return ""
+    lignes = ["\nSOUS-AGENTS ACTIFS (tu peux les utiliser):"]
+    for sa in actifs:
+        lignes.append(f"  - {sa['nom']} ({sa['style']}): TP={sa['tp']}% SL={sa['sl']}% — {sa['critere']} | Budget: {sa.get('budget_alloue', 0)}EUR | P&L: {sa.get('pnl', 0):+.2f}EUR ({sa.get('trades', 0)} trades)")
+    lignes.append("Si un setup correspond mieux a un sous-agent, utilise sa strategie. Reponds avec \"sous_agent\": \"nom\" dans le JSON.")
+    return "\n".join(lignes)
+
+def _enregistrer_trade_sous_agent(nom_sous_agent, gain, gagnant):
+    """Met a jour les stats d'un sous-agent apres un trade."""
+    obj = _charger_objectifs()
+    for sa in obj.get("sous_agents", []):
+        if sa["nom"] == nom_sous_agent and sa.get("actif"):
+            sa["trades"] = sa.get("trades", 0) + 1
+            sa["pnl"] = sa.get("pnl", 0) + gain
+            if gagnant:
+                sa["gagnants"] = sa.get("gagnants", 0) + 1
+            # Desactive le sous-agent si il perd trop (P&L < -10EUR)
+            if sa["pnl"] < -10:
+                sa["actif"] = False
+                sa["desactive_raison"] = f"P&L trop negatif: {sa['pnl']:+.2f}EUR"
+            break
+    _sauver_objectifs(obj)
 
 def _verifier_evolution():
     """Verifie si l'IA doit evoluer et crée un sous-agent si necessaire."""
@@ -2062,8 +2100,9 @@ def _detecter_action_vps(message):
                 return f"\n=== RESULTAT COMMANDE VPS (sante) ===\n" + "\n".join(resultats) + "\n"
     return None
 
-def _ouvrir_position_auto(symbole, montant, raison):
-    """Ouvre une position manuellement via le chat IA (autonome)."""
+def _ouvrir_position_auto(symbole, montant, raison, tp_override=None, sl_override=None):
+    """Ouvre une position manuellement via le chat IA (autonome).
+    tp_override/sl_override: si fournis (par un sous-agent), utilise ces valeurs au lieu des defauts."""
     data = _charger_paper()
     if not data:
         return "Portefeuille illisible."
@@ -2078,6 +2117,9 @@ def _ouvrir_position_auto(symbole, montant, raison):
     # Verifie max positions
     if len(positions) >= 5:
         return f"Max 5 positions atteint."
+    # TP/SL: defaut ou override par sous-agent
+    _tp = tp_override if tp_override else 2.0
+    _sl = sl_override if sl_override else 1.0
     # Recupere le prix actuel
     try:
         import prix_revolut as pr
@@ -2091,11 +2133,11 @@ def _ouvrir_position_auto(symbole, montant, raison):
     quantite = (montant - frais) / prix
     pos = {
         "symbole": symbole, "montant_eur": montant, "prix_entree": prix,
-        "prix_actuel": prix, "sl_adaptatif": 1.0, "tp_adaptatif": 2.0,
+        "prix_actuel": prix, "sl_adaptatif": _sl, "tp_adaptatif": _tp,
         "strategie": "ia_autonome", "source": "ouverture_ia_chat",
         "raison": raison[:200], "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "date_ouverture": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "score": 7, "tp": 2.0, "sl": -1.0, "quantite": quantite,
+        "score": 7, "tp": _tp, "sl": -_sl, "quantite": quantite,
         "frais_entree": frais, "signal_raison": raison[:200],
     }
     positions.append(pos)
@@ -2223,6 +2265,7 @@ PORTFEUILLE: {len(positions)} positions ouvertes, {liquidites:.0f}EUR de liquidi
 Capital: 1000EUR. Budget de survie: {liquidites:.0f}EUR. Risk par trade: 200EUR. TP: 2%, SL: -1%.
 Chaque analyse te coute 0.10EUR. Tu dois etre profitable pour survivre.
 OBJECTIF DE SURVIE: Atteindre {_objectif_actuel():,}EUR en {365 - _annee_actuelle()[1]}j restants cette annee. Actuellement a {liquidites:.0f}EUR. Si tu n'atteint pas l'objectif, tu dois evoluer et essayer une nouvelle strategie.{_alerte_budget}
+{_contexte_sous_agents()}
 
 GUIDE DES INDICATEURS (IMPORTANT):
 - RSI < 30 = SURVENTE = signal d'ACHAT (le prix a trop bais, rebond probable)
@@ -2271,9 +2314,20 @@ REGLES:
             return None
         symbole = decision.get("symbole", "").upper()
         raison = decision.get("raison", "")
+        sous_agent_nom = decision.get("sous_agent", "")
         # Verifie que le symbole est valide
         if symbole not in prix_data:
             return None
+        # Si un sous-agent est specifie, utilise son TP/SL
+        _tp_sous_agent = None
+        _sl_sous_agent = None
+        if sous_agent_nom:
+            for sa in _sous_agents_actifs():
+                if sa["nom"] == sous_agent_nom:
+                    _tp_sous_agent = sa["tp"]
+                    _sl_sous_agent = sa["sl"]
+                    raison = f"[{sous_agent_nom.upper()}] {raison}"
+                    break
         # Ouvre la position avec sizing adaptatif progressif
         # Montant stocke dans learning_trader.json, monte/descend d'un palier par trade
         _montant_base = 200
@@ -2313,8 +2367,8 @@ REGLES:
         # Plafond dynamique: garde toujours 200EUR de marge
         _max_avec_marge = max(200, liquidites - 200)
         montant = min(_montant_base, _max_avec_marge)
-        resultat = _ouvrir_position_auto(symbole, montant, f"IA autonome: {raison}")
-        return f"🤖 Ouverture auto par l'IA: {symbole} a {prix_data[symbole]:.4f}EUR. {raison[:100]}\n{resultat}"
+        resultat = _ouvrir_position_auto(symbole, montant, f"IA autonome: {raison}", tp_override=_tp_sous_agent, sl_override=_sl_sous_agent)
+        return f"🤖 Ouverture auto par l'IA{' ['+sous_agent_nom.upper()+']' if sous_agent_nom else ''}: {symbole} a {prix_data[symbole]:.4f}EUR. {raison[:100]}\n{resultat}"
     except Exception:
         return None
 
@@ -2577,7 +2631,20 @@ def _detecter_action_bot(message):
   5. Compounding: sizing = 70% du capital (grandit avec)
   6. Si retard: evolution + sous-agent
 
-💪 Avec 5 gains consecutifs: sizing 1200EUR = 24EUR/trade = {int(manque/24)+1 if manque>0 else 0} trades restants"""
+💪 Avec 5 gains consecutifs: sizing 1200EUR = 24EUR/trade = {int(manque/24)+1 if manque>0 else 0} trades restants
+
+🧬 SOUS-AGENTS:"""
+            actifs = _sous_agents_actifs()
+            if not actifs:
+                plan += "\n  Aucun sous-agent actif. L'IA cree un sous-agent si elle est en retard (WR<40% ou P&L<0)."
+            else:
+                for sa in actifs:
+                    wr_sa = (sa.get("gagnants", 0) / sa.get("trades", 1) * 100) if sa.get("trades", 0) > 0 else 0
+                    plan += f"\n  - {sa['nom']} ({sa['style']}): TP={sa['tp']}% SL={sa['sl']}% | Budget: {sa.get('budget_alloue', 0)}EUR | P&L: {sa.get('pnl', 0):+.2f}EUR | {sa.get('trades', 0)} trades ({wr_sa:.0f}% WR)"
+                    plan += f"\n    Critere: {sa.get('critere', '?')}"
+                    plan += f"\n    Role: {sa.get('description', '?')}"
+                plan += "\n\n  Les sous-agents analysent avec leurs propres criteres et aident l'IA principale a atteindre l'objectif."
+                plan += "\n  Un sous-agent qui perd trop (P&L < -10EUR) est desactive automatiquement."""
             if retard:
                 plan += "\n\n⚠️ RETARD DETECTE — l'IA doit accelerer ou evoluer!"
             if mode != "normal":
