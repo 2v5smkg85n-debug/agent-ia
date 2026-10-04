@@ -2498,6 +2498,18 @@ def _detecter_action_bot(message):
             return "Scan force. Le bot relance un cycle complet de recherche d'opportunites."
         except Exception as e:
             return f"Erreur scan force: {e}"
+    # 4b. FORCER L'ANALYSE IA AUTONOME
+    mots_analyse_ia = ["lance le scalp", "lance une analyse", "analyse le marche", "analyse le march",
+                       "ia analyse", "force l analyse", "force ia", "lance ia", "ia scan",
+                       "cherche une opportunite", "ouvre un trade", "lance un trade", "scalp"]
+    if any(w in msg for w in mots_analyse_ia):
+        try:
+            resultat = _analyser_marche_auto()
+            if resultat:
+                return resultat
+            return "L'IA a analyse le marche: aucune opportunite pour le moment. Mode survie: " + _mode_survie()
+        except Exception as e:
+            return f"Erreur analyse IA: {e}"
     return None
 
 def _cerveau_proactif():
