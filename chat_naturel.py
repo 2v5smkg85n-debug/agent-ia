@@ -330,6 +330,59 @@ def _sous_agents_actifs():
     obj = _charger_objectifs()
     return [s for s in obj.get("sous_agents", []) if s.get("actif")]
 
+def _cerveau_sous_agent(nom):
+    """Retourne le modele Ollama associe a un sous-agent."""
+    cerveaux = {
+        "scalpeur": "phi4-mini",       # rapide, decisions express
+        "swing": "qwen2.5:7b",         # equilibre, bonne analyse
+        "contrarien": "deepseek-r1:7b", # reflechit longtemps, contre-intuitif
+        "momentum": "qwen2.5:7b",       # rapide et fiable
+    }
+    return cerveaux.get(nom, "qwen2.5:7b")
+
+def _analyser_avec_sous_agent(sous_agent, prix_data, rsi_data, lignes_marche):
+    """Un sous-agent analyse le marche avec son propre cerveau et ses criteres."""
+    nom = sous_agent["nom"]
+    modele = _cerveau_sous_agent(nom)
+    tp = sous_agent["tp"]
+    sl = sous_agent["sl"]
+    critere = sous_agent.get("critere", "")
+    prompt = f"""Tu es un sous-agent trader specialise en {sous_agent['style']}.
+Critere d'entree: {critere}
+TP: {tp}% | SL: {sl}%
+
+PRIX ACTUELS:
+{chr(10).join(lignes_marche)}
+
+GUIDE DES INDICATEURS:
+- RSI < 30 = SURVENTE = signal d'ACHAT
+- RSI > 70 = SURACHAT = signal de VENTE
+- Fear & Greed 0-25 = PEUR EXTREME = acheter
+- Fear & Greed 75-100 = GREED EXTREME = ne pas acheter
+
+Reponds en JSON: {{"action": "ACHAT"|"RIEN", "symbole": "XXXUSDT", "raison": "..."}}
+Uniquement si le critere '{critere}' est rempli. Sinon RIEN."""
+    try:
+        ollama_payload = {
+            "model": modele,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+            "options": {"temperature": 0.3, "num_predict": 256}
+        }
+        timeout = 120 if modele == "deepseek-r1:7b" else 60
+        resp = requests.post("http://localhost:11434/api/chat", json=ollama_payload, timeout=timeout)
+        if resp.status_code == 200:
+            texte = resp.json()["message"]["content"].strip()
+            # deepseek-r1 genere des balises think qu'il faut retirer
+            if modele == "deepseek-r1:7b":
+                import re as _re
+                texte = _re.sub(r'<think>.*?</think>', '', texte, flags=_re.DOTALL).strip()
+            _deduire_cout(COUT_ANALYSE, f"analyse sous-agent {nom}")
+            return texte
+    except Exception:
+        pass
+    return None
+
 def _contexte_sous_agents():
     """Genere le contexte des sous-agents pour le prompt de l'IA."""
     actifs = _sous_agents_actifs()
@@ -2311,6 +2364,29 @@ REGLES:
             return None
         decision = json.loads(match.group())
         if decision.get("action") != "ACHAT":
+            # L'IA principale a dit RIEN — les sous-agents essaient avec leur propre cerveau
+            _sous_actifs = _sous_agents_actifs()
+            for sa in _sous_actifs:
+                try:
+                    texte_sa = _analyser_avec_sous_agent(sa, prix_data, rsi_data, lignes_marche)
+                    if texte_sa:
+                        match_sa = re.search(r'\{.*\}', texte_sa, re.DOTALL)
+                        if match_sa:
+                            decision_sa = json.loads(match_sa.group())
+                            if decision_sa.get("action") == "ACHAT":
+                                sym_sa = decision_sa.get("symbole", "").upper()
+                                if sym_sa in prix_data:
+                                    raison_sa = decision_sa.get("raison", "")
+                                    print(f"  [SOUS-AGENT] {sa['nom']} ({_cerveau_sous_agent(sa['nom'])}) trouve ACHAT {sym_sa}")
+                                    _tp_sa = sa["tp"]
+                                    _sl_sa = sa["sl"]
+                                    # Ouvre avec le sizing du sous-agent
+                                    _montant_sa = min(sa.get("budget_alloue", 200), liquidites - 200)
+                                    if _montant_sa >= 100:
+                                        resultat = _ouvrir_position_auto(sym_sa, _montant_sa, f"[{sa['nom'].upper()}] {raison_sa}", tp_override=_tp_sa, sl_override=_sl_sa)
+                                        return f"🧬 Sous-agent {sa['nom']} ({_cerveau_sous_agent(sa['nom'])}): ACHAT {sym_sa}\n{raison_sa[:100]}\nTP: {_tp_sa}% SL: {_sl_sa}%\n{resultat}"
+                except Exception as e:
+                    print(f"  [SOUS-AGENT] Erreur {sa['nom']}: {e}")
             return None
         symbole = decision.get("symbole", "").upper()
         raison = decision.get("raison", "")
