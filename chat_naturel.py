@@ -2528,6 +2528,7 @@ def _detecter_action_bot(message):
             couts = budget.get("cout_total", 0)
             pf = _charger_paper()
             trades = pf.get("trades_fermes", []) if pf else []
+            liquidites = pf.get("liquidites", 1000) if pf else 1000
             wr = (sum(1 for t in trades if t.get("gain_eur", 0) > 0) / len(trades) * 100) if trades else 0
             gain_moyen = sum(t.get("gain_eur", 0) for t in trades[-20:]) / max(len(trades[-20:]), 1) if trades else 0
             manque = objectif - total
