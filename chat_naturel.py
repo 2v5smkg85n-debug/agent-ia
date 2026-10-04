@@ -2284,21 +2284,26 @@ REGLES:
             _montant_base = _l.get("montant_ia", 200)
             _streak = _l.get("streak", {}).get("actuel", 0)
             _confiance = _l.get("confiance_globale", 50)
-            # PALIERS: 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700
-            _paliers = [100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700]
-            _idx = _paliers.index(_montant_base) if _montant_base in _paliers else 3  # 200 par defaut
+            # PALIERS ACCELERES: monte plus vite, plus haut, avec compounding
+            # Ancien: 100, 150, 200... 700 (13 paliers, +1 par gain)
+            # Nouveau: demarre a 200, +100 par gain, max = 70% du capital (compounding)
+            _paliers = [200, 300, 400, 500, 600, 700, 800, 1000, 1200, 1500, 2000, 3000, 5000]
+            _idx = _paliers.index(_montant_base) if _montant_base in _paliers else 2  # 200 par defaut
             # Dernier trade gagnant ou perdant?
             _trades = _l.get("trades_analyses", [])
             if _trades:
                 _dernier = _trades[-1]
                 _dernier_gain = _dernier.get("gain_eur", 0)
                 if _dernier_gain > 0:
-                    # GAGNE: monte d'un palier (max 700)
-                    _idx = min(_idx + 1, len(_paliers) - 1)
+                    # GAGNE: monte de 2 paliers (accelere vers le max)
+                    _idx = min(_idx + 2, len(_paliers) - 1)
                 else:
-                    # PERDU: descend d'un palier (min 100)
+                    # PERDU: descend d'1 palier (recupere plus vite qu'on monte)
                     _idx = max(_idx - 1, 0)
             _montant_base = _paliers[_idx]
+            # COMPOUNDING: le palier max depend du capital (70% max par trade)
+            _max_compound = int(liquidites * 0.7)
+            _montant_base = min(_montant_base, _max_compound)
             # Sauve le nouveau montant pour le prochain trade
             _l["montant_ia"] = _montant_base
             ap.sauver_learning(_l)
@@ -2526,12 +2531,18 @@ def _detecter_action_bot(message):
             wr = (sum(1 for t in trades if t.get("gain_eur", 0) > 0) / len(trades) * 100) if trades else 0
             gain_moyen = sum(t.get("gain_eur", 0) for t in trades[-20:]) / max(len(trades[-20:]), 1) if trades else 0
             manque = objectif - total
-            # Calcul du plan
-            gain_par_trade = 200 * 0.02  # 200EUR * TP 2% = 4EUR
+            # Calcul du plan avec compounding
+            gain_par_trade = 200 * 0.02  # 200EUR * TP 2% = 4EUR (depart)
+            gain_par_trade_max = min(liquidites * 0.7, 5000) * 0.02  # max sizing * TP
             trades_necessaires = int(manque / gain_par_trade) + 1 if gain_par_trade > 0 else 0
+            trades_necessaires_max = int(manque / gain_par_trade_max) + 1 if gain_par_trade_max > 0 else 0
             trades_par_jour = trades_necessaires / max(jours_restants, 1)
             couts_par_jour = couts / max(jour, 1)
-            plan = f"""PLAN DE SURVIE — Annee {annee}
+            # Projection avec compounding (capital grandit -> sizing grandit)
+            gain_par_trade_500 = 500 * 0.02   # 10EUR/trade
+            gain_par_trade_1000 = 1000 * 0.02  # 20EUR/trade
+            gain_par_trade_2000 = 2000 * 0.02  # 40EUR/trade
+            plan = f"""PLAN DE SURVIE ACCELERE — Annee {annee}
 
 📊 Situation actuelle:
   Capital: {total:.2f}EUR
@@ -2540,23 +2551,32 @@ def _detecter_action_bot(message):
   Progression: {pct:.1f}%
   Jours restants: {jours_restants}
   Mode: {mode}
-  Co.ts de fonctionnement: {couts:.2f}EUR ({couts_par_jour:.2f}EUR/jour)
+  Co.ts: {couts:.2f}EUR ({couts_par_jour:.2f}EUR/jour)
 
-🎯 Plan d'attaque:
-  Gain par trade gagnant: ~{gain_par_trade:.0f}EUR (200EUR x TP 2%)
-  Trades gagnants necessaires: ~{trades_necessaires}
-  Trades/jour necessaires: {trades_par_jour:.1f}
-  WR actuel: {wr:.0f}%
-  Gain moyen recent: {gain_moyen:+.2f}EUR/trade
+🚀 Plan accelere (compounding +2 paliers/gain):
+  Demarrage: 200EUR/trade -> 4EUR/gain
+  Apres 1 gain: 400EUR/trade -> 8EUR/gain
+  Apres 2 gains: 600EUR/trade -> 12EUR/gain
+  Apres 5 gains: 1200EUR/trade -> 24EUR/gain
+  Apres 8 gains: 3000EUR/trade -> 60EUR/gain
+  Max (70% capital): {gain_par_trade_max:.0f}EUR/gain
 
-📈 Strategie:
-  1. Attendre les surventes (RSI<30) pour ouvrir
-  2. Laisser courir les gagnants jusqu'au TP (2%+)
-  3. Couper les pertes vite (SL 1%)
-  4. Monter le sizing progressivement (200->700EUR)
-  5. Si retard: evoluer et creer un sous-agent
+🎯 Trades necessaires:
+  A 200EUR: {trades_necessaires} trades ({trades_par_jour:.1f}/jour)
+  A 500EUR: {int(manque/gain_par_trade_500)+1 if manque>0 else 0} trades ({(int(manque/gain_par_trade_500)+1)/max(jours_restants,1):.1f}/jour)
+  A 1000EUR: {int(manque/gain_par_trade_1000)+1 if manque>0 else 0} trades ({(int(manque/gain_par_trade_1000)+1)/max(jours_restants,1):.1f}/jour)
+  A 2000EUR: {int(manque/gain_par_trade_2000)+1 if manque>0 else 0} trades ({(int(manque/gain_par_trade_2000)+1)/max(jours_restants,1):.1f}/jour)
+  A sizing max: {trades_necessaires_max} trades ({trades_necessaires_max/max(jours_restants,1):.1f}/jour)
 
-💪 Si le sizing monte a 700EUR: gain de ~14EUR/trade = {int(manque/14)+1 if manque>0 else 0} trades necessaires"""
+📈 Strategie acceleree:
+  1. Attendre surventes (RSI<30) + confluence 2+ signaux
+  2. Laisser courir vers TP 2% puis trailing vers 5%+
+  3. SL serre 1% (protege le budget de survie)
+  4. +2 paliers par gain (200->400->600->800...)
+  5. Compounding: sizing = 70% du capital (grandit avec)
+  6. Si retard: evolution + sous-agent
+
+💪 Avec 5 gains consecutifs: sizing 1200EUR = 24EUR/trade = {int(manque/24)+1 if manque>0 else 0} trades restants"""
             if retard:
                 plan += "\n\n⚠️ RETARD DETECTE — l'IA doit accelerer ou evoluer!"
             if mode != "normal":
