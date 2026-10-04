@@ -2510,6 +2510,60 @@ def _detecter_action_bot(message):
             return "L'IA a analyse le marche: aucune opportunite pour le moment. Mode survie: " + _mode_survie()
         except Exception as e:
             return f"Erreur analyse IA: {e}"
+    # 4c. PLAN DE SURVIE — l'IA explique comment elle va atteindre son objectif
+    mots_plan = ["ton plan", "comment tu vas atteindre", "comment atteindre", "plan pour survivre",
+                 "comment tu vas faire", "ton strategie pour survivre", "comment tu vas y arriver",
+                 "ton plan pour", "comment tu vas gagner", "plan de survie"]
+    if any(w in msg for w in mots_plan):
+        try:
+            total, objectif, pct, jours_restants, retard = _progression_objectif()
+            annee, jour = _annee_actuelle()
+            mode = _mode_survie()
+            budget = _charger_budget()
+            couts = budget.get("cout_total", 0)
+            pf = _charger_paper()
+            trades = pf.get("trades_fermes", []) if pf else []
+            wr = (sum(1 for t in trades if t.get("gain_eur", 0) > 0) / len(trades) * 100) if trades else 0
+            gain_moyen = sum(t.get("gain_eur", 0) for t in trades[-20:]) / max(len(trades[-20:]), 1) if trades else 0
+            manque = objectif - total
+            # Calcul du plan
+            gain_par_trade = 200 * 0.02  # 200EUR * TP 2% = 4EUR
+            trades_necessaires = int(manque / gain_par_trade) + 1 if gain_par_trade > 0 else 0
+            trades_par_jour = trades_necessaires / max(jours_restants, 1)
+            couts_par_jour = couts / max(jour, 1)
+            plan = f"""PLAN DE SURVIE — Annee {annee}
+
+📊 Situation actuelle:
+  Capital: {total:.2f}EUR
+  Objectif: {objectif:,}EUR
+  Manque: {manque:,.2f}EUR
+  Progression: {pct:.1f}%
+  Jours restants: {jours_restants}
+  Mode: {mode}
+  Co.ts de fonctionnement: {couts:.2f}EUR ({couts_par_jour:.2f}EUR/jour)
+
+🎯 Plan d'attaque:
+  Gain par trade gagnant: ~{gain_par_trade:.0f}EUR (200EUR x TP 2%)
+  Trades gagnants necessaires: ~{trades_necessaires}
+  Trades/jour necessaires: {trades_par_jour:.1f}
+  WR actuel: {wr:.0f}%
+  Gain moyen recent: {gain_moyen:+.2f}EUR/trade
+
+📈 Strategie:
+  1. Attendre les surventes (RSI<30) pour ouvrir
+  2. Laisser courir les gagnants jusqu'au TP (2%+)
+  3. Couper les pertes vite (SL 1%)
+  4. Monter le sizing progressivement (200->700EUR)
+  5. Si retard: evoluer et creer un sous-agent
+
+💪 Si le sizing monte a 700EUR: gain de ~14EUR/trade = {int(manque/14)+1 if manque>0 else 0} trades necessaires"""
+            if retard:
+                plan += "\n\n⚠️ RETARD DETECTE — l'IA doit accelerer ou evoluer!"
+            if mode != "normal":
+                plan += f"\n\n🔴 Mode {mode} — l'IA adapte sa strategie pour survivre."
+            return plan
+        except Exception as e:
+            return f"Erreur plan: {e}"
     return None
 
 def _cerveau_proactif():
