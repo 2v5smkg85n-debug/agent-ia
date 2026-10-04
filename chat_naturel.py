@@ -3190,8 +3190,21 @@ def boucle():
     _charger_memoire()
     _charger_faits()
     # Initialise les objectifs de survie (cree le fichier au premier lancement)
-    _charger_objectifs()
+    _obj = _charger_objectifs()
     print(f"[CHAT] Objectifs de survie charges")
+    # Cree les 4 sous-agents immediatement s'ils n'existent pas encore
+    _sous_existants = [s["nom"] for s in _obj.get("sous_agents", [])]
+    _toutes_strats = ["scalpeur", "swing", "contrarien", "momentum"]
+    _crees = []
+    for _nom in _toutes_strats:
+        if _nom not in _sous_existants:
+            _sa = _creer_sous_agent()
+            if _sa:
+                _crees.append(_sa["nom"])
+    if _crees:
+        print(f"[CHAT] Sous-agents crees: {', '.join(_crees)}")
+    else:
+        print(f"[CHAT] Sous-agents deja actifs: {', '.join(_sous_existants)}")
     
     # Recupere le dernier update_id (crash recovery)
     if os.path.exists(FICHIER_UPDATE_ID):
