@@ -2678,18 +2678,6 @@ def boucle():
         try:
             signal.alarm(TEMPS_MAX_TICK)
             tick()
-            # === REVENUS PARALLELES ===
-            # Genere du contenu monetisable une fois par jour (apres le tick)
-            _aujourdhui = datetime.now().strftime("%Y-%m-%d")
-            if _aujourdhui != _derniere_gen_revenus:
-                try:
-                    import revenus_paralleles as rp
-                    contenus = rp.generer_revenus_paralleles()
-                    if contenus:
-                        _derniere_gen_revenus = _aujourdhui
-                        print(f"  [REVENUS] {len(contenus)} contenu(s) genere(s) par les sous-agents")
-                except Exception as _e:
-                    print(f"  [REVENUS] Erreur generation: {_e}")
         except TickTimeout as e:
             print(f"\n[WATCHDOG] {e}")
             print("    Sauvegarde de l'etat et passage au prochain tick.")
@@ -2704,6 +2692,17 @@ def boucle():
             print(f"Erreur: {e}")
         finally:
             signal.alarm(0)
+        # === REVENUS PARALLELES === (hors du timeout du tick — Ollama a besoin de temps)
+        _aujourdhui = datetime.now().strftime("%Y-%m-%d")
+        if _aujourdhui != _derniere_gen_revenus:
+            try:
+                import revenus_paralleles as rp
+                contenus = rp.generer_revenus_paralleles()
+                if contenus:
+                    _derniere_gen_revenus = _aujourdhui
+                    print(f"  [REVENUS] {len(contenus)} contenu(s) genere(s) par les sous-agents")
+            except Exception as _e:
+                print(f"  [REVENUS] Erreur generation: {_e}")
         prochaine = datetime.now() + timedelta(seconds=INTERVALLE_BOUCLE)
         print(f"\nProchaine verification: {prochaine.strftime('%H:%M')} (crypto SL check toutes les 5s)")
         # SL check toutes les 5s (plus reactif = moins de SL-RETARD)
