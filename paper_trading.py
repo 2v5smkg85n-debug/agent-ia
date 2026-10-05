@@ -2673,10 +2673,23 @@ def boucle():
     print("Pour arreter: Ctrl+C")
     print("="*55)
     ancien_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+    _derniere_gen_revenus = ""
     while True:
         try:
             signal.alarm(TEMPS_MAX_TICK)
             tick()
+            # === REVENUS PARALLELES ===
+            # Genere du contenu monetisable une fois par jour (apres le tick)
+            _aujourdhui = datetime.now().strftime("%Y-%m-%d")
+            if _aujourdhui != _derniere_gen_revenus:
+                try:
+                    import revenus_paralleles as rp
+                    contenus = rp.generer_revenus_paralleles()
+                    if contenus:
+                        _derniere_gen_revenus = _aujourdhui
+                        print(f"  [REVENUS] {len(contenus)} contenu(s) genere(s) par les sous-agents")
+                except Exception as _e:
+                    print(f"  [REVENUS] Erreur generation: {_e}")
         except TickTimeout as e:
             print(f"\n[WATCHDOG] {e}")
             print("    Sauvegarde de l'etat et passage au prochain tick.")

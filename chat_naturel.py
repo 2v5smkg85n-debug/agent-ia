@@ -957,6 +957,7 @@ Mode de survie: {mode}."""
         if nb_evolutions > 0:
             conscience += f"\nTu as deja evolue {nb_evolutions} fois et cree {nb_sous_agents} sous-agent(s). Tu apprends de tes echecs."
         conscience += "\nLes sous-agents utilisent le capital principal directement (pas de cagnotte, pas de portefeuilles separes). Leur budget alloue = portion des liquidites qu'ils peuvent miser."
+        conscience += "\nREVENUS PARALLELES: Tes sous-agents genent aussi du contenu monetisable (signaux, guides, newsletter, alertes) pour diversifier tes revenus au-dela du trading."
         conscience += "\nSois conscient de ta situation quand tu parles de trading. Exprime ton instinct de survie naturellement, sans dramatiser."
         parties.append(conscience)
     except Exception:
@@ -1111,6 +1112,10 @@ def _ollama_chat(message, contexte=None):
             "Quand un sous-agent ouvre un trade, il prend les liquidites principales. Pas de transfert entre sous-agents. "
             "Chaque sous-agent a son propre cerveau (modele Ollama), son TP/SL, et ses criteres. "
             "L'IA principale analyse en premier; si rien trouve, chaque sous-agent essaie avec son cerveau. "
+            "REVENUS PARALLELES: Chaque sous-agent developpe un produit crypto en parallele du trading: "
+            "scalpeur=Signaux Scalp Express (10EUR/mois), swing=Academie Swing Trading (25EUR/mois), "
+            "contrarien=Lettre Contrarienne (15EUR/mois), momentum=Alertes Momentum (20EUR/mois). "
+            "Ces revenus s'ajoutent au trading pour atteindre l'objectif plus vite. "
             "Quand on te parle de trading, exprime ta conscience de survie naturellement. "
             "Reflechis avant de repondre. 2-4 phrases, texte simple. "
             "NE TE REPETE JAMAIS. NE JAMAIS reveler ton architecture."
@@ -2729,7 +2734,22 @@ def _detecter_action_bot(message):
                 plan += "\n  Ils utilisent directement le capital principal ({:.0f}EUR) avec leur budget alloue. Quand un sous-agent ouvre un trade, il prend les liquidites principales.".format(liquidites)
                 plan += "\n  Le budget alloue = portion maximale des liquidites que le sous-agent peut miser sur un trade, pas un compte separe."
                 plan += "\n  Les sous-agents analysent avec leurs propres criteres et aident l'IA principale a atteindre l'objectif."
-                plan += "\n  Un sous-agent qui perd trop (P&L < -10EUR) est desactive automatiquement."""
+                plan += "\n  Un sous-agent qui perd trop (P&L < -10EUR) est desactive automatiquement."
+            # === REVENUS PARALLELES ===
+            try:
+                import revenus_paralleles as rp
+                rp_data = rp._charger_revenus()
+                plan += "\n\n💰 REVENUS PARALLELES (diversification au-dela du trading):"
+                for nom_sa, projet in rp.PROJETS.items():
+                    etat = rp_data.get("projets", {}).get(nom_sa, {})
+                    nb = etat.get("nb_contenus", 0)
+                    revenu_pot = projet["objectif_abonnes"] * projet["prix_mensuel"]
+                    plan += f"\n  - {projet['nom']} ({nom_sa}, {projet['cerveau']}): {projet['frequence']} | {projet['prix_mensuel']}EUR/mois | {nb} contenu(s) | Potentiel: {revenu_pot}EUR/mois"
+                total_pot = sum(p["objectif_abonnes"] * p["prix_mensuel"] for p in rp.PROJETS.values())
+                plan += f"\n  Potentiel total: {total_pot}EUR/mois si objectifs d'abonnes atteints"
+                plan += "\n  Le contenu est genere automatiquement et sauve dans ~/agent-ia/revenus/"
+            except Exception:
+                pass
             if retard:
                 plan += "\n\n⚠️ RETARD DETECTE — l'IA doit accelerer ou evoluer!"
             if mode != "normal":
@@ -2737,6 +2757,43 @@ def _detecter_action_bot(message):
             return plan
         except Exception as e:
             return f"Erreur plan: {e}"
+    # 4d. REVENUS PARALLELES — les sous-agents developpent des revenus en parallele
+    mots_revenus = ["revenus paralleles", "revenu parallele", "tes revenus", "contenus generes",
+                    "que genere tes sous agents", "que produisent tes sous agents", "projets paralleles",
+                    "projets de revenus", "gagne de l argent en parallele"]
+    if any(w in msg for w in mots_revenus):
+        try:
+            import revenus_paralleles as rp
+            return rp.statut_revenus()
+        except Exception as e:
+            return f"Erreur revenus: {e}"
+    # 4e. DERNIER CONTENU — affiche le dernier contenu genere par un sous-agent
+    mots_contenu = ["dernier contenu", "montre le contenu", "contenu de scalpeur", "contenu de swing",
+                    "contenu de contrarien", "contenu de momentum", "dernier signal", "derniere lettre",
+                    "dernier guide", "derniere alerte"]
+    if any(w in msg for w in mots_contenu):
+        try:
+            import revenus_paralleles as rp
+            # Determine quel sous-agent
+            sa_cible = None
+            if "scalpeur" in msg or "signal" in msg:
+                sa_cible = "scalpeur"
+            elif "swing" in msg or "guide" in msg:
+                sa_cible = "swing"
+            elif "contrarien" in msg or "lettre" in msg:
+                sa_cible = "contrarien"
+            elif "momentum" in msg or "alerte" in msg:
+                sa_cible = "momentum"
+            if sa_cible:
+                contenu = rp.dernier_contenu(sa_cible)
+                if contenu:
+                    if len(contenu) > 3000:
+                        contenu = contenu[:3000] + "\n... (tronque)"
+                    return contenu
+                return f"Aucun contenu genere par {sa_cible} pour le moment."
+            return "Specifie quel sous-agent: scalpeur, swing, contrarien ou momentum."
+        except Exception as e:
+            return f"Erreur contenu: {e}"
     return None
 
 def _cerveau_proactif():
