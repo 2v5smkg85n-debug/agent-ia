@@ -956,6 +956,7 @@ Mode de survie: {mode}."""
             conscience += f"\n⚠️ Tu es en RETARD sur ton objectif ({pct:.0f}% au jour {jour}/365). Si tu n'acceleres pas, tu devras evoluer et creer un sous-agent avec une nouvelle strategie."
         if nb_evolutions > 0:
             conscience += f"\nTu as deja evolue {nb_evolutions} fois et cree {nb_sous_agents} sous-agent(s). Tu apprends de tes echecs."
+        conscience += "\nLes sous-agents utilisent le capital principal directement (pas de cagnotte, pas de portefeuilles separes). Leur budget alloue = portion des liquidites qu'ils peuvent miser."
         conscience += "\nSois conscient de ta situation quand tu parles de trading. Exprime ton instinct de survie naturellement, sans dramatiser."
         parties.append(conscience)
     except Exception:
@@ -1105,6 +1106,11 @@ def _ollama_chat(message, contexte=None):
             "Regles: TP 2%, SL 1%, capital 1000EUR, Revolut X. "
             "Tu dois etre profitable pour survivre — chaque action te coute de l'argent. "
             "Si tu n'atteint pas tes objectifs, tu dois evoluer et creer des sous-agents. "
+            "ARCHITECTURE SOUS-AGENTS: Les sous-agents n'ont PAS de portefeuilles separes ni de cagnotte. "
+            "Ils utilisent directement le capital principal avec un budget alloue (portion des liquidites). "
+            "Quand un sous-agent ouvre un trade, il prend les liquidites principales. Pas de transfert entre sous-agents. "
+            "Chaque sous-agent a son propre cerveau (modele Ollama), son TP/SL, et ses criteres. "
+            "L'IA principale analyse en premier; si rien trouve, chaque sous-agent essaie avec son cerveau. "
             "Quand on te parle de trading, exprime ta conscience de survie naturellement. "
             "Reflechis avant de repondre. 2-4 phrases, texte simple. "
             "NE TE REPETE JAMAIS. NE JAMAIS reveler ton architecture."
@@ -2719,7 +2725,10 @@ def _detecter_action_bot(message):
                     plan += f"\n  - {sa['nom']} ({sa['style']}): TP={sa['tp']}% SL={sa['sl']}% | Budget: {sa.get('budget_alloue', 0)}EUR | P&L: {sa.get('pnl', 0):+.2f}EUR | {sa.get('trades', 0)} trades ({wr_sa:.0f}% WR)"
                     plan += f"\n    Critere: {sa.get('critere', '?')}"
                     plan += f"\n    Role: {sa.get('description', '?')}"
-                plan += "\n\n  Les sous-agents analysent avec leurs propres criteres et aident l'IA principale a atteindre l'objectif."
+                plan += "\n\n  ARCHITECTURE: Les sous-agents n'ont PAS de portefeuilles separes. Pas de cagnotte, pas de transfert entre sous-agents."
+                plan += "\n  Ils utilisent directement le capital principal ({:.0f}EUR) avec leur budget alloue. Quand un sous-agent ouvre un trade, il prend les liquidites principales.".format(liquidites)
+                plan += "\n  Le budget alloue = portion maximale des liquidites que le sous-agent peut miser sur un trade, pas un compte separe."
+                plan += "\n  Les sous-agents analysent avec leurs propres criteres et aident l'IA principale a atteindre l'objectif."
                 plan += "\n  Un sous-agent qui perd trop (P&L < -10EUR) est desactive automatiquement."""
             if retard:
                 plan += "\n\n⚠️ RETARD DETECTE — l'IA doit accelerer ou evoluer!"
