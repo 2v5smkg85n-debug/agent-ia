@@ -12,6 +12,19 @@ FICHIER_REVENUS = os.path.expanduser("~/agent-ia/revenus_paralleles.json")
 DOSSIER_CONTENU = os.path.expanduser("~/agent-ia/revenus/")
 os.makedirs(DOSSIER_CONTENU, exist_ok=True)
 
+# === TELEGRAM POUR AUTO-PUBLICATION ===
+DOSSIER_PROJET = os.path.expanduser("~/agent-ia")
+TELEGRAM_TOKEN = ""
+env_path = os.path.join(DOSSIER_PROJET, ".env")
+if os.path.exists(env_path):
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("TELEGRAM_BOT_TOKEN="):
+                TELEGRAM_TOKEN = line.split("=", 1)[1].strip()
+
+TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}" if TELEGRAM_TOKEN else ""
+
 # === DEFINITION DES PROJETS PAR SOUS-AGENT ===
 PROJETS = {
     "scalpeur": {
@@ -99,6 +112,8 @@ def _charger_revenus():
         "projets": {},
         "abonnes_estimes": 0,
         "revenu_estime_mensuel": 0,
+        "canal_gratuit_id": "",
+        "canal_premium_id": "",
     }
 
 
@@ -109,6 +124,63 @@ def _sauver_revenus(data):
             json.dump(data, f, indent=2, ensure_ascii=False)
     except Exception as e:
         print(f"  [REVENUS] Erreur sauvegarde: {e}")
+
+
+def _envoyer_canal_telegram(channel_id, texte):
+    """Envoie un message a un canal Telegram."""
+    if not TELEGRAM_API or not channel_id:
+        return False
+    try:
+        # Telegram limite a 4096 caracteres par message
+        if len(texte) > 4000:
+            texte = texte[:4000] + "\n... (suite dans le canal premium)"
+        url = f"{TELEGRAM_API}/sendMessage"
+        payload = {
+            "chat_id": channel_id,
+            "text": texte,
+            "parse_mode": "Markdown",
+            "disable_web_page_preview": True,
+        }
+        r = requests.post(url, json=payload, timeout=15)
+        if r.status_code == 200:
+            print(f"  [REVENUS] ✓ Publie sur canal Telegram ({channel_id})")
+            return True
+        else:
+            print(f"  [REVENUS] Erreur Telegram {r.status_code}: {r.text[:200]}")
+    except Exception as e:
+        print(f"  [REVENUS] Erreur envoi canal: {e}")
+    return False
+
+
+def _formater_post_gratuit(sous_agent, projet, contenu):
+    """Formate un extrait gratuit pour le canal public (teaser + CTA)."""
+    # Extrait: premieres lignes seulement (teaser)
+    lignes = contenu.split("\n")
+    extrait = "\n".join(lignes[:15])
+    if len(extrait) > 800:
+        extrait = extrait[:800] + "..."
+    post = (
+        f"*{projet['nom']}*\n"
+        f"_Par le sous-agent {sous_agent} ({projet['cerveau']})_\n"
+        f"{datetime.now().strftime('%d/%m/%Y')}\n\n"
+        f"{extrait}\n\n"
+        f"... \n\n"
+        f"*Pour le signal complet avec SL/TP precis, rejoignez le canal Premium.*\n"
+        f"_Crypto Signals IA — Genere par IA_"
+    )
+    return post
+
+
+def _formater_post_premium(sous_agent, projet, contenu):
+    """Formate le contenu complet pour le canal premium (payant)."""
+    post = (
+        f"*🔒 PREMIUM — {projet['nom']}*\n"
+        f"_Par le sous-agent {sous_agent} ({projet['cerveau']})_\n"
+        f"{datetime.now().strftime('%d/%m/%Y')}\n\n"
+        f"{contenu}\n\n"
+        f"_Crypto Signals IA Premium_"
+    )
+    return post
 
 
 def _generer_contenu_ollama(ceveau, prompt):
@@ -172,7 +244,7 @@ def _doit_generer(projet, etat_projet):
     return False
 
 
-def generer_revenus_paralleles():
+def generer_revenus_paralleles(force=False):
     """Genere du contenu pour chaque sous-agent dont c'est le moment."""
     data = _charger_revenus()
     contenus_genere_aujourdhui = []
@@ -184,7 +256,7 @@ def generer_revenus_paralleles():
             "abonnes_estimes": 0,
         })
 
-        if not _doit_generer(projet, etat):
+        if not force and not _doit_generer(projet, etat):
             continue
 
         print(f"  [REVENUS] Generation {projet['nom']} ({projet['cerveau']})...")
@@ -215,6 +287,17 @@ def generer_revenus_paralleles():
                     "extrait": contenu[:200],
                 })
                 print(f"  [REVENUS] ✓ {projet['nom']}: contenu genere ({len(contenu)} chars)")
+                # === AUTO-PUBLICATION SUR TELEGRAM ===
+                canal_gratuit = data.get("canal_gratuit_id", "")
+                canal_premium = data.get("canal_premium_id", "")
+                if canal_gratuit:
+                    post_gratuit = _formater_post_gratuit(nom_sa, projet, contenu)
+                    _envoyer_canal_telegram(canal_gratuit, post_gratuit)
+                if canal_premium:
+                    post_premium = _formater_post_premium(nom_sa, projet, contenu)
+                    _envoyer_canal_telegram(canal_premium, post_premium)
+                if not canal_gratuit and not canal_premium:
+                    print(f"  [REVENUS] (Aucun canal Telegram configure — contenu sauve seulement)")
             else:
                 print(f"  [REVENUS] ✗ {projet['nom']}: echec sauvegarde")
         else:

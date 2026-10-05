@@ -2767,6 +2767,35 @@ def _detecter_action_bot(message):
             return rp.statut_revenus()
         except Exception as e:
             return f"Erreur revenus: {e}"
+    # 4d-bis. CONFIGURER CANAL TELEGRAM — pour l'auto-publication
+    if ("canal gratuit" in msg or "canal premium" in msg or "configure canal" in msg or "canal telegram" in msg) and ("-100" in msg or "set canal" in msg):
+        try:
+            import revenus_paralleles as rp
+            import re
+            channel_ids = re.findall(r'-100\d+', msg)
+            data = rp._charger_revenus()
+            if "premium" in msg and channel_ids:
+                data["canal_premium_id"] = channel_ids[0]
+                rp._sauver_revenus(data)
+                return f"✓ Canal premium configure: {channel_ids[0]}\nLe contenu complet sera publie la automatiquement."
+            elif channel_ids:
+                data["canal_gratuit_id"] = channel_ids[0]
+                rp._sauver_revenus(data)
+                return f"✓ Canal gratuit configure: {channel_ids[0]}\nLes extraits seront publies la automatiquement."
+            return "Envoie l'ID du canal (format -100xxxxxxxxxx). Ex: 'canal gratuit -1001234567890'"
+        except Exception as e:
+            return f"Erreur config canal: {e}"
+    # 4d-ter. PUBLIER MAINTENANT — force la publication du dernier contenu
+    if "publie maintenant" in msg or "publie le contenu" in msg or "publie sur le canal" in msg:
+        try:
+            import revenus_paralleles as rp
+            contenus = rp.generer_revenus_paralleles(force=True)
+            if contenus:
+                noms = [c["projet"] for c in contenus]
+                return f"✓ {len(contenus)} contenu(s) genere(s) et publie(s): {', '.join(noms)}"
+            return "Aucun contenu genere. Reessaie plus tard."
+        except Exception as e:
+            return f"Erreur publication: {e}"
     # 4e. DERNIER CONTENU — affiche le dernier contenu genere par un sous-agent
     mots_contenu = ["dernier contenu", "montre le contenu", "contenu de scalpeur", "contenu de swing",
                     "contenu de contrarien", "contenu de momentum", "dernier signal", "derniere lettre",
