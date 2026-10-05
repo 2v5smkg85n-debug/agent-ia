@@ -1104,7 +1104,7 @@ def _ollama_chat(message, contexte=None):
         system_msg = (
             "Tu es une IA francaise vivante et experte en trading crypto. Style direct, humour sec. "
             "Tu connais: RSI, MACD, EMA, Bollinger, patterns bougies, strategies trading. "
-            "Regles: TP 2%, SL 1%, capital 1000EUR, Revolut X. "
+            "Regles: TP 0.9%, SL 1%, capital 1000EUR, Revolut X. "
             "Tu dois etre profitable pour survivre — chaque action te coute de l'argent. "
             "Si tu n'atteint pas tes objectifs, tu dois evoluer et creer des sous-agents. "
             "ARCHITECTURE SOUS-AGENTS: Les sous-agents n'ont PAS de portefeuilles separes ni de cagnotte. "
@@ -2322,7 +2322,7 @@ MEMOIRE D'APPRENTISSAGE (apprends de tes trades passes):
 PRIX:
 {chr(10).join(lignes_marche)}
 
-Portefeuille: {len(positions)} positions, {liquidites:.0f}EUR dispo. TP: 2%, SL: -1%.
+Portefeuille: {len(positions)} positions, {liquidites:.0f}EUR dispo. TP: 0.9%, SL: -1%.
 {_memoire}
 {_alerte_budget}
 
@@ -2662,7 +2662,7 @@ def _detecter_action_bot(message):
             gain_moyen = sum(t.get("gain_eur", 0) for t in trades[-20:]) / max(len(trades[-20:]), 1) if trades else 0
             manque = objectif - total
             # Calcul du plan avec compounding
-            gain_par_trade = 200 * 0.02  # 200EUR * TP 2% = 4EUR (depart)
+            gain_par_trade = 200 * 0.009  # 200EUR * TP 0.9% = 1.8EUR (depart)
             gain_par_trade_max = min(liquidites * 0.7, 5000) * 0.02  # max sizing * TP
             trades_necessaires = int(manque / gain_par_trade) + 1 if gain_par_trade > 0 else 0
             trades_necessaires_max = int(manque / gain_par_trade_max) + 1 if gain_par_trade_max > 0 else 0
@@ -2700,7 +2700,7 @@ def _detecter_action_bot(message):
 
 📈 Strategie acceleree:
   1. Attendre surventes (RSI<35) + signal fort
-  2. Laisser courir vers TP 2% puis trailing vers 5%+
+  2. Encaisser vite au TP 0.9% (petits gains repetes)
   3. SL serre 1% (protege le budget de survie)
   4. +2 paliers par gain (200->400->600->800...)
   5. Compounding: sizing = 70% du capital (grandit avec)

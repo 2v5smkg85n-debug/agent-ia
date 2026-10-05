@@ -29,13 +29,13 @@ PARAMS_FILE = os.path.join(DOSSIER, "params_tuning.json")
 LOG_FILE = os.path.join(DOSSIER, "meta_tuning_log.jsonl")
 
 # Defaults (matchent TAKE_PROFIT_PCT / STOP_LOSS_PCT de paper_trading)
-TP_DEFAUT = 2.0
+TP_DEFAUT = 0.9
 SL_DEFAUT = 1.0
 
 # Garde-fous
 MIN_TRADES = 5
 PAS = 0.25
-TP_MIN, TP_MAX = 2.0, 3.0  # TP minimum 2.0%
+TP_MIN, TP_MAX = 0.9, 1.5  # TP minimum 0.9%
 SL_MIN, SL_MAX = 1.0, 2.5  # SL minimum 1.0%
 WR_HAUT = 60.0    # win rate -> elargir TP
 WR_BAS = 40.0     # win rate -> serrer SL

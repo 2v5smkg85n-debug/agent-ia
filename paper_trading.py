@@ -65,7 +65,7 @@ HEURES_FAIBLE_LIQUIDITE = [(12, 13), (8, 9)] # bloque 12h et 8h UTC (0% WR histo
 HEURES_FORT_VOLUME = [(8, 11), (13, 17)]  # UTC
 HEURES_FORT_BOOST = 1  # +1 au score pendant ces heures
 # Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
-TAKE_PROFIT_PCT = 2.0          # +2.0% (ratio TP:SL = 2:1 — laisse courir les gagnants, coupe vite les perdants)
+TAKE_PROFIT_PCT = 0.9          # +0.9% (TP serre = encaisse vite les petits gains)
 STOP_LOSS_PCT = 1.0            # -1.0% ( coupe vite les perdants, pertes limitees)
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
 # est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
@@ -96,7 +96,7 @@ STAGNATION_SL_PROCHE = -0.8    # ne coupe pas si proche du SL, laisse le SL fair
 # TP DYNAMIQUE ATR: adapte le TP selon la volatilité
 ATR_LOOKBACK = 14               # périodes pour le calcul ATR
 ATR_TP_MULT = 2.0               # TP = prix_entree + ATR * mult
-ATR_TP_MIN = 1.5                # TP minimum 1.5% (200 x 1.5% = 3 EUR)
+ATR_TP_MIN = 0.9                # TP minimum 0.9% (aligne avec TAKE_PROFIT_PCT)
 ATR_TP_MAX = 4.0                # TP maximum 4% (200 x 4% = 8 EUR)
 
 # ============================================
