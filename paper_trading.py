@@ -2674,7 +2674,6 @@ def boucle():
     print("="*55)
     ancien_handler = signal.signal(signal.SIGALRM, _timeout_handler)
     _derniere_gen_revenus = ""
-    _dernier_meta_tuning = ""
     while True:
         try:
             signal.alarm(TEMPS_MAX_TICK)
@@ -2704,17 +2703,6 @@ def boucle():
                     print(f"  [REVENUS] {len(contenus)} contenu(s) genere(s) par les sous-agents")
             except Exception as _e:
                 print(f"  [REVENUS] Erreur generation: {_e}")
-        # === META-TUNING === (ajuste TP/SL par crypto une fois par jour)
-        if _aujourdhui != _dernier_meta_tuning:
-            try:
-                from meta_tuning import tuner as _mt_tuner
-                _changements, _stats, _data = _mt_tuner()
-                _dernier_meta_tuning = _aujourdhui
-                if _changements:
-                    print(f"  [META-TUNING] {len(_changements)} ajustement(s) TP/SL")
-            except Exception as _e:
-                print(f"  [META-TUNING] Erreur: {_e}")
-                _dernier_meta_tuning = _aujourdhui
         prochaine = datetime.now() + timedelta(seconds=INTERVALLE_BOUCLE)
         print(f"\nProchaine verification: {prochaine.strftime('%H:%M')} (crypto SL check toutes les 5s)")
         # SL check toutes les 5s (plus reactif = moins de SL-RETARD)
