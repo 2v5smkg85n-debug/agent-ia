@@ -335,7 +335,7 @@ def _cerveau_sous_agent(nom):
     cerveaux = {
         "scalpeur": "phi4-mini",       # rapide, decisions express
         "swing": "qwen2.5:7b",         # equilibre, bonne analyse
-        "contrarien": "deepseek-r1:7b", # reflechit longtemps, contre-intuitif
+        "contrarien": "phi4-mini",        # rapide, contre-intuitif (deepseek-r1 trop lent 57s)
         "momentum": "qwen2.5:7b",       # rapide et fiable
     }
     return cerveaux.get(nom, "qwen2.5:7b")
@@ -2317,39 +2317,22 @@ MEMOIRE D'APPRENTISSAGE (apprends de tes trades passes):
         _alerte_budget = "\n🔴 BUDGET DE SURVIE: Tu es au bord du coma. Uniquement les opportunitites exceptionnelles. Sinon RIEN."
     elif _mode == "coma":
         _alerte_budget = "\n💤 COMA: Tu es en etat de survie minimal. Une seule analyse toutes les 4h. Uniquement les setups parfaits (RSI<20 + F&G<25 + momentum fort). Sinon RIEN. Tu dois te relever."
-    prompt = f"""Tu es un trader crypto expert avec 20 ans d'experience. Analyse ce marche et decide si il faut ouvrir une position.
-{_savoir}
+    prompt = f"""Trader crypto expert. Analyse et decide.
 
-{_memoire}
-
-PRIX ACTUELS:
+PRIX:
 {chr(10).join(lignes_marche)}
 
-PORTFEUILLE: {len(positions)} positions ouvertes, {liquidites:.0f}EUR de liquidites.
-Capital: 1000EUR. Budget de survie: {liquidites:.0f}EUR. Risk par trade: 200EUR. TP: 2%, SL: -1%.
-Chaque analyse te coute 0.10EUR. Tu dois etre profitable pour survivre.
-OBJECTIF DE SURVIE: Atteindre {_objectif_actuel():,}EUR en {365 - _annee_actuelle()[1]}j restants cette annee. Actuellement a {liquidites:.0f}EUR. Si tu n'atteint pas l'objectif, tu dois evoluer et essayer une nouvelle strategie.{_alerte_budget}
-{_contexte_sous_agents()}
-
-GUIDE DES INDICATEURS (IMPORTANT):
-- RSI < 30 = SURVENTE = signal d'ACHAT (le prix a trop bais, rebond probable)
-- RSI > 70 = SURACHAT = signal de VENTE (le prix a trop monte, correction probable)
-- RSI 30-70 = NEUTRE
-- Fear & Greed 0-25 = PEUR EXTREME = bon moment pour ACHATER (contrarien)
-- Fear & Greed 25-45 = PEUR = possible ACHATER
-- Fear & Greed 45-55 = NEUTRE
-- Fear & Greed 55-75 = GREED = prudent, risque de correction
-- Fear & Greed 75-100 = GREED EXTREME = NE PAS ACHATER (risque de chute)
+Portefeuille: {len(positions)} positions, {liquidites:.0f}EUR dispo. TP: 2%, SL: -1%.
+{_memoire}
+{_alerte_budget}
 
 REGLES:
-- Reponds en JSON exact: {{"action": "ACHAT"|"RIEN", "symbole": "XXXUSDT", "raison": "..."}}
-- ACHAT si tu vois une opportunite avec CONFLUENCE (2+ signaux): survente (RSI<35), momentum haussier, rebond technique, ou tendance favorable
-- Pas d'achat si RSI > 70 (surachat) ou Fear & Greed > 75 (Greed eleve)
-- 1 seule crypto max
-- Si rien d'interessant, repond RIEN
-- NE TE REPETE JAMAIS (varie les cryptos)
-- Apprends de tes erreurs: evite les cryptos ou tu perds
-- Respecte le ratio risque/recompense minimum 2:1"""
+- RSI<40 = survente = ACHAT possible. RSI>70 = surachat = RIEN.
+- F&G<45 = peur = ACHAT possible. F&G>75 = greed = RIEN.
+- 1 signal fort suffit (survente, momentum haussier, rebond technique, tendance favorable).
+- JSON: {{"action": "ACHAT"|"RIEN", "symbole": "XXXUSDT", "raison": "..."}}
+- 1 crypto max. Varie les cryptos. Evite celles ou tu perds.
+- Si rien d'interessant: RIEN."""
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_KEY}"
         payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.3, "maxOutputTokens": 512, "thinkingConfig": {"thinkingBudget": 0}}}
@@ -2395,7 +2378,12 @@ REGLES:
                                     _montant_sa = min(sa.get("budget_alloue", 200), liquidites - 200)
                                     if _montant_sa >= 100:
                                         resultat = _ouvrir_position_auto(sym_sa, _montant_sa, f"[{sa['nom'].upper()}] {raison_sa}", tp_override=_tp_sa, sl_override=_sl_sa)
-                                        return f"🧬 Sous-agent {sa['nom']} ({_cerveau_sous_agent(sa['nom'])}): ACHAT {sym_sa}\n{raison_sa[:100]}\nTP: {_tp_sa}% SL: {_sl_sa}%\n{resultat}"
+                                        _msg_sa = f"🧬 Sous-agent {sa['nom']} ({_cerveau_sous_agent(sa['nom'])}): ACHAT {sym_sa}\n{raison_sa[:100]}\nTP: {_tp_sa}% SL: {_sl_sa}%\n{resultat}"
+                                        try:
+                                            _telegram_send(_msg_sa)
+                                        except Exception:
+                                            pass
+                                        return _msg_sa
                 except Exception as e:
                     print(f"  [SOUS-AGENT] Erreur {sa['nom']}: {e}")
             return None
@@ -2711,7 +2699,7 @@ def _detecter_action_bot(message):
   A sizing max: {trades_necessaires_max} trades ({trades_necessaires_max/max(jours_restants,1):.1f}/jour)
 
 📈 Strategie acceleree:
-  1. Attendre surventes (RSI<30) + confluence 2+ signaux
+  1. Attendre surventes (RSI<35) + signal fort
   2. Laisser courir vers TP 2% puis trailing vers 5%+
   3. SL serre 1% (protege le budget de survie)
   4. +2 paliers par gain (200->400->600->800...)
