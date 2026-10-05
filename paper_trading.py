@@ -899,18 +899,26 @@ def ouvrir_position(pf, signal, prix_actuel):
     if pf["liquidites"] < LIQUIDITE_MIN:
         print(f"  [LIQUIDITE] {pf['liquidites']:.2f} EUR < {LIQUIDITE_MIN} EUR minimum -> skip nouveau trade")
         return False
-    # BLACKLIST: SEULE ia_autonome autorisee. Toutes les strategies techniques bloquées.
-    _strat_blacklist = ["momentum", "pattern_reversal", "vwap_bounce", "breakout", "sma_trend", "consensus_patterns", "consensus_tendance", "rsi_oversold", "macd_cross", "bollinger_bounce", "volume_spike", "divergence_rsi", "peak_fader", "consensus_reversion", "technique", "professeur_virtuel", "scanner_etoile"]
+    # BLACKLIST: ia_autonome autorisee + professeurs avec score eleve (>=8).
+    # Les strategies techniques faibles restent bloquees, mais les signaux forts des professeurs passent.
+    _strat_blacklist = ["momentum", "pattern_reversal", "vwap_bounce", "breakout", "sma_trend", "consensus_patterns", "consensus_tendance", "rsi_oversold", "macd_cross", "bollinger_bounce", "volume_spike", "divergence_rsi", "peak_fader", "consensus_reversion", "technique", "scanner_etoile"]
     _strat_signal = (signal.get("strategie", "") or "").lower()
     _source_signal = (signal.get("source", "") or "").lower()
+    _score_signal = signal.get("score", 0)
     for _bl in _strat_blacklist:
         if _bl in _strat_signal:
-            print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_bl}' bloquee (ia_autonome seulement)")
+            # Exception: score >= 8 = signal tres fort, on laisse passer
+            if _score_signal >= 8:
+                print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_bl}' MAIS score {_score_signal}>=8 -> AUTORISE")
+                continue
+            print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_bl}' bloquee (score {_score_signal}<8)")
             return False
-    # Autoriser uniquement ia_autonome et ouverture_ia_chat
+    # Autoriser ia_autonome, ia_chat, et professeurs avec score >= 8
     if _strat_signal and _strat_signal != "ia_autonome" and "ia_chat" not in _source_signal and "autonome" not in _strat_signal:
-        print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_strat_signal}' bloquee (ia_autonome seulement)")
-        return False
+        if _score_signal < 8:
+            print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_strat_signal}' bloquee (score {_score_signal}<8, ia_autonome seulement)")
+            return False
+        print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_strat_signal}' MAIS score {_score_signal}>=8 -> AUTORISE")
     # MULTI-ENTREES: autorise plusieurs positions sur le meme actif SI en hausse
     # Si la position existante est en perte, on bloque (on n'average pas down)
     # Si la position existante est en gain, on autorise (on pyramide sur la hausse)
