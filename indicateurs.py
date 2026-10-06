@@ -266,7 +266,7 @@ def _historique_kucoin(symbole, intervalle, limite):
         if r.status_code != 200:
             return []
         data = r.json()
-        if not data or data.get("code") != "200":
+        if not data or data.get("code") != "200000":
             return []
         items = data.get("data", [])
         if not items:
