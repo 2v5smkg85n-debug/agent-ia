@@ -2198,11 +2198,32 @@ def _analyser_marche_auto():
         time.sleep(0.2)
     if len(prix_data) < 3:
         return None
-    # Construit le prompt pour l'IA avec memoire d'apprentissage
+    # Construit le prompt pour l'IA avec memoire d'apprentissage + patterns bougies
     lignes_marche = []
+    patterns_data = {}  # {sym: {biais, patterns, tp_suggere, sl_suggere}}
     for sym in prix_data:
         rsi_str = f" RSI={rsi_data.get(sym, '?')}" if sym in rsi_data else ""
-        lignes_marche.append(f"{sym}: {prix_data[sym]:.4f}EUR{rsi_str}")
+        pattern_str = ""
+        try:
+            import bougies_patterns as bp
+            bougies = ind.historique_ohlcv(sym, "1h", 30)
+            if bougies and len(bougies) >= 3:
+                resultat_patterns = bp.analyser_patterns(bougies)
+                biais = resultat_patterns.get("biais", 0)
+                pats = resultat_patterns.get("patterns", [])
+                if pats:
+                    pattern_str = f" patterns={','.join(pats)} (biais {biais:+.1f})"
+                    # TP/SL adaptatif selon le pattern
+                    if biais >= 0.4:  # pattern fort haussier (engulfing, morning star)
+                        tp_sug = 1.5; sl_sug = 0.5
+                    elif biais >= 0.2:  # pattern modere (marteau, marubozu)
+                        tp_sug = 1.2; sl_sug = 0.5
+                    else:  # pas de pattern ou baissier
+                        tp_sug = 0.9; sl_sug = 0.5
+                    patterns_data[sym] = {"biais": biais, "patterns": pats, "tp": tp_sug, "sl": sl_sug}
+        except Exception:
+            pass
+        lignes_marche.append(f"{sym}: {prix_data[sym]:.4f}EUR{rsi_str}{pattern_str}")
     # === MEMOIRE D'APPRENTISSAGE ===
     _memoire = ""
     try:
@@ -2249,19 +2270,20 @@ MEMOIRE D'APPRENTISSAGE (apprends de tes trades passes):
         _alerte_budget = "\n🔴 BUDGET DE SURVIE: Tu es au bord du coma. Uniquement les opportunitites exceptionnelles. Sinon RIEN."
     elif _mode == "coma":
         _alerte_budget = "\n💤 COMA: Tu es en etat de survie minimal. Une seule analyse toutes les 4h. Uniquement les setups parfaits (RSI<20 + F&G<25 + momentum fort). Sinon RIEN. Tu dois te relever."
-    prompt = f"""Trader crypto expert. Analyse et decide.
+    prompt = f"""Trader crypto expert. Analyse les prix, RSI et patterns de bougies.
 
-PRIX:
+PRIX ET SIGNAUX:
 {chr(10).join(lignes_marche)}
 
-Portefeuille: {len(positions)} positions, {liquidites:.0f}EUR dispo. TP: 0.9%, SL: -0.5%.
+Portefeuille: {len(positions)} positions, {liquidites:.0f}EUR dispo. TP: 0.9-1.5% (adapte au pattern), SL: -0.5%.
 {_memoire}
-{_alerte_budget}
 
 REGLES:
-- RSI<40 = survente = ACHAT possible. RSI>70 = surachat = RIEN.
+- ACHAT si RSI<40 ET pattern haussier (engulfing_haussier, marteau_haussier, morning_star, marubozu_haussier).
+- ACHAT si RSI<35 meme sans pattern (survente extreme).
+- RIEN si pattern baissier (engulfing_baissier, evening_star, etoile_filante, marubozu_baissier).
+- RIEN si RSI>70 (surachat) ou doji (indecision).
 - F&G<45 = peur = ACHAT possible. F&G>75 = greed = RIEN.
-- 1 signal fort suffit (survente, momentum haussier, rebond technique, tendance favorable).
 - JSON: {{"action": "ACHAT"|"RIEN", "symbole": "XXXUSDT", "raison": "..."}}
 - 1 crypto max. Varie les cryptos. Evite celles ou tu perds.
 - Si rien d'interessant: RIEN."""
@@ -2374,7 +2396,14 @@ REGLES:
         # Plafond dynamique: garde toujours 200EUR de marge
         _max_avec_marge = max(200, liquidites - 200)
         montant = min(_montant_base, _max_avec_marge)
-        resultat = _ouvrir_position_auto(symbole, montant, f"IA autonome: {raison}", tp_override=_tp_sous_agent, sl_override=_sl_sous_agent)
+        # TP/SL adaptatif selon le pattern de bougies detecte
+        _tp_adapt = _tp_sous_agent
+        _sl_adapt = _sl_sous_agent
+        if not _tp_adapt and symbole in patterns_data:
+            _tp_adapt = patterns_data[symbole]["tp"]
+            _sl_adapt = patterns_data[symbole]["sl"]
+            print(f"  [PATTERN] {symbole}: biais={patterns_data[symbole]['biais']:+.1f} patterns={patterns_data[symbole]['patterns']} -> TP={_tp_adapt}% SL={_sl_adapt}%")
+        resultat = _ouvrir_position_auto(symbole, montant, f"IA autonome: {raison}", tp_override=_tp_adapt, sl_override=_sl_adapt)
         return f"🤖 Ouverture auto par l'IA{' ['+sous_agent_nom.upper()+']' if sous_agent_nom else ''}: {symbole} a {prix_data[symbole]:.4f}EUR. {raison[:100]}\n{resultat}"
     except Exception:
         return None
