@@ -59,10 +59,10 @@ PERTE_JOUR_MAX_PCT = 3.0      # stop trading si -3% en une journee (30 EUR sur 1
 CIRCUIT_BREAKER_CONSECUTIF = 3 # pause apres 3 pertes consecutives (plus de room)
 DRAWDOWN_REDUCTION_SEUIL = 0.97 # si capital < 97% du initial (-30EUR), reduit positions de 50%
 COMPOUND_AUTOMATIQUE = True
-HEURES_FAIBLE_LIQUIDITE = [(12, 13), (8, 9)] # bloque 12h et 8h UTC (0% WR historique)
+HEURES_FAIBLE_LIQUIDITE = [(14, 15), (3, 4), (11, 12)]  # bloque 14h, 3h, 11h UTC (pires heures: -43EUR combine)
 # DIVERSIFICATION TEMPORELLE: boost le score pendant les heures a fort volume
 # Ouverture Europe (8h-11h UTC) et ouverture US (13h-17h UTC) = plus de liquidité
-HEURES_FORT_VOLUME = [(8, 11), (13, 17)]  # UTC
+HEURES_FORT_VOLUME = [(7, 9), (12, 13), (16, 17), (18, 19), (20, 21), (22, 23)]  # UTC (meilleures heures: +43EUR combine)
 HEURES_FORT_BOOST = 1  # +1 au score pendant ces heures
 # Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
 TAKE_PROFIT_PCT = 0.9          # +0.9% (TP serre = encaisse vite les petits gains)
@@ -899,26 +899,28 @@ def ouvrir_position(pf, signal, prix_actuel):
     if pf["liquidites"] < LIQUIDITE_MIN:
         print(f"  [LIQUIDITE] {pf['liquidites']:.2f} EUR < {LIQUIDITE_MIN} EUR minimum -> skip nouveau trade")
         return False
-    # BLACKLIST: ia_autonome autorisee + professeurs avec score eleve (>=8).
-    # Les strategies techniques faibles restent bloquees, mais les signaux forts des professeurs passent.
-    _strat_blacklist = ["momentum", "pattern_reversal", "vwap_bounce", "breakout", "sma_trend", "consensus_patterns", "consensus_tendance", "rsi_oversold", "macd_cross", "bollinger_bounce", "volume_spike", "divergence_rsi", "peak_fader", "consensus_reversion", "technique", "scanner_etoile"]
+    # BLACKLIST: SEULE ia_autonome autorisee (86.8% WR, +21.66EUR historique).
+    # Toutes les strategies professeurs perdent de l'argent (-32EUR combine).
+    _strat_blacklist = ["momentum", "pattern_reversal", "vwap_bounce", "breakout", "sma_trend", "consensus_patterns", "consensus_tendance", "rsi_oversold", "macd_cross", "bollinger_bounce", "volume_spike", "divergence_rsi", "peak_fader", "consensus_reversion", "technique", "professeur_virtuel", "scanner_etoile"]
     _strat_signal = (signal.get("strategie", "") or "").lower()
     _source_signal = (signal.get("source", "") or "").lower()
-    _score_signal = signal.get("score", 0)
     for _bl in _strat_blacklist:
         if _bl in _strat_signal:
-            # Exception: score >= 8 = signal tres fort, on laisse passer
-            if _score_signal >= 8:
-                print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_bl}' MAIS score {_score_signal}>=8 -> AUTORISE")
-                continue
-            print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_bl}' bloquee (score {_score_signal}<8)")
+            print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_bl}' bloquee (ia_autonome seulement)")
             return False
-    # Autoriser ia_autonome, ia_chat, et professeurs avec score >= 8
     if _strat_signal and _strat_signal != "ia_autonome" and "ia_chat" not in _source_signal and "autonome" not in _strat_signal:
-        if _score_signal < 8:
-            print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_strat_signal}' bloquee (score {_score_signal}<8, ia_autonome seulement)")
-            return False
-        print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_strat_signal}' MAIS score {_score_signal}>=8 -> AUTORISE")
+        print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_strat_signal}' bloquee (ia_autonome seulement)")
+        return False
+    # BLACKLIST CRYPTOS PERDANTES (basee sur 211 trades historiques)
+    _cryptos_perdantes = {"LDOUSDT", "ADAUSDT", "DOTUSDT", "PEPEUSDT", "AVAXUSDT", "BNBUSDT"}
+    _sym_signal = signal.get("symbole", "").upper()
+    if _sym_signal in _cryptos_perdantes:
+        print(f"  [BLACKLIST] {_sym_signal}: crypto perdante historiquement -> bloquee")
+        return False
+    # BLOCAGE LUNDI (60 trades, -31.86EUR historique = la moitie des pertes)
+    if datetime.now().weekday() == 0:
+        print(f"  [BLACKLIST] Lundi: jour le plus perdant (-31.86EUR historique) -> skip")
+        return False
     # MULTI-ENTREES: autorise plusieurs positions sur le meme actif SI en hausse
     # Si la position existante est en perte, on bloque (on n'average pas down)
     # Si la position existante est en gain, on autorise (on pyramide sur la hausse)
@@ -1730,13 +1732,13 @@ def verifier_sorties(pf, prix_actuels):
                 _tp_check, _sl_check = tp_sl_actif(sym)
             except Exception:
                 _tp_check, _sl_check = TAKE_PROFIT_PCT, STOP_LOSS_PCT
-        # SL D'URGENCE ABSOLU: ferme a -1.5% quoi qu'il arrive (empeche les SL-RETARD de -7%)
-        # Ce check est APRES le SL adaptatif — le SL normal (1.0%) doit etre verifie en premier
-        if variation <= -1.5:
+        # SL D'URGENCE ABSOLU: ferme a -0.8% quoi qu'il arrive (empeche les SL-RETARD)
+        # SL normal a 0.5% est verifie en premier, celui-ci est le filet de securite
+        if variation <= -0.8:
             # Simuler un ordre stop: fermer au seuil d'urgence avec 0.1% slippage
-            _urg_price = prix_entree * (1 - 1.5 / 100.0) * (1 - 0.1 / 100.0)
+            _urg_price = prix_entree * (1 - 0.8 / 100.0) * (1 - 0.1 / 100.0)
             _urg_var = (_urg_price - prix_entree) / prix_entree * 100
-            positions_a_fermer.append((pos, _urg_price, f"SL-URGENCE-ABSOLU (perte {_urg_var:+.1f}%, seuil -1.5%)", _urg_var))
+            positions_a_fermer.append((pos, _urg_price, f"SL-URGENCE-ABSOLU (perte {_urg_var:+.1f}%, seuil -0.8%)", _urg_var))
             continue
         # TP RAPIDE HAUTE CONVICTION: ferme a +1.0% pour les positions 500 EUR
         # Ces positions sont des signaux tres forts -> encaisse vite le gain garanti
