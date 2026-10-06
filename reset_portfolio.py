@@ -22,7 +22,7 @@ nouveau = {
     "liquidites": 1000.0,
     "positions": [],
     "trades_fermes": trades_fermes,  # garde l'historique pour l'apprentissage
-    "frais_totaux": 0.0,
+    "total_frais": 0.0,
     "dernier_tick": datetime.now().strftime("%Y-%m-%d %H:%M") + " (RESET)",
     "circuit_breaker": {"consecutive_losses": 0},
 }
