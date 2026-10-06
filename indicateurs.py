@@ -104,14 +104,14 @@ def historique_ohlcv(symbole="BTCUSDT", intervalle="1h", limite=200):
         if _t.time() - entry["timestamp"] < ttl:
             bougies = entry["bougies"]
             return bougies[-limite:] if len(bougies) > limite else bougies
-    # 1. CoinGecko (primaire - pas de geo-blocage)
-    bougies = _historique_coingecko(symbole, intervalle, limite)
+    # 1. KuCoin (primaire - pas de rate-limit, pas de geo-blocage, OHLCV complet)
+    bougies = _historique_kucoin(symbole, intervalle, limite)
     if bougies and len(bougies) >= 20:
         import time as _t
         _CACHE_BOUGIES[cache_key] = {"bougies": bougies, "timestamp": _t.time()}
         return bougies
-    # 2. KuCoin (fallback - pas de rate-limit strict, pas de geo-blocage)
-    bougies = _historique_kucoin(symbole, intervalle, limite)
+    # 2. CoinGecko (fallback - rate-limit 100/min, geo-blocage possible)
+    bougies = _historique_coingecko(symbole, intervalle, limite)
     if bougies and len(bougies) >= 20:
         import time as _t
         _CACHE_BOUGIES[cache_key] = {"bougies": bougies, "timestamp": _t.time()}
