@@ -50,8 +50,8 @@ LIQUIDITE_MIN = 200.0          # garde au moins 200 EUR de liquidites (user requ
 FENETRE_CORRELATION_MIN = 10    # anti-double-exposition: 10min entre entrees meme actif (multi-entrees)
 MAX_POS_PAR_ACTIF = 1          # 1 position max par actif (FINI multi-entrees = moins de risque)
 RISK_PAR_TRADE = 0.20         # 20% fixe (~200 EUR par position) -> 5 positions x 200 = 1000 EUR max
-RISK_MAX_TRADE = 0.50         # 50% max pour haute conviction (~500 EUR)
-RISK_HAUTE_CONVICTION = 0.50  # 50% (500 EUR) pour score >= 8 + TradingView STRONG_BUY
+RISK_MAX_TRADE = 0.20         # 20% max TOUTES positions (plus de haute conviction = plus de grosses pertes)
+RISK_HAUTE_CONVICTION = 0.20  # 20% fixe (plus de sizing variable = pertes controlees)
 INTERVALLE_BOUCLE = 180        # 3 min (plus reactif = plus de trades)
 # RISK MANAGEMENT AVANCE
 MAX_TRADES_PAR_JOUR = 999999   # pas de limite (infini)
@@ -66,33 +66,33 @@ HEURES_FORT_VOLUME = [(8, 11), (13, 17)]  # UTC
 HEURES_FORT_BOOST = 1  # +1 au score pendant ces heures
 # Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
 TAKE_PROFIT_PCT = 0.9          # +0.9% (TP serre = encaisse vite les petits gains)
-STOP_LOSS_PCT = 1.0            # -1.0% ( coupe vite les perdants, pertes limitees)
+STOP_LOSS_PCT = 0.5            # -0.5% (SL serre = petites pertes, ratio TP:SL = 0.9:0.5 = positif)
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
 # est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
 # Idee utilisateur + valide par backtest elargi (9 marches, 30 trades, plateau a tp_ext=4).
 EXTEND_CRYPTOS = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "LDOUSDT", "AAVEUSDT", "UNIUSDT", "PENDLEUSDT", "ARBUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "OPUSDT", "INJUSDT", "NEARUSDT"}
-EXTEND_SEUIL = 1.5        # active l'extension a partir de +1.5% de gain (avant 0.5% trop tot)
-EXTEND_TP_PCT = 5.0       # TP monte a 5% une fois en profit (objectif minimum)
-EXTEND_DUREE_MAX = 480    # cap duree des positions extended (8h, vs 90min normal)
-SORTIE_DUREE_MIN = 1440         # ferme apres 24h si en gain (laisse le TP dynamique travailler)
-STALE_DUREE_MAX = 360           # position stale apres 6h (laisse le temps au TP 3% d'etre atteint)
+EXTEND_SEUIL = 999        # desactive (TP 0.9% = jamais atteint 1.5%)
+EXTEND_TP_PCT = 999       # desactive
+EXTEND_DUREE_MAX = 999    # desactive
+SORTIE_DUREE_MIN = 360          # ferme apres 6h max (avant 24h = trop long)
+STALE_DUREE_MAX = 180           # position stale apres 3h (avant 6h = trop long)
 # Seuil de gain minimum pour fermer par duree : doit couvrir les frais (0.2% AR) + une marge.
 # Fermer a +0.05% = perte nette (frais 0.2%). Donc on n'accepte que gain >= 0.30%.
-SEUIL_BENEFICE_MIN = 1.0        # 1.0% : ferme si gain net significatif (sortie precoce)
-DUREE_PETIT_GAIN = 180        # gain 0.30-0.45%: respire 2h (était 90min) pour viser partial TP
-DUREE_GAIN_PROGRESS = 240    # gain 0.45-0.60%: respire 3h
-DUREE_GAGNANT_MAX = 360         # gagnant protégé (breakeven armé): respire jusqu'à 4h pour atteindre partial/TP/trailing
+SEUIL_BENEFICE_MIN = 0.9        # 0.9% : aligne avec TP 0.9% (sortie precoce au TP)
+DUREE_PETIT_GAIN = 60         # gain 0.3-0.5%: respire 1h pour viser TP
+DUREE_GAIN_PROGRESS = 90     # gain 0.5-0.7%: respire 1.5h
+DUREE_GAGNANT_MAX = 120         # gagnant: respire 2h max pour atteindre TP
 DUREE_BONUS_STRATEGIE = 60    # stratégie prouvée (live_n>=3, wr>=60%, pnl>0): +1h de respiration
-BREAKEVEN_SEUIL = 2.0      # +2.0% -> SL monte au breakeven (laisse courir avant de proteger)
-TRAIL_ACTIF = 1.5          # +1.5% -> trailing stop (active plus tot pour proteger les gains)
-TRAIL_PCT = 1.0            # trail 1.0% sous le pic (serre vite les gains)
-PARTIAL_TP_SEUIL = 3.0     # prend 50% de profit a +3.0% (laisse courir vers +5%)
-PARTIAL_FRACTION = 0.5      # fraction clôturée au partial TP (50% lock, 50% runner)
+BREAKEVEN_SEUIL = 999      # desactive (TP 0.9% = jamais atteint 2%)
+TRAIL_ACTIF = 999          # desactive
+TRAIL_PCT = 999            # desactive
+PARTIAL_TP_SEUIL = 999     # desactive
+PARTIAL_FRACTION = 999      # desactive
 # FERMETURE INTELLIGENTE: ferme les positions perdantes qui stagnent
-STAGNATION_PERTE_SEUIL = -0.3   # si position a -0.3% ou pire (avant -0.4%)
-STAGNATION_PERTE_DUREE = 120    # pendant plus de 120 min -> ferme (90 trop agressif, 3 trades perdants)
-STAGNATION_PLAFOND = 0.1        # ne coupe que si la position est sous +0.1% (pas en gain)
-STAGNATION_SL_PROCHE = -0.8    # ne coupe pas si proche du SL, laisse le SL faire
+STAGNATION_PERTE_SEUIL = -0.4   # desactive: laisse le SL faire son travail (seuil plus bas que SL 0.5%)
+STAGNATION_PERTE_DUREE = 999    # desactive (999 min = jamais)
+STAGNATION_PLAFOND = -1.0       # desactive
+STAGNATION_SL_PROCHE = -0.4    # desactive
 # TP DYNAMIQUE ATR: adapte le TP selon la volatilité
 ATR_LOOKBACK = 14               # périodes pour le calcul ATR
 ATR_TP_MULT = 2.0               # TP = prix_entree + ATR * mult

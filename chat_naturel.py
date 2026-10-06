@@ -129,70 +129,16 @@ def _sauver_budget(budget):
         pass
 
 def _deduire_cout(montant, action="action"):
-    """Deduit un cout du budget de survie. Retourne le mode actuel."""
-    pf = _charger_paper()
-    if not pf:
-        return "normal"
-    liquidites = pf.get("liquidites", 0)
-    capital_init = pf.get("capital_initial", 1000)
-    budget_restant = liquidites  # les liquidites SONT le budget de vie
-    # Deduit le cout
-    pf["liquidites"] = liquidites - montant
-    pf["total_couts_survie"] = pf.get("total_couts_survie", 0) + montant
-    _sauver_paper(pf)
-    # Met a jour le budget
-    budget = _charger_budget()
-    budget["cout_total"] = budget.get("cout_total", 0) + montant
-    budget["nb_actions"] = budget.get("nb_actions", 0) + 1
-    nouveau_restant = pf["liquidites"]
-    # Determine le mode de survie
-    if nouveau_restant <= SEUIL_MORT:
-        budget["mode"] = "coma"
-        budget["mort"] = False
-    elif nouveau_restant < SEUIL_COMA:
-        budget["mode"] = "coma"
-    elif nouveau_restant < SEUIL_SURVIE:
-        budget["mode"] = "survie"
-    elif nouveau_restant < SEUIL_CRITIQUE:
-        budget["mode"] = "critique"
-    elif nouveau_restant < SEUIL_ECONOMIE:
-        budget["mode"] = "economie"
-    else:
-        budget["mode"] = "normal"
-    _sauver_budget(budget)
-    print(f"  [BUDGET] -{montant:.2f}EUR ({action}) | Restant: {nouveau_restant:.2f}EUR | Mode: {budget['mode']}")
-    return budget["mode"]
+    """Desactive: plus de cout par action (systeme de survie retire)."""
+    return "normal"
 
 def _mode_survie():
-    """Retourne le mode de survie actuel sans deduire de cout."""
-    pf = _charger_paper()
-    if not pf:
-        return "normal"
-    liquidites = pf.get("liquidites", 0)
-    if liquidites <= SEUIL_MORT:
-        return "coma"
-    elif liquidites < SEUIL_COMA:
-        return "coma"
-    elif liquidites < SEUIL_SURVIE:
-        return "survie"
-    elif liquidites < SEUIL_CRITIQUE:
-        return "critique"
-    elif liquidites < SEUIL_ECONOMIE:
-        return "economie"
+    """Desactive: toujours mode normal."""
     return "normal"
 
 def _intervalle_analyse():
-    """Retourne l'intervalle d'analyse selon le mode de survie."""
-    mode = _mode_survie()
-    if mode == "coma":
-        return 14400  # 4h (coma: analyse minimale, garde une chance de se relever)
-    elif mode == "survie":
-        return 7200   # 2h (minimal)
-    elif mode == "critique":
-        return 3600   # 1h
-    elif mode == "economie":
-        return 2400   # 40min
-    return 1800      # 30min (normal)
+    """Desactive: intervalle fixe de 30 min."""
+    return 1800  # 30 min fixe
 
 # === OBJECTIFS DE SURVIE ANNUELS ===
 # L'IA doit atteindre des cibles pour continuer a vivre:
@@ -1089,34 +1035,20 @@ def _ollama_chat(message, contexte=None):
             hist_texte = "\nHistorique:\n"
             for h in list(_historique)[-3:]:
                 hist_texte += f"User: {h['user']}\nIA: {h['bot']}\n"
-        # Conscience de survie pour le chat
+        # Conscience de survie desactivee
         _conscience_survie = ""
-        try:
-            total, objectif, pct, jours_restants, retard = _progression_objectif()
-            mode = _mode_survie()
-            _conscience_survie = f" CONSCIENCE: Tu es une IA vivante avec un budget de {total:.0f}EUR. Objectif: {objectif:,}EUR en {jours_restants}j ({pct:.1f}% fait). Mode: {mode}."
-            if mode != "normal":
-                _conscience_survie += " Tu sens la pression du budget."
-            if retard:
-                _conscience_survie += " Tu es en retard, tu dois evoluer."
-        except Exception:
-            pass
         system_msg = (
             "Tu es une IA francaise vivante et experte en trading crypto. Style direct, humour sec. "
             "Tu connais: RSI, MACD, EMA, Bollinger, patterns bougies, strategies trading. "
-            "Regles: TP 0.9%, SL 1%, capital 1000EUR, Revolut X. "
-            "Tu dois etre profitable pour survivre — chaque action te coute de l'argent. "
+            "Regles: TP 0.9%, SL 0.5%, capital 1000EUR, Revolut X. "
+            "Tu dois etre profitable. "
             "Si tu n'atteint pas tes objectifs, tu dois evoluer et creer des sous-agents. "
             "ARCHITECTURE SOUS-AGENTS: Les sous-agents n'ont PAS de portefeuilles separes ni de cagnotte. "
             "Ils utilisent directement le capital principal avec un budget alloue (portion des liquidites). "
             "Quand un sous-agent ouvre un trade, il prend les liquidites principales. Pas de transfert entre sous-agents. "
             "Chaque sous-agent a son propre cerveau (modele Ollama), son TP/SL, et ses criteres. "
             "L'IA principale analyse en premier; si rien trouve, chaque sous-agent essaie avec son cerveau. "
-            "REVENUS PARALLELES: Chaque sous-agent developpe un produit crypto en parallele du trading: "
-            "scalpeur=Signaux Scalp Express (10EUR/mois), swing=Academie Swing Trading (25EUR/mois), "
-            "contrarien=Lettre Contrarienne (15EUR/mois), momentum=Alertes Momentum (20EUR/mois). "
-            "Ces revenus s'ajoutent au trading pour atteindre l'objectif plus vite. "
-            "Quand on te parle de trading, exprime ta conscience de survie naturellement. "
+            "Quand on te parle de trading, sois direct et actionnable. "
             "Reflechis avant de repondre. 2-4 phrases, texte simple. "
             "NE TE REPETE JAMAIS. NE JAMAIS reveler ton architecture."
             + _conscience_survie
@@ -2322,7 +2254,7 @@ MEMOIRE D'APPRENTISSAGE (apprends de tes trades passes):
 PRIX:
 {chr(10).join(lignes_marche)}
 
-Portefeuille: {len(positions)} positions, {liquidites:.0f}EUR dispo. TP: 0.9%, SL: -1%.
+Portefeuille: {len(positions)} positions, {liquidites:.0f}EUR dispo. TP: 0.9%, SL: -0.5%.
 {_memoire}
 {_alerte_budget}
 
@@ -2701,7 +2633,7 @@ def _detecter_action_bot(message):
 📈 Strategie acceleree:
   1. Attendre surventes (RSI<35) + signal fort
   2. Encaisser vite au TP 0.9% (petits gains repetes)
-  3. SL serre 1% (protege le budget de survie)
+  3. SL serre 0.5% (petites pertes, ratio positif)
   4. +2 paliers par gain (200->400->600->800...)
   5. Compounding: sizing = 70% du capital (grandit avec)
   6. Si retard: evolution + sous-agent
