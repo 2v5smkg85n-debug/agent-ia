@@ -2253,23 +2253,9 @@ MEMOIRE D'APPRENTISSAGE (apprends de tes trades passes):
 - EVITE les cryptos ou tu perds, PRIVILEGIE les cryptos ou tu gagnes"""
     except Exception:
         pass
-    # === SAVOIR TRADER PRO ===
-    _savoir = ""
-    try:
-        from savoir_trader_pro import get_savoir_compact
-        _savoir = get_savoir_compact()
-    except Exception:
-        pass
-    _mode = _mode_survie()
+    # === SAVOIR TRADER PRO === (desactive — prompt condense)
+    _mode = "normal"
     _alerte_budget = ""
-    if _mode == "economie":
-        _alerte_budget = "\n⚠️ BUDGET EN BAISSE: Sois plus selectif. Uniquement les setups avec 3+ signaux de confluence."
-    elif _mode == "critique":
-        _alerte_budget = "\n🟠 BUDGET CRITIQUE: Uniquement les setups exceptionnels (RSI<25 + F&G<30 + momentum fort). Sinon RIEN."
-    elif _mode == "survie":
-        _alerte_budget = "\n🔴 BUDGET DE SURVIE: Tu es au bord du coma. Uniquement les opportunitites exceptionnelles. Sinon RIEN."
-    elif _mode == "coma":
-        _alerte_budget = "\n💤 COMA: Tu es en etat de survie minimal. Une seule analyse toutes les 4h. Uniquement les setups parfaits (RSI<20 + F&G<25 + momentum fort). Sinon RIEN. Tu dois te relever."
     prompt = f"""Trader crypto expert. Analyse les prix, RSI et patterns de bougies.
 
 PRIX ET SIGNAUX:
