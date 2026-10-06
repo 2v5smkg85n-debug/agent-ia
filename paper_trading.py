@@ -52,7 +52,7 @@ MAX_POS_PAR_ACTIF = 1          # 1 position max par actif (FINI multi-entrees = 
 RISK_PAR_TRADE = 0.20         # 20% fixe (~200 EUR par position) -> 5 positions x 200 = 1000 EUR max
 RISK_MAX_TRADE = 0.20         # 20% max TOUTES positions (plus de haute conviction = plus de grosses pertes)
 RISK_HAUTE_CONVICTION = 0.20  # 20% fixe (plus de sizing variable = pertes controlees)
-INTERVALLE_BOUCLE = 180        # 3 min (plus reactif = plus de trades)
+INTERVALLE_BOUCLE = 60         # 1 min (scan opportunités plus reactif)
 # RISK MANAGEMENT AVANCE
 MAX_TRADES_PAR_JOUR = 999999   # pas de limite (infini)
 PERTE_JOUR_MAX_PCT = 3.0      # stop trading si -3% en une journee (30 EUR sur 1000)
