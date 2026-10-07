@@ -2257,13 +2257,41 @@ MEMOIRE D'APPRENTISSAGE (apprends de tes trades passes):
     # === SAVOIR TRADER PRO === (desactive — prompt condense)
     _mode = "normal"
     _alerte_budget = ""
-    prompt = f"""Trader crypto expert. Analyse les prix, RSI et patterns de bougies.
+    # === SIGNAUX DES PROFESSEURS === (nourrit l'IA sans leur donner le droit d'ouvrir)
+    _signaux_prof = []
+    try:
+        for sym in list(prix_data.keys()):
+            try:
+                analyse = ind.analyser_actif(sym, "1h")
+                if analyse and analyse.get("score", 0) > 0:
+                    _signaux_prof.append({
+                        "sym": sym,
+                        "score": analyse.get("score", 0),
+                        "verdict": analyse.get("verdict", ""),
+                        "signaux": analyse.get("signaux", [])[:2],  # top 2 raisons
+                    })
+            except Exception:
+                continue
+        # Trie par score decroissant, top 5
+        _signaux_prof.sort(key=lambda x: x["score"], reverse=True)
+        _signaux_prof = _signaux_prof[:5]
+    except Exception:
+        pass
+    _prof_str = ""
+    if _signaux_prof:
+        _prof_lignes = []
+        for sp in _signaux_prof:
+            _raisons = "; ".join(sp["signaux"][:2]) if sp["signaux"] else ""
+            _prof_lignes.append(f"  {sp['sym']}: score {sp['score']} ({sp['verdict']}) — {_raisons[:80]}")
+        _prof_str = "\nSIGNAUX DES PROFESSEURS (analyse technique — utilise ces infos pour decider, c'est toi qui decide final):\n" + "\n".join(_prof_lignes)
+    prompt = f"""Trader crypto expert. Analyse les prix, RSI, patterns de bougies et signaux techniques.
 
 PRIX ET SIGNAUX:
 {chr(10).join(lignes_marche)}
 
 Portefeuille: {len(positions)} positions, {liquidites:.0f}EUR dispo. TP: 0.9-1.5% (adapte au pattern), SL: -0.5%.
 {_memoire}
+{_prof_str}
 
 REGLES:
 - ACHAT si RSI<40 ET pattern haussier (engulfing_haussier, marteau_haussier, morning_star, marubozu_haussier).
