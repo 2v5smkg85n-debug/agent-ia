@@ -2284,6 +2284,9 @@ MEMOIRE D'APPRENTISSAGE (apprends de tes trades passes):
             _raisons = "; ".join(sp["signaux"][:2]) if sp["signaux"] else ""
             _prof_lignes.append(f"  {sp['sym']}: score {sp['score']} ({sp['verdict']}) — {_raisons[:80]}")
         _prof_str = "\nSIGNAUX DES PROFESSEURS (analyse technique — utilise ces infos pour decider, c'est toi qui decide final):\n" + "\n".join(_prof_lignes)
+        print(f"  [PROF] {len(_signaux_prof)} signaux professeurs transmis a l'IA: {', '.join(sp['sym']+'('+str(sp['score'])+')' for sp in _signaux_prof)}")
+    else:
+        print(f"  [PROF] Aucun signal professeur positif trouve")
     prompt = f"""Trader crypto expert. Analyse les prix, RSI, patterns de bougies et signaux techniques.
 
 PRIX ET SIGNAUX:
