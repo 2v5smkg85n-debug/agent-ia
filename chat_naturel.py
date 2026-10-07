@@ -2213,14 +2213,15 @@ def _analyser_marche_auto():
                 pats = resultat_patterns.get("patterns", [])
                 if pats:
                     pattern_str = f" patterns={','.join(pats)} (biais {biais:+.1f})"
-                    # TP/SL adaptatif selon le pattern
-                    if biais >= 0.4:  # pattern fort haussier (engulfing, morning star)
-                        tp_sug = 1.5; sl_sug = 0.5
-                    elif biais >= 0.2:  # pattern modere (marteau, marubozu)
-                        tp_sug = 1.2; sl_sug = 0.5
-                    else:  # pas de pattern ou baissier
-                        tp_sug = 0.9; sl_sug = 0.5
-                    patterns_data[sym] = {"biais": biais, "patterns": pats, "tp": tp_sug, "sl": sl_sug}
+                # TP/SL adaptatif selon le pattern
+                if biais >= 0.4:  # pattern fort haussier (engulfing, morning star)
+                    tp_sug = 1.5; sl_sug = 0.5
+                elif biais >= 0.2:  # pattern modere (marteau, marubozu)
+                    tp_sug = 1.2; sl_sug = 0.5
+                else:  # pas de pattern ou baissier
+                    tp_sug = 0.9; sl_sug = 0.5
+                # Stocke TOUJOURS le biais (mem si pas de pattern) pour le filtre obligatoire
+                patterns_data[sym] = {"biais": biais, "patterns": pats, "tp": tp_sug, "sl": sl_sug}
         except Exception:
             pass
         lignes_marche.append(f"{sym}: {prix_data[sym]:.4f}EUR{rsi_str}{pattern_str}")
@@ -2382,6 +2383,13 @@ REGLES:
         # Plafond dynamique: garde toujours 200EUR de marge
         _max_avec_marge = max(200, liquidites - 200)
         montant = min(_montant_base, _max_avec_marge)
+        # === FILTRE BOUGIES OBLIGATOIRE ===
+        # Le bot ne peut pas ouvrir sans un pattern haussier (sauf survente extreme RSI<30)
+        _biais_bougies = patterns_data.get(symbole, {}).get("biais", 0)
+        _rsi_sym = rsi_data.get(symbole, 50)
+        if _biais_bougies < 0.2 and _rsi_sym >= 30:
+            print(f"  [BOUGIES-REFUS] {symbole}: pas de pattern haussier (biais {_biais_bougies:+.1f}, RSI {_rsi_sym}) -> trade refuse")
+            return f"❌ {symbole} refuse: pas de pattern haussier sur les bougies (biais {_biais_bougies:+.1f}). RSI={_rsi_sym}. Le bot attend une confirmation des bougies."
         # TP/SL adaptatif selon le pattern de bougies detecte
         _tp_adapt = _tp_sous_agent
         _sl_adapt = _sl_sous_agent

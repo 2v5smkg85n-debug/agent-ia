@@ -1754,7 +1754,7 @@ def verifier_sorties(pf, prix_actuels):
             import apprentissage_trader as ap
             _evo = ap.charger_learning().get("evolution_strategies", {}).get(pos.get("strategie", ""), {})
             if _evo.get("tendance", 0) == -1:  # strategie en declin
-                _sl_effectif = max(0.3, _sl_check - 0.2)  # SL plus serre pour strategie en declin (0.3% min)
+                _sl_effectif = _sl_check  # SL fixe, pas d'adaptatif (0.3% trop serre = bruit)
         except Exception:
             pass
         if variation <= -_sl_effectif:
