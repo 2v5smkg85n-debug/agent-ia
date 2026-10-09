@@ -1774,83 +1774,23 @@ def verifier_sorties(pf, prix_actuels):
                 _tp, _sl = tp_sl_actif(sym)
             except Exception:
                 _tp, _sl = TAKE_PROFIT_PCT, STOP_LOSS_PCT
-        # TP DYNAMIQUE ATR: adapte le TP selon la volatilité de l'actif
-        try:
-            from indicateurs import historique_ohlcv
-            _bougies = historique_ohlcv(sym, "1h", ATR_LOOKBACK + 1)
-            if _bougies and len(_bougies) >= ATR_LOOKBACK:
-                _trs = []
-                for i in range(1, len(_bougies)):
-                    h = _bougies[i]["haut"]
-                    l = _bougies[i]["bas"]
-                    c_prev = _bougies[i-1]["cloture"]
-                    _tr = max(h - l, abs(h - c_prev), abs(l - c_prev))
-                    _trs.append(_tr)
-                if _trs:
-                    _atr = sum(_trs) / len(_trs)
-                    _px = pos.get("prix_entree", prix_actuel)
-                    if _px > 0:
-                        _atr_pct = (_atr / _px) * 100
-                        _tp_atr = _atr_pct * ATR_TP_MULT
-                        _tp = max(ATR_TP_MIN, min(_tp_atr, ATR_TP_MAX))
-        except Exception:
-            pass
-        # EXTEND_TP (valide backtest +13.35% crypto): si position crypto en profit
-        # >= +0.5%, on monte le TP a 4.0% pour laisser courir les gagnants.
-        # SL fixe (pas de breakeven). Forex/or/matieres: TP fixe (non valide).
-        extend_actif = sym in EXTEND_CRYPTOS and variation >= EXTEND_SEUIL
-        if extend_actif:
-            _tp = EXTEND_TP_PCT
-        # === STOP SUIVEUR PROGRESSIF + TP DYNAMIQUE ===
-        # Le trailing se rapproche du pic au fur et a mesure que le gain augmente
-        # Plus le trade gagne, plus le stop serre pour proteger les benefices
+        # TP DYNAMIQUE ATR: DESACTIVE — l'ATR poussait le TP a 4% (contre le TP 0.9% user)
+        # Le TP vient de meta-tuning (0.9-1.5%) ou des constantes globales (0.9%)
+        # === TP: ENCAISSE LES GAINS AU TAKE-PROFIT ===
+        # Ferme la position des que le TP est atteint (au lieu d'etendre le TP)
+        # BUG CRITIQUE CORRIGE: avant, le TP etait etendu (0.9->1.9->2.9...) au lieu de fermer
+        if variation >= _tp:
+            positions_a_fermer.append((pos, prix_actuel, f"TP ({variation:+.2f}%, TP={_tp}%)", variation))
+            continue
+        # EXTEND_TP: desactive (EXTEND_SEUIL=999, jamais atteint)
+        extend_actif = False
+        # === SL FIXE (trailing/breakeven/tp-dynamique DESACTIVES — user request) ===
+        # Le SL reste fixe a 0.5% (ou meta-tuning). Pas de trailing, pas de breakeven,
+        # pas de TP dynamique. Simple: TP encaisse, SL coupe.
+        _sl_price = prix_entree * (1 - _sl / 100.0)
         _sl_regle = "fixe"
-        _pic = pos.get("prix_peak", prix_entree)
-        if prix_actuel > _pic:
-            _pic = prix_actuel
-            pos["prix_peak"] = _pic
-        _var_pic = (_pic - prix_entree) / prix_entree * 100
-        if _var_pic >= 5.0:
-            # Tres en profit: trail serre a 0.8% sous le pic (protege les gros gains)
-            _sl_price = _pic * (1 - 0.8 / 100.0)
-            _sl_regle = "suiveur-serre"
-        elif _var_pic >= 3.0:
-            # Bien en profit: trail a 1.2% sous le pic (laisse courir vers +5%)
-            _sl_price = _pic * (1 - 1.2 / 100.0)
-            _sl_regle = "suiveur-proche"
-        elif _var_pic >= 2.0:
-            # En profit: SL au breakeven uniquement (laisse respirer vers +5%)
-            _sl_price = prix_entree * 1.0001
-            _sl_regle = "breakeven-potent"
-        else:
-            # SL fixe au debut (laisse respirer vers le TP)
-            _sl_price = prix_entree * (1 - _sl / 100.0)
-
-        # BREAKEVEN: si le gain atteint BREAKEVEN_SEUIL, monte le SL au breakeven (prix d'entree)
-        # Cela protege le capital: un gagnant qui renverse ne devient pas une perte
-        if variation >= BREAKEVEN_SEUIL and _sl_price < prix_entree:
-            _sl_price = prix_entree * 1.0001  # legerement au-dessus pour couvrir les frais
-            _sl_regle = "breakeven"
-        # TP DYNAMIQUE PROGRESSIF: quand le prix atteint le TP, on le monte de plus en plus
-        # Le trade court tant que la tendance haussiere continue
-        # Chaque palier monte le TP de plus en plus pour capturer les gros gains
-        _tp_actuel = pos.get("tp_dynamique", _tp)
-        if variation >= _tp_actuel:
-            # Plus le gain est eleve, plus le TP monte loin
-            if _tp_actuel >= 7.0:
-                _tp_actuel = _tp_actuel + 2.0  # +2% par palier au-dela de +7%
-            elif _tp_actuel >= 5.0:
-                _tp_actuel = _tp_actuel + 1.5  # +1.5% par palier au-dela de +5%
-            else:
-                _tp_actuel = _tp_actuel + 1.0  # +1% par palier au debut
-            pos["tp_dynamique"] = _tp_actuel
-            print(f"  [TP-EXTEND] {sym}: TP monte a +{_tp_actuel:.1f}% (pic {_var_pic:+.1f}%, stop {_sl_regle})")
-        # Partial take-profit: encaisse 50% au seuil (1.5% normal, 1.5% professeur)
-        _partial_seuil = PARTIAL_TP_SEUIL
-        if pos.get("source") == "professeur_virtuel":
-            _partial_seuil = pos.get("prof_partial_tp", 1.5)
-        if variation >= _partial_seuil and not pos.get("partiellement_clote"):
-            fermer_position_partielle(pf, pos, prix_actuel, PARTIAL_FRACTION, "PARTIAL-TP", variation)
+        _var_pic = 0.0
+        # Partial take-profit: DESACTIVE (PARTIAL_TP_SEUIL=999)
         # HARD STOP D'URGENCE: si la perte depasse 2x le SL, ferme immédiatement
         # (le SL-URGENCE-ABSOLU a -1.5% est deja verifie plus haut, celui-ci est le filet de securite final)
         if variation <= -(_sl * 2.0):
