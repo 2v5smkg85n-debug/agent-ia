@@ -1718,20 +1718,22 @@ def verifier_sorties(pf, prix_actuels):
             print(f"  [PRIX ENTREE INVALIDE] {sym}: prix_entree={prix_entree} — skip")
             continue
         variation = (prix_actuel - prix_entree) / prix_entree * 100
-        # Recupere le SL applicable (avant la detection de position piegee)
-        # Priorite: TP/SL adaptatif intelligence_pro > meta_tuning > constantes globales
+        # Recupere le TP/SL applicable
+        # Priorite: meta_tuning > constantes globales (TP 0.9%, SL 0.5%)
+        # tp_adaptatif (intelligence_pro) est IGNORE — il poussait le TP a 5%
         _tp_adapt = pos.get("tp_adaptatif")
         _sl_adapt = pos.get("sl_adaptatif")
         if os.getenv('SCALPING', '0') == '1':
             _tp_check, _sl_check = TAKE_PROFIT_PCT, STOP_LOSS_PCT
-        elif _tp_adapt and _sl_adapt:
-            _tp_check, _sl_check = _tp_adapt, _sl_adapt
         else:
             try:
                 from meta_tuning import tp_sl_actif
                 _tp_check, _sl_check = tp_sl_actif(sym)
             except Exception:
                 _tp_check, _sl_check = TAKE_PROFIT_PCT, STOP_LOSS_PCT
+        # CAPS DURS: TP max 1.5%, SL max 0.8% (jamais laisser le meta-tuning monter plus)
+        _tp_check = min(_tp_check, 1.5)
+        _sl_check = min(_sl_check, 0.8)
         # SL D'URGENCE ABSOLU: ferme a -0.8% quoi qu'il arrive (empeche les SL-RETARD)
         # SL normal a 0.5% est verifie en premier, celui-ci est le filet de securite
         if variation <= -0.8:
@@ -1763,17 +1765,18 @@ def verifier_sorties(pf, prix_actuels):
             _type_ferm = "perte" if _sl_var < 0 else "gain"
             positions_a_fermer.append((pos, _sl_price, f"SL-EXEC ({_type_ferm} {_sl_var:+.1f}%, SL={_sl_effectif}%)", _sl_var))
             continue
-        # TP/SL: en mode scalping, les constantes globales priment sur meta_tuning
+        # TP/SL: meta_tuning > constantes globales (tp_adaptatif IGNORE — poussait TP a 5%)
         if os.getenv('SCALPING', '0') == '1':
             _tp, _sl = TAKE_PROFIT_PCT, STOP_LOSS_PCT
-        elif _tp_adapt and _sl_adapt:
-            _tp, _sl = _tp_adapt, _sl_adapt
         else:
             try:
                 from meta_tuning import tp_sl_actif
                 _tp, _sl = tp_sl_actif(sym)
             except Exception:
                 _tp, _sl = TAKE_PROFIT_PCT, STOP_LOSS_PCT
+        # CAPS DURS: TP max 1.5%, SL max 0.5% (jamais laisser monter plus)
+        _tp = min(_tp, 1.5)
+        _sl = min(_sl, 0.5)
         # TP DYNAMIQUE ATR: DESACTIVE — l'ATR poussait le TP a 4% (contre le TP 0.9% user)
         # Le TP vient de meta-tuning (0.9-1.5%) ou des constantes globales (0.9%)
         # === TP: ENCAISSE LES GAINS AU TAKE-PROFIT ===

@@ -36,7 +36,7 @@ SL_DEFAUT = 0.5
 MIN_TRADES = 5
 PAS = 0.25
 TP_MIN, TP_MAX = 0.9, 1.5  # TP minimum 0.9%
-SL_MIN, SL_MAX = 0.5, 1.5  # SL minimum 0.5%
+SL_MIN, SL_MAX = 0.3, 0.5  # SL minimum 0.3%, maximum 0.5% (jamais plus large)
 WR_HAUT = 60.0    # win rate -> elargir TP
 WR_BAS = 40.0     # win rate -> serrer SL
 WR_TRES_BAS = 30.0  # -> serrer TP aussi
@@ -151,12 +151,12 @@ def tuner():
             nouveau_tp = _borne(tp - PAS, TP_MIN, TP_MAX)
             if nouveau_tp != tp:
                 raison = f"wr {wr}%< {WR_TRES_BAS}%: serrer TP"
-        # win_rate bas -> serrer SL (couper pertes plus tot)
+        # win_rate bas -> serrer SL (REDUIRE le SL pour couper les pertes plus tot)
         if wr < WR_BAS:
-            nouveau_sl = _borne(sl + PAS, SL_MIN, SL_MAX)
+            nouveau_sl = _borne(sl - PAS, SL_MIN, SL_MAX)
             if nouveau_sl != sl:
                 raison = (raison + " | " if raison else "") + \
-                         f"wr {wr}%< {WR_BAS}%: serrer SL"
+                         f"wr {wr}%< {WR_BAS}%: serrer SL (reduire de {sl}% a {nouveau_sl}%)"
 
         if nouveau_tp == tp and nouveau_sl == sl:
             continue  # pas de changement
