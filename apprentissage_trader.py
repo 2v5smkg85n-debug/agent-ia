@@ -12,6 +12,16 @@ from collections import defaultdict, Counter
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 FICHIER_LEARNING = os.path.join(DOSSIER, "learning_trader.json")
 FICHIER_PORTFOLIO = os.path.join(DOSSIER, "paper_trading.json")
+# Avant cette date, les bougies KuCoin etaient corrompues (ordre inverse, vieilles
+# de 4 jours, haut/bas/cloture melanges). Les trades d'avant ont ete pris sur des
+# donnees fausses -> l'apprentissage ne les compte plus.
+DATE_DEBUT_APPRENTISSAGE = "2026-10-13 11:00"
+
+
+def _trades_valides(trades_fermes):
+    """Garde uniquement les trades ouverts apres le fix des bougies."""
+    return [t for t in (trades_fermes or [])
+            if str(t.get("date_ouverture", ""))[:16] >= DATE_DEBUT_APPRENTISSAGE]
 
 
 def charger_learning():
@@ -62,10 +72,21 @@ def analyser_trades(trades_fermes):
     """Analyse TOUS les trades fermes pour extraire les patterns gagnants/perdants.
     Utilise un decay temporel: les 20 derniers trades comptent plus que les anciens.
     MERGE avec l'apprentissage existant: preserve les anciennes stats meme apres un reset."""
+    trades_fermes = _trades_valides(trades_fermes)
     if not trades_fermes:
+        # Aucun trade propre encore: apprentissage vierge (rien n'est bloque)
+        vierge = charger_learning()
+        if vierge.get("date_debut") != DATE_DEBUT_APPRENTISSAGE:
+            vierge = {k: v for k, v in vierge.items() if k in ("version",)}
+            vierge.update({"trades_analyses": [], "stats_strategies": {}, "stats_par_crypto": {},
+                           "stats_horaires": {}, "stats_par_regime": {}, "total_trades": 0,
+                           "win_rate_global": 0, "confiance_globale": 50.0,
+                           "date_debut": DATE_DEBUT_APPRENTISSAGE})
+            sauver_learning(vierge)
         return {}
 
     learning = charger_learning()
+    learning["date_debut"] = DATE_DEBUT_APPRENTISSAGE
     # Sauvegarder les anciennes stats pour le merge
     _anc_stats_strat = learning.get("stats_strategies", {})
     _anc_stats_crypto = learning.get("stats_par_crypto", {})
