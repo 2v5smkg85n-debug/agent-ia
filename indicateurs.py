@@ -277,9 +277,9 @@ def _historique_kucoin(symbole, intervalle, limite):
                 bougies.append({
                     "temps": int(b[0]) // 1000,
                     "ouverture": float(b[1]),
-                    "haut": float(b[2]),
-                    "bas": float(b[3]),
-                    "cloture": float(b[4]),
+                    "haut": float(b[3]),
+                    "bas": float(b[4]),
+                    "cloture": float(b[2]),
                     "volume": float(b[5])
                 })
             except Exception:
