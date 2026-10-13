@@ -89,6 +89,8 @@ def historique_ohlcv(symbole="BTCUSDT", intervalle="1h", limite=200):
     intervalle: 15m, 1h, 4h, 1d
     limite: nombre de bougies (max 1000)
     """
+    # Normalise les intervalles ('4hour' -> '4h', '5min' -> '5m'...)
+    intervalle = {"1hour": "1h", "4hour": "4h", "5min": "5m", "15min": "15m", "1day": "1d"}.get(intervalle, intervalle)
     # Symboles non-crypto (forex/actions/indices/matieres) -> Yahoo Finance
     if _est_symbole_yahoo(symbole):
         bougies = _historique_yahoo(symbole, intervalle, limite)
@@ -105,11 +107,11 @@ def historique_ohlcv(symbole="BTCUSDT", intervalle="1h", limite=200):
             bougies = entry["bougies"]
             return bougies[-limite:] if len(bougies) > limite else bougies
     # 1. KuCoin (primaire - pas de rate-limit, pas de geo-blocage, OHLCV complet)
-    bougies = _historique_kucoin(symbole, intervalle, limite)
+    bougies = _historique_kucoin(symbole, intervalle, max(limite, 200))
     if bougies and len(bougies) >= 20:
         import time as _t
         _CACHE_BOUGIES[cache_key] = {"bougies": bougies, "timestamp": _t.time()}
-        return bougies
+        return bougies[-limite:]
     # 2. CoinGecko (fallback - rate-limit 100/min, geo-blocage possible)
     bougies = _historique_coingecko(symbole, intervalle, limite)
     if bougies and len(bougies) >= 20:
@@ -257,7 +259,7 @@ def _historique_revolut(symbole, intervalle, limite):
 def _historique_kucoin(symbole, intervalle, limite):
     """Recupere l'historique OHLCV via KuCoin (pas de rate-limit strict, pas de geo-blocage)."""
     try:
-        _interval_map = {"15m": "15min", "1h": "1hour", "4h": "4hour", "1d": "1day"}
+        _interval_map = {"5m": "5min", "15m": "15min", "1h": "1hour", "4h": "4hour", "1d": "1day"}
         _ku_interval = _interval_map.get(intervalle, "1hour")
         _sym = symbole.replace("USDT", "-USDT")
         url = (f"https://api.kucoin.com/api/v1/market/candles?"
@@ -271,11 +273,12 @@ def _historique_kucoin(symbole, intervalle, limite):
         items = data.get("data", [])
         if not items:
             return []
+        # KuCoin renvoie du PLUS RECENT au plus ancien -> on inverse (ancien -> recent)
         bougies = []
-        for b in items[-limite:]:
+        for b in reversed(items):
             try:
                 bougies.append({
-                    "temps": int(b[0]) // 1000,
+                    "temps": int(b[0]),  # deja en secondes
                     "ouverture": float(b[1]),
                     "haut": float(b[3]),
                     "bas": float(b[4]),
@@ -284,7 +287,7 @@ def _historique_kucoin(symbole, intervalle, limite):
                 })
             except Exception:
                 continue
-        return bougies
+        return bougies[-limite:]  # les N plus recentes
     except Exception:
         return []
 
