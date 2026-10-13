@@ -2203,7 +2203,7 @@ def _analyser_marche_auto():
     patterns_data = {}  # {sym: {biais, patterns, tp_suggere, sl_suggere}}
     for sym in prix_data:
         rsi_str = f" RSI={rsi_data.get(sym, '?')}" if sym in rsi_data else ""
-        pattern_str = ""
+        bougie_str = ""
         try:
             import bougies_patterns as bp
             bougies = ind.historique_ohlcv(sym, "1h", 30)
@@ -2211,8 +2211,51 @@ def _analyser_marche_auto():
                 resultat_patterns = bp.analyser_patterns(bougies)
                 biais = resultat_patterns.get("biais", 0)
                 pats = resultat_patterns.get("patterns", [])
-                if pats:
-                    pattern_str = f" patterns={','.join(pats)} (biais {biais:+.1f})"
+                ctx = resultat_patterns.get("contexte", {})
+                # --- CONSTRUIT LA LECTURE DES BOUGIES POUR L'IA ---
+                # Les 5 dernieres bougies en format compact que l'IA peut "lire"
+                dernieres = bougies[-5:]
+                lignes_bougies = []
+                for i, b in enumerate(dernieres):
+                    o, h, l, c = bp._ohlc(b)
+                    couleur = "verte" if c >= o else "rouge"
+                    corps = abs(c - o)
+                    amplitude = max(h - l, 1e-9)
+                    meche_h = h - max(o, c)
+                    meche_b = min(o, c) - l
+                    # Annotation visuelle
+                    notes = []
+                    if corps > 0 and meche_b > 2 * corps:
+                        notes.append("mèche basse longue")
+                    if corps > 0 and meche_h > 2 * corps:
+                        notes.append("mèche haute longue")
+                    if corps < 0.1 * amplitude:
+                        notes.append("doji")
+                    if corps > 0.85 * amplitude:
+                        notes.append("corps plein")
+                    note_str = f", {' '.join(notes)}" if notes else ""
+                    t_label = f"T-{5-i}"
+                    lignes_bougies.append(f"    {t_label}: {o:.4f}→{c:.4f} H={h:.4f} L={l:.4f} [{couleur}{note_str}]")
+                # Contexte technique
+                tendance = ctx.get("tendance", "?")
+                niveau = ctx.get("niveau", "?")
+                vol_r = ctx.get("ratio_volume", 1.0)
+                volat = ctx.get("volatilite", 0)
+                # Details des patterns avec scores
+                details = resultat_patterns.get("detail", [])
+                pat_details = []
+                for d in details:
+                    if len(d) >= 2:
+                        nom = d[0].replace("_", " ")
+                        sc = d[1]
+                        raison = d[2] if len(d) > 2 else ""
+                        pat_details.append(f"{nom} ({sc:+.2f}: {raison})" if raison else f"{nom} ({sc:+.2f})")
+                biais_label = "haussier" if biais > 0.2 else ("baissier" if biais < -0.2 else "neutre")
+                bougie_str = f"\n  Bougies 1h (5 dernieres):\n" + "\n".join(lignes_bougies)
+                bougie_str += f"\n  Contexte: tendance={tendance}, niveau={niveau}, volume={vol_r}x, volatilite={volat:.2%}"
+                if pat_details:
+                    bougie_str += f"\n  Patterns: {', '.join(pat_details)}"
+                bougie_str += f"\n  Biais global: {biais:+.2f} ({biais_label})"
                 # TP/SL adaptatif selon le pattern
                 if biais >= 0.4:  # pattern fort haussier (engulfing, morning star)
                     tp_sug = 1.5; sl_sug = 0.5
@@ -2224,7 +2267,7 @@ def _analyser_marche_auto():
                 patterns_data[sym] = {"biais": biais, "patterns": pats, "tp": tp_sug, "sl": sl_sug}
         except Exception:
             pass
-        lignes_marche.append(f"{sym}: {prix_data[sym]:.4f}EUR{rsi_str}{pattern_str}")
+        lignes_marche.append(f"{sym}: {prix_data[sym]:.4f}EUR{rsi_str}{bougie_str}")
     # === MEMOIRE D'APPRENTISSAGE ===
     _memoire = ""
     try:
@@ -2287,21 +2330,30 @@ MEMOIRE D'APPRENTISSAGE (apprends de tes trades passes):
         print(f"  [PROF] {len(_signaux_prof)} signaux professeurs transmis a l'IA: {', '.join(sp['sym']+'('+str(sp['score'])+')' for sp in _signaux_prof)}")
     else:
         print(f"  [PROF] Aucun signal professeur positif trouve")
-    prompt = f"""Trader crypto expert. Analyse les prix, RSI, patterns de bougies et signaux techniques.
+    prompt = f"""Trader crypto expert en lecture des chandeliers japonais.
 
-PRIX ET SIGNAUX:
+PRIX, RSI ET BOUGIES (5 dernieres bougies 1h avec OHLC, contexte et patterns):
 {chr(10).join(lignes_marche)}
 
-Portefeuille: {len(positions)} positions, {liquidites:.0f}EUR dispo. TP: 0.9-1.5% (adapte au pattern), SL: -0.5%.
+Lecture des bougies:
+- Verte = O < C (hausse), Rouge = O > C (baisse)
+- O=ouverture, C=cloture, H=plus haut, L=plus bas
+- mèche basse longue = rejet des vendeurs (potentiel haussier en fin de baisse)
+- mèche haute longue = rejet des acheteurs (potentiel baissier en fin de hausse)
+- doji = indetermination, corps plein = conviction
+- Le contexte (tendance, support/resistance, volume) valide le pattern
+
+Portefeuille: {len(positions)} positions, {liquidites:.0f}EUR dispo. TP: 1.5%, SL: -0.5%.
 {_memoire}
 {_prof_str}
 
 REGLES:
-- ACHAT si RSI<40 ET pattern haussier (engulfing_haussier, marteau_haussier, morning_star, marubozu_haussier).
-- ACHAT si RSI<35 meme sans pattern (survente extreme).
-- RIEN si pattern baissier (engulfing_baissier, evening_star, etoile_filante, marubozu_baissier).
-- RIEN si RSI>70 (surachat) ou doji (indecision).
+- ACHAT si biais bougies > 0.3 ET RSI < 50 (pattern haussier confirme).
+- ACHAT si RSI < 35 meme sans pattern (survente extreme).
+- RIEN si biais bougies < -0.2 (pattern baissier).
+- RIEN si RSI > 70 (surachat) ou doji sans contexte (indecision).
 - F&G<45 = peur = ACHAT possible. F&G>75 = greed = RIEN.
+- Prefere les cryptos avec patterns forts (engulfing, morning star, marteau en fin de baisse).
 - JSON: {{"action": "ACHAT"|"RIEN", "symbole": "XXXUSDT", "raison": "..."}}
 - 1 crypto max. Varie les cryptos. Evite celles ou tu perds.
 - Si rien d'interessant: RIEN."""
