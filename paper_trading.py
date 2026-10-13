@@ -54,6 +54,13 @@ RISK_MAX_TRADE = 0.20         # 20% max TOUTES positions (plus de haute convicti
 RISK_HAUTE_CONVICTION = 0.20  # 20% fixe (plus de sizing variable = pertes controlees)
 INTERVALLE_BOUCLE = 60         # 1 min (scan opportunités plus reactif)
 # RISK MANAGEMENT AVANCE
+# === MODE ESSAI 7 JOURS (demande utilisateur 13/10/2026) ===
+# Jusqu'a la date de fin: 1 trade toutes les 2 min sur le meilleur signal bougies,
+# 200 EUR par trade. Securites suspendues SAUF reserve 200 EUR + perte max 3%/jour.
+# Apres la date: retour automatique aux reglages normaux (rien a faire).
+ESSAI_FIN_UTC = datetime(2026, 10, 20, 12, 56, tzinfo=timezone.utc)
+ESSAI_INTERVALLE_MIN = 2
+ESSAI_MONTANT = 200.0
 MAX_TRADES_PAR_JOUR = 5        # max 5 trades/jour (anti-surtrading: avant 20 trades/6h = -9EUR)
 PERTE_JOUR_MAX_PCT = 3.0      # stop trading si -3% en une journee (30 EUR sur 1000)
 CIRCUIT_BREAKER_CONSECUTIF = 3 # pause apres 3 pertes consecutives (plus de room)
@@ -2102,6 +2109,93 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
 # ============================================
 # CYCLE PRINCIPAL
 # ============================================
+def _essai_actif():
+    return datetime.now(timezone.utc) < ESSAI_FIN_UTC
+
+
+def _tick_essai(pf):
+    """Mode essai: verifie les sorties puis ouvre 1 trade toutes les 2 min
+    sur la crypto qui a le meilleur biais bougies (> 0)."""
+    _reste = ESSAI_FIN_UTC - datetime.now(timezone.utc)
+    print(f"  [ESSAI] Mode essai actif (fin dans {_reste.days}j {_reste.seconds//3600}h) - 1 trade / {ESSAI_INTERVALLE_MIN} min")
+    prix = tous_les_prix()
+    if not prix:
+        print("Impossible de recuperer les prix.")
+        return
+    verifier_sorties(pf, prix)
+    try:
+        _ouvrir_trade_essai(pf, prix)
+    except Exception as e:
+        print(f"  [ESSAI] erreur: {e}")
+    pf["dernier_tick"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+    sauver_portefeuille(pf)
+    afficher_solde(pf, prix)
+
+
+def _ouvrir_trade_essai(pf, prix):
+    _dernier = pf.get("essai_dernier_achat")
+    if _dernier:
+        try:
+            _ecoule = (datetime.now() - datetime.strptime(_dernier, "%Y-%m-%d %H:%M:%S")).total_seconds() / 60
+            if _ecoule < ESSAI_INTERVALLE_MIN:
+                print(f"  [ESSAI] Prochain trade dans {ESSAI_INTERVALLE_MIN - _ecoule:.1f} min")
+                return False
+        except Exception:
+            pass
+    if len(pf["positions"]) >= MAX_POSITIONS:
+        print(f"  [ESSAI] {len(pf['positions'])} positions ouvertes (max {MAX_POSITIONS}) -> attente d'une fermeture")
+        return False
+    if pf["liquidites"] - ESSAI_MONTANT < LIQUIDITE_MIN:
+        print(f"  [ESSAI] Liquidites {pf['liquidites']:.0f}EUR: pas assez pour {ESSAI_MONTANT:.0f}EUR en gardant {LIQUIDITE_MIN:.0f}EUR -> attente")
+        return False
+    import indicateurs as _ind
+    import bougies_patterns as _bp
+    _detenus = {p["symbole"] for p in pf["positions"]}
+    _meilleur = None
+    for sym, px in prix.items():
+        cfg = MARCHES_PAPER.get(sym, {})
+        if cfg.get("marche") != "crypto" or sym in _detenus or not px or px <= 0:
+            continue
+        try:
+            _b = _ind.historique_ohlcv(sym, "1h", 30)
+            if not _b or len(_b) < 10:
+                continue
+            _r = _bp.analyser_patterns(_b)
+        except Exception:
+            continue
+        _biais = _r.get("biais", 0)
+        if _biais > 0 and (_meilleur is None or _biais > _meilleur[1]):
+            _meilleur = (sym, _biais, _r.get("patterns", []), px)
+    if not _meilleur:
+        print("  [ESSAI] Aucune crypto avec un biais bougies haussier -> pas de trade ce cycle")
+        return False
+    sym, biais, pats, px = _meilleur
+    montant = ESSAI_MONTANT
+    frais = montant * FRAIS_TRANSACTION
+    quantite = (montant - frais) / px
+    pf["liquidites"] -= montant
+    pf["total_frais"] = pf.get("total_frais", 0) + frais
+    nom = MARCHES_PAPER.get(sym, {}).get("nom", sym)
+    raison = f"essai bougies: biais {biais:+.2f} ({', '.join(pats) or 'aucun pattern nomme'})"
+    pf["positions"].append({
+        "symbole": sym, "nom": nom, "marche": "crypto",
+        "prix_entree": px, "quantite": quantite, "montant_eur": montant,
+        "frais_entree": frais,
+        "date_ouverture": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "signal_raison": raison, "source": "essai_bougies", "strategie": "essai_bougies",
+        "pattern_bougie": {"biais": biais, "patterns": pats},
+        "tp_adaptatif": TAKE_PROFIT_PCT, "sl_adaptatif": STOP_LOSS_PCT,
+    })
+    pf["essai_dernier_achat"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"  [ACHAT] [ESSAI] {nom} @ {px:.4f} | {montant:.0f} EUR | {raison}")
+    try:
+        from telegram_alerte import envoyer as _tg
+        _tg(f"🧪 Essai: position ouverte\nActif: {nom}\nPrix: {px:.4f} | {montant:.0f} EUR\n{raison}")
+    except Exception:
+        pass
+    return True
+
+
 def tick():
     pf = charger_portefeuille()
     if not pf:
@@ -2124,6 +2218,10 @@ def tick():
     capital_actuel = pf["liquidites"] + sum(p.get("montant_eur", 0) for p in pf.get("positions", []))
     if capital_actuel > 0 and pnl_jour < -(capital_actuel * PERTE_JOUR_MAX_PCT / 100):
         print(f"  [RISK] Perte journaliere {pnl_jour:.2f}EUR > -{PERTE_JOUR_MAX_PCT}% -> STOP TRADING")
+        return
+    # MODE ESSAI: court-circuite toutes les autres securites et le pipeline normal
+    if _essai_actif():
+        _tick_essai(pf)
         return
     # 2. Circuit breaker 3 pertes consecutives
     _cb = pf.get("circuit_breaker", {})
