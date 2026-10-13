@@ -29,7 +29,7 @@ PARAMS_FILE = os.path.join(DOSSIER, "params_tuning.json")
 LOG_FILE = os.path.join(DOSSIER, "meta_tuning_log.jsonl")
 
 # Defaults (matchent TAKE_PROFIT_PCT / STOP_LOSS_PCT de paper_trading)
-TP_DEFAUT = 0.9
+TP_DEFAUT = 1.5
 SL_DEFAUT = 0.5
 
 # Garde-fous

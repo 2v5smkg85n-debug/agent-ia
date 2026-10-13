@@ -54,7 +54,7 @@ RISK_MAX_TRADE = 0.20         # 20% max TOUTES positions (plus de haute convicti
 RISK_HAUTE_CONVICTION = 0.20  # 20% fixe (plus de sizing variable = pertes controlees)
 INTERVALLE_BOUCLE = 60         # 1 min (scan opportunités plus reactif)
 # RISK MANAGEMENT AVANCE
-MAX_TRADES_PAR_JOUR = 999999   # pas de limite (infini)
+MAX_TRADES_PAR_JOUR = 5        # max 5 trades/jour (anti-surtrading: avant 20 trades/6h = -9EUR)
 PERTE_JOUR_MAX_PCT = 3.0      # stop trading si -3% en une journee (30 EUR sur 1000)
 CIRCUIT_BREAKER_CONSECUTIF = 3 # pause apres 3 pertes consecutives (plus de room)
 DRAWDOWN_REDUCTION_SEUIL = 0.97 # si capital < 97% du initial (-30EUR), reduit positions de 50%
@@ -65,7 +65,7 @@ HEURES_FAIBLE_LIQUIDITE = [(14, 15), (3, 4), (11, 12)]  # bloque 14h, 3h, 11h UT
 HEURES_FORT_VOLUME = [(7, 9), (12, 13), (16, 17), (18, 19), (20, 21), (22, 23)]  # UTC (meilleures heures: +43EUR combine)
 HEURES_FORT_BOOST = 1  # +1 au score pendant ces heures
 # Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
-TAKE_PROFIT_PCT = 0.9          # +0.9% (TP serre = encaisse vite les petits gains)
+TAKE_PROFIT_PCT = 1.5          # +1.5% (break-even WR 27% au lieu de 36% avec SL 0.5%)
 STOP_LOSS_PCT = 0.5            # -0.5% (SL serre = petites pertes, ratio TP:SL = 0.9:0.5 = positif)
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
 # est en profit, pour laisser courir les gagnants. SL fixe (pas de breakeven).
@@ -2133,6 +2133,11 @@ def tick():
     if pertes_consec >= CIRCUIT_BREAKER_CONSECUTIF:
         print(f"  [RISK] Circuit breaker: {pertes_consec} pertes consecutives -> PAUSE")
         return
+    # 2b. ANTI-CASCADE: si 3+ SL dans la derniere heure, pause 2h
+    sl_derniere_heure = [t for t in trades_aujourdhui if 'SL' in t.get('raison', '') and _minutes_depuis(t.get('date_fermeture', '')) < 60]
+    if len(sl_derniere_heure) >= 3:
+        print(f"  [RISK] ANTI-CASCADE: {len(sl_derniere_heure)} SL dans la derniere heure -> PAUSE 2h")
+        return
     # 3. Heures de faible liquidite
     heure_utc = datetime.now(timezone.utc).hour
     for h_debut, h_fin in HEURES_FAIBLE_LIQUIDITE:
@@ -2546,6 +2551,18 @@ def afficher_historique():
 
 class TickTimeout(Exception):
     pass
+
+def _minutes_depuis(date_str):
+    """Retourne le nombre de minutes depuis une date string."""
+    if not date_str:
+        return 9999
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M'):
+        try:
+            dt = datetime.strptime(date_str[:19] if len(date_str) >= 19 else date_str, fmt)
+            return (datetime.now() - dt).total_seconds() / 60
+        except ValueError:
+            continue
+    return 9999
 
 def _timeout_handler(signum, frame):
     raise TickTimeout("Tick interrompu: depasse le temps maximum (un actif ne repondait pas)")
