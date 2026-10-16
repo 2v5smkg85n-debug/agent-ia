@@ -659,7 +659,7 @@ th{{color:var(--muted);font-size:11px;text-transform:uppercase}}
 </div>
 
 <div class="footer">
-  <a href="/maitres?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🏆 Maitres</a> · <a href="/learning?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🧠 Apprentissage</a> · <a href="/positions?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📊 Positions Live</a> · <a href="/rapport?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📄 Rapport</a>
+  <a href="/maitres?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🏆 Maitres</a> · <a href="/learning?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🧠 Apprentissage</a> · <a href="/positions?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📊 Positions Live</a> · <a href="/kraken?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🐙 Kraken virtuel</a> · <a href="/rapport?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📄 Rapport</a>
   <br>Agent IA Trading v2 · Auto-refresh 30s · Donnees Revolut X temps reel
 </div>
 </body></html>"""
@@ -830,6 +830,155 @@ body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSys
 <div class="back-link"><a href="/?token={TOKEN}">← Dashboard</a> · <a href="/positions?token={TOKEN}">Positions Live →</a></div>
 </body>
 </html>"""
+
+def build_kraken_page():
+    """Page Kraken virtuel: trades de l'essai rejoues aux conditions reelles Kraken Pro."""
+    try:
+        import kraken_paper as kp
+        d = kp._charger()
+        res = kp.bilan(texte=False)
+    except Exception as e:
+        return f"<html><body style='background:#0d1117;color:#e6edf3;font-family:sans-serif;padding:20px'><h2>Erreur Kraken virtuel</h2><pre>{html.escape(str(e))}</pre></body></html>"
+
+    trades = d.get("trades_fermes", [])
+    positions = d.get("positions", [])
+    capital_init = d.get("capital_initial", 1000)
+    capital = res["capital"]
+    net = res["net"]
+    wr = res["wr"]
+    frais = res["frais"]
+    net_color = "#4ade80" if net >= 0 else "#f87171"
+    wr_color = "#4ade80" if wr >= 60 else ("#fbbf24" if wr >= 40 else "#f87171")
+
+    # Comparatif: memes trades cote bot (paper Revolut/KuCoin, frais 0.1%)
+    net_bot = 0.0; n_bot = 0
+    try:
+        pf = json.load(open(DATA_FILE))
+        ids_k = {(t.get("date_ouverture", ""), t.get("symbole", "")) for t in trades}
+        for t in pf.get("trades_fermes", []):
+            if (t.get("date_ouverture", ""), t.get("symbole", "")) in ids_k:
+                net_bot += t.get("gain_eur", 0); n_bot += 1
+    except Exception:
+        pass
+    ecart = net - net_bot
+    ecart_color = "#4ade80" if ecart >= 0 else "#f87171"
+
+    # Prix live Kraken pour les positions ouvertes
+    pos_html = ""
+    for p in positions:
+        sym = p.get("symbole", "?")
+        tk = None
+        try:
+            tk = kp.ticker(sym)
+        except Exception:
+            pass
+        bid = tk[0] if tk else p.get("prix_entree", 0)
+        var = (bid - p["prix_entree"]) / p["prix_entree"] * 100 if p.get("prix_entree") else 0
+        # valeur nette si vendu maintenant au bid en taker
+        pct_sortie, _ = kp.frais_pct(d, maker=False)
+        brut = p.get("quantite", 0) * bid
+        pnl = brut - brut * pct_sortie / 100 - p.get("montant_eur", 0)
+        col = "#4ade80" if pnl >= 0 else "#f87171"
+        pos_html += f"""
+<div class="lr-row">
+  <div><div class="lr-name">{html.escape(sym.replace('USDT',''))}</div><div class="lr-n">{html.escape(p.get('paire','') or '')} · {html.escape(p.get('date_ouverture','')[5:16])}</div></div>
+  <div class="lr-n">entree {p['prix_entree']:.4f}<br>bid {bid:.4f}</div>
+  <div class="lr-pnl" style="color:{col}">{var:+.2f}%<br><span style="font-size:11px">{pnl:+.2f}€ net</span></div>
+</div>"""
+
+    # Historique
+    hist_html = ""
+    for t in reversed(trades[-30:]):
+        g = t.get("gain_eur", 0)
+        col = "#4ade80" if g > 0 else "#f87171"
+        ft = t.get("frais_entree", 0) + t.get("frais_sortie", 0)
+        mk = "maker" if t.get("maker_sortie") else "taker"
+        hist_html += f"""
+<div class="lr-row">
+  <div><div class="lr-name">{html.escape(t.get('symbole','?').replace('USDT',''))}</div><div class="lr-n">{html.escape(t.get('date_fermeture','')[5:16])} · {html.escape(str(t.get('raison',''))[:16])}</div></div>
+  <div class="lr-n">{t.get('prix_entree',0):.4f} → {t.get('prix_sortie',0):.4f}<br>frais {ft:.2f}€ ({t.get('frais_pct_entree',0):.2f}+{t.get('frais_pct_sortie',0):.2f}% {mk})</div>
+  <div class="lr-pnl" style="color:{col}">{t.get('variation_pct',0):+.2f}%<br><span style="font-size:11px">{g:+.2f}€</span></div>
+</div>"""
+
+    # Paliers
+    vol = res["vol30j_usd"]
+    paliers_html = ""
+    for seuil, mk, tk in kp.PALIERS[:6]:
+        actif = vol >= seuil and not any(vol >= s2 for s2, _, _ in kp.PALIERS if s2 > seuil)
+        style = "color:#4ade80;font-weight:bold" if actif else "color:#8b949e"
+        paliers_html += f'<div class="lr-row" style="{style}"><div>≥ ${seuil:,}</div><div>maker {mk:.2f}%</div><div>taker {tk:.2f}%</div></div>'
+
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="30">
+<title>Kraken virtuel - Agent IA</title>
+<style>
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSystemFont,sans-serif; padding:12px; }}
+.header {{ text-align:center; padding:12px 0; border-bottom:1px solid #30363d; margin-bottom:16px; }}
+.header h1 {{ font-size:20px; color:#7b61ff; }}
+.cards {{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:16px; }}
+.card {{ background:#161b22; border:1px solid #30363d; border-radius:10px; padding:12px; text-align:center; }}
+.card .lbl {{ font-size:11px; color:#8b949e; }}
+.card .val {{ font-size:22px; font-weight:bold; }}
+.section {{ background:#161b22; border:1px solid #30363d; border-radius:10px; padding:12px; margin-bottom:12px; }}
+.section h2 {{ font-size:14px; color:#7b61ff; margin-bottom:8px; }}
+.lr-row {{ display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #21262d; font-size:13px; gap:8px; }}
+.lr-row:last-child {{ border-bottom:none; }}
+.lr-name {{ font-weight:bold; min-width:60px; }}
+.lr-n {{ color:#8b949e; font-size:11px; }}
+.lr-pnl {{ font-weight:bold; min-width:70px; text-align:right; }}
+.lr-muted {{ color:#8b949e; font-size:12px; padding:8px 0; }}
+.note {{ font-size:11px; color:#8b949e; line-height:1.5; }}
+.back-link {{ text-align:center; margin-top:16px; }}
+.back-link a {{ color:#58a6ff; text-decoration:none; font-size:14px; }}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🐙 Kraken virtuel</h1>
+  <div style="font-size:10px;color:#8b949e;margin-top:4px">Conditions reelles Kraken Pro · 0 ordre reel · 0 cle API · Auto-refresh 30s</div>
+</div>
+
+<div class="cards">
+  <div class="card"><div class="lbl">Capital Kraken</div><div class="val" style="color:{net_color}">{capital:.2f}€</div><div class="lbl">depart {capital_init:.0f}€</div></div>
+  <div class="card"><div class="lbl">Net</div><div class="val" style="color:{net_color}">{net:+.2f}€</div><div class="lbl">{len(trades)} trades fermes</div></div>
+  <div class="card"><div class="lbl">Win Rate</div><div class="val" style="color:{wr_color}">{wr}%</div><div class="lbl">{res['gagnants']} gagnants</div></div>
+  <div class="card"><div class="lbl">Frais payes</div><div class="val" style="color:#fbbf24">{frais:.2f}€</div><div class="lbl">taker actuel {res['palier_taker']:.2f}%</div></div>
+</div>
+
+<div class="section">
+  <h2>⚖️ Memes trades : bot vs Kraken</h2>
+  <div class="lr-row"><div>Paper du bot (frais 0.1%)</div><div class="lr-pnl" style="color:{'#4ade80' if net_bot >= 0 else '#f87171'}">{net_bot:+.2f}€</div></div>
+  <div class="lr-row"><div>Kraken virtuel (ask/bid + frais reels)</div><div class="lr-pnl" style="color:{net_color}">{net:+.2f}€</div></div>
+  <div class="lr-row"><div><b>Ecart du aux conditions Kraken</b></div><div class="lr-pnl" style="color:{ecart_color}">{ecart:+.2f}€</div></div>
+  <div class="note" style="margin-top:6px">{n_bot} trades communs compares. Le reel n'est envisageable que si la ligne Kraken est positive sur plusieurs jours.</div>
+</div>
+
+<div class="section">
+  <h2>📈 Positions ouvertes ({len(positions)})</h2>
+  {pos_html if pos_html else '<div class="lr-muted">Aucune position Kraken virtuelle ouverte</div>'}
+</div>
+
+<div class="section">
+  <h2>📜 Historique</h2>
+  {hist_html if hist_html else '<div class="lr-muted">Aucun trade ferme pour l instant</div>'}
+</div>
+
+<div class="section">
+  <h2>🏷️ Paliers de frais Kraken Pro</h2>
+  <div class="note" style="margin-bottom:6px">Volume 30 jours simule : ${vol:,} · palier en vert = actif</div>
+  {paliers_html}
+  <div class="note" style="margin-top:6px">Achat = ordre marche (taker). TP = limit pose a l'avance (maker). SL et autres sorties = taker.</div>
+</div>
+
+<div class="back-link"><a href="/?token={TOKEN}">← Dashboard</a> · <a href="/positions?token={TOKEN}">📊 Positions</a> · <a href="/learning?token={TOKEN}">🧠 Apprentissage</a></div>
+</body>
+</html>"""
+
 
 def build_maitres_page():
     """Genere la page du consensus des 10 maitres traders."""
@@ -1115,6 +1264,17 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": str(e)}).encode())
+            return
+        # Route /kraken : portefeuille Kraken virtuel (conditions reelles, 0 ordre reel)
+        if parsed.path == '/kraken':
+            try:
+                out = build_kraken_page()
+            except Exception as e:
+                out = f"<html><body style='background:#0d1117;color:#e6edf3;font-family:sans-serif;padding:20px'><h2>Erreur</h2><pre>{html.escape(str(e))}</pre></body></html>"
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(out.encode())
             return
         # Route /maitres : consensus des 10 maitres traders
         if parsed.path == '/maitres':
