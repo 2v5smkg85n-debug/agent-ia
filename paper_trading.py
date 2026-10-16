@@ -58,7 +58,7 @@ INTERVALLE_BOUCLE = 60         # 1 min (scan opportunités plus reactif)
 # Jusqu'a la date de fin: 1 trade toutes les 2 min sur le meilleur signal bougies,
 # 200 EUR par trade. Securites suspendues SAUF reserve 200 EUR + perte max 3%/jour.
 # Apres la date: retour automatique aux reglages normaux (rien a faire).
-ESSAI_FIN_UTC = datetime(2026, 10, 20, 12, 56, tzinfo=timezone.utc)
+ESSAI_FIN_UTC = datetime(2026, 10, 16, 15, 30, tzinfo=timezone.utc)  # ARRETE le 16/10 (71 trades, 35% WR, -32.8 EUR) — decision user
 ESSAI_INTERVALLE_MIN = 2
 ESSAI_MONTANT = 200.0
 ESSAI_BIAIS_MIN = 0.4   # biais bougies fort uniquement (v2 du 16/10)
@@ -73,6 +73,13 @@ HEURES_FAIBLE_LIQUIDITE = [(14, 15), (3, 4), (11, 12)]  # bloque 14h, 3h, 11h UT
 HEURES_FORT_VOLUME = [(7, 9), (12, 13), (16, 17), (18, 19), (20, 21), (22, 23)]  # UTC (meilleures heures: +43EUR combine)
 HEURES_FORT_BOOST = 1  # +1 au score pendant ces heures
 # Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
+# === STOP ADAPTE A LA VOLATILITE + RISQUE FIXE (decision user 16/10) ===
+# SL = 1.2 x ATR(14, 1h) en %, borne entre SL_RISQUE_MIN et SL_RISQUE_MAX.
+# Montant = RISQUE_EUR_PAR_TRADE / SL%  -> meme perte max par trade (1 EUR), moins de stops touches par le bruit.
+RISQUE_EUR_PAR_TRADE = 1.0
+SL_RISQUE_MIN = 0.5
+SL_RISQUE_MAX = 1.0
+ATR_MULT = 1.2
 TAKE_PROFIT_PCT = 1.5          # +1.5% (break-even WR 27% au lieu de 36% avec SL 0.5%)
 STOP_LOSS_PCT = 0.5            # -0.5% (SL serre = petites pertes, ratio TP:SL = 0.9:0.5 = positif)
 # EXTEND_TP (backtest +13.35% sur crypto): monte le TP quand la position crypto
@@ -1621,6 +1628,29 @@ def ouvrir_position(pf, signal, prix_actuel):
         return False
     if pf["liquidites"] < 80:
         return False
+    # === REGISTRE DES STRATEGIES (casier a vie) ===
+    try:
+        import registre_strategies as _rs
+        _ok_rs, _why_rs = _rs.autorisee(signal.get("strategie") or signal.get("source") or "inconnu", pf)
+        if not _ok_rs:
+            print(f"  [REGISTRE] {signal.get('nom', signal.get('symbole','?'))}: {_why_rs}")
+            return False
+    except Exception:
+        pass
+    # === JOURNAL DES ERREURS: regles apprises + stop ATR + risque fixe 1 EUR ===
+    _sl_risque, _ctx_entree = None, None
+    try:
+        import journal_erreurs as _je
+        _prep = _je.preparer_entree(signal["symbole"], prix_actuel, montant, pf["liquidites"], LIQUIDITE_MIN)
+        if not _prep["ok"]:
+            print(f"  [REGLE] {signal.get('nom', signal.get('symbole','?'))}: {_prep['raison']}")
+            return False
+        montant = _prep["montant"]
+        _sl_risque = _prep["sl_pct"]
+        _ctx_entree = _prep["ctx"]
+        print(f"  [RISQUE] {signal.get('symbole','?')}: {_prep['raison']}")
+    except Exception as _e:
+        print(f"  [RISQUE] indisponible ({_e}) -> montant/SL classiques")
     frais = montant * FRAIS_TRANSACTION
     quantite = (montant - frais) / prix_actuel
     pf["liquidites"] -= montant
@@ -1677,6 +1707,8 @@ def ouvrir_position(pf, signal, prix_actuel):
         # Intelligence pro
         "tp_adaptatif": _tp_etoile,
         "sl_adaptatif": _sl_etoile,
+        "sl_risque": _sl_risque,
+        "contexte": _ctx_entree,
         "intel_score": signal.get("intel_score"),
         "intel_fg": signal.get("intel_fg"),
         "intel_regime": signal.get("intel_regime"),
@@ -1684,7 +1716,13 @@ def ouvrir_position(pf, signal, prix_actuel):
         "prof_partial_tp": signal.get("prof_partial_tp", 1.5),
     }
     pf["positions"].append(position)
-    print(f"  [ACHAT] {signal.get('nom',signal['symbole'])} ({signal.get('marche','?')}) @ {prix_actuel:.2f} | {montant:.2f} EUR | qty {quantite:.6f}")
+    print(f"  [ACHAT] {signal.get('nom',signal['symbole'])} ({signal.get('marche','?')}) @ {prix_actuel:.2f} | {montant:.2f} EUR | qty {quantite:.6f}" + (f" | SL {_sl_risque}%" if _sl_risque else ""))
+    if position.get("marche", "crypto") in ("crypto", "?"):
+        try:
+            import kraken_paper as _kp
+            _kp.ouvrir_shadow(position)
+        except Exception as _e:
+            print(f"  [KRAKEN-VIRTUEL] indisponible: {_e}")
     # Notif Telegram: prévient qu'une stratégie a ouvert une position
     try:
         from telegram_alerte import envoyer as _tg_envoyer
@@ -1754,15 +1792,19 @@ def verifier_sorties(pf, prix_actuels):
         # CAPS DURS: TP max 1.5%, SL max 0.8% (jamais laisser le meta-tuning monter plus)
         _tp_check = min(_tp_check, 1.5)
         _sl_check = min(_sl_check, 0.8)
+        # STOP ADAPTE (ATR) fixe a l'ouverture: prioritaire sur meta-tuning
+        if pos.get("sl_risque"):
+            _sl_check = float(pos["sl_risque"])
+        _urg_seuil = min(1.3, float(pos["sl_risque"]) + 0.3) if pos.get("sl_risque") else 0.8
         if _essai_actif() and pos.get('strategie') == 'essai_bougies':
             _tp_check, _sl_check = pos.get("essai_tp", TAKE_PROFIT_PCT), pos.get("essai_sl", STOP_LOSS_PCT)  # essai: TP/SL fixes par marche
         # SL D'URGENCE ABSOLU: ferme a -0.8% quoi qu'il arrive (empeche les SL-RETARD)
         # SL normal a 0.5% est verifie en premier, celui-ci est le filet de securite
-        if variation <= -0.8:
+        if variation <= -_urg_seuil:
             # Simuler un ordre stop: fermer au seuil d'urgence avec 0.1% slippage
-            _urg_price = prix_entree * (1 - 0.8 / 100.0) * (1 - 0.1 / 100.0)
+            _urg_price = prix_entree * (1 - _urg_seuil / 100.0) * (1 - 0.1 / 100.0)
             _urg_var = (_urg_price - prix_entree) / prix_entree * 100
-            positions_a_fermer.append((pos, _urg_price, f"SL-URGENCE-ABSOLU (perte {_urg_var:+.1f}%, seuil -0.8%)", _urg_var))
+            positions_a_fermer.append((pos, _urg_price, f"SL-URGENCE-ABSOLU (perte {_urg_var:+.1f}%, seuil -{_urg_seuil}%)", _urg_var))
             continue
         # TP RAPIDE HAUTE CONVICTION: ferme a +1.0% pour les positions 500 EUR
         # Ces positions sont des signaux tres forts -> encaisse vite le gain garanti
@@ -1799,6 +1841,8 @@ def verifier_sorties(pf, prix_actuels):
         # CAPS DURS: TP max 1.5%, SL max 0.5% (jamais laisser monter plus)
         _tp = min(_tp, 1.5)
         _sl = min(_sl, 0.5)
+        if pos.get("sl_risque"):
+            _sl = float(pos["sl_risque"])
         if _essai_actif() and pos.get('strategie') == 'essai_bougies':
             _tp, _sl = pos.get("essai_tp", TAKE_PROFIT_PCT), pos.get("essai_sl", STOP_LOSS_PCT)  # essai: TP/SL fixes par marche
         # TP DYNAMIQUE ATR: DESACTIVE — l'ATR poussait le TP a 4% (contre le TP 0.9% user)
@@ -1993,8 +2037,8 @@ def fermer_position_partielle(pf, position, prix_actuel, fraction, raison, varia
 
 
 def fermer_position(pf, position, prix_actuel, raison, variation):
-    # KRAKEN VIRTUEL: rejoue la vente aux conditions reelles Kraken (positions essai crypto)
-    if position.get("strategie") == "essai_bougies" and position.get("marche", "crypto") == "crypto":
+    # KRAKEN VIRTUEL: rejoue la vente aux conditions reelles Kraken (toute position crypto)
+    if position.get("marche", "crypto") in ("crypto", "?"):
         try:
             import kraken_paper as _kp
             _kp.fermer_shadow(position, raison)
@@ -2005,6 +2049,12 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
     pf["liquidites"] += montant_recu - frais
     pf["total_frais"] += frais
     gain = (montant_recu - frais) - position["montant_eur"]
+    # JOURNAL DES ERREURS + REGISTRE (jamais remis a zero)
+    try:
+        import journal_erreurs as _je
+        _je.enregistrer_fermeture(position, prix_actuel, raison, gain)
+    except Exception as _e:
+        print(f"  [JOURNAL] erreur: {_e}")
     trade = {
         "symbole": position["symbole"],
         "nom": position.get("nom", position["symbole"]),
@@ -2027,6 +2077,11 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
     pf["historique"].append(trade)
     # Phase 2: suit les trades fermes pour le circuit breaker (perte journaliere)
     pf.setdefault("trades_fermes", []).append(trade)
+    try:
+        import registre_strategies as _rs
+        _rs.mettre_a_jour(pf["trades_fermes"], verbose=True)
+    except Exception as _e:
+        print(f"  [REGISTRE] erreur: {_e}")
     pf["positions"].remove(position)
     # Circuit breaker: track pertes consecutives
     if gain < 0:
@@ -2316,6 +2371,25 @@ def tick():
         se.scanner_et_ajouter(MARCHES_PAPER, max_ajout=3)
     except Exception as e:
         print(f"  [SCANNER] Erreur: {e}")
+    # === APPRENTISSAGE DES ERREURS: seed unique + verification des stops 2h apres ===
+    try:
+        import journal_erreurs as _je
+        _je.initialiser_depuis_historique()
+        _je.verifier_stops_serres()
+    except Exception as _e:
+        print(f"  [JOURNAL] erreur: {_e}")
+    # === FIN D'ESSAI: ferme les positions MetaTrader restantes (plus de prix hors essai) ===
+    if not _essai_actif():
+        for _p in list(pf.get("positions", [])):
+            if _p.get("symbole") in MARCHES_MT_ESSAI:
+                try:
+                    _px = prix_yahoo(_p["symbole"])
+                    if _px:
+                        _v = (_px - _p["prix_entree"]) / _p["prix_entree"] * 100
+                        fermer_position(pf, _p, _px, f"ESSAI-FIN (marche MT, {_v:+.2f}%)", _v)
+                        sauver_portefeuille(pf)
+                except Exception as _e:
+                    print(f"  [ESSAI-FIN] {_p.get('symbole')}: {_e}")
 
     # === RISK MANAGEMENT AVANCE ===
     # 1. Perte journaliere max

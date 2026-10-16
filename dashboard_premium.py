@@ -864,7 +864,7 @@ document.querySelectorAll('#trades .tr').forEach(function(t){{t.addEventListener
 </div>
 
 <div class="footer">
-  <a href="/maitres?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🏆 Maitres</a> · <a href="/learning?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🧠 Apprentissage</a> · <a href="/positions?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📊 Positions Live</a> · <a href="/kraken?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🐙 Kraken virtuel</a> · <a href="/rapport?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📄 Rapport</a>
+  <a href="/maitres?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🏆 Maitres</a> · <a href="/learning?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🧠 Apprentissage</a> · <a href="/positions?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📊 Positions Live</a> · <a href="/kraken?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🐙 Kraken virtuel</a> · <a href="/cerveau?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🧠 Cerveau</a> · <a href="/rapport?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📄 Rapport</a>
   <br>Agent IA Trading v2 · Auto-refresh 30s · Donnees Revolut X temps reel
 </div>
 </body></html>"""
@@ -1185,6 +1185,126 @@ body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSys
 </html>"""
 
 
+def build_cerveau_page():
+    """Page Cerveau: registre des strategies (a vie), regles apprises, erreurs classees, post-mortems."""
+    try:
+        import registre_strategies as rs
+        import journal_erreurs as je
+        reg = rs.mettre_a_jour()
+        jr = je._charger()
+    except Exception as e:
+        return f"<html><body style='background:#0d1117;color:#e6edf3;font-family:sans-serif;padding:20px'><h2>Erreur cerveau</h2><pre>{html.escape(str(e))}</pre></body></html>"
+
+    ordre = {"active": 0, "probation": 1, "candidate": 2, "retiree": 3}
+    coul = {"active": "#4ade80", "probation": "#fbbf24", "candidate": "#8b949e", "retiree": "#f87171"}
+    strats_html = ""
+    for k, s in sorted(reg.get("strategies", {}).items(), key=lambda x: (ordre.get(x[1]["statut"], 9), -x[1]["n"])):
+        col = coul.get(s["statut"], "#8b949e")
+        net_col = "#4ade80" if s["net"] >= 0 else "#f87171"
+        ouvre = '<span class="tag es">OUVRE</span>' if s.get("droit_ouverture") else ''
+        force = '<span class="tag st">FORCE</span>' if s.get("force") else ''
+        reco = f'<div class="lr-n" style="color:#fbbf24;margin-top:3px">→ {html.escape(s["recommandation"])}</div>' if s.get("recommandation") else ''
+        strats_html += f"""
+<div class="lr-row" style="align-items:flex-start">
+  <div style="flex:1;min-width:0">
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="badge-s" style="background:{col}22;color:{col}">{s['statut'].upper()}</span><span class="lr-name">{html.escape(k)}</span>{ouvre}{force}</div>
+    <div class="lr-n" style="margin-top:3px">{s['n']} trades · WR {s['wr']:.0f}% · stops {s['taux_stops']}% · 30j {s['net_30j']:+.1f}€ · dernier {html.escape(str(s.get('dernier') or '')[5:16])}</div>
+    {reco}
+  </div>
+  <div class="lr-pnl" style="color:{net_col}">{s['net']:+.2f}€<br><span style="font-size:11px">{s['esperance']:+.2f}€/trade</span></div>
+</div>"""
+
+    regles_html = ""
+    for k, r in jr.get("regles", {}).items():
+        on = r.get("active")
+        col = "#4ade80" if on else "#8b949e"
+        regles_html += f"""
+<div class="lr-row" style="align-items:flex-start">
+  <div style="flex:1"><div style="display:flex;gap:6px;align-items:center"><span class="badge-s" style="background:{col}22;color:{col}">{'ACTIVE' if on else 'inactive'}</span><span class="lr-name">{html.escape(k)}</span></div>
+  <div class="lr-n" style="margin-top:3px">{html.escape(r.get('description',''))}</div>
+  <div class="lr-n">base {r.get('n_cas',0)} pertes ({r.get('perte_cas',0):+.1f}€) · bloque {r.get('n_bloques',0)} entrees · pertes evitees est. {r.get('perte_evitee_est',0):+.1f}€</div></div>
+</div>"""
+
+    classes_html = ""
+    for k, st in sorted(jr.get("classes", {}).items(), key=lambda x: x[1]["perte"]):
+        classes_html += f"""<div class="lr-row"><div><div class="lr-name">{html.escape(k)}</div><div class="lr-n">{html.escape(st.get('description',''))}</div></div><div class="lr-pnl" style="color:#f87171">{st['perte']:+.1f}€<br><span style="font-size:11px">{st['n']} cas</span></div></div>"""
+
+    recents = [t for t in jr.get("trades", []) if not (t.get("contexte") or {}).get("historique")][-15:]
+    pertes_html = ""
+    for t in reversed(recents):
+        pm = f'<div class="lr-n" style="color:#b9a7ff;margin-top:3px">🧠 {html.escape(t["post_mortem"])}</div>' if t.get("post_mortem") else ''
+        cls = " ".join(f'<span class="badge-s sl">{html.escape(c)}</span>' for c in t.get("classes", [])) or '<span class="lr-n">aucune erreur detectee (perte de marche)</span>'
+        pertes_html += f"""
+<div class="lr-row" style="align-items:flex-start">
+  <div style="flex:1"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="lr-name">{html.escape(str(t.get('sym','')).replace('USDT',''))}</span><span class="lr-n">{html.escape(str(t.get('date_fermeture',''))[5:16])} · {html.escape(str(t.get('strategie','')))}</span></div>
+  <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">{cls}</div>{pm}</div>
+  <div class="lr-pnl" style="color:#f87171">{t.get('gain',0):+.2f}€</div>
+</div>"""
+
+    n_att = len(jr.get("a_verifier", []))
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="60">
+<title>Cerveau - Agent IA</title>
+<style>
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSystemFont,sans-serif; padding:12px; }}
+.header {{ text-align:center; padding:12px 0; border-bottom:1px solid #30363d; margin-bottom:16px; }}
+.header h1 {{ font-size:20px; color:#b9a7ff; }}
+.section {{ background:#161b22; border:1px solid #30363d; border-radius:10px; padding:12px; margin-bottom:12px; }}
+.section h2 {{ font-size:14px; color:#b9a7ff; margin-bottom:8px; }}
+.lr-row {{ display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #21262d; font-size:13px; gap:8px; }}
+.lr-row:last-child {{ border-bottom:none; }}
+.lr-name {{ font-weight:bold; }}
+.lr-n {{ color:#8b949e; font-size:11px; }}
+.lr-pnl {{ font-weight:bold; min-width:70px; text-align:right; }}
+.lr-muted {{ color:#8b949e; font-size:12px; padding:8px 0; }}
+.badge-s {{ font-size:10px; font-weight:700; padding:2px 7px; border-radius:8px; }}
+.badge-s.sl {{ background:rgba(248,113,113,.15); color:#f87171; }}
+.tag {{ display:inline-block; font-size:9px; font-weight:700; padding:1px 6px; border-radius:6px; letter-spacing:.3px; }}
+.tag.es {{ background:rgba(123,97,255,.2); color:#b9a7ff; }} .tag.st {{ background:#1c2331; color:#8b949e; }}
+.note {{ font-size:11px; color:#8b949e; line-height:1.5; }}
+.back-link {{ text-align:center; margin-top:16px; }}
+.back-link a {{ color:#58a6ff; text-decoration:none; font-size:14px; }}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🧠 Cerveau</h1>
+  <div style="font-size:10px;color:#8b949e;margin-top:4px">Registre a vie · regles apprises · erreurs classees · {reg.get('total_trades',0)} trades · Auto-refresh 60s</div>
+</div>
+
+<div class="section">
+  <h2>📒 Registre des strategies</h2>
+  <div class="note" style="margin-bottom:6px">ACTIVE = ≥30 trades, net &gt; 0, WR ≥ 55%. RETIREE = ≥30 trades et net &lt; 0, ou ≥15 trades et ≤ -10€. Jamais remis a zero.</div>
+  {strats_html if strats_html else '<div class="lr-muted">Aucune strategie</div>'}
+</div>
+
+<div class="section">
+  <h2>🛡️ Regles apprises</h2>
+  <div class="note" style="margin-bottom:6px">Une classe d'erreur devient une regle active a partir de 10 cas et 8€ de pertes. Le bot refuse alors ces entrees.</div>
+  {regles_html if regles_html else '<div class="lr-muted">Aucune regle pour l instant</div>'}
+</div>
+
+<div class="section">
+  <h2>❌ Classes d'erreur</h2>
+  {classes_html if classes_html else '<div class="lr-muted">Aucune erreur classee</div>'}
+  <div class="note" style="margin-top:6px">{n_att} stop(s) en attente de verification (le prix a-t-il atteint le TP dans les 2h ?).</div>
+</div>
+
+<div class="section">
+  <h2>🔎 Dernieres pertes analysees</h2>
+  {pertes_html if pertes_html else '<div class="lr-muted">Aucune perte depuis l activation du journal</div>'}
+</div>
+
+<div class="back-link"><a href="/?token={TOKEN}">← Dashboard</a> · <a href="/kraken?token={TOKEN}">🐙 Kraken</a> · <a href="/learning?token={TOKEN}">Apprentissage</a></div>
+</body>
+</html>"""
+
+
 def build_maitres_page():
     """Genere la page du consensus des 10 maitres traders."""
     try:
@@ -1469,6 +1589,17 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": str(e)}).encode())
+            return
+        # Route /cerveau : registre des strategies + regles apprises + erreurs
+        if parsed.path == '/cerveau':
+            try:
+                out = build_cerveau_page()
+            except Exception as e:
+                out = f"<html><body style='background:#0d1117;color:#e6edf3;font-family:sans-serif;padding:20px'><h2>Erreur</h2><pre>{html.escape(str(e))}</pre></body></html>"
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(out.encode())
             return
         # Route /kraken : portefeuille Kraken virtuel (conditions reelles, 0 ordre reel)
         if parsed.path == '/kraken':

@@ -2124,12 +2124,35 @@ def _ouvrir_position_auto(symbole, montant, raison, tp_override=None, sl_overrid
         prix = None
     if not prix:
         return f"Prix introuvable pour {symbole}."
+    # === REGISTRE + JOURNAL DES ERREURS: regles apprises, stop ATR, risque fixe 1 EUR ===
+    _sl_risque, _ctx = None, None
+    try:
+        import registre_strategies as _rs
+        _ok_rs, _why_rs = _rs.autorisee("ia_autonome", data)
+        if not _ok_rs:
+            return f"Bloque par le registre: {_why_rs}"
+    except Exception:
+        pass
+    try:
+        import journal_erreurs as _je
+        _prep = _je.preparer_entree(symbole, prix, montant, liquidites, 200.0)
+        if not _prep["ok"]:
+            print(f"  [REGLE] IA {symbole}: {_prep['raison']}")
+            return f"Bloque: {_prep['raison']}"
+        montant = _prep["montant"]
+        _sl_risque = _prep["sl_pct"]
+        _ctx = _prep["ctx"]
+        _sl = _sl_risque
+        print(f"  [RISQUE] IA {symbole}: {_prep['raison']}")
+    except Exception as _e:
+        print(f"  [RISQUE] indisponible ({_e})")
     # Ouvre la position
     frais = montant * 0.002  # 0.2% frais
     quantite = (montant - frais) / prix
     pos = {
         "symbole": symbole, "montant_eur": montant, "prix_entree": prix,
         "prix_actuel": prix, "sl_adaptatif": _sl, "tp_adaptatif": _tp,
+        "sl_risque": _sl_risque, "contexte": _ctx, "marche": "crypto",
         "strategie": "ia_autonome", "source": "ouverture_ia_chat",
         "raison": raison[:200], "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "date_ouverture": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -2144,7 +2167,12 @@ def _ouvrir_position_auto(symbole, montant, raison, tp_override=None, sl_overrid
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception:
         return "Erreur lors de l'ouverture."
-    return f"✅ Position {symbole} ouverte a {prix:.4f}EUR. Montant: {montant:.0f}EUR. Liquidites: {data['liquidites']:.0f}EUR."
+    try:
+        import kraken_paper as _kp
+        _kp.ouvrir_shadow(pos)
+    except Exception:
+        pass
+    return f"✅ Position {symbole} ouverte a {prix:.4f}EUR. Montant: {montant:.0f}EUR (SL {_sl}%). Liquidites: {data['liquidites']:.0f}EUR."
 
 def _analyser_marche_auto():
     """L'IA analyse le marche et ouvre une position si elle trouve une opportunite."""
@@ -2330,6 +2358,22 @@ MEMOIRE D'APPRENTISSAGE (apprends de tes trades passes):
         print(f"  [PROF] {len(_signaux_prof)} signaux professeurs transmis a l'IA: {', '.join(sp['sym']+'('+str(sp['score'])+')' for sp in _signaux_prof)}")
     else:
         print(f"  [PROF] Aucun signal professeur positif trouve")
+    # === MEMOIRE DES ERREURS + REGISTRE (le cerveau se souvient) ===
+    _memoire_erreurs = ""
+    try:
+        import journal_erreurs as _je
+        _ctx_syms = {}
+        try:
+            import indicateurs as _ind2
+            _bb = _ind2.historique_ohlcv("BTCUSDT", "1h", 3)
+            _btc1h = round((_bb[-1]["cloture"] - _bb[-2]["cloture"]) / _bb[-2]["cloture"] * 100, 2) if _bb and len(_bb) >= 2 else None
+        except Exception:
+            _btc1h = None
+        for _s in list(prix_data.keys()):
+            _ctx_syms[_s] = {"heure": datetime.now().hour, "btc_var_1h": _btc1h, "rsi": rsi_data.get(_s)}
+        _memoire_erreurs = _je.resume_pour_ia(list(prix_data.keys()), _ctx_syms)
+    except Exception as _e:
+        print(f"  [MEMOIRE] erreurs indisponible: {_e}")
     prompt = f"""Trader crypto expert en lecture des chandeliers japonais.
 
 PRIX, RSI ET BOUGIES (5 dernieres bougies 1h avec OHLC, contexte et patterns):
@@ -2343,8 +2387,9 @@ Lecture des bougies:
 - doji = indetermination, corps plein = conviction
 - Le contexte (tendance, support/resistance, volume) valide le pattern
 
-Portefeuille: {len(positions)} positions, {liquidites:.0f}EUR dispo. TP: 1.5%, SL: -0.5%.
+Portefeuille: {len(positions)} positions, {liquidites:.0f}EUR dispo. TP: 1.5%, SL adapte a la volatilite (0.5 a 1%), risque fixe 1 EUR/trade.
 {_memoire}
+{_memoire_erreurs}
 {_prof_str}
 
 REGLES:
@@ -2356,6 +2401,8 @@ REGLES:
 - Prefere les cryptos avec patterns forts (engulfing, morning star, marteau en fin de baisse).
 - JSON: {{"action": "ACHAT"|"RIEN", "symbole": "XXXUSDT", "raison": "..."}}
 - 1 crypto max. Varie les cryptos. Evite celles ou tu perds.
+- Respecte les REGLES APPRISES: ne propose pas un achat qu'elles bloqueraient. Si un trade similaire a perdu recemment pour la meme raison, dis RIEN.
+- Dans "raison", cite le pattern, le RSI et ce qui differe des trades perdants similaires.
 - Si rien d'interessant: RIEN."""
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_KEY}"
