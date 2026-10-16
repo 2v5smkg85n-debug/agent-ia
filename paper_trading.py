@@ -187,6 +187,18 @@ MARCHES_PAPER = {
     # CRYPTO UNIQUEMENT — actions/forex/matieres/indices desactives
 }
 
+# === MARCHES "METATRADER" (paper, prix Yahoo) — ajoutes seulement pendant l'essai ===
+# TP/SL adaptes a chaque marche: l'or et les indices bougent 3 a 5x moins que la crypto,
+# le forex 10x moins. Memes criteres d'entree (biais bougies >= 0.4).
+MARCHES_MT_ESSAI = {
+    "GC=F":     {"nom": "Or (XAU/USD)",  "marche": "matiere", "source": "yahoo", "tp": 0.8, "sl": 0.3},
+    "EURUSD=X": {"nom": "EUR/USD",       "marche": "forex",   "source": "yahoo", "tp": 0.3, "sl": 0.12},
+    "GBPUSD=X": {"nom": "GBP/USD",       "marche": "forex",   "source": "yahoo", "tp": 0.35, "sl": 0.15},
+    "^GSPC":    {"nom": "S&P 500",       "marche": "indice",  "source": "yahoo", "tp": 0.6, "sl": 0.25},
+    "^IXIC":    {"nom": "Nasdaq",        "marche": "indice",  "source": "yahoo", "tp": 0.8, "sl": 0.3},
+    "^GDAXI":   {"nom": "DAX",           "marche": "indice",  "source": "yahoo", "tp": 0.6, "sl": 0.25},
+}
+
 # ============================================
 # STOCKAGE PORTEFEUILLE
 # ============================================
@@ -1743,7 +1755,7 @@ def verifier_sorties(pf, prix_actuels):
         _tp_check = min(_tp_check, 1.5)
         _sl_check = min(_sl_check, 0.8)
         if _essai_actif() and pos.get('strategie') == 'essai_bougies':
-            _tp_check, _sl_check = TAKE_PROFIT_PCT, STOP_LOSS_PCT  # essai: TP 1.5 fixe
+            _tp_check, _sl_check = pos.get("essai_tp", TAKE_PROFIT_PCT), pos.get("essai_sl", STOP_LOSS_PCT)  # essai: TP/SL fixes par marche
         # SL D'URGENCE ABSOLU: ferme a -0.8% quoi qu'il arrive (empeche les SL-RETARD)
         # SL normal a 0.5% est verifie en premier, celui-ci est le filet de securite
         if variation <= -0.8:
@@ -1788,7 +1800,7 @@ def verifier_sorties(pf, prix_actuels):
         _tp = min(_tp, 1.5)
         _sl = min(_sl, 0.5)
         if _essai_actif() and pos.get('strategie') == 'essai_bougies':
-            _tp, _sl = TAKE_PROFIT_PCT, STOP_LOSS_PCT  # essai: TP 1.5 fixe (meta-tuning ignore)
+            _tp, _sl = pos.get("essai_tp", TAKE_PROFIT_PCT), pos.get("essai_sl", STOP_LOSS_PCT)  # essai: TP/SL fixes par marche
         # TP DYNAMIQUE ATR: DESACTIVE — l'ATR poussait le TP a 4% (contre le TP 0.9% user)
         # Le TP vient de meta-tuning (0.9-1.5%) ou des constantes globales (0.9%)
         # === TP: ENCAISSE LES GAINS AU TAKE-PROFIT ===
@@ -2118,6 +2130,42 @@ def _essai_actif():
     return datetime.now(timezone.utc) < ESSAI_FIN_UTC
 
 
+def _marche_mt_ouvert(sym):
+    """True si le marche MetaTrader est ouvert (UTC). Ferme le week-end.
+    Forex/or: dim 22h -> ven 21h. Indices: seances cash (S&P/Nasdaq 13h30-20h, DAX 7h-15h30)."""
+    now = datetime.now(timezone.utc)
+    j, h, m = now.weekday(), now.hour, now.minute
+    hm = h + m / 60
+    cfg = MARCHES_MT_ESSAI.get(sym, {})
+    if cfg.get("marche") in ("forex", "matiere"):
+        if j == 5: return False
+        if j == 6 and hm < 22: return False
+        if j == 4 and hm >= 21: return False
+        return True
+    if cfg.get("marche") == "indice":
+        if j >= 5: return False
+        if sym == "^GDAXI": return 7 <= hm < 15.5
+        return 13.5 <= hm < 20
+    return False
+
+
+def _essai_mt_ok(sym):
+    """Entree MT autorisee: marche ouvert ET pas le vendredi apres 18h UTC (anti-gap week-end).
+    Les positions MT de l'essai ne doivent pas passer le week-end."""
+    if not _marche_mt_ouvert(sym):
+        return False
+    now = datetime.now(timezone.utc)
+    if now.weekday() == 4 and now.hour >= 18:
+        return False
+    return True
+
+
+# Pendant l'essai, les marches MetaTrader rejoignent la liste des actifs suivis
+if _essai_actif():
+    for _s, _c in MARCHES_MT_ESSAI.items():
+        MARCHES_PAPER.setdefault(_s, {"nom": _c["nom"], "marche": _c["marche"], "source": _c["source"]})
+
+
 def _tick_essai(pf):
     """Mode essai: verifie les sorties puis ouvre 1 trade toutes les 2 min
     sur la crypto qui a le meilleur biais bougies (> 0)."""
@@ -2128,6 +2176,26 @@ def _tick_essai(pf):
         print("Impossible de recuperer les prix.")
         return
     verifier_sorties(pf, prix)
+    # Positions MT: fermeture forcee avant la cloture du marche (jamais de week-end/nuit)
+    try:
+        _now = datetime.now(timezone.utc); _hm = _now.hour + _now.minute / 60
+        for _p in list(pf["positions"]):
+            _s = _p["symbole"]
+            if _s not in MARCHES_MT_ESSAI or _s not in prix:
+                continue
+            _m = MARCHES_MT_ESSAI[_s]["marche"]
+            _fermer = False
+            if _m == "indice":
+                _fermer = (_hm >= 15.25) if _s == "^GDAXI" else (_hm >= 19.75)
+                _fermer = _fermer or not _marche_mt_ouvert(_s)
+            else:  # forex / or: avant la fermeture du vendredi 21h UTC
+                _fermer = (_now.weekday() == 4 and _hm >= 20.5) or _now.weekday() == 5
+            if _fermer:
+                _px = prix[_s]
+                _var = (_px - _p["prix_entree"]) / _p["prix_entree"] * 100
+                fermer_position(pf, _p, _px, f"MT-CLOTURE-MARCHE ({_var:+.2f}%)", _var)
+    except Exception as _e:
+        print(f"  [ESSAI] cloture MT erreur: {_e}")
     try:
         _ouvrir_trade_essai(pf, prix)
     except Exception as e:
@@ -2170,7 +2238,9 @@ def _ouvrir_trade_essai(pf, prix):
     _meilleur = None
     for sym, px in prix.items():
         cfg = MARCHES_PAPER.get(sym, {})
-        if cfg.get("marche") != "crypto" or sym in _detenus or not px or px <= 0:
+        if sym in _detenus or not px or px <= 0:
+            continue
+        if cfg.get("marche") != "crypto" and not (sym in MARCHES_MT_ESSAI and _essai_mt_ok(sym)):
             continue
         try:
             _b = _ind.historique_ohlcv(sym, "1h", 30)
@@ -2183,7 +2253,8 @@ def _ouvrir_trade_essai(pf, prix):
         if _biais >= ESSAI_BIAIS_MIN and (_meilleur is None or _biais > _meilleur[1]):
             _meilleur = (sym, _biais, _r.get("patterns", []), px)
     if not _meilleur:
-        print(f"  [ESSAI] Aucune crypto avec un biais bougies >= {ESSAI_BIAIS_MIN} -> pas de trade ce cycle")
+        _mt_ouverts = [s for s in MARCHES_MT_ESSAI if _essai_mt_ok(s)]
+        print(f"  [ESSAI] Aucun actif avec un biais bougies >= {ESSAI_BIAIS_MIN} (crypto + {len(_mt_ouverts)} marches MT ouverts) -> pas de trade ce cycle")
         return False
     sym, biais, pats, px = _meilleur
     montant = ESSAI_MONTANT
@@ -2192,15 +2263,20 @@ def _ouvrir_trade_essai(pf, prix):
     pf["liquidites"] -= montant
     pf["total_frais"] = pf.get("total_frais", 0) + frais
     nom = MARCHES_PAPER.get(sym, {}).get("nom", sym)
-    raison = f"essai bougies: biais {biais:+.2f} ({', '.join(pats) or 'aucun pattern nomme'})"
+    _mt = MARCHES_MT_ESSAI.get(sym)
+    _tp_e = _mt["tp"] if _mt else TAKE_PROFIT_PCT
+    _sl_e = _mt["sl"] if _mt else STOP_LOSS_PCT
+    _marche_e = _mt["marche"] if _mt else "crypto"
+    raison = f"essai bougies{' MT' if _mt else ''}: biais {biais:+.2f} ({', '.join(pats) or 'aucun pattern nomme'}) TP {_tp_e}% SL {_sl_e}%"
     pf["positions"].append({
-        "symbole": sym, "nom": nom, "marche": "crypto",
+        "symbole": sym, "nom": nom, "marche": _marche_e,
+        "essai_tp": _tp_e, "essai_sl": _sl_e,
         "prix_entree": px, "quantite": quantite, "montant_eur": montant,
         "frais_entree": frais,
         "date_ouverture": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "signal_raison": raison, "source": "essai_bougies", "strategie": "essai_bougies",
         "pattern_bougie": {"biais": biais, "patterns": pats},
-        "tp_adaptatif": TAKE_PROFIT_PCT, "sl_adaptatif": STOP_LOSS_PCT,
+        "tp_adaptatif": _tp_e, "sl_adaptatif": _sl_e,
     })
     pf["essai_dernier_achat"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"  [ACHAT] [ESSAI] {nom} @ {px:.4f} | {montant:.0f} EUR | {raison}")
