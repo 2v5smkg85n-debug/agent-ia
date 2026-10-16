@@ -2404,30 +2404,45 @@ REGLES:
 - Respecte les REGLES APPRISES: ne propose pas un achat qu'elles bloqueraient. Si un trade similaire a perdu recemment pour la meme raison, dis RIEN.
 - Dans "raison", cite le pattern, le RSI et ce qui differe des trades perdants similaires.
 - Si rien d'interessant: RIEN."""
+    # === CERVEAU v3: preselection chiffree -> dossiers -> analyste JSON -> avocat du diable -> porte ===
+    _dec_cerveau = None
     try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_KEY}"
-        payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.3, "maxOutputTokens": 512, "thinkingConfig": {"thinkingBudget": 0}}}
-        r = requests.post(url, json=payload, timeout=30)
-        texte = None
-        if r.status_code == 200:
-            texte = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-        # Fallback Ollama local si Gemini echoue
-        if not texte:
-            try:
-                ollama_payload = {"model": "qwen2.5:7b", "messages": [{"role": "user", "content": prompt}], "stream": False, "options": {"temperature": 0.3, "num_predict": 512}}
-                resp_ol = requests.post("http://localhost:11434/api/chat", json=ollama_payload, timeout=60)
-                if resp_ol.status_code == 200:
-                    texte = resp_ol.json()["message"]["content"].strip()
-                    _deduire_cout(COUT_ANALYSE, "analyse trading ollama")
-            except Exception:
-                pass
-        if not texte:
-            return None
-        import re
-        match = re.search(r'\{.*\}', texte, re.DOTALL)
-        if not match:
-            return None
-        decision = json.loads(match.group())
+        import cerveau as _cv
+        _dec_cerveau = _cv.decider(prix_data, rsi_data, patterns_data, lignes_marche, positions, liquidites, _memoire + "\n" + _memoire_erreurs, _prof_str)
+    except Exception as _e:
+        print(f"  [CERVEAU] indisponible ({_e}) -> ancien flux")
+    if _dec_cerveau is not None and _dec_cerveau.get("action") != "ACHAT":
+        # Decision disciplinee: RIEN est RIEN (les sous-agents ne passent pas outre)
+        print(f"  [CERVEAU] RIEN [{_dec_cerveau.get('etape')}] {str(_dec_cerveau.get('raison',''))[:120]}")
+        return None
+    try:
+        if _dec_cerveau is not None:
+            decision = _dec_cerveau
+            import re
+        else:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_KEY}"
+            payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.3, "maxOutputTokens": 512, "thinkingConfig": {"thinkingBudget": 0}}}
+            r = requests.post(url, json=payload, timeout=30)
+            texte = None
+            if r.status_code == 200:
+                texte = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+            # Fallback Ollama local si Gemini echoue
+            if not texte:
+                try:
+                    ollama_payload = {"model": "qwen2.5:7b", "messages": [{"role": "user", "content": prompt}], "stream": False, "options": {"temperature": 0.3, "num_predict": 512}}
+                    resp_ol = requests.post("http://localhost:11434/api/chat", json=ollama_payload, timeout=60)
+                    if resp_ol.status_code == 200:
+                        texte = resp_ol.json()["message"]["content"].strip()
+                        _deduire_cout(COUT_ANALYSE, "analyse trading ollama")
+                except Exception:
+                    pass
+            if not texte:
+                return None
+            import re
+            match = re.search(r'\{.*\}', texte, re.DOTALL)
+            if not match:
+                return None
+            decision = json.loads(match.group())
         if decision.get("action") != "ACHAT":
             # L'IA principale a dit RIEN — les sous-agents essaient avec leur propre cerveau
             _sous_actifs = _sous_agents_actifs()

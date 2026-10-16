@@ -1242,6 +1242,42 @@ def build_cerveau_page():
 </div>"""
 
     n_att = len(jr.get("a_verifier", []))
+    # --- Decisions du cerveau (analyste + avocat du diable) et calibration ---
+    cerveau_html, calib_html, cerveau_titre = "", "", ""
+    try:
+        import cerveau as cv
+        jd = cv._charger()
+        decs = jd.get("decisions", [])
+        cal = jd.get("calibration", {})
+        seuil = cv.seuil_adaptatif(jd)
+        n_achat = sum(1 for x in decs if x.get("action") == "ACHAT")
+        cerveau_titre = f"{len(decs)} decisions · {n_achat} achats · seuil de confiance {seuil} · occasions manquees {jd.get('manquees', 0)}"
+        for b in ["<60", "60-69", "70-79", "80-89", "90+"]:
+            st = cal.get(b)
+            if not st:
+                continue
+            n = st.get("tp", 0) + st.get("sl", 0)
+            wr = st["tp"] / n * 100 if n else 0
+            colw = "#4ade80" if wr >= 55 else ("#fbbf24" if wr >= 45 else "#f87171")
+            calib_html += f"""<div class="lr-row"><div><div class="lr-name">Confiance {b}</div><div class="lr-n">{st.get('tp',0)} TP · {st.get('sl',0)} SL · {st.get('neutre',0)} neutres</div></div><div class="lr-pnl" style="color:{colw}">{wr:.0f}%</div></div>"""
+        for x in reversed(decs[-12:]):
+            act = x.get("action", "")
+            col = "#4ade80" if act == "ACHAT" else "#8b949e"
+            res = x.get("resultat")
+            res_html = ""
+            if x.get("evaluee") and res:
+                rc = {"tp": "#4ade80", "sl": "#f87171"}.get(res, "#8b949e")
+                var = x.get("var_4h")
+                res_html = f'<span class="badge-s" style="background:{rc}22;color:{rc}">{res.upper()}{f" {var:+.1f}%" if var is not None else ""}</span>'
+                if x.get("manquee"):
+                    res_html += ' <span class="badge-s" style="background:#fbbf2422;color:#fbbf24">MANQUEE</span>'
+            cerveau_html += f"""
+<div class="lr-row" style="align-items:flex-start">
+  <div style="flex:1;min-width:0"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="badge-s" style="background:{col}22;color:{col}">{html.escape(act)}</span><span class="lr-name">{html.escape(str(x.get('sym') or '-').replace('USDT',''))}</span><span class="lr-n">{html.escape(str(x.get('date',''))[5:16])} · {html.escape(str(x.get('etape','')))} · conf {x.get('confiance',0)}</span>{res_html}</div>
+  <div class="lr-n" style="margin-top:3px">{html.escape(str(x.get('raison',''))[:180])}</div></div>
+</div>"""
+    except Exception as e:
+        cerveau_html = f'<div class="lr-muted">Cerveau indisponible: {html.escape(str(e))}</div>'
     return f"""<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -1275,6 +1311,13 @@ body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSys
 <div class="header">
   <h1>🧠 Cerveau</h1>
   <div style="font-size:10px;color:#8b949e;margin-top:4px">Registre a vie · regles apprises · erreurs classees · {reg.get('total_trades',0)} trades · Auto-refresh 60s</div>
+</div>
+
+<div class="section">
+  <h2>🎯 Decisions du cerveau</h2>
+  <div class="note" style="margin-bottom:6px">Preselection chiffree → analyste (checklist 6 points, confiance) → avocat du diable (2e modele) → porte. Chaque decision est reevaluee 4h apres sur les bougies. {cerveau_titre}</div>
+  {calib_html if calib_html else '<div class="lr-muted">Calibration: pas encore de decision evaluee</div>'}
+  {cerveau_html if cerveau_html else '<div class="lr-muted">Aucune decision journalisee</div>'}
 </div>
 
 <div class="section">

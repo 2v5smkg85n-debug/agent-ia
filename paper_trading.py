@@ -2378,6 +2378,12 @@ def tick():
         _je.verifier_stops_serres()
     except Exception as _e:
         print(f"  [JOURNAL] erreur: {_e}")
+    # === CERVEAU: evalue ses propres decisions 4h apres (calibration de la confiance) ===
+    try:
+        import cerveau as _cv
+        _cv.evaluer_decisions()
+    except Exception as _e:
+        print(f"  [CERVEAU] evaluation: {_e}")
     # === FIN D'ESSAI: ferme les positions MetaTrader restantes (plus de prix hors essai) ===
     if not _essai_actif():
         for _p in list(pf.get("positions", [])):
