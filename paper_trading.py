@@ -1993,6 +1993,13 @@ def fermer_position_partielle(pf, position, prix_actuel, fraction, raison, varia
 
 
 def fermer_position(pf, position, prix_actuel, raison, variation):
+    # KRAKEN VIRTUEL: rejoue la vente aux conditions reelles Kraken (positions essai crypto)
+    if position.get("strategie") == "essai_bougies" and position.get("marche", "crypto") == "crypto":
+        try:
+            import kraken_paper as _kp
+            _kp.fermer_shadow(position, raison)
+        except Exception as _e:
+            print(f"  [KRAKEN-VIRTUEL] indisponible: {_e}")
     montant_recu = position.get("quantite", position.get("montant_eur", 0) / position.get("prix_entree", 1)) * prix_actuel
     frais = montant_recu * FRAIS_TRANSACTION
     pf["liquidites"] += montant_recu - frais
@@ -2280,6 +2287,13 @@ def _ouvrir_trade_essai(pf, prix):
     })
     pf["essai_dernier_achat"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"  [ACHAT] [ESSAI] {nom} @ {px:.4f} | {montant:.0f} EUR | {raison}")
+    # KRAKEN VIRTUEL: rejoue l'achat aux conditions reelles Kraken (0 ordre reel, 0 cle API)
+    if _marche_e == "crypto":
+        try:
+            import kraken_paper as _kp
+            _kp.ouvrir_shadow(pf["positions"][-1])
+        except Exception as _e:
+            print(f"  [KRAKEN-VIRTUEL] indisponible: {_e}")
     try:
         from telegram_alerte import envoyer as _tg
         _tg(f"🧪 Essai: position ouverte\nActif: {nom}\nPrix: {px:.4f} | {montant:.0f} EUR\n{raison}")
