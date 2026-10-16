@@ -55,20 +55,44 @@ def fmt(x):
     except (ValueError, TypeError):
         return str(x)
 
+def _est_yahoo(sym):
+    return ("=" in sym) or sym.startswith("^")
+
+def _prix_yahoo_dash(sym):
+    try:
+        import urllib.request
+        req = urllib.request.Request(f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(sym)}", headers={"User-Agent": "Mozilla/5.0"})
+        data = json.load(urllib.request.urlopen(req, timeout=8))
+        meta = data["chart"]["result"][0]["meta"]
+        prix = float(meta["regularMarketPrice"])
+        prev = float(meta.get("chartPreviousClose") or meta.get("previousClose") or 0)
+        var = (prix - prev) / prev * 100 if prev else 0
+        return {"prix": prix, "var_24h": round(var, 2)}
+    except Exception:
+        return None
+
 def get_prix_batch(symboles):
-    """Recupere les prix depuis Revolut X (API publique, en EUR).
+    """Recupere les prix depuis Revolut X (API publique, en EUR) ; Yahoo pour or/forex/indices.
     Utilise un cache local de 90s pour eviter les faux PnL quand l'API ne repond pas."""
+    result = {}
+    yahoo_syms = [s for s in symboles if _est_yahoo(s)]
+    crypto_syms = [s for s in symboles if not _est_yahoo(s)]
+    for s in yahoo_syms:
+        r = _prix_yahoo_dash(s)
+        if r:
+            result[s] = r
     try:
         import prix_revolut as pr
-        resultats = pr.get_prix_batch(symboles)
+        resultats = pr.get_prix_batch(crypto_syms) if crypto_syms else {}
         # Formater comme l'ancien format CoinGecko
-        result = {}
         for sym, prix in resultats.items():
             result[sym] = {"prix": prix, "var_24h": 0}
         if result:
             return result
     except Exception as e:
         print("  [DASHBOARD] Prix Revolut X erreur: " + str(e))
+    if result:
+        return result
     
     # Fallback: cache local
     cache = {}
@@ -404,6 +428,134 @@ setTimeout(updateLive, 1500);
 </body>
 </html>"""
 
+MOIS_FR = ["", "jan", "fev", "mar", "avr", "mai", "juin", "juil", "aout", "sep", "oct", "nov", "dec"]
+
+def _dt(s):
+    """'2026-10-16 01:05[:ss]' -> datetime ou None."""
+    try:
+        from datetime import datetime as _d
+        return _d.strptime(str(s)[:16], "%Y-%m-%d %H:%M")
+    except Exception:
+        return None
+
+def _date_courte(s):
+    d = _dt(s)
+    if not d:
+        return esc(str(s))
+    return f"{d.day} {MOIS_FR[d.month]} · {d.strftime('%H:%M')}"
+
+def _duree(d1, d2=None):
+    from datetime import datetime as _d
+    a, b = _dt(d1), (_dt(d2) if d2 else _d.now())
+    if not a or not b:
+        return ""
+    m = int((b - a).total_seconds() // 60)
+    if m < 1: return "<1 min"
+    if m < 60: return f"{m} min"
+    h, m = divmod(m, 60)
+    if h < 24: return f"{h}h{m:02d}"
+    j, h = divmod(h, 24)
+    return f"{j}j {h}h"
+
+def _badge_sortie(raison):
+    """Type de sortie -> (label court, classe css)."""
+    r = str(raison or "")
+    R = r.upper()
+    if R.startswith("TP"): return "TP", "tp"
+    if "URGENCE" in R: return "SL urgence", "sl"
+    if R.startswith("SL"): return "SL", "sl"
+    if R.startswith("TEMPS"): return "Temps", "tm"
+    if R.startswith("PATTERN"): return "Pattern", "pt"
+    if R.startswith("MT-CLOTURE"): return "Cloture MT", "mt"
+    if R.startswith("LIVE-EXIT"): return "Live exit", "pt"
+    if "TRAILING" in R: return "Trailing", "tp"
+    return (r.split("(")[0].strip()[:12] or "Sortie"), "tm"
+
+def _raison_courte(raison):
+    """Garde l'essentiel: le pourcentage principal entre parentheses si present."""
+    r = str(raison or "")
+    import re as _re
+    m = _re.search(r"([+-]\d+[.,]\d+%)", r)
+    base = r.split("(")[0].strip()
+    if m and len(base) > 14:
+        return m.group(1)
+    if m:
+        return f"{base} {m.group(1)}"
+    return r[:40]
+
+def _tag_strategie(t):
+    s = str(t.get("strategie", "") or t.get("source", "") or "")
+    m = str(t.get("marche", "crypto") or "crypto")
+    if m in ("forex", "indice", "matiere"): return "MT", "mt"
+    if s == "essai_bougies": return "ESSAI", "es"
+    if "backtest" in s.lower() or "backtest" in str(t.get("source", "")).lower(): return "BACKTEST", "bt"
+    if s and s != "?": return s[:14].upper(), "st"
+    return "", ""
+
+def _courbe_capital_svg(cap_init, fermes):
+    """Courbe du capital reconstruite depuis les trades fermes (cumul des gains) + barres par jour."""
+    trades = [t for t in fermes if _dt(t.get("date_fermeture"))]
+    trades.sort(key=lambda t: t.get("date_fermeture", ""))
+    if len(trades) < 2:
+        return "<p class='muted'>Pas assez de trades fermes pour tracer la courbe</p>"
+    vals = [cap_init]
+    for t in trades:
+        vals.append(vals[-1] + float(t.get("gain_eur", 0) or 0))
+    W, H, P = 700, 220, 40
+    vmin, vmax = min(vals), max(vals)
+    if vmax == vmin: vmax = vmin + 1
+    n = len(vals)
+    pts = []
+    for i, v in enumerate(vals):
+        x = P + (W - 2 * P) * (i / (n - 1))
+        y = H - P - (H - 2 * P) * ((v - vmin) / (vmax - vmin))
+        pts.append(f"{x:.1f},{y:.1f}")
+    poly = " ".join(pts)
+    color = "#4ade80" if vals[-1] >= vals[0] else "#f87171"
+    area = f"{P},{H-P} " + poly + f" {W-P},{H-P}"
+    y_init = H - P - (H - 2 * P) * ((cap_init - vmin) / (vmax - vmin))
+    d0, d1 = _dt(trades[0]["date_fermeture"]), _dt(trades[-1]["date_fermeture"])
+    lab0 = f"{d0.day} {MOIS_FR[d0.month]}" if d0 else ""
+    lab1 = f"{d1.day} {MOIS_FR[d1.month]}" if d1 else ""
+    svg = f"""
+    <svg viewBox="0 0 {W} {H}" class="chart-svg" preserveAspectRatio="xMidYMid meet">
+      <defs><linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{color}" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="{color}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <polygon points="{area}" fill="url(#grad)"/>
+      <line x1="{P}" y1="{y_init:.1f}" x2="{W-P}" y2="{y_init:.1f}" stroke="#8b949e" stroke-dasharray="4 4" stroke-width="1"/>
+      <text x="{W-P+4}" y="{y_init+4:.1f}" fill="#8b949e" font-size="10">{fmt(cap_init)}</text>
+      <text x="{P-6}" y="{P+4}" text-anchor="end" fill="#8b949e" font-size="10">{fmt(vmax)}</text>
+      <text x="{P-6}" y="{H-P}" text-anchor="end" fill="#8b949e" font-size="10">{fmt(vmin)}</text>
+      <text x="{P}" y="{H-P+16}" fill="#8b949e" font-size="10">{lab0}</text>
+      <text x="{W-P}" y="{H-P+16}" text-anchor="end" fill="#8b949e" font-size="10">{lab1}</text>
+      <polyline points="{poly}" fill="none" stroke="{color}" stroke-width="2.5" stroke-linejoin="round"/>
+      <circle cx="{pts[-1].split(',')[0]}" cy="{pts[-1].split(',')[1]}" r="4" fill="{color}"/>
+    </svg>"""
+    # Barres par jour (14 derniers jours)
+    from datetime import datetime as _d, timedelta as _td
+    today = _d.now().date()
+    jours = [today - _td(days=i) for i in range(13, -1, -1)]
+    par_jour = {j: [0.0, 0, 0] for j in jours}  # net, n, gagnants
+    for t in trades:
+        d = _dt(t["date_fermeture"]).date()
+        if d in par_jour:
+            g = float(t.get("gain_eur", 0) or 0)
+            par_jour[d][0] += g; par_jour[d][1] += 1; par_jour[d][2] += 1 if g > 0 else 0
+    mx = max([abs(v[0]) for v in par_jour.values()] + [0.01])
+    bars = ""
+    for j in jours:
+        net, n, g = par_jour[j]
+        h = max(2, int(abs(net) / mx * 44)) if n else 2
+        col = "#4ade80" if net > 0 else ("#f87171" if net < 0 else "#30363d")
+        bars += f"""<div class="day" title="{j.day} {MOIS_FR[j.month]}: {n} trades, {g} gagnants, {net:+.2f}€">
+          <div class="day-val" style="color:{col}">{(f'{net:+.0f}' if n else '')}</div>
+          <div class="day-bar-wrap"><div class="day-bar" style="height:{h}px;background:{col}"></div></div>
+          <div class="day-lbl">{j.day}</div></div>"""
+    return svg + f'<div class="days">{bars}</div><div class="muted" style="font-size:10px;text-align:center;margin-top:4px">Net par jour · 14 derniers jours (survolez une barre)</div>'
+
+
 def build_premium_page(d):
     cap_init = float(d.get("capital_initial", 1000))
     liq = float(d.get("liquidites", 0))
@@ -426,7 +578,7 @@ def build_premium_page(d):
     
     for p in positions:
         sym = p.get("symbole", "")
-        nom = NOMS.get(sym, sym)
+        nom = p.get("nom") if p.get("nom") and p.get("nom") != sym else NOMS.get(sym, sym.replace("USDT", ""))
         prix_entree = float(p.get("prix_entree", 0))
         quantite = float(p.get("quantite", 0))
         montant = float(p.get("montant_eur", 0))
@@ -449,30 +601,44 @@ def build_premium_page(d):
         total_investi += montant
         total_pnl += pnl_eur
         
-        emoji = "🟢" if pnl_pct >= 0 else "🔴"
         pnl_color = "#4ade80" if pnl_pct >= 0 else "#f87171"
-        bar_width = min(abs(pnl_pct) * 10, 100)
-        pnl_text = f"{pnl_eur:+.2f}€ ({pnl_pct:+.1f}%)" if prix_disponible else "N/A (prix indisponible)"
-        prix_actuel_text = f"{prix_actuel:.4f}€" if prix_disponible else "N/A"
-        var_text = f"{var_24h:+.1f}%" if prix_disponible and var_24h is not None else "N/A"
-        
+        tp_pct = float(p.get("essai_tp") or p.get("tp_adaptatif") or 1.5)
+        sl_pct = float(p.get("essai_sl") or p.get("sl_adaptatif") or 0.5)
+        # position du prix sur la jauge SL (0%) -> TP (100%)
+        span = tp_pct + sl_pct
+        pos_pct = max(0, min(100, (pnl_pct + sl_pct) / span * 100)) if span > 0 else 50
+        prix_tp = prix_entree * (1 + tp_pct / 100)
+        prix_sl = prix_entree * (1 - sl_pct / 100)
+        tag, tag_cls = _tag_strategie(p)
+        pnl_text = f"{pnl_eur:+.2f}€" if prix_disponible else "N/A"
+        pct_text = f"{pnl_pct:+.2f}%" if prix_disponible else "prix indispo"
+        prix_actuel_text = f"{prix_actuel:.4f}" if prix_disponible else "N/A"
+        marche = p.get("marche", "crypto")
         positions_html += f"""
         <div class="pos-card" onclick="this.classList.toggle('expanded')">
           <div class="pos-header">
-            <span class="pos-emoji">{emoji}</span>
-            <span class="pos-name">{esc(nom)}</span>
-            <span class="pos-pnl" style="color:{pnl_color}">{pnl_text}</span>
+            <div class="pos-left">
+              <div class="pos-line"><span class="pos-name">{esc(nom)}</span>{f'<span class="tag {tag_cls}">{esc(tag)}</span>' if tag else ''}</div>
+              <span class="pos-sub">{montant:.0f}€ · depuis {_duree(date_ouv)}</span>
+            </div>
+            <div class="pos-right">
+              <div class="pos-pnl" style="color:{pnl_color}">{pnl_text}</div>
+              <div class="pos-pct" style="color:{pnl_color}">{pct_text}</div>
+            </div>
+          </div>
+          <div class="gauge">
+            <div class="gauge-track"><div class="gauge-zero" style="left:{sl_pct/span*100 if span else 50:.1f}%"></div><div class="gauge-dot" style="left:{pos_pct:.1f}%;background:{pnl_color}"></div></div>
+            <div class="gauge-labels"><span class="neg">SL -{sl_pct:g}% · {prix_sl:.4f}</span><span>entree {prix_entree:.4f}</span><span class="posv">TP +{tp_pct:g}% · {prix_tp:.4f}</span></div>
           </div>
           <div class="pos-details">
-            <span>Entree: {prix_entree:.4f}€</span>
             <span>Actuel: {prix_actuel_text}</span>
-            <span>24h: {var_text}</span>
+            <span>24h: {(f"{var_24h:+.1f}%" if prix_disponible and var_24h is not None else "N/A")}</span>
             <span>Qty: {quantite:.6f}</span>
-            <span>Montant: {montant:.2f}€</span>
+            <span>Marche: {esc(marche)}</span>
             <span>Strat: {esc(strategie)}</span>
-            <span>Depuis: {esc(date_ouv)}</span>
+            <span>Ouvert: {_date_courte(date_ouv)}</span>
+            {f'<span style="grid-column:1/-1">Signal: {esc(str(p.get("signal_raison",""))[:140])}</span>' if p.get("signal_raison") else ''}
           </div>
-          <div class="pnl-bar"><div class="pnl-fill" style="width:{bar_width}%;background:{pnl_color}"></div></div>
         </div>"""
     
     cap_actuel = liq + total_valeur
@@ -483,73 +649,58 @@ def build_premium_page(d):
     nb_perdants = len([p for p in positions if isinstance(p, dict) and prix_temps_reel.get(p.get("symbole",""),{}).get("prix",0) > 0 and prix_temps_reel.get(p.get("symbole",""),{}).get("prix",0) * p.get("quantite",0) < p.get("montant_eur",0)])
     nb_indispo = nb_pos - nb_gagnants - nb_perdants
     
-    # Historique pour graphique
-    hist_vals = []
-    hist_labels = []
-    for i, h in enumerate(hist):
-        v = None
-        if isinstance(h, dict):
-            for k in ("capital", "valeur", "solde", "total", "capital_total"):
-                if k in h:
-                    try: v = float(h[k])
-                    except: pass
-                    break
-            t = h.get("date") or h.get("timestamp") or str(i)
-            hist_labels.append(str(t))
-        elif isinstance(h, (int, float)):
-            v = float(h)
-            hist_labels.append(str(i))
-        if v is not None:
-            hist_vals.append(v)
-    
-    # Graphique SVG evolution capital
-    chart_svg = ""
-    if len(hist_vals) >= 2:
-        W, H, P = 700, 250, 50
-        vmin, vmax = min(hist_vals), max(hist_vals)
-        if vmax == vmin: vmax = vmin + 1
-        n = len(hist_vals)
-        pts = []
-        for i, v in enumerate(hist_vals):
-            x = P + (W - 2*P) * (i / (n-1))
-            y = H - P - (H - 2*P) * ((v - vmin) / (vmax - vmin))
-            pts.append(f"{x:.1f},{y:.1f}")
-        poly = " ".join(pts)
-        color = "#4ade80" if hist_vals[-1] >= hist_vals[0] else "#f87171"
-        # Aire sous la courbe
-        area_pts = f"{P},{H-P} " + poly + f" {W-P},{H-P}"
-        chart_svg = f"""
-        <svg viewBox="0 0 {W} {H}" class="chart-svg" preserveAspectRatio="xMidYMid meet">
-          <defs><linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="{color}" stop-opacity="0.3"/>
-            <stop offset="100%" stop-color="{color}" stop-opacity="0"/>
-          </linearGradient></defs>
-          <polygon points="{area_pts}" fill="url(#grad)"/>
-          <line x1="{P}" y1="{H-P}" x2="{W-P}" y2="{H-P}" stroke="#30363d"/>
-          <line x1="{P}" y1="{P}" x2="{P}" y2="{H-P}" stroke="#30363d"/>
-          <text x="{P-8}" y="{P+4}" text-anchor="end" fill="#8b949e" font-size="10">{fmt(vmax)}</text>
-          <text x="{P-8}" y="{H-P}" text-anchor="end" fill="#8b949e" font-size="10">{fmt(vmin)}</text>
-          <polyline points="{poly}" fill="none" stroke="{color}" stroke-width="2.5"/>
-          <circle cx="{W-P}" cy="{H-P - (H-2*P)*((hist_vals[-1]-vmin)/(vmax-vmin))}" r="4" fill="{color}"/>
-        </svg>"""
-    else:
-        chart_svg = "<p class='muted'>Pas assez d'historique</p>"
+    chart_svg = _courbe_capital_svg(cap_init, fermes)
     
     # Systeme
     sys = read_system()
     svc_paper = service_status("paper_trading")
     svc_dash = service_status("dashboard")
     
-    # Trades fermes
+    # Trades fermes: cartes, du plus recent au plus ancien, filtrables
     trades_html = ""
-    if fermes:
-        for t in fermes[-10:]:
-            sym = t.get("symbole", "?")
-            pnl = t.get("gain_eur", t.get("pnl", 0))
-            raison = t.get("raison", t.get("raison_fermeture", "?"))
-            date_f = t.get("date_fermeture", "?")
-            color = "#4ade80" if pnl >= 0 else "#f87171"
-            trades_html += f"<tr><td>{esc(sym)}</td><td style='color:{color}'>{pnl:+.2f}€</td><td>{esc(raison)}</td><td>{esc(date_f)}</td></tr>"
+    from datetime import datetime as _dnow
+    today_s = _dnow.now().strftime("%Y-%m-%d")
+    t_today = [t for t in fermes if str(t.get("date_fermeture", "")).startswith(today_s)]
+    g_today = [t for t in t_today if float(t.get("gain_eur", 0) or 0) > 0]
+    net_today = sum(float(t.get("gain_eur", 0) or 0) for t in t_today)
+    n_g_all = len([t for t in fermes if float(t.get("gain_eur", 0) or 0) > 0])
+    wr_all = (n_g_all / len(fermes) * 100) if fermes else 0
+    net_all = sum(float(t.get("gain_eur", 0) or 0) for t in fermes)
+    recents = sorted(fermes, key=lambda t: str(t.get("date_fermeture", "")), reverse=True)[:120]
+    for i, t in enumerate(recents):
+        sym = t.get("symbole", "?")
+        nom_t = t.get("nom") if t.get("nom") and t.get("nom") != sym else NOMS.get(sym, sym.replace("USDT", ""))
+        pnl = float(t.get("gain_eur", t.get("pnl", 0)) or 0)
+        var = t.get("variation_pct")
+        raison = t.get("raison", t.get("raison_fermeture", "?"))
+        lab, cls = _badge_sortie(raison)
+        tag, tag_cls = _tag_strategie(t)
+        color = "#4ade80" if pnl >= 0 else "#f87171"
+        gagnant = "g" if pnl > 0 else "p"
+        is_today = "today" if str(t.get("date_fermeture", "")).startswith(today_s) else ""
+        is_essai = "essai" if tag in ("ESSAI", "MT") else ""
+        hidden = "hidden" if i >= 25 else ""
+        trades_html += f"""
+        <div class="tr {gagnant} {is_today} {is_essai} {hidden}" data-raison="{esc(str(raison))}">
+          <div class="tr-l">
+            <div class="tr-top"><span class="tr-name">{esc(str(nom_t))}</span><span class="badge-s {cls}">{esc(lab)}</span>{f'<span class="tag {tag_cls}">{esc(tag)}</span>' if tag else ''}</div>
+            <div class="tr-sub">{_date_courte(t.get('date_fermeture','?'))} · tenu {_duree(t.get('date_ouverture'), t.get('date_fermeture'))} · {float(t.get('montant_eur',0) or 0):.0f}€</div>
+          </div>
+          <div class="tr-r"><div class="tr-pnl" style="color:{color}">{pnl:+.2f}€</div><div class="tr-pct" style="color:{color}">{(f'{float(var):+.2f}%' if var is not None else _raison_courte(raison))}</div></div>
+        </div>"""
+    resume_html = f"""
+    <div class="resume">
+      <div><div class="lbl">Aujourd'hui</div><div class="val" style="color:{'#4ade80' if net_today>=0 else '#f87171'}">{net_today:+.2f}€</div><div class="sub">{len(t_today)} trades · {len(g_today)} gagnants</div></div>
+      <div><div class="lbl">Win rate global</div><div class="val" style="color:{'#4ade80' if wr_all>=50 else ('#fbbf24' if wr_all>=40 else '#f87171')}">{wr_all:.0f}%</div><div class="sub">{n_g_all}/{len(fermes)} trades</div></div>
+      <div><div class="lbl">Net total</div><div class="val" style="color:{'#4ade80' if net_all>=0 else '#f87171'}">{net_all:+.2f}€</div><div class="sub">frais {fmt(frais)}€</div></div>
+    </div>
+    <div class="chips">
+      <button class="chip on" onclick="filtre(this,'')">Tous</button>
+      <button class="chip" onclick="filtre(this,'g')">Gagnants</button>
+      <button class="chip" onclick="filtre(this,'p')">Perdants</button>
+      <button class="chip" onclick="filtre(this,'today')">Aujourd'hui</button>
+      <button class="chip" onclick="filtre(this,'essai')">Essai</button>
+    </div>"""
     
     perf_color = "#4ade80" if perf >= 0 else "#f87171"
     pnl_color_total = "#4ade80" if total_pnl >= 0 else "#f87171"
@@ -607,6 +758,52 @@ th{{color:var(--muted);font-size:11px;text-transform:uppercase}}
 .badge.ok{{background:rgba(74,222,128,0.15);color:var(--pos)}}
 .badge.bad{{background:rgba(248,113,113,0.15);color:var(--neg)}}
 .footer{{text-align:center;color:var(--muted);font-size:11px;margin-top:18px;padding-top:10px;border-top:1px solid var(--border)}}
+
+.pos-left{{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}}
+.pos-line{{display:flex;align-items:center;gap:6px}}
+.pos-left .pos-name{{margin-left:0}}
+.pos-sub{{font-size:11px;color:var(--muted)}}
+.pos-right{{text-align:right}}
+.pos-pnl{{font-size:16px}}
+.pos-pct{{font-size:11px;font-weight:600}}
+.tag{{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:6px;margin-left:6px;letter-spacing:.3px;vertical-align:middle}}
+.tag.es{{background:rgba(123,97,255,.2);color:#b9a7ff}}.tag.mt{{background:rgba(88,166,255,.18);color:#58a6ff}}.tag.bt{{background:rgba(251,191,36,.18);color:#fbbf24}}.tag.st{{background:var(--card2);color:var(--muted)}}
+.gauge{{margin-top:10px}}
+.gauge-track{{position:relative;height:6px;border-radius:3px;background:linear-gradient(90deg,#f87171 0%,#30363d 50%,#4ade80 100%)}}
+.gauge-zero{{position:absolute;top:-3px;width:2px;height:12px;background:#e6edf3;opacity:.6;transform:translateX(-1px)}}
+.gauge-dot{{position:absolute;top:-4px;width:14px;height:14px;border-radius:50%;border:2px solid #0d1117;transform:translateX(-7px);box-shadow:0 0 6px rgba(0,0,0,.6)}}
+.gauge-labels{{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:6px}}
+.gauge-labels .neg{{color:var(--neg)}}.gauge-labels .posv{{color:var(--pos)}}
+.pos-details{{display:none;grid-template-columns:1fr 1fr;gap:6px}}
+.pos-card.expanded .pos-details{{display:grid}}
+.days{{display:flex;gap:4px;align-items:flex-end;margin-top:10px;padding:8px 6px 4px;background:var(--card);border:1px solid var(--border);border-radius:10px}}
+.day{{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}}
+.day-val{{font-size:9px;height:12px;font-weight:600}}
+.day-bar-wrap{{height:46px;display:flex;align-items:flex-end;width:100%}}
+.day-bar{{width:100%;border-radius:3px 3px 0 0;min-height:2px}}
+.day-lbl{{font-size:9px;color:var(--muted)}}
+.resume{{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}}
+.resume>div{{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center}}
+.resume .lbl{{font-size:10px;color:var(--muted);text-transform:uppercase}}
+.resume .val{{font-size:16px;font-weight:700;margin-top:2px}}
+.resume .sub{{font-size:10px;color:var(--muted);margin-top:2px}}
+.chips{{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px}}
+.chip{{background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:14px;padding:5px 12px;font-size:12px;cursor:pointer;white-space:nowrap}}
+.chip.on{{background:rgba(88,166,255,.15);border-color:var(--accent);color:var(--accent);font-weight:600}}
+.tr{{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px;cursor:pointer;flex-wrap:wrap}}
+.tr.g{{border-left:3px solid var(--pos)}}.tr.p{{border-left:3px solid var(--neg)}}
+.tr.hidden{{display:none}}
+.tr-l{{flex:1;min-width:0}}
+.tr-top{{display:flex;align-items:center;gap:6px;flex-wrap:wrap}}
+.tr-name{{font-weight:600;font-size:14px}}
+.tr-sub{{font-size:11px;color:var(--muted);margin-top:3px}}
+.tr-r{{text-align:right}}
+.tr-pnl{{font-weight:700;font-size:15px}}
+.tr-pct{{font-size:11px;font-weight:600}}
+.tr-raison{{flex-basis:100%;font-size:11px;color:var(--muted);border-top:1px solid var(--border);padding-top:6px;margin-top:4px;line-height:1.4}}
+.badge-s{{font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px}}
+.badge-s.tp{{background:rgba(74,222,128,.15);color:var(--pos)}}.badge-s.sl{{background:rgba(248,113,113,.15);color:var(--neg)}}.badge-s.tm{{background:var(--card2);color:var(--muted)}}.badge-s.pt{{background:rgba(123,97,255,.2);color:#b9a7ff}}.badge-s.mt{{background:rgba(88,166,255,.18);color:#58a6ff}}
+.more{{width:100%;background:var(--card);border:1px solid var(--border);color:var(--accent);border-radius:10px;padding:10px;font-size:13px;cursor:pointer;margin-top:4px}}
 </style></head><body>
 <div class="header">
   <h1>🤖 Agent IA Trading</h1>
@@ -641,8 +838,16 @@ th{{color:var(--muted);font-size:11px;text-transform:uppercase}}
 
 <div class="section">
   <h2>📋 Trades fermes ({len(fermes)})</h2>
-  {f'<table><thead><tr><th>Crypto</th><th>PnL</th><th>Raison</th><th>Date</th></tr></thead><tbody>{trades_html}</tbody></table>' if trades_html else '<p class="muted">Aucun trade ferme</p>'}
+  {resume_html}
+  <div id="trades">{trades_html if trades_html else '<p class="muted">Aucun trade ferme</p>'}</div>
+  {f'<button class="more" id="more" onclick="plus()">Voir plus</button>' if len(fermes) > 25 else ''}
 </div>
+<script>
+var F='';
+function filtre(b,f){{F=f;document.querySelectorAll('.chip').forEach(function(x){{x.classList.remove('on')}});b.classList.add('on');var n=0;document.querySelectorAll('#trades .tr').forEach(function(t){{var ok=!f||t.classList.contains(f);t.style.display=ok&&n<25?'':'none';if(ok){{t.classList.toggle('hidden',n>=25);n++;}}}});var m=document.getElementById('more');if(m)m.style.display=n>25?'':'none';}}
+function plus(){{var n=0;document.querySelectorAll('#trades .tr').forEach(function(t){{var ok=!F||t.classList.contains(F);if(ok){{t.style.display='';t.classList.remove('hidden');n++;}}}});document.getElementById('more').style.display='none';}}
+document.querySelectorAll('#trades .tr').forEach(function(t){{t.addEventListener('click',function(){{var d=t.querySelector('.tr-raison');if(d){{d.remove();return;}}var e=document.createElement('div');e.className='tr-raison';e.textContent=t.getAttribute('data-raison');t.appendChild(e);}});}});
+</script>
 
 <div class="section">
   <h2>🖥️ Systeme VPS</h2>
