@@ -148,9 +148,9 @@ def tuner():
                 raison = f"wr {wr}%>= {WR_HAUT}% et gain moyen {s['avg_win']}%< TP-{0.3}: elargir TP"
         # win_rate tres bas -> serrer TP (encaisser plus vite)
         elif wr < WR_TRES_BAS:
-            nouveau_tp = _borne(tp - PAS, TP_MIN, TP_MAX)
-            if nouveau_tp != tp:
-                raison = f"wr {wr}%< {WR_TRES_BAS}%: serrer TP"
+            # WR tres bas: on NE baisse PLUS le TP (ca remontait le point mort
+            # a 50% de WR). Le SL est deja serre juste en dessous.
+            pass
         # win_rate bas -> serrer SL (REDUIRE le SL pour couper les pertes plus tot)
         if wr < WR_BAS:
             nouveau_sl = _borne(sl - PAS, SL_MIN, SL_MAX)

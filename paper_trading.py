@@ -61,6 +61,7 @@ INTERVALLE_BOUCLE = 60         # 1 min (scan opportunités plus reactif)
 ESSAI_FIN_UTC = datetime(2026, 10, 20, 12, 56, tzinfo=timezone.utc)
 ESSAI_INTERVALLE_MIN = 2
 ESSAI_MONTANT = 200.0
+ESSAI_BIAIS_MIN = 0.4   # biais bougies fort uniquement (v2 du 16/10)
 MAX_TRADES_PAR_JOUR = 5        # max 5 trades/jour (anti-surtrading: avant 20 trades/6h = -9EUR)
 PERTE_JOUR_MAX_PCT = 3.0      # stop trading si -3% en une journee (30 EUR sur 1000)
 CIRCUIT_BREAKER_CONSECUTIF = 3 # pause apres 3 pertes consecutives (plus de room)
@@ -1741,6 +1742,8 @@ def verifier_sorties(pf, prix_actuels):
         # CAPS DURS: TP max 1.5%, SL max 0.8% (jamais laisser le meta-tuning monter plus)
         _tp_check = min(_tp_check, 1.5)
         _sl_check = min(_sl_check, 0.8)
+        if _essai_actif() and pos.get('strategie') == 'essai_bougies':
+            _tp_check, _sl_check = TAKE_PROFIT_PCT, STOP_LOSS_PCT  # essai: TP 1.5 fixe
         # SL D'URGENCE ABSOLU: ferme a -0.8% quoi qu'il arrive (empeche les SL-RETARD)
         # SL normal a 0.5% est verifie en premier, celui-ci est le filet de securite
         if variation <= -0.8:
@@ -1784,6 +1787,8 @@ def verifier_sorties(pf, prix_actuels):
         # CAPS DURS: TP max 1.5%, SL max 0.5% (jamais laisser monter plus)
         _tp = min(_tp, 1.5)
         _sl = min(_sl, 0.5)
+        if _essai_actif() and pos.get('strategie') == 'essai_bougies':
+            _tp, _sl = TAKE_PROFIT_PCT, STOP_LOSS_PCT  # essai: TP 1.5 fixe (meta-tuning ignore)
         # TP DYNAMIQUE ATR: DESACTIVE — l'ATR poussait le TP a 4% (contre le TP 0.9% user)
         # Le TP vient de meta-tuning (0.9-1.5%) ou des constantes globales (0.9%)
         # === TP: ENCAISSE LES GAINS AU TAKE-PROFIT ===
@@ -2150,6 +2155,17 @@ def _ouvrir_trade_essai(pf, prix):
         return False
     import indicateurs as _ind
     import bougies_patterns as _bp
+    # Garde BTC: pas d'achat si BTC baisse sur l'heure (un jour de chute, tout tombe)
+    try:
+        _bb = _ind.historique_ohlcv('BTCUSDT', '1h', 3)
+        if _bb and len(_bb) >= 2:
+            _var_btc = (_bb[-1]['cloture'] - _bb[-2]['cloture']) / _bb[-2]['cloture'] * 100
+            _var_bougie = (_bb[-1]['cloture'] - _bb[-1]['ouverture']) / _bb[-1]['ouverture'] * 100
+            if _var_btc < -0.3 or _var_bougie < -0.3:
+                print(f"  [ESSAI] BTC baisse sur l'heure ({_var_btc:+.2f}% / bougie {_var_bougie:+.2f}%) -> pas d'achat ce cycle")
+                return False
+    except Exception:
+        pass
     _detenus = {p["symbole"] for p in pf["positions"]}
     _meilleur = None
     for sym, px in prix.items():
@@ -2164,10 +2180,10 @@ def _ouvrir_trade_essai(pf, prix):
         except Exception:
             continue
         _biais = _r.get("biais", 0)
-        if _biais > 0 and (_meilleur is None or _biais > _meilleur[1]):
+        if _biais >= ESSAI_BIAIS_MIN and (_meilleur is None or _biais > _meilleur[1]):
             _meilleur = (sym, _biais, _r.get("patterns", []), px)
     if not _meilleur:
-        print("  [ESSAI] Aucune crypto avec un biais bougies haussier -> pas de trade ce cycle")
+        print(f"  [ESSAI] Aucune crypto avec un biais bougies >= {ESSAI_BIAIS_MIN} -> pas de trade ce cycle")
         return False
     sym, biais, pats, px = _meilleur
     montant = ESSAI_MONTANT
