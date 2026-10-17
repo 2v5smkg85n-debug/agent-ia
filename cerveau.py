@@ -37,6 +37,7 @@ TOP_N = 3
 HEURES_EVAL = 4
 MODELE_LOCAL = "qwen2.5:7b"
 MODELE_LOCAL_CRITIQUE = "phi4-mini"
+THINKING_BUDGET = 512          # Gemini 2.5 Flash: petit budget de raisonnement pour l'analyste (0 = desactive)
 
 CHECKLIST = ["tendance_btc_ok", "pattern_confirme", "pas_au_sommet", "volatilite_ok", "heure_ok", "pas_erreur_passee"]
 
@@ -67,7 +68,8 @@ def _llm(prompt, prefer="gemini", temperature=0.2, max_tokens=400, timeout_local
                     continue
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
                 payload = {"contents": [{"parts": [{"text": prompt}]}],
-                           "generationConfig": {"temperature": temperature, "maxOutputTokens": max_tokens, "thinkingConfig": {"thinkingBudget": 0}}}
+                           "generationConfig": {"temperature": temperature, "maxOutputTokens": max_tokens + THINKING_BUDGET, "responseMimeType": "application/json",
+                                                "thinkingConfig": {"thinkingBudget": THINKING_BUDGET}}}
                 r = requests.post(url, json=payload, timeout=30)
                 if r.status_code == 200:
                     t = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
@@ -76,7 +78,7 @@ def _llm(prompt, prefer="gemini", temperature=0.2, max_tokens=400, timeout_local
             else:
                 modele = MODELE_LOCAL_CRITIQUE if m == "local_critique" else MODELE_LOCAL
                 r = requests.post("http://localhost:11434/api/chat", timeout=timeout_local, json={
-                    "model": modele, "stream": False, "messages": [{"role": "user", "content": prompt}],
+                    "model": modele, "stream": False, "format": "json", "messages": [{"role": "user", "content": prompt}],
                     "options": {"temperature": temperature, "num_predict": max_tokens}})
                 if r.status_code == 200:
                     t = r.json()["message"]["content"].strip()

@@ -931,13 +931,24 @@ def ouvrir_position(pf, signal, prix_actuel):
     _strat_blacklist = ["momentum", "pattern_reversal", "vwap_bounce", "breakout", "sma_trend", "consensus_patterns", "consensus_tendance", "rsi_oversold", "macd_cross", "bollinger_bounce", "volume_spike", "divergence_rsi", "peak_fader", "consensus_reversion", "technique", "professeur_virtuel", "scanner_etoile"]
     _strat_signal = (signal.get("strategie", "") or "").lower()
     _source_signal = (signal.get("source", "") or "").lower()
-    for _bl in _strat_blacklist:
-        if _bl in _strat_signal:
-            print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_bl}' bloquee (ia_autonome seulement)")
+    # Droits d'ouverture: ia_autonome par defaut + strategies auxquelles l'utilisateur a rendu le droit
+    # (python3 registre_strategies.py droit <strategie> on). Le registre peut toujours la retirer si elle redevient perdante.
+    _droit_registre = False
+    try:
+        import registre_strategies as _rs0
+        _droit_registre = _strat_signal in {x.lower() for x in _rs0.droits_supplementaires()}
+    except Exception:
+        pass
+    if not _droit_registre:
+        for _bl in _strat_blacklist:
+            if _bl in _strat_signal:
+                print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_bl}' bloquee (ia_autonome seulement)")
+                return False
+        if _strat_signal and _strat_signal != "ia_autonome" and "ia_chat" not in _source_signal and "autonome" not in _strat_signal:
+            print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_strat_signal}' bloquee (ia_autonome seulement)")
             return False
-    if _strat_signal and _strat_signal != "ia_autonome" and "ia_chat" not in _source_signal and "autonome" not in _strat_signal:
-        print(f"  [BLACKLIST] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_strat_signal}' bloquee (ia_autonome seulement)")
-        return False
+    else:
+        print(f"  [REGISTRE] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_strat_signal}' autorisee a ouvrir (droit accorde)")
     # BLACKLIST CRYPTOS PERDANTES (basee sur 211 trades historiques)
     _cryptos_perdantes = {"LDOUSDT", "ADAUSDT", "DOTUSDT", "PEPEUSDT", "AVAXUSDT", "BNBUSDT"}
     _sym_signal = signal.get("symbole", "").upper()
@@ -1929,7 +1940,7 @@ def verifier_sorties(pf, prix_actuels):
                 tp_pos = pos.get("tp", 2.0)
                 sl_pos = pos.get("sl", -1.0)
                 # Ne coupe que si: en perte leger + sous le plafond + pas proche du SL
-                if (variation <= STAGNATION_PERTE_SEULE 
+                if (variation <= STAGNATION_PERTE_SEUIL 
                     and variation < STAGNATION_PLAFOND
                     and variation > STAGNATION_SL_PROCHE
                     and age_min >= STAGNATION_PERTE_DUREE):

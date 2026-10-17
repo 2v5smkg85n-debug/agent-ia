@@ -26,7 +26,50 @@ N_RETRAIT, N_RETRAIT_RAPIDE, PERTE_RETRAIT_RAPIDE = 30, 15, -10.0
 FRAIS_AR_PCT = 0.2  # frais aller-retour paper (0.1% x 2) deja inclus dans gain_eur
 
 # Qui a le droit d'ouvrir des positions aujourd'hui (decision user: IA seulement)
-DROIT_OUVERTURE = {"ia_autonome", "ouverture_ia_chat", "manuel", "ia_chat"}
+DROIT_OUVERTURE = {"ia_autonome", "ouverture_ia_chat", "manuel", "ia_chat"}   # droits de base (jamais retires)
+ARCHIVE_FILE = os.path.join(DOSSIER, "trades_archive.json")
+
+
+def tous_les_trades(pf_trades=None):
+    """Historique complet = archive (nouveaux departs) + trades du portefeuille courant. Jamais perdu."""
+    trades = []
+    try:
+        trades += json.load(open(ARCHIVE_FILE)).get("trades", [])
+    except Exception:
+        pass
+    if pf_trades is None:
+        try:
+            pf_trades = json.load(open(PT_FILE)).get("trades_fermes", [])
+        except Exception:
+            pf_trades = []
+    return trades + list(pf_trades)
+
+
+def droits_supplementaires():
+    try:
+        return set(_charger().get("droits", []))
+    except Exception:
+        return set()
+
+
+def a_le_droit(strat):
+    """La strategie a-t-elle le droit d'OUVRIR des positions ? (base + droits accordes par l'utilisateur)"""
+    s = str(strat or "").lower()
+    return any(x in s for x in DROIT_OUVERTURE) or s in {x.lower() for x in droits_supplementaires()}
+
+
+def donner_droit(strat, actif=True, motif=""):
+    d = _charger()
+    droits = set(d.get("droits", []))
+    if actif:
+        droits.add(strat)
+    else:
+        droits.discard(strat)
+    d["droits"] = sorted(droits)
+    d.setdefault("historique_statuts", []).append({"date": datetime.now().strftime("%Y-%m-%d %H:%M"), "strategie": strat,
+                                                   "de": "sans droit" if actif else "avec droit", "vers": "DROIT D'OUVERTURE" if actif else "RETRAIT DU DROIT", "motif": motif})
+    _sauver(d)
+    return mettre_a_jour()
 
 
 def _charger():
@@ -99,11 +142,7 @@ def calculer(trades):
 def mettre_a_jour(trades=None, verbose=False):
     """Recalcule le registre depuis paper_trading.json et journalise les changements de statut."""
     d = _charger()
-    if trades is None:
-        try:
-            trades = json.load(open(PT_FILE)).get("trades_fermes", [])
-        except Exception:
-            trades = []
+    trades = tous_les_trades(trades)   # archive + courant
     stats = calculer(trades)
     forces = d.get("forces", {})
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -112,7 +151,7 @@ def mettre_a_jour(trades=None, verbose=False):
         statut = forces.get(k, {}).get("statut") or s["statut_auto"]
         s["statut"] = statut
         s["force"] = k in forces
-        s["droit_ouverture"] = any(x in k.lower() for x in DROIT_OUVERTURE)
+        s["droit_ouverture"] = a_le_droit(k)
         s["recommandation"] = ""
         if statut == "active" and not s["droit_ouverture"]:
             s["recommandation"] = "merite une reactivation (active mais sans droit d'ouverture)"
@@ -195,5 +234,8 @@ if __name__ == "__main__":
     import sys
     if len(sys.argv) >= 3 and sys.argv[1] == "forcer":
         print(rapport() if forcer(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else "auto", " ".join(sys.argv[4:])) else "")
+    elif len(sys.argv) >= 4 and sys.argv[1] == "droit":
+        donner_droit(sys.argv[2], sys.argv[3].lower() in ("on", "oui", "1", "true"), " ".join(sys.argv[4:]))
+        print(rapport())
     else:
         print(rapport())

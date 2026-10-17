@@ -3287,7 +3287,7 @@ def _traiter_message(message):
     elif rapide == "health":
         return _rapide_health()
     elif rapide == "deploy":
-        return _rapide_deploy()
+        return "Le deploiement se fait depuis le VPS (wget des fichiers puis restart des services), pas depuis le chat."
 
     # 2. Detection des lieux a proximite (Agent Local)
     msg_lower = message.lower()

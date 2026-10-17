@@ -342,7 +342,7 @@ def calculer_taille(pf, signal, prix_actuel, backtest_stats=None):
     raison = (f"Kelly {kelly*100:.1f}% x vol {vol_scaler:.2f} x corr {corr_scaler:.2f} "
               f"x dd {dd_scaler:.2f} = {montant_base:.1f} EUR (cap {montant_final:.1f} EUR)")
     if montant_final < 1.0:
-        montant_final = min(capital * 0.06, dispo_actif, dispo_secteur)  # 6% fixe mais respecte les caps
+        montant_final = min(capital * 0.06, montant_final if montant_final > 0 else capital * 0.06)  # 6% fixe, cap deja applique par cap_dur
         raison += f" (fallback 6% fixe, cap applique)"
     return round(montant_final, 2), raison
 

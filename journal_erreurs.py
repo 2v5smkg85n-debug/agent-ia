@@ -411,9 +411,13 @@ def initialiser_depuis_historique():
         if d.get("seed_fait"):
             return 0
         try:
-            trades = json.load(open(PT_FILE)).get("trades_fermes", [])
+            import registre_strategies as _rs
+            trades = _rs.tous_les_trades()
         except Exception:
-            trades = []
+            try:
+                trades = json.load(open(PT_FILE)).get("trades_fermes", [])
+            except Exception:
+                trades = []
         trades = sorted(trades, key=lambda t: str(t.get("date_fermeture", "")))
         fermetures_sl = [(_dt(t.get("date_fermeture")), t) for t in trades if str(t.get("raison", "")).upper().startswith("SL")]
         n = 0

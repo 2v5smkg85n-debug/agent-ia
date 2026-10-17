@@ -58,7 +58,7 @@ def get_historique(symbole, timeframe="1h"):
             hist = json.load(f)
         if symbole not in hist:
             return []
-        return [e["prix"] for e in hist[sym].get(timeframe, [])]
+        return [e["prix"] for e in hist[symbole].get(timeframe, [])]
     except Exception:
         return []
 
