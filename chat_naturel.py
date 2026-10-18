@@ -2125,7 +2125,7 @@ def _ouvrir_position_auto(symbole, montant, raison, tp_override=None, sl_overrid
     if not prix:
         return f"Prix introuvable pour {symbole}."
     # === REGISTRE + JOURNAL DES ERREURS: regles apprises, stop ATR, risque fixe 1 EUR ===
-    _sl_risque, _ctx = None, None
+    _sl_risque, _ctx, _tp_risque, _barriere_h = None, None, None, None
     try:
         import registre_strategies as _rs
         _ok_rs, _why_rs = _rs.autorisee("ia_autonome", data)
@@ -2135,7 +2135,7 @@ def _ouvrir_position_auto(symbole, montant, raison, tp_override=None, sl_overrid
         pass
     try:
         import journal_erreurs as _je
-        _prep = _je.preparer_entree(symbole, prix, montant, liquidites, 200.0)
+        _prep = _je.preparer_entree(symbole, prix, montant, liquidites, 200.0, strategie="ia_autonome")
         if not _prep["ok"]:
             print(f"  [REGLE] IA {symbole}: {_prep['raison']}")
             return f"Bloque: {_prep['raison']}"
@@ -2143,6 +2143,12 @@ def _ouvrir_position_auto(symbole, montant, raison, tp_override=None, sl_overrid
         _sl_risque = _prep["sl_pct"]
         _ctx = _prep["ctx"]
         _sl = _sl_risque
+        # Objectif 2:1 et barriere de temps calcules par stop_atr : sans eux, paper_trading plafonnait le TP a 1.5 %
+        # (cap meta-tuning) et ne fermait jamais a la barriere -> le schema 2 x ATR / 2:1 / 24 h n'etait pas applique.
+        _tp_risque = _prep.get("tp_pct")
+        _barriere_h = _prep.get("barriere_h")
+        if _tp_risque:
+            _tp = _tp_risque
         print(f"  [RISQUE] IA {symbole}: {_prep['raison']}")
     except Exception as _e:
         print(f"  [RISQUE] indisponible ({_e})")
@@ -2152,7 +2158,7 @@ def _ouvrir_position_auto(symbole, montant, raison, tp_override=None, sl_overrid
     pos = {
         "symbole": symbole, "montant_eur": montant, "prix_entree": prix,
         "prix_actuel": prix, "sl_adaptatif": _sl, "tp_adaptatif": _tp,
-        "sl_risque": _sl_risque, "contexte": _ctx, "marche": "crypto",
+        "sl_risque": _sl_risque, "tp_risque": _tp_risque, "barriere_h": _barriere_h, "contexte": _ctx, "marche": "crypto",
         "strategie": "ia_autonome", "source": "ouverture_ia_chat",
         "raison": raison[:200], "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "date_ouverture": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -2172,7 +2178,7 @@ def _ouvrir_position_auto(symbole, montant, raison, tp_override=None, sl_overrid
         _kp.ouvrir_shadow(pos)
     except Exception:
         pass
-    return f"✅ Position {symbole} ouverte a {prix:.4f}EUR. Montant: {montant:.0f}EUR (SL {_sl}%). Liquidites: {data['liquidites']:.0f}EUR."
+    return f"✅ Position {symbole} ouverte a {prix:.4f}EUR. Montant: {montant:.0f}EUR (SL {_sl}% / TP {_tp}%{' / barriere ' + str(_barriere_h) + 'h' if _barriere_h else ''}). Liquidites: {data['liquidites']:.0f}EUR."
 
 def _analyser_marche_auto():
     """L'IA analyse le marche et ouvre une position si elle trouve une opportunite."""
@@ -2532,7 +2538,8 @@ REGLES:
         # Le bot ne peut pas ouvrir sans un pattern haussier (sauf survente extreme RSI<30)
         _biais_bougies = patterns_data.get(symbole, {}).get("biais", 0)
         _rsi_sym = rsi_data.get(symbole, 50)
-        if _biais_bougies < 0.2 and _rsi_sym >= 30:
+        # Le cerveau a deja exige pattern_confirme (checklist) + avocat du diable : ce filtre ne s'applique qu'a l'ancien flux.
+        if _dec_cerveau is None and _biais_bougies < 0.2 and _rsi_sym >= 30:
             print(f"  [BOUGIES-REFUS] {symbole}: pas de pattern haussier (biais {_biais_bougies:+.1f}, RSI {_rsi_sym}) -> trade refuse")
             return f"❌ {symbole} refuse: pas de pattern haussier sur les bougies (biais {_biais_bougies:+.1f}). RSI={_rsi_sym}. Le bot attend une confirmation des bougies."
         # TP/SL adaptatif selon le pattern de bougies detecte

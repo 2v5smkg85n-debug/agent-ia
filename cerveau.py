@@ -41,6 +41,10 @@ MODELE_LOCAL_CRITIQUE = "phi4-mini"
 THINKING_BUDGET = 512          # Gemini 2.5 Flash: petit budget de raisonnement pour l'analyste (0 = desactive)
 
 CHECKLIST = ["tendance_btc_ok", "pattern_confirme", "pas_au_sommet", "volatilite_ok", "heure_ok", "pas_erreur_passee", "distinguable_du_bruit"]
+# Points de la checklist dont l'absence est toleree (1 seul a la fois, -5 de confiance) : la tendance 4h et la
+# volatilite sont deja arbitrees par la porte (tendance lente BTC, regime, stop 2xATR). Les autres restent bloquants.
+CHECKLIST_SOUPLE = {"tendance_btc_ok", "volatilite_ok"}
+MALUS_SOUPLE = 5
 
 
 # ------------------------------------------------------------------ utilitaires
@@ -231,7 +235,9 @@ def preselection(prix_data, rsi_data, patterns_data, positions, reg):
             elif rsi < 50: s += 1; why.append(f"RSI {rsi:.0f}")
             elif rsi > 65: s -= 3; why.append(f"RSI {rsi:.0f} surachat")
         if reg.get("var_1h") is not None and reg["var_1h"] < -0.3: s -= 3; why.append(f"BTC 1h {reg['var_1h']:+.2f}%")
-        if reg.get("tendance_4h") == "baissiere": s -= 1; why.append("BTC 4h baissier")
+        # Tendance 4h BTC : simple nuance. La tendance LENTE (EMA 84 j) est deja imposee par la porte ; une 4h baissiere
+        # sous une tendance lente haussiere est un repli, c'est-a-dire le contexte normal d'un achat sur pattern/RSI.
+        if reg.get("tendance_4h") == "baissiere": s -= 0.5; why.append("BTC 4h baissier")
         elif reg.get("tendance_4h") == "haussiere": s += 0.5
         if heure in getattr(je, "HEURES_PERDANTES", set()): s -= 2; why.append("heure perdante")
         ctx = {"sym": sym, "heure": heure, "btc_var_1h": reg.get("var_1h"), "btc_var_bougie": reg.get("var_1h"), "rsi": rsi,
@@ -240,11 +246,16 @@ def preselection(prix_data, rsi_data, patterns_data, positions, reg):
             bloque, raison = je.regles_bloquent(ctx, compter=False)
             if bloque:
                 why.append("BLOQUE: " + raison[:40]); out.append((-99, sym, why)); continue
-            sims = je.similaires(sym, ctx, n=3)
-            if sims:
-                moy = sum(float(t.get("gain", 0) or 0) for t in sims) / len(sims)
-                if moy < 0: s -= 1.5; why.append(f"similaires {moy:+.2f}EUR")
-                else: s += 1; why.append(f"similaires {moy:+.2f}EUR")
+            # Les trades similaires sont montres a l'analyste (dossier) mais ne notent plus la preselection :
+            # memoire_episodique force >= 2 PERTES parmi les resultats (pour calmer l'IA), donc leur moyenne etait
+            # negative pour toutes les cryptos et retirait 1.5 point a chacune -> "aucun score positif" en boucle.
+            try:
+                sims = je.similaires(sym, ctx, n=3)
+                if sims:
+                    moy = sum(float(t.get("gain", 0) or 0) for t in sims) / len(sims)
+                    why.append(f"similaires {moy:+.2f}EUR (info)")
+            except Exception:
+                pass
         out.append((round(s, 2), sym, why))
     out.sort(key=lambda x: -x[0])
     return out
@@ -282,18 +293,20 @@ def seuil_adaptatif(d=None):
 def resume_calibration(d=None):
     d = d or _charger()
     cal = d.get("calibration", {})
-    if not cal:
-        return f"CALIBRATION: pas encore de donnees (seuil {SEUIL_CONFIANCE_BASE})."
-    parts = []
-    for b in ["<60", "60-69", "70-79", "80-89", "90+"]:
-        st = cal.get(b)
-        if not st:
-            continue
-        n = st.get("tp", 0) + st.get("sl", 0)
-        if n:
-            parts.append(f"confiance {b}: {st['tp']}/{n} reussites ({st['tp']/n*100:.0f}%)")
     manq = d.get("manquees", 0)
-    return f"TA FIABILITE PASSEE (propositions evaluees {HEURES_EVAL}h apres, stop 2xATR / objectif 2:1): " + "; ".join(parts) + f". Occasions manquees (RIEN puis +{TP_PCT}%): {manq}. Seuil actuel: {seuil_adaptatif(d)}."
+    parts, neutres = [], 0
+    for b in ["<60", "60-69", "70-79", "80-89", "90+"]:
+        st = cal.get(b) or {}
+        n = st.get("tp", 0) + st.get("sl", 0)
+        neutres += st.get("neutre", 0)
+        if n:
+            parts.append(f"confiance {b}: {st['tp']}/{n} reussites ({st['tp']/n*100:.0f}%)" + (f", {st['neutre']} neutres" if st.get("neutre") else ""))
+    tete = f"CALIBRATION (propositions evaluees {HEURES_EVAL}h apres, stop 2xATR / objectif 2:1)"
+    if not parts:
+        detail = f"pas encore de cas tranche" + (f" ({neutres} propositions sans stop ni objectif touche en {HEURES_EVAL}h)" if neutres else "")
+    else:
+        detail = "; ".join(parts)
+    return f"{tete}: {detail}. Occasions manquees (RIEN puis objectif atteint): {manq}. Seuil actuel: {seuil_adaptatif(d)}."
 
 
 def evaluer_decisions():
@@ -412,11 +425,13 @@ CANDIDATES (preselectionnees par le systeme):
 {resume_calibration(d)}
 {prof_txt}
 
+CADRE: le stop est a 2 x ATR et l'objectif a 2 x le stop, donc une reussite sur trois suffit a etre rentable (point mort ~36%). Tu n'as pas besoin d'une certitude, tu as besoin d'un avantage lisible. Les filtres mecaniques (tendance lente BTC, fenetres horaires, regime, liquidite, flux d'ordres) sont deja appliques par la porte APRES toi: ne les re-applique pas plus severement qu'eux.
+
 METHODE (obligatoire, en plusieurs etapes):
-0. D'abord, pour chaque candidate, reponds honnetement: "ce mouvement est-il distinguable d'une marche aleatoire ?" (un seul indicateur, un pattern isole ou un RSI moyen = NON). La plupart des graphiques sont du bruit: dire RIEN est la reponse normale.
-1. Ensuite verifie la checklist: tendance_btc_ok (tendance LENTE BTC haussiere ci-dessus, BTC ne baisse pas sur l'heure, 4h pas baissier), pattern_confirme (pattern haussier 1h avec contexte: fin de baisse, support, volume, flux d'ordres acheteur), pas_au_sommet (RSI < 60 et > 1% sous le plus haut 24h), volatilite_ok (ATR 1h entre 0.3% et 1.5%, regime pas turbulent), heure_ok (pas 12h-16h UTC, pas 13h00-14h30 UTC = ouverture US, pas d'annonce macro dans l'heure), pas_erreur_passee (les trades similaires, surtout les PERTES listees, n'ont pas perdu pour une raison toujours presente), distinguable_du_bruit (etape 0).
-2. Choisis la meilleure SEULEMENT si tous les points sont vrais. Sinon RIEN.
-3. Donne une confiance 0-100 honnete: ta fiabilite passee est affichee ci-dessus, ne te surestime pas.
+0. Pour chaque candidate, reponds honnetement: "ce mouvement est-il distinguable d'une marche aleatoire ?" OUI si au moins deux elements independants vont dans le meme sens (ex: pattern haussier + RSI bas, rebond sur support + meche basse, fin de baisse + volume). NON si un seul indicateur isole.
+1. Verifie la checklist: tendance_btc_ok (tendance LENTE BTC haussiere ci-dessus ET BTC ne baisse pas sur l'heure; une 4h baissiere sous une tendance lente haussiere est un REPLI, pas un veto: c'est le contexte normal d'un achat sur pattern/RSI), pattern_confirme (pattern haussier 1h avec contexte: fin de baisse, support, meche basse, volume ou flux acheteur), pas_au_sommet (RSI < 60 et > 1% sous le plus haut 24h), volatilite_ok (ATR 1h entre 0.2% et 2.0%, regime pas turbulent), heure_ok (pas 13h-15h UTC, pas d'annonce macro USD dans l'heure), pas_erreur_passee (les PERTES similaires listees n'ont pas perdu pour une raison toujours presente aujourd'hui), distinguable_du_bruit (etape 0).
+2. Choisis la meilleure candidate si la checklist est vraie (tendance_btc_ok ou volatilite_ok peut manquer, un seul des deux, en baissant la confiance). RIEN seulement si aucune candidate n'a de configuration lisible.
+3. Donne une confiance 0-100 honnete et differenciee (pas toujours 60): ta fiabilite passee est affichee ci-dessus.
 4. Precise ce qui invaliderait l'idee (ex: cloture 1h sous le support).
 
 Reponds UNIQUEMENT en JSON:
@@ -450,6 +465,13 @@ Reponds UNIQUEMENT en JSON:
                          "raison": str(dec.get("raison", ""))[:200], "sl_pct": sl_pct, "modele": modele})
         return {"action": "RIEN", "raison": dec.get("raison", ""), "etape": "analyste"}
 
+    # Tolerance : un seul point souple manquant (tendance 4h, volatilite) -> malus de confiance, pas de veto.
+    souples = [k for k in manquants if k in CHECKLIST_SOUPLE]
+    durs = [k for k in manquants if k not in CHECKLIST_SOUPLE]
+    if not durs and len(souples) == 1:
+        conf -= MALUS_SOUPLE
+        dec["malus_checklist"] = souples[0]
+        manquants = []
     if manquants or conf < seuil:
         motif = f"checklist incomplete ({', '.join(manquants)})" if manquants else f"confiance {conf} < seuil {seuil}"
         print(f"  [CERVEAU] analyste voulait {sym} (confiance {conf}) mais {motif} -> RIEN")
@@ -467,7 +489,10 @@ Regime BTC: {reg}
 Regles et erreurs passees du desk:
 {memoire_txt[:1500]}
 
-Cherche la FAILLE: contradiction avec le regime BTC, pattern sur-interprete, achat au sommet, volatilite incompatible avec un stop de {sl_pct or 0.7}%, repetition d'une erreur passee, heure defavorable.
+Cadre du desk: stop 2 x ATR ({sl_pct or 0.7}%), objectif 2 x le stop, barriere 24h -> une reussite sur trois suffit. La tendance LENTE BTC (EMA 84 j), les fenetres horaires, le regime et le flux d'ordres sont verifies mecaniquement par la porte apres toi.
+Cherche une FAILLE MAJEURE: achat au sommet (RSI > 60 ou colle au plus haut 24h), pattern inexistant ou sur-interprete (une seule bougie, pas de contexte), volatilite incompatible avec le stop, repetition exacte d'une perte passee listee ci-dessus, these qui contredit les faits du dossier.
+N'est PAS une faille: une tendance 4h baissiere alors que la tendance lente est haussiere (c'est un repli, le contexte normal d'un achat sur pattern/RSI), une confiance moyenne, l'absence de certitude.
+REFUS seulement pour une faille majeure averee ; sinon OK avec une confiance_corrigee honnete.
 Reponds UNIQUEMENT en JSON: {{"verdict": "OK"|"REFUS", "faille": "1 phrase", "confiance_corrigee": 0-100}}"""
     _eviter = None
     try:
@@ -483,16 +508,18 @@ Reponds UNIQUEMENT en JSON: {{"verdict": "OK"|"REFUS", "faille": "1 phrase", "co
         conf_c = int(float(conf_c)) if conf_c is not None else None
     except Exception:
         conf_c = None
+    # Une porte par acteur : l'analyste est juge par le seuil, le critique par son verdict. La confiance corrigee
+    # (moyenne) sert a la calibration et au sizing, elle n'est plus un second seuil (sinon 60 -> 55 -> RIEN a chaque fois).
     conf_finale = int((conf + conf_c) / 2) if conf_c is not None else conf
-    if verdict == "REFUS" or conf_finale < seuil:
-        motif = f"veto avocat du diable ({modele_c}): {str(crit.get('faille',''))[:140]}" if verdict == "REFUS" else f"confiance corrigee {conf_finale} < seuil {seuil}"
+    if verdict == "REFUS":
+        motif = f"veto avocat du diable ({modele_c}): {str(crit.get('faille',''))[:140]}"
         print(f"  [CERVEAU] {sym}: {motif}")
         _journaliser(d, {"date": now, "action": "RIEN", "sym": sym, "confiance": conf_finale, "etape": "critique", "raison": motif, "proposition": True,
                          "sl_pct": sl_pct, "modele": modele, "modele_critique": modele_c, "raison_analyste": str(dec.get("raison", ""))[:200]})
         return {"action": "RIEN", "raison": motif, "etape": "critique"}
 
     raison = f"{str(dec.get('raison',''))[:160]} | confiance {conf_finale} (analyste {modele}, critique {modele_c or 'n/a'}: {str(crit.get('faille','RAS'))[:60]}) | invalidation: {str(dec.get('invalidation',''))[:60]}"
-    print(f"  [CERVEAU] ACHAT {sym} confiance {conf_finale} >= {seuil} | checklist OK | critique OK")
+    print(f"  [CERVEAU] ACHAT {sym} confiance analyste {conf} >= {seuil}, corrigee {conf_finale} | checklist OK{' (malus ' + dec['malus_checklist'] + ')' if dec.get('malus_checklist') else ''} | critique OK")
     _journaliser(d, {"date": now, "action": "ACHAT", "sym": sym, "confiance": conf_finale, "etape": "achat", "raison": raison[:300],
                      "sl_pct": sl_pct, "modele": modele, "modele_critique": modele_c, "checklist": chk, "invalidation": str(dec.get("invalidation", ""))[:160]})
     return {"action": "ACHAT", "symbole": sym, "raison": raison, "confiance": conf_finale, "sl_pct": sl_pct,

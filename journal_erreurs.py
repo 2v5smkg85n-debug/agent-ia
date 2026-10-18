@@ -28,13 +28,18 @@ PT_FILE = os.path.join(DOSSIER, "paper_trading.json")
 _LOCK = threading.Lock()
 
 SEUIL_N_REGLE, SEUIL_PERTE_REGLE = 10, -8.0
-HEURES_PERDANTES = set(range(12, 16))   # 12h-16h: -46 EUR sur 83 trades (bilan 16/10)
+# 13h-14h UTC : les deux pires heures du bilan triple barriere du 18/10 (13h -1.42 % sur 61 trades, 14h -1.97 % sur 40).
+# Alignees sur la fenetre de la porte (FENETRES_UTC 13:00-15:00). L'ancienne tranche 12h-16h ajoutait 2 h de blocage
+# (12h et 15h n'etaient pas dans les pires heures) et se cumulait avec la porte, la preselection et le prompt.
+_HP = os.getenv("HEURES_PERDANTES_UTC", "13,14")
+HEURES_PERDANTES = {int(x) for x in _HP.split(",") if x.strip().isdigit()} or {13, 14}
+MONTANT_MIN = float(os.getenv("MONTANT_MIN", "20"))   # taille minimale d'un trade (paper) ; 50 bloquait tout stop > 1.8 %
 RISQUE_EUR, SL_MIN, SL_MAX, ATR_MULT = 1.0, 0.8, 3.0, 2.0   # secours seulement : stop_atr.py fait foi
 
 DESCRIPTIONS = {
     "contre_btc": "Entree pendant que BTC baissait sur l'heure (< -0.3%)",
     "cascade": "Entree juste apres >= 2 stops dans l'heure (marche en train de tomber)",
-    "mauvaise_heure": "Entree dans la tranche horaire perdante (12h-16h)",
+    "mauvaise_heure": "Entree dans la tranche horaire perdante (13h-15h UTC)",
     "achat_sommet": "Achat au sommet (RSI > 65 ou a moins de 0.5% du plus haut 24h)",
     "gain_non_encaisse": "Le prix a monte de >= 1% puis le trade a fini en perte",
     "stop_trop_serre": "Le prix a atteint le TP dans les 2h apres le stop",
@@ -229,9 +234,12 @@ def preparer_entree(sym, prix, montant_prevu, liquidites, liquidite_min=200.0, s
             raison_sl += f" | Thompson x{_f}"
     except Exception:
         pass
-    if montant < 50:
+    # Taille minimale : avec 1 EUR de risque, montant = 1 / (stop + frais) -> 100 EUR a 0.8 % de stop mais 31 EUR a 3 %.
+    # L'ancien plancher de 50 EUR refusait donc toute entree des que le stop depassait 1.8 % (session US x2.5 ATR,
+    # alts volatiles) avec le message trompeur "liquidites insuffisantes".
+    if montant < MONTANT_MIN:
         dispo = max(0.0, liquidites - liquidite_min)
-        return {"ok": False, "raison": f"liquidites insuffisantes pour un trade a risque ({dispo:.0f} EUR dispo)", "ctx": ctx, "montant": 0,
+        return {"ok": False, "raison": f"montant {montant:.0f} EUR < minimum {MONTANT_MIN:.0f} EUR ({dispo:.0f} EUR dispo)", "ctx": ctx, "montant": 0,
                 "sl_pct": sl, "tp_pct": tp, "barriere_h": barriere}
     # --- porte unique (tendance lente BTC, fenetres, chaleur, regime, CUSUM, liquidite, flux, meta-modele)
     try:

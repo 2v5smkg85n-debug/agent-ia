@@ -35,8 +35,8 @@ RISQUE_TOTAL_MAX = float(os.getenv("RISQUE_TOTAL_MAX", "3.0"))
 MAX_POSITIONS_CRYPTO = int(os.getenv("MAX_POSITIONS_CRYPTO", "2"))
 EMA_LENTE_JOURS = int(os.getenv("EMA_LENTE_JOURS", "84"))           # 12 semaines
 CUSUM_SEUIL_PCT = float(os.getenv("CUSUM_SEUIL_PCT", "1.0"))        # seuil minimum ; seuil reel = max(1 %, CUSUM_ATR_MULT x ATR 1h)
-CUSUM_ATR_MULT = float(os.getenv("CUSUM_ATR_MULT", "2.5"))
-CUSUM_FENETRE_BARRES = int(os.getenv("CUSUM_FENETRE_BARRES", "4"))
+CUSUM_ATR_MULT = float(os.getenv("CUSUM_ATR_MULT", "2.0"))     # 2.5 -> 2.0 : un mouvement de 2 ATR est deja un evenement
+CUSUM_FENETRE_BARRES = int(os.getenv("CUSUM_FENETRE_BARRES", "8"))  # 4 -> 8 h : un repli puis un pattern de retournement prend souvent plus de 4 h
 SPREAD_MAX_PCT = float(os.getenv("SPREAD_MAX_PCT", "0.15"))
 PROFONDEUR_MULT = float(os.getenv("PROFONDEUR_MULT", "10"))
 TFI_MIN = float(os.getenv("TFI_MIN", "-0.3"))
