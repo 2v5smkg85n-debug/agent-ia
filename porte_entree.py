@@ -7,7 +7,7 @@ et AVANT le calcul du stop/taille. Chaque filtre est independant, desactivable p
 (PORTE_xxx=0) et "fail-open" : si une API ne repond pas, le filtre laisse passer et le note dans le log.
 
 Filtres (dans l'ordre, du moins cher au plus cher) :
-  1. PORTE_FENETRES       13h00-14h30 UTC (ouverture US) + annonce macro USD High dans l'heure
+  1. PORTE_FENETRES       13h00-15h00 UTC par defaut (FENETRES_UTC=...) + annonce macro USD High dans l'heure
   2. PORTE_TENDANCE_LENTE BTC au-dessus de son EMA 12 semaines (journalier) et EMA en hausse
   3. PORTE_CHALEUR        max N positions crypto ouvertes (meme cluster BTC) et risque total ouvert <= RISQUE_TOTAL_MAX EUR
   4. PORTE_REGIME         pas d'entree en regime "turbulent" (ATR 1h au-dessus du 90e percentile sur 100 bougies)
@@ -41,7 +41,17 @@ SPREAD_MAX_PCT = float(os.getenv("SPREAD_MAX_PCT", "0.15"))
 PROFONDEUR_MULT = float(os.getenv("PROFONDEUR_MULT", "10"))
 TFI_MIN = float(os.getenv("TFI_MIN", "-0.3"))
 META_SEUIL = float(os.getenv("META_SEUIL", "0.5"))
-FENETRE_US = ((13, 0), (14, 30))                                   # UTC
+# Fenetres interdites UTC, modifiables sans code : FENETRES_UTC="13:00-15:00,17:00-18:00"
+def _fenetres():
+    out = []
+    for f in os.getenv("FENETRES_UTC", "13:00-15:00").split(","):
+        try:
+            a, b = f.strip().split("-")
+            out.append((tuple(int(x) for x in a.split(":")), tuple(int(x) for x in b.split(":"))))
+        except Exception:
+            continue
+    return out or [((13, 0), (15, 0))]
+FENETRES = _fenetres()
 
 
 def _actif(nom, defaut="1"):
@@ -72,8 +82,9 @@ def _ema(vals, n):
 def fenetre_interdite(maintenant=None):
     now = maintenant or datetime.now(timezone.utc)
     hm = (now.hour, now.minute)
-    if FENETRE_US[0] <= hm < FENETRE_US[1]:
-        return True, f"fenetre 13h00-14h30 UTC (ouverture US, sauts de prix)"
+    for deb, fin in FENETRES:
+        if deb <= hm < fin:
+            return True, f"fenetre {deb[0]:02d}h{deb[1]:02d}-{fin[0]:02d}h{fin[1]:02d} UTC (ouverture US / heures perdantes)"
     try:
         import macro_calendar as mc
         evs = mc.evenements_proches(heures=1, devise="USD", impact_min="High")

@@ -182,12 +182,23 @@ def resume():
     reel = sum(r["label_reel"] for r in recs)
     lignes = [f"{n} trades | reussite reelle {reel / n * 100:.0f}% | reussite si triple barriere 2xATR / 2:1 / 24h : {tb / n * 100:.0f}% "
               f"(rendement moyen {sum(r['rend_tb_pct'] for r in recs) / n:+.2f}% par trade avant frais)"]
-    for cle in ("regime", "barriere"):
+    for cle in ("regime", "barriere", "strategie"):
         groupes = {}
         for r in recs:
             g = groupes.setdefault(r.get(cle), [0, 0, 0.0])
             g[0] += 1; g[1] += r["label_tb"]; g[2] += r["rend_tb_pct"]
-        lignes.append(f"  par {cle}: " + " | ".join(f"{k}: {v[0]} trades, {v[1] / v[0] * 100:.0f}% ok, {v[2] / v[0]:+.2f}%" for k, v in sorted(groupes.items(), key=lambda x: -x[1][0])))
+        items = sorted(groupes.items(), key=lambda x: -x[1][0])[:8]
+        sep = "\n      " if cle == "strategie" else " | "
+        lignes.append(f"  par {cle}: " + sep + sep.join(f"{k}: {v[0]} trades, {v[1] / v[0] * 100:.0f}% ok, {v[2] / v[0]:+.2f}%" for k, v in items))
+    # combinaison strategie x regime (ou est l'avantage, s'il existe)
+    combo = {}
+    for r in recs:
+        g = combo.setdefault((r.get("strategie"), r.get("regime")), [0, 0, 0.0]); g[0] += 1; g[1] += r["label_tb"]; g[2] += r["rend_tb_pct"]
+    bons = [(k, v) for k, v in combo.items() if v[0] >= 10 and v[2] / v[0] > 0]
+    if bons:
+        lignes.append("  combinaisons positives (>= 10 trades): " + " | ".join(f"{k[0]}@{k[1]}: {v[0]}t {v[1] / v[0] * 100:.0f}% {v[2] / v[0]:+.2f}%" for k, v in sorted(bons, key=lambda x: -x[1][2] / x[1][0])))
+    else:
+        lignes.append("  aucune combinaison strategie x regime positive avec >= 10 trades")
     heures = {}
     for r in recs:
         g = heures.setdefault(r["heure"], [0, 0.0]); g[0] += 1; g[1] += r["rend_tb_pct"]
