@@ -247,6 +247,8 @@ def _local(prompt, json_mode, temperature, max_tokens, modele, timeout):
                "options": {"temperature": temperature, "num_predict": max_tokens}, "keep_alive": os.getenv("OLLAMA_KEEP_ALIVE", "30m")}
     if json_mode:
         payload["format"] = "json"
+    if any(k in modele.lower() for k in ("qwen3", "deepseek-r1", "gpt-oss", "think")):
+        payload["think"] = False          # modeles "raisonnants" : pas de chaine de pensee (sinon num_predict part en reflexion)
     r = requests.post(OLLAMA_URL, json=payload, timeout=timeout)
     if r.status_code != 200:
         raise RuntimeError(f"Ollama HTTP {r.status_code}: {r.text[:200]}")
