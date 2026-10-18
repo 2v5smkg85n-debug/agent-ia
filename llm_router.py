@@ -53,7 +53,7 @@ MODELE_LOCAL_CRITIQUE = os.getenv("LLM_MODELE_LOCAL_CRITIQUE", "llama3.2:3b")
 LIMITES = {
     "groq": (30, 1000, 8000),
     "openrouter": (20, 1000 if os.getenv("OPENROUTER_PAID", "0") == "1" else 50, None),
-    "gemini": (10, int(os.getenv("GEMINI_RPD", "250")), None),
+    "gemini": (10, int(os.getenv("GEMINI_RPD", "100")), None),   # le quota reel du palier gratuit varie : le 429 declenche une pause de 30 min
     "local": (None, None, None),
 }
 MARGE = 0.9
@@ -141,10 +141,13 @@ def _quota_ok(fournisseur, tokens_estimes=0):
     # Fournisseur en panne recente : on le saute 10 minutes apres 3 erreurs d'affilee
     if f.get("erreurs", 0) >= 3 and now - f.get("derniere_erreur", 0) < 600:
         return False
+    # Quota epuise cote fournisseur (HTTP 429) : pause explicite
+    if f.get("pause_jusqua", 0) > now:
+        return False
     return True
 
 
-def _noter(fournisseur, ok, tokens=0, latence_ms=0, modele=""):
+def _noter(fournisseur, ok, tokens=0, latence_ms=0, modele="", pause_s=0):
     with _LOCK:
         d = _charger_quota()
         f = d["fournisseurs"].setdefault(fournisseur, {"jour": 0, "minute": [], "tokens_minute": [], "erreurs": 0, "latence_ms": []})
@@ -161,6 +164,8 @@ def _noter(fournisseur, ok, tokens=0, latence_ms=0, modele=""):
             f["erreurs"] = f.get("erreurs", 0) + 1
             f["derniere_erreur"] = now
             f["echecs"] = f.get("echecs", 0) + 1
+            if pause_s:
+                f["pause_jusqua"] = now + pause_s
         _sauver_quota(d)
 
 
@@ -174,6 +179,7 @@ def quotas():
         out["fournisseurs"][nom] = {
             "appels_jour": f.get("jour", 0), "limite_jour": rpd, "ok": f.get("ok", 0), "echecs": f.get("echecs", 0),
             "latence_moy_ms": int(sum(lat) / len(lat)) if lat else None, "dernier_modele": f.get("dernier_modele"),
+            "pause_min": max(0, int((f.get("pause_jusqua", 0) - time.time()) / 60)),
             "cle": bool({"groq": cle_groq, "openrouter": cle_openrouter, "gemini": cle_gemini}.get(nom, lambda: "x")()),
         }
     return out
@@ -301,8 +307,10 @@ def appeler(prompt, role="decision", json_mode=True, temperature=0.2, max_tokens
                 return texte, modele
             _noter(base, False)
         except Exception as e:
-            _noter(base, False)
-            _log(f"{f} echec ({role}, {len(prompt)} car.): {str(e)[:200]}")
+            msg = str(e)
+            # 429 = quota du fournisseur epuise -> pause 30 min (Gemini gratuit : quota journalier tres bas)
+            _noter(base, False, pause_s=1800 if "429" in msg else 0)
+            _log(f"{f} echec ({role}, {len(prompt)} car.): {msg[:200]}")
             continue
     return None, None
 
@@ -374,4 +382,5 @@ if __name__ == "__main__":
         print(f"Quotas LLM du {q['jour']} (UTC) :")
         for nom, v in q["fournisseurs"].items():
             lim = v["limite_jour"] or "illimite"
-            print(f"  {nom:11s} cle={'oui' if v['cle'] else 'NON'}  appels={v['appels_jour']}/{lim}  ok={v['ok']}  echecs={v['echecs']}  latence={v['latence_moy_ms']} ms  {v['dernier_modele'] or ''}")
+            pause = f"  PAUSE {v['pause_min']} min (quota 429)" if v.get("pause_min") else ""
+            print(f"  {nom:11s} cle={'oui' if v['cle'] else 'NON'}  appels={v['appels_jour']}/{lim}  ok={v['ok']}  echecs={v['echecs']}  latence={v['latence_moy_ms']} ms  {v['dernier_modele'] or ''}{pause}")
