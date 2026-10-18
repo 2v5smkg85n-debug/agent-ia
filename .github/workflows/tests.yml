@@ -1,0 +1,14 @@
+name: tests
+on: [push, pull_request]
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install pytest requests
+      - run: python -m pyflakes --version >/dev/null 2>&1 || pip install pyflakes
+      - run: python -m pyflakes llm_router.py stop_atr.py porte_entree.py memoire_episodique.py flux_ordres.py validation_stats.py meta_modele.py etiquetage_triple_barriere.py donnees_1m.py etat_sqlite.py ws_kraken.py page_porte.py || true
+      - run: python -m py_compile paper_trading.py cerveau.py journal_erreurs.py registre_strategies.py kraken_paper.py bougies_patterns.py prix_revolut.py dashboard_premium.py
+      - run: PORTE_FENETRES=1 python -m pytest -q tests

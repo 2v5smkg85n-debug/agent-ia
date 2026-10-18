@@ -23,7 +23,7 @@ import json
 import os
 import re
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 import requests
 
@@ -39,7 +39,7 @@ MODELE_LOCAL = "qwen2.5:7b"
 MODELE_LOCAL_CRITIQUE = "phi4-mini"
 THINKING_BUDGET = 512          # Gemini 2.5 Flash: petit budget de raisonnement pour l'analyste (0 = desactive)
 
-CHECKLIST = ["tendance_btc_ok", "pattern_confirme", "pas_au_sommet", "volatilite_ok", "heure_ok", "pas_erreur_passee"]
+CHECKLIST = ["tendance_btc_ok", "pattern_confirme", "pas_au_sommet", "volatilite_ok", "heure_ok", "pas_erreur_passee", "distinguable_du_bruit"]
 
 
 # ------------------------------------------------------------------ utilitaires
@@ -57,8 +57,21 @@ def _gemini_key():
     return ""
 
 
-def _llm(prompt, prefer="gemini", temperature=0.2, max_tokens=400, timeout_local=75):
-    """Retourne (texte, modele_utilise) ou (None, None). prefer: 'gemini' | 'local' | 'local_critique'."""
+def _llm(prompt, prefer="gemini", temperature=0.2, max_tokens=400, timeout_local=75, eviter=None):
+    """Retourne (texte, modele_utilise) ou (None, None). prefer: 'gemini' | 'local' | 'local_critique' | 'critique'.
+    Passe d'abord par llm_router (Groq gpt-oss-120b -> OpenRouter -> Gemini -> Ollama, quotas comptes),
+    puis retombe sur l'ancien chemin Gemini/Ollama direct si le routeur est indisponible."""
+    try:
+        import llm_router as _lr
+        role = {"gemini": "decision", "critique": "critique", "local_critique": "critique", "local": "leger"}.get(prefer, "decision")
+        t, m = _lr.appeler(prompt, role=role, json_mode=True, temperature=temperature, max_tokens=max_tokens,
+                           timeout_local=timeout_local, eviter=eviter)
+        if t:
+            return t, m
+    except Exception as _e:
+        print(f"  [CERVEAU] routeur LLM indisponible ({_e}) -> chemin direct")
+    if prefer == "critique":
+        prefer = "local_critique"
     ordre = ["gemini", "local"] if prefer == "gemini" else ([prefer, "gemini", "local"] if prefer != "local" else ["local", "gemini"])
     for m in ordre:
         try:
@@ -188,7 +201,7 @@ def dossier(sym, prix, rsi, pattern, reg):
             d["resistance"] = round((haut48 - b1[-1]["cloture"]) / b1[-1]["cloture"] * 100, 2)  # % sous la resistance
         ctx = {"heure": datetime.now().hour, "btc_var_1h": reg.get("var_1h"), "rsi": rsi}
         d["similaires"] = [{"date": t.get("date_fermeture", "")[5:16], "gain": t.get("gain"), "raison": str(t.get("raison", ""))[:14],
-                            "classes": t.get("classes", []), "post_mortem": t.get("post_mortem")} for t in je.similaires(sym, ctx, n=3)]
+                            "classes": t.get("classes", []), "post_mortem": t.get("post_mortem")} for t in je.similaires(sym, ctx, n=5)]
     except Exception:
         pass
     return d
@@ -357,10 +370,18 @@ def decider(prix_data, rsi_data, patterns_data, lignes_marche, positions, liquid
             f"support a {dd['support']}% dessous, resistance a {dd['resistance']}% dessus\n"
             f"Tes trades passes similaires: {sims}" + (f"\nLecon retenue: {pm}" if pm else ""))
 
-    prompt_analyste = f"""Tu es l'analyste d'un desk de trading crypto. Tu dois choisir AU PLUS UNE entree (achat spot, TP +{TP_PCT}%, stop 0.5-1% selon volatilite, horizon quelques heures) ou RIEN.
+    # Contexte de la porte unique (tendance lente BTC, regime, fenetres) — le cerveau le voit, la porte le fait respecter
+    _porte_txt = ""
+    try:
+        import porte_entree as _pe
+        _porte_txt = _pe.contexte_pour_ia()
+    except Exception:
+        pass
+    prompt_analyste = f"""Tu es l'analyste d'un desk de trading crypto. Tu dois choisir AU PLUS UNE entree (achat spot, stop = 2 x ATR 1h (0.8-3%), objectif = 2 x le stop, barriere de temps 24h) ou RIEN.
 
 REGIME BTC: tendance 4h {reg.get('tendance_4h')}, 1h {reg.get('var_1h')}%, 24h {reg.get('var_24h')}%, ATR 1h {reg.get('atr_1h')}%.
-Heure locale: {datetime.now().hour}h. Portefeuille: {len(positions)} positions, {liquidites:.0f} EUR.
+{_porte_txt}
+Heure UTC: {datetime.now(timezone.utc).hour}h. Portefeuille: {len(positions)} positions, {liquidites:.0f} EUR.
 
 CANDIDATES (preselectionnees par le systeme):
 {chr(10).join(lignes_dossiers)}
@@ -369,15 +390,16 @@ CANDIDATES (preselectionnees par le systeme):
 {resume_calibration(d)}
 {prof_txt}
 
-METHODE (obligatoire):
-1. Pour chaque candidate, verifie la checklist: tendance_btc_ok (BTC ne baisse pas sur l'heure et 4h pas baissier), pattern_confirme (pattern haussier 1h avec contexte: fin de baisse, support, volume), pas_au_sommet (RSI < 60 et > 1% sous le plus haut 24h), volatilite_ok (ATR entre 0.3% et 1.5%), heure_ok (pas 12h-16h), pas_erreur_passee (les trades similaires n'ont pas perdu pour une raison toujours presente).
+METHODE (obligatoire, en plusieurs etapes):
+0. D'abord, pour chaque candidate, reponds honnetement: "ce mouvement est-il distinguable d'une marche aleatoire ?" (un seul indicateur, un pattern isole ou un RSI moyen = NON). La plupart des graphiques sont du bruit: dire RIEN est la reponse normale.
+1. Ensuite verifie la checklist: tendance_btc_ok (tendance LENTE BTC haussiere ci-dessus, BTC ne baisse pas sur l'heure, 4h pas baissier), pattern_confirme (pattern haussier 1h avec contexte: fin de baisse, support, volume, flux d'ordres acheteur), pas_au_sommet (RSI < 60 et > 1% sous le plus haut 24h), volatilite_ok (ATR 1h entre 0.3% et 1.5%, regime pas turbulent), heure_ok (pas 12h-16h UTC, pas 13h00-14h30 UTC = ouverture US, pas d'annonce macro dans l'heure), pas_erreur_passee (les trades similaires, surtout les PERTES listees, n'ont pas perdu pour une raison toujours presente), distinguable_du_bruit (etape 0).
 2. Choisis la meilleure SEULEMENT si tous les points sont vrais. Sinon RIEN.
 3. Donne une confiance 0-100 honnete: ta fiabilite passee est affichee ci-dessus, ne te surestime pas.
 4. Precise ce qui invaliderait l'idee (ex: cloture 1h sous le support).
 
 Reponds UNIQUEMENT en JSON:
 {{"action": "ACHAT"|"RIEN", "symbole": "XXXUSDT"|null, "confiance": 0-100,
- "checklist": {{"tendance_btc_ok": true|false, "pattern_confirme": true|false, "pas_au_sommet": true|false, "volatilite_ok": true|false, "heure_ok": true|false, "pas_erreur_passee": true|false}},
+ "checklist": {{"tendance_btc_ok": true|false, "pattern_confirme": true|false, "pas_au_sommet": true|false, "volatilite_ok": true|false, "heure_ok": true|false, "pas_erreur_passee": true|false, "distinguable_du_bruit": true|false}},
  "raison": "2 phrases max, cite pattern + RSI + ce qui differe des pertes passees", "invalidation": "..."}}"""
 
     texte, modele = _llm(prompt_analyste, prefer="gemini", temperature=0.2, max_tokens=500)
@@ -394,7 +416,11 @@ Reponds UNIQUEMENT en JSON:
     dd = next((x for x in dossiers if x["sym"] == sym), None)
     sl_pct = None
     if dd and dd.get("atr_pct"):
-        sl_pct = round(min(1.0, max(0.5, 1.2 * dd["atr_pct"])), 2)
+        try:
+            import stop_atr as _sa
+            sl_pct = _sa.stop_pct(dd["atr_pct"])
+        except Exception:
+            sl_pct = round(min(3.0, max(0.8, 2.0 * dd["atr_pct"])), 2)
 
     if action != "ACHAT" or sym not in prix_data:
         print(f"  [CERVEAU] analyste ({modele}): RIEN — {str(dec.get('raison',''))[:120]}")
@@ -421,7 +447,13 @@ Regles et erreurs passees du desk:
 
 Cherche la FAILLE: contradiction avec le regime BTC, pattern sur-interprete, achat au sommet, volatilite incompatible avec un stop de {sl_pct or 0.7}%, repetition d'une erreur passee, heure defavorable.
 Reponds UNIQUEMENT en JSON: {{"verdict": "OK"|"REFUS", "faille": "1 phrase", "confiance_corrigee": 0-100}}"""
-    texte_c, modele_c = _llm(prompt_critique, prefer="local_critique" if modele and modele.startswith("gemini") else "gemini", temperature=0.1, max_tokens=200, timeout_local=60)
+    _eviter = None
+    try:
+        import llm_router as _lr2
+        _eviter = _lr2.fournisseur_de(modele)
+    except Exception:
+        pass
+    texte_c, modele_c = _llm(prompt_critique, prefer="critique", temperature=0.1, max_tokens=200, timeout_local=60, eviter=_eviter)
     crit = _json(texte_c) or {}
     verdict = str(crit.get("verdict", "OK")).upper()
     conf_c = crit.get("confiance_corrigee")

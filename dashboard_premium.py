@@ -864,7 +864,7 @@ document.querySelectorAll('#trades .tr').forEach(function(t){{t.addEventListener
 </div>
 
 <div class="footer">
-  <a href="/maitres?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🏆 Maitres</a> · <a href="/learning?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🧠 Apprentissage</a> · <a href="/positions?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📊 Positions Live</a> · <a href="/kraken?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🐙 Kraken virtuel</a> · <a href="/cerveau?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🧠 Cerveau</a> · <a href="/rapport?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📄 Rapport</a>
+  <a href="/maitres?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🏆 Maitres</a> · <a href="/learning?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🧠 Apprentissage</a> · <a href="/positions?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📊 Positions Live</a> · <a href="/kraken?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🐙 Kraken virtuel</a> · <a href="/cerveau?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🧠 Cerveau</a> · <a href="/porte?token={TOKEN}" style="color:#58a6ff;text-decoration:none">🚪 Porte &amp; IA</a> · <a href="/rapport?token={TOKEN}" style="color:#58a6ff;text-decoration:none">📄 Rapport</a>
   <br>Agent IA Trading v2 · Auto-refresh 30s · Donnees Revolut X temps reel
 </div>
 </body></html>"""
@@ -1641,6 +1641,18 @@ class Handler(BaseHTTPRequestHandler):
                 out = f"<html><body style='background:#0d1117;color:#e6edf3;font-family:sans-serif;padding:20px'><h2>Erreur</h2><pre>{html.escape(str(e))}</pre></body></html>"
             self.send_response(200)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(out.encode())
+            return
+        # Route /porte : porte d'entree unique, quotas LLM, registre bayesien, meta-modele (page generee par page_porte.py)
+        if parsed.path in ('/porte', '/api/porte'):
+            try:
+                import page_porte
+                out = page_porte.json_etat() if parsed.path == '/api/porte' else page_porte.build_page()
+            except Exception as e:
+                out = f"<html><body style='background:#0d1117;color:#e6edf3;font-family:sans-serif;padding:20px'><h2>Erreur</h2><pre>{html.escape(str(e))}</pre></body></html>"
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8' if parsed.path == '/api/porte' else 'text/html; charset=utf-8')
             self.end_headers()
             self.wfile.write(out.encode())
             return

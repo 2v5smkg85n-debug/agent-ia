@@ -93,14 +93,44 @@ def _nom_strat(t):
 
 
 def _statut_auto(s):
+    """Regles historiques + lecture bayesienne (Beta(5,5), intervalle de credibilite 90 %) :
+       - retiree si le HAUT de l'intervalle reste sous le point mort apres >= 15 trades (perdante meme en etant optimiste)
+       - active si le BAS de l'intervalle depasse le point mort de 5 points apres >= 20 trades et net > 0"""
     n, net, wr = s["n"], s["net"], s["wr"]
     if n == 0:
         return "candidate"
+    ic_bas, ic_haut, pmort = s.get("wr_ic_bas"), s.get("wr_ic_haut"), s.get("point_mort")
     if (n >= N_RETRAIT and net < 0) or (n >= N_RETRAIT_RAPIDE and net <= PERTE_RETRAIT_RAPIDE):
+        return "retiree"
+    if n >= 15 and ic_haut is not None and pmort is not None and ic_haut < pmort and net < 0:
         return "retiree"
     if n >= N_PROMO and net > 0 and wr >= WR_PROMO:
         return "active"
+    if n >= 20 and net > 0 and ic_bas is not None and pmort is not None and ic_bas > pmort + 5:
+        return "active"
     return "probation"
+
+
+def facteur_taille(strat, regime=None, mini=0.5, maxi=1.25):
+    """Echantillonnage de Thompson : tire un WR plausible dans la loi a posteriori de la strategie et le compare
+    a son point mort. Retourne un multiplicateur de taille [mini, maxi] (1.0 si inconnu). Ne touche pas au risque max."""
+    try:
+        import validation_stats as vs
+        d = _charger()
+        s = d["strategies"].get(str(strat))
+        if not s or s.get("n", 0) < 5:
+            return 1.0
+        a, b = 5.0 + s.get("g", 0), 5.0 + s.get("n", 0) - s.get("g", 0)
+        if regime and isinstance(s.get("par_regime"), dict) and s["par_regime"].get(regime, {}).get("n", 0) >= 5:
+            r = s["par_regime"][regime]
+            a, b = 5.0 + r["g"], 5.0 + r["n"] - r["g"]
+        tirage = vs.echantillon_beta(a, b) * 100
+        pmort = s.get("point_mort") or 50.0
+        # +10 points au-dessus du point mort -> x1.25 ; -10 points -> x0.5
+        f = 1.0 + (tirage - pmort) / 40.0
+        return round(max(mini, min(maxi, f)), 2)
+    except Exception:
+        return 1.0
 
 
 def calculer(trades):
@@ -115,6 +145,12 @@ def calculer(trades):
         gain = float(t.get("gain_eur", 0) or 0)
         s["n"] += 1
         s["net"] += gain
+        s.setdefault("_gains", []).append(gain)
+        # ventilation par regime (si le contexte d'entree l'a enregistre)
+        _reg = (t.get("contexte") or {}).get("regime") if isinstance(t.get("contexte"), dict) else None
+        if _reg:
+            r = s.setdefault("par_regime", {}).setdefault(_reg, {"n": 0, "g": 0, "net": 0.0})
+            r["n"] += 1; r["g"] += 1 if gain > 0 else 0; r["net"] = round(r["net"] + gain, 2)
         if gain > 0:
             s["g"] += 1; s["brut_gains"] += gain; s["_serie"] = 0
         else:
@@ -135,6 +171,19 @@ def calculer(trades):
         s["perte_moyenne"] = round(s["brut_pertes"] / (s["n"] - s["g"]), 2) if s["n"] - s["g"] else 0.0
         s["taux_stops"] = round(100 * s["stops"] / s["n"]) if s["n"] else 0
         s["net"] = round(s["net"], 2); s["net_30j"] = round(s["net_30j"], 2)
+        # Lecture bayesienne : WR a posteriori Beta(5,5) + intervalle 90 % + point mort + Sharpe deflate
+        try:
+            import validation_stats as vs
+            post = vs.beta_posterior(s["g"], s["n"])
+            s["wr_bayes"], s["wr_ic_bas"], s["wr_ic_haut"] = post["moyenne"], post["ic_bas"], post["ic_haut"]
+            s["point_mort"] = vs.point_mort(s["gain_moyen"], s["perte_moyenne"])
+            gains = s.pop("_gains", [])
+            mo = vs.moments(gains)
+            s["dsr"] = vs.sharpe_deflate(mo["sharpe"], s["n"], 1, mo["skew"], mo["kurt"]) if mo else None
+            for r in s.get("par_regime", {}).values():
+                r["wr"] = round(100 * r["g"] / r["n"], 1) if r["n"] else 0.0
+        except Exception:
+            s.pop("_gains", None)
         s["statut_auto"] = _statut_auto(s)
     return stats
 
@@ -209,7 +258,8 @@ def resume_pour_ia():
     d = _charger()
     lignes = []
     for k, s in sorted(d["strategies"].items(), key=lambda x: -x[1]["n"]):
-        lignes.append(f"  {k}: {s['statut'].upper()} — {s['n']} trades, WR {s['wr']:.0f}%, net {s['net']:+.1f}EUR, esperance {s['esperance']:+.2f}EUR/trade")
+        bayes = f", WR bayesien {s['wr_bayes']:.0f}% [{s['wr_ic_bas']:.0f}-{s['wr_ic_haut']:.0f}] vs point mort {s['point_mort']:.0f}%" if s.get("wr_bayes") is not None else ""
+        lignes.append(f"  {k}: {s['statut'].upper()} — {s['n']} trades, WR {s['wr']:.0f}%, net {s['net']:+.1f}EUR, esperance {s['esperance']:+.2f}EUR/trade{bayes}")
     return "\n".join(lignes)
 
 

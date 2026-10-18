@@ -101,6 +101,44 @@ def ticker(symbole):
         return None
 
 
+# ---------------------------------------------------------------- glissement (slippage) realiste
+SLIPPAGE_ALPHA = float(os.getenv("SLIPPAGE_ALPHA", "0.10"))   # % de glissement quand l'ordre = toute la profondeur a 0.5 %
+SLIPPAGE_BETA = float(os.getenv("SLIPPAGE_BETA", "0.6"))       # exposant de la loi de puissance (0.5-0.8 dans la litterature)
+_PROF_CACHE = {}
+
+
+def profondeur_eur(symbole, pct=0.5):
+    """Profondeur du carnet Kraken (EUR) a +/- pct % du milieu, cote ask et bid. Cache 60 s. None si indisponible."""
+    import time as _t
+    e = _PROF_CACHE.get(symbole)
+    if e and _t.time() - e[0] < 60:
+        return e[1]
+    p = paire_kraken(symbole)
+    if not p:
+        return None
+    try:
+        r = requests.get(f"{API}/Depth", params={"pair": p, "count": 100}, timeout=8).json()
+        res = list(r["result"].values())[0]
+        asks, bids = res["asks"], res["bids"]
+        mid = (float(asks[0][0]) + float(bids[0][0])) / 2
+        out = {"ask": sum(float(a[0]) * float(a[1]) for a in asks if float(a[0]) <= mid * (1 + pct / 100)),
+               "bid": sum(float(b[0]) * float(b[1]) for b in bids if float(b[0]) >= mid * (1 - pct / 100)), "mid": mid}
+        _PROF_CACHE[symbole] = (_t.time(), out)
+        return out
+    except Exception:
+        return None
+
+
+def glissement_pct(symbole, montant_eur, cote="ask"):
+    """Glissement estime en % : alpha x (Q / profondeur)^beta (loi de puissance, impact de marche).
+    Ordre de 100 EUR dans 200 000 EUR de profondeur -> ~0.001 % ; 100 EUR dans 2 000 EUR -> ~0.02 % ; 0 si inconnu."""
+    prof = profondeur_eur(symbole)
+    if not prof or not prof.get(cote):
+        return 0.0
+    q = max(0.0, float(montant_eur)) / prof[cote]
+    return round(SLIPPAGE_ALPHA * (q ** SLIPPAGE_BETA), 4)
+
+
 def volume_30j_usd(d):
     seuil = datetime.now() - timedelta(days=30)
     vol = 0.0
@@ -141,6 +179,8 @@ def ouvrir_shadow(position):
             print(f"  [KRAKEN-VIRTUEL] {sym}: liquidites insuffisantes ({d['liquidites']:.0f}EUR)")
             return False
         pct, vol = frais_pct(d, maker=False)          # achat au marche = taker
+        glis = glissement_pct(sym, montant, "ask")    # impact de marche selon la profondeur du carnet
+        ask = ask * (1 + glis / 100)
         frais = montant * pct / 100
         qty = (montant - frais) / ask
         d["liquidites"] -= montant
@@ -158,7 +198,7 @@ def ouvrir_shadow(position):
         })
         _sauver(d)
         ecart = (ask - float(position.get("prix_entree") or ask)) / ask * 100
-        print(f"  [KRAKEN-VIRTUEL] ACHAT {sym} @ {ask:.4f} (bot {position.get('prix_entree', 0):.4f}, {ecart:+.2f}%) | frais {pct:.2f}% = {frais:.2f}EUR | palier vol30j ${vol:,.0f}")
+        print(f"  [KRAKEN-VIRTUEL] ACHAT {sym} @ {ask:.4f} (bot {position.get('prix_entree', 0):.4f}, {ecart:+.2f}%) | frais {pct:.2f}% = {frais:.2f}EUR | glissement {glis:.3f}% | palier vol30j ${vol:,.0f}")
         return True
     except Exception as e:
         print(f"  [KRAKEN-VIRTUEL] erreur ouverture: {e}")
@@ -185,6 +225,8 @@ def fermer_shadow(position, raison):
         bid, ask = tk
         maker = str(raison).startswith("TP")          # TP = limit pose a l'avance
         pct, vol = frais_pct(d, maker=maker)
+        if not maker:                                  # vente au marche (stop, temps) : glissement selon la profondeur
+            bid = bid * (1 - glissement_pct(sym, p["quantite"] * bid, "bid") / 100)
         brut = p["quantite"] * bid
         frais = brut * pct / 100
         net = brut - frais

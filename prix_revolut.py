@@ -417,6 +417,20 @@ def get_prix_kucoin_batch(symboles_bot, force_fresh=False):
     if not symboles_bot:
         return {}
     _now = time.time()
+    # 0. Flux WebSocket Kraken (ws_kraken.py) : prix en EUR frais a la seconde, s'il tourne et si les prix ont < 15 s
+    try:
+        import os as _os
+        _ws_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "prix_ws.json")
+        if _os.path.exists(_ws_path) and _now - _os.path.getmtime(_ws_path) < 15:
+            _ws = json.load(open(_ws_path))
+            _px = {s: float(_ws["prix"][s]) for s in symboles_bot if s in _ws.get("prix", {}) and _ws["prix"][s]}
+            if len(_px) >= max(1, int(len(symboles_bot) * 0.8)):
+                for s, v in _px.items():
+                    _KUCOIN_CACHE["prix"][s] = v
+                if len(_px) == len(symboles_bot):
+                    return _px
+    except Exception:
+        pass
     if not force_fresh and _KUCOIN_CACHE["prix"] and (_now - _KUCOIN_CACHE["ts"]) < _KUCOIN_TTL:
         _cached = {}
         for sym in symboles_bot:

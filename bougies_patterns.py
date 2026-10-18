@@ -335,6 +335,24 @@ def analyser_patterns(bougies, lookback=3, volumes=True):
         patterns.append("harami_baissier")
         score += s
 
+    # 14b) Hikkake haussier (Daniel Chesler, ref. TA-Lib CDLHIKKAKE) : bougie interieure (b1 dans b0),
+    #      fausse cassure vers le bas (b2 : plus haut et plus bas sous b1), puis cloture AU-DESSUS du haut de b1
+    #      dans les 1-3 bougies suivantes = piege a vendeurs. Ici on exige la confirmation sur la derniere bougie.
+    if len(bougies) >= 4:
+        oa, ha, la, ca = _ohlc(bougies[-4])
+        inside = h0 < ha and l0 > la                     # b(-3) interieure a b(-4)
+        faux_bas = h1 < h0 and l1 < l0                   # b(-2) casse vers le bas
+        confirme = c2 > h0                               # b(-1) cloture au-dessus du haut de la bougie interieure
+        if inside and faux_bas and confirme:
+            s = _boost(0.35, "hikkake_haussier", "haussier", "fin_baisse")
+            patterns.append("hikkake_haussier")
+            score += s
+        faux_haut = h1 > h0 and l1 > l0
+        if inside and faux_haut and c2 < l0:
+            s = _boost(0.35, "hikkake_baissier", "baissier", "fin_hausse")
+            patterns.append("hikkake_baissier")
+            score += s
+
     # 15) Tweezer bottom - deux bougies meme bas = support fort
     if (len(bougies) >= 2 and abs(l1 - l2) / max(l1, 0.001) < 0.002 and
         c1 < o1 and c2 > o2):

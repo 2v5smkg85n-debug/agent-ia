@@ -1,0 +1,30 @@
+{
+  "max_open_trades": 2,
+  "stake_currency": "EUR",
+  "stake_amount": 100,
+  "tradable_balance_ratio": 0.99,
+  "dry_run": true,
+  "dry_run_wallet": 1000,
+  "timeframe": "1h",
+  "cancel_open_orders_on_exit": false,
+  "trading_mode": "spot",
+  "unfilledtimeout": {"entry": 10, "exit": 10, "unit": "minutes"},
+  "entry_pricing": {"price_side": "same", "use_order_book": true, "order_book_top": 1},
+  "exit_pricing": {"price_side": "same", "use_order_book": true, "order_book_top": 1},
+  "exchange": {
+    "name": "kraken",
+    "key": "",
+    "secret": "",
+    "ccxt_config": {"enableRateLimit": true, "rateLimit": 3100},
+    "ccxt_async_config": {"enableRateLimit": true, "rateLimit": 3100},
+    "pair_whitelist": ["BTC/EUR", "ETH/EUR", "SOL/EUR", "XRP/EUR", "LINK/EUR", "AVAX/EUR", "DOT/EUR", "ADA/EUR", "DOGE/EUR", "LTC/EUR"],
+    "pair_blacklist": []
+  },
+  "pairlists": [{"method": "StaticPairList"}],
+  "telegram": {"enabled": false},
+  "api_server": {"enabled": true, "listen_ip_address": "127.0.0.1", "listen_port": 8081, "username": "etalon", "password": "etalon", "jwt_secret_key": "changez-moi"},
+  "bot_name": "etalon",
+  "initial_state": "running",
+  "force_entry_enable": false,
+  "internals": {"process_throttle_secs": 5}
+}

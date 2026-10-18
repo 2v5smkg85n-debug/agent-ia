@@ -1649,15 +1649,18 @@ def ouvrir_position(pf, signal, prix_actuel):
     except Exception:
         pass
     # === JOURNAL DES ERREURS: regles apprises + stop ATR + risque fixe 1 EUR ===
-    _sl_risque, _ctx_entree = None, None
+    _sl_risque, _ctx_entree, _tp_risque, _barriere_h = None, None, None, None
     try:
         import journal_erreurs as _je
-        _prep = _je.preparer_entree(signal["symbole"], prix_actuel, montant, pf["liquidites"], LIQUIDITE_MIN)
+        _prep = _je.preparer_entree(signal["symbole"], prix_actuel, montant, pf["liquidites"], LIQUIDITE_MIN,
+                                    strategie=signal.get("strategie") or signal.get("source"))
         if not _prep["ok"]:
             print(f"  [REGLE] {signal.get('nom', signal.get('symbole','?'))}: {_prep['raison']}")
             return False
         montant = _prep["montant"]
         _sl_risque = _prep["sl_pct"]
+        _tp_risque = _prep.get("tp_pct")
+        _barriere_h = _prep.get("barriere_h")
         _ctx_entree = _prep["ctx"]
         print(f"  [RISQUE] {signal.get('symbole','?')}: {_prep['raison']}")
     except Exception as _e:
@@ -1719,6 +1722,8 @@ def ouvrir_position(pf, signal, prix_actuel):
         "tp_adaptatif": _tp_etoile,
         "sl_adaptatif": _sl_etoile,
         "sl_risque": _sl_risque,
+        "tp_risque": _tp_risque,          # objectif 2:1 fixe a l'ouverture (stop_atr) — prioritaire sur les caps
+        "barriere_h": _barriere_h,        # barriere de temps (triple barriere)
         "contexte": _ctx_entree,
         "intel_score": signal.get("intel_score"),
         "intel_fg": signal.get("intel_fg"),
@@ -1806,7 +1811,21 @@ def verifier_sorties(pf, prix_actuels):
         # STOP ADAPTE (ATR) fixe a l'ouverture: prioritaire sur meta-tuning
         if pos.get("sl_risque"):
             _sl_check = float(pos["sl_risque"])
-        _urg_seuil = min(1.3, float(pos["sl_risque"]) + 0.3) if pos.get("sl_risque") else 0.8
+        # OBJECTIF 2:1 fixe a l'ouverture (stop_atr): prioritaire sur le cap 1.5%
+        if pos.get("tp_risque"):
+            _tp_check = float(pos["tp_risque"])
+            _urg_seuil = float(pos["sl_risque"] or 1.0) + 0.3
+        else:
+            _urg_seuil = min(1.3, float(pos["sl_risque"]) + 0.3) if pos.get("sl_risque") else 0.8
+        # BARRIERE DE TEMPS (triple barriere): ni TP ni SL touches apres barriere_h heures -> on sort
+        try:
+            if pos.get("barriere_h"):
+                _age_h = (maintenant - datetime.strptime(pos.get("date_ouverture", ""), "%Y-%m-%d %H:%M")).total_seconds() / 3600
+                if _age_h >= float(pos["barriere_h"]):
+                    positions_a_fermer.append((pos, prix_actuel, f"BARRIERE-TEMPS ({variation:+.2f}% apres {_age_h:.0f}h)", variation))
+                    continue
+        except Exception:
+            pass
         if _essai_actif() and pos.get('strategie') == 'essai_bougies':
             _tp_check, _sl_check = pos.get("essai_tp", TAKE_PROFIT_PCT), pos.get("essai_sl", STOP_LOSS_PCT)  # essai: TP/SL fixes par marche
         # SL D'URGENCE ABSOLU: ferme a -0.8% quoi qu'il arrive (empeche les SL-RETARD)
@@ -1854,6 +1873,8 @@ def verifier_sorties(pf, prix_actuels):
         _sl = min(_sl, 0.5)
         if pos.get("sl_risque"):
             _sl = float(pos["sl_risque"])
+        if pos.get("tp_risque"):
+            _tp = float(pos["tp_risque"])
         if _essai_actif() and pos.get('strategie') == 'essai_bougies':
             _tp, _sl = pos.get("essai_tp", TAKE_PROFIT_PCT), pos.get("essai_sl", STOP_LOSS_PCT)  # essai: TP/SL fixes par marche
         # TP DYNAMIQUE ATR: DESACTIVE — l'ATR poussait le TP a 4% (contre le TP 0.9% user)
@@ -1977,6 +1998,11 @@ def verifier_sorties(pf, prix_actuels):
                 # EXTEND: cap duree plus long (8h) pour laisser le TP etendu se realiser
                 duree_min = EXTEND_DUREE_MAX if extend_actif else SORTIE_DUREE_MIN
                 seuil_min = EXTEND_SEUIL if extend_actif else SEUIL_BENEFICE_MIN
+                _stale_max = STALE_DUREE_MAX
+                if pos.get("tp_risque"):
+                    # position "triple barriere": on lui laisse le temps d'atteindre 2x le stop
+                    _stale_max = int(os.getenv("STALE_H_ATR", "12")) * 60
+                    duree_min = max(duree_min, int(float(pos.get("barriere_h") or 24) * 60))
                 # RESPIRATION ADAPTATIVE: plus c'est gagnant, plus ça respire
                 # (pour laisser le temps d'atteindre partial TP +1% / trailing / TP)
                 if os.getenv("EXIT_AVANCE", "1") != "0":
@@ -1993,7 +2019,7 @@ def verifier_sorties(pf, prix_actuels):
                 # (fixe les positions bloquées plates, ex EURUSD à 0% qui n atteint jamais +0.30%)
                 # ANTI-FRAIS: ne ferme pas si le gain net apres frais est negatif
                 # (frais 0.2% AR). Ferme seulement si variation > 0.2% ou perte > -1%
-                if age_min >= STALE_DUREE_MAX and variation < seuil_min:
+                if age_min >= _stale_max and variation < seuil_min:
                     if variation >= 0.2 or variation <= -1.0:
                         positions_a_fermer.append((pos, prix_actuel, f"TEMPS-stale ({variation:+.2f}%)", variation))
                     else:
@@ -2083,7 +2109,11 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
         "source": position.get("source", ""),
         "frais_total": position.get("frais_entree", position.get("montant_eur", 0) * 0.002) + frais,
         "date_ouverture": position["date_ouverture"],
-        "date_fermeture": datetime.now().strftime("%Y-%m-%d %H:%M")
+        "date_fermeture": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        # contexte d'entree + stop/objectif conserves dans le trade ferme (apprentissage, meta-modele, registre par regime)
+        "contexte": position.get("contexte"),
+        "sl_risque": position.get("sl_risque"),
+        "tp_risque": position.get("tp_risque"),
     }
     pf["historique"].append(trade)
     # Phase 2: suit les trades fermes pour le circuit breaker (perte journaliere)
@@ -2093,6 +2123,12 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
         _rs.mettre_a_jour(pf["trades_fermes"], verbose=True)
     except Exception as _e:
         print(f"  [REGISTRE] erreur: {_e}")
+    # Copie durable dans SQLite (jamais bloquant, jamais efface)
+    try:
+        import etat_sqlite as _es
+        _es.sync_trade(trade, "live")
+    except Exception as _e:
+        print(f"  [SQLITE] erreur: {_e}")
     pf["positions"].remove(position)
     # Circuit breaker: track pertes consecutives
     if gain < 0:

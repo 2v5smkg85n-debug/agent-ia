@@ -29,7 +29,7 @@ _LOCK = threading.Lock()
 
 SEUIL_N_REGLE, SEUIL_PERTE_REGLE = 10, -8.0
 HEURES_PERDANTES = set(range(12, 16))   # 12h-16h: -46 EUR sur 83 trades (bilan 16/10)
-RISQUE_EUR, SL_MIN, SL_MAX, ATR_MULT = 1.0, 0.5, 1.0, 1.2
+RISQUE_EUR, SL_MIN, SL_MAX, ATR_MULT = 1.0, 0.8, 3.0, 2.0   # secours seulement : stop_atr.py fait foi
 
 DESCRIPTIONS = {
     "contre_btc": "Entree pendant que BTC baissait sur l'heure (< -0.3%)",
@@ -193,22 +193,60 @@ def forcer_regle(cls, etat):
 
 
 # ------------------------------------------------------------------ entree
-def preparer_entree(sym, prix, montant_prevu, liquidites, liquidite_min=200.0):
+def preparer_entree(sym, prix, montant_prevu, liquidites, liquidite_min=200.0, strategie=None):
     """Appele AVANT d'ouvrir. Retourne dict:
-       ok, raison, montant, sl_pct, ctx. Applique les regles + stop ATR + risque fixe."""
+       ok, raison, montant, sl_pct, tp_pct, barriere_h, ctx. Applique les regles + stop ATR + porte unique + risque fixe."""
     ctx = contexte_entree(sym, prix)
+    ctx["strategie"] = strategie
     bloque, raison = regles_bloquent(ctx)
     if bloque:
-        return {"ok": False, "raison": raison, "ctx": ctx, "montant": 0, "sl_pct": None}
+        return {"ok": False, "raison": raison, "ctx": ctx, "montant": 0, "sl_pct": None, "tp_pct": None, "barriere_h": None}
     atr = ctx.get("atr_pct")
-    sl = round(min(SL_MAX, max(SL_MIN, ATR_MULT * atr)), 2) if atr else SL_MIN
-    montant_risque = RISQUE_EUR / (sl / 100.0)              # 1 EUR / 0.5% = 200 ; 1 EUR / 1% = 100
-    dispo = max(0.0, liquidites - liquidite_min)
-    montant = min(montant_risque, dispo)
+    # --- regime (tendance / range / turbulent) : porte_entree le met en cache 15 min
+    regime = "normal"
+    try:
+        import porte_entree as _pe
+        regime = (_pe.regime_actuel("BTCUSDT") or {}).get("mode") or "normal"
+    except Exception:
+        pass
+    ctx["regime"] = regime
+    # --- stop 2 x ATR, objectif 2:1, barriere 24 h, taille = risque / (stop + frais)
+    try:
+        import stop_atr as _sa
+        calc = _sa.calculer(atr, liquidites, liquidite_min, regime=regime)
+        sl, tp, barriere, montant, risque_eur, raison_sl = calc["sl_pct"], calc["tp_pct"], calc["barriere_h"], calc["montant"], calc["risque_eur"], calc["raison"]
+    except Exception:
+        sl = round(min(SL_MAX, max(SL_MIN, ATR_MULT * atr)), 2) if atr else SL_MIN
+        tp, barriere, risque_eur = round(sl * 2, 2), 24, RISQUE_EUR
+        montant = min(RISQUE_EUR / (sl / 100.0), max(0.0, liquidites - liquidite_min))
+        raison_sl = f"SL {sl}% (ATR {atr if atr is not None else '?'}%) montant {montant:.0f} EUR"
+    # --- Thompson : la taille suit la confiance statistique de la strategie (x0.5 a x1.25, jamais plus de risque max)
+    try:
+        import registre_strategies as _rs
+        _f = _rs.facteur_taille(strategie, regime) if strategie else 1.0
+        if _f != 1.0:
+            montant = round(montant * _f, 2)
+            raison_sl += f" | Thompson x{_f}"
+    except Exception:
+        pass
     if montant < 50:
-        return {"ok": False, "raison": f"liquidites insuffisantes pour un trade a risque ({dispo:.0f} EUR dispo)", "ctx": ctx, "montant": 0, "sl_pct": sl}
-    return {"ok": True, "raison": f"SL {sl}% (ATR {atr if atr is not None else '?'}%) montant {montant:.0f} EUR = risque {montant*sl/100:.2f} EUR",
-            "montant": round(montant, 2), "sl_pct": sl, "ctx": ctx}
+        dispo = max(0.0, liquidites - liquidite_min)
+        return {"ok": False, "raison": f"liquidites insuffisantes pour un trade a risque ({dispo:.0f} EUR dispo)", "ctx": ctx, "montant": 0,
+                "sl_pct": sl, "tp_pct": tp, "barriere_h": barriere}
+    # --- porte unique (tendance lente BTC, fenetres, chaleur, regime, CUSUM, liquidite, flux, meta-modele)
+    try:
+        import porte_entree as _pe
+        try:
+            pf = json.load(open(PT_FILE))
+        except Exception:
+            pf = {"positions": []}
+        verdict = _pe.verifier(sym, prix, ctx, pf, montant, sl, strategie=ctx.get("strategie"), risque_nouveau=risque_eur)
+        ctx["porte"] = {k: v for k, v in (verdict.get("infos") or {}).items() if k in ("tfi_30m", "p_meta", "cusum", "filtres_sautes")}
+        if not verdict["ok"]:
+            return {"ok": False, "raison": f"PORTE: {verdict['raison']}", "ctx": ctx, "montant": 0, "sl_pct": sl, "tp_pct": tp, "barriere_h": barriere}
+    except Exception as _e:
+        ctx["porte"] = {"erreur": str(_e)[:80]}
+    return {"ok": True, "raison": raison_sl, "montant": round(montant, 2), "sl_pct": sl, "tp_pct": tp, "barriere_h": barriere, "ctx": ctx}
 
 
 # ------------------------------------------------------------------ fermeture
@@ -358,6 +396,14 @@ def _post_mortem_ia(rec):
 def similaires(sym, ctx=None, n=4):
     d = _charger()
     ctx = ctx or {}
+    # Memoire episodique (similarite cosinus sur les indicateurs, >= 2 pertes parmi les resultats)
+    try:
+        import memoire_episodique as _me
+        res = _me.similaires(d["trades"], sym, ctx, n=n)
+        if res:
+            return res
+    except Exception:
+        pass
     def score(t):
         s = 0
         if t.get("sym") == sym: s += 3
