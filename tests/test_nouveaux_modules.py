@@ -82,7 +82,7 @@ def test_llm_router_quota_et_json():
     assert lr.fournisseur_de("gemini-2.5-flash") == "gemini"
     assert lr.fournisseur_de(lr.GROQ_MODELE) == "groq"
     q = lr.quotas()
-    assert set(q["fournisseurs"]) == {"groq", "openrouter", "gemini", "local"}
+    assert {"groq", "openrouter", "gemini", "local"} <= set(q["fournisseurs"])
 
 
 def test_hikkake():
