@@ -31,10 +31,11 @@ DOSSIER = os.path.dirname(os.path.abspath(__file__))
 FICHIER = os.path.join(DOSSIER, "journal_decisions.json")
 _LOCK = threading.Lock()
 
-TP_PCT = 1.5
-SEUIL_CONFIANCE_BASE = 65
+TP_PCT = 1.5                   # ancien objectif fixe (utilise seulement si une decision n'a pas de sl_pct)
+TP_RATIO_EVAL = 2.0            # objectif = 2 x le stop, comme en trading reel (stop_atr)
+SEUIL_CONFIANCE_BASE = int(os.getenv("CERVEAU_SEUIL_BASE", "60"))   # sans calibration : 60 (la calibration le remonte a 70+ si le bucket 60-69 perd)
 TOP_N = 3
-HEURES_EVAL = 4
+HEURES_EVAL = int(os.getenv("CERVEAU_HEURES_EVAL", "8"))   # horizon d'evaluation des propositions (stop 2xATR / objectif 2:1)
 MODELE_LOCAL = "qwen2.5:7b"
 MODELE_LOCAL_CRITIQUE = "phi4-mini"
 THINKING_BUDGET = 512          # Gemini 2.5 Flash: petit budget de raisonnement pour l'analyste (0 = desactive)
@@ -256,11 +257,16 @@ def _bucket(c):
 
 
 def seuil_adaptatif(d=None):
-    """Seuil = plus petit niveau de confiance ou le cerveau a >= 55% de reussite (>= 8 cas). Min 60, max 85."""
+    """Seuil = plus petit niveau de confiance ou le cerveau a >= 55% de reussite (>= 8 cas). Min 55, max 90."""
     d = d or _charger()
     cal = d.get("calibration", {})
     seuil = SEUIL_CONFIANCE_BASE
     ordre = ["60-69", "70-79", "80-89", "90+"]
+    # Si meme les propositions < 60 reussissent (>= 8 cas, >= 60 %), le seuil peut descendre a 55
+    st0 = cal.get("<60", {})
+    n0 = st0.get("tp", 0) + st0.get("sl", 0)
+    if n0 >= 8 and st0["tp"] / n0 >= 0.60:
+        return 55
     for i, b in enumerate(ordre):
         st = cal.get(b, {})
         n = st.get("tp", 0) + st.get("sl", 0)
@@ -270,7 +276,7 @@ def seuil_adaptatif(d=None):
                 seuil = [60, 70, 80, 90][i]; break
             else:
                 seuil = max(seuil, [70, 80, 90, 90][i])
-    return int(min(90, max(60, seuil)))
+    return int(min(90, max(55, seuil)))
 
 
 def resume_calibration(d=None):
@@ -287,7 +293,7 @@ def resume_calibration(d=None):
         if n:
             parts.append(f"confiance {b}: {st['tp']}/{n} reussites ({st['tp']/n*100:.0f}%)")
     manq = d.get("manquees", 0)
-    return f"TA FIABILITE PASSEE (ACHAT evalues 4h apres): " + "; ".join(parts) + f". Occasions manquees (RIEN puis +{TP_PCT}%): {manq}. Seuil actuel: {seuil_adaptatif(d)}."
+    return f"TA FIABILITE PASSEE (propositions evaluees {HEURES_EVAL}h apres, stop 2xATR / objectif 2:1): " + "; ".join(parts) + f". Occasions manquees (RIEN puis +{TP_PCT}%): {manq}. Seuil actuel: {seuil_adaptatif(d)}."
 
 
 def evaluer_decisions():
@@ -314,16 +320,19 @@ def evaluer_decisions():
                 continue
             ref = apres[0]["ouverture"]
             sl = float(x.get("sl_pct") or 0.7)
+            tp = sl * TP_RATIO_EVAL if x.get("sl_pct") else TP_PCT
             res = "neutre"
             for b in apres[:HEURES_EVAL + 1]:
                 touche_sl = b["bas"] <= ref * (1 - sl / 100)
-                touche_tp = b["haut"] >= ref * (1 + TP_PCT / 100)
+                touche_tp = b["haut"] >= ref * (1 + tp / 100)
                 if touche_sl and touche_tp: res = "sl"; break     # ambigu -> prudent
                 if touche_sl: res = "sl"; break
                 if touche_tp: res = "tp"; break
             x["evaluee"] = True; x["resultat"] = res
             x["var_4h"] = round((apres[min(len(apres) - 1, HEURES_EVAL)]["cloture"] - ref) / ref * 100, 2)
-            if x["action"] == "ACHAT":
+            # Calibration : tout ce que l'analyste a PROPOSE (achat effectif ou achat voulu mais bloque par le seuil,
+            # la checklist ou l'avocat du diable). Sinon le seuil ne peut jamais apprendre.
+            if x["action"] == "ACHAT" or x.get("proposition") or x.get("etape") in ("porte", "critique"):
                 b = _bucket(x.get("confiance"))
                 st = d["calibration"].setdefault(b, {"tp": 0, "sl": 0, "neutre": 0})
                 st[res if res in st else "neutre"] += 1
@@ -445,7 +454,7 @@ Reponds UNIQUEMENT en JSON:
         motif = f"checklist incomplete ({', '.join(manquants)})" if manquants else f"confiance {conf} < seuil {seuil}"
         print(f"  [CERVEAU] analyste voulait {sym} (confiance {conf}) mais {motif} -> RIEN")
         _journaliser(d, {"date": now, "action": "RIEN", "sym": sym, "confiance": conf, "etape": "porte", "raison": motif,
-                         "sl_pct": sl_pct, "modele": modele, "raison_analyste": str(dec.get("raison", ""))[:200]})
+                         "sl_pct": sl_pct, "modele": modele, "raison_analyste": str(dec.get("raison", ""))[:200], "proposition": True})
         return {"action": "RIEN", "raison": motif, "etape": "porte"}
 
     # 4. Avocat du diable (modele different si possible)
@@ -478,7 +487,7 @@ Reponds UNIQUEMENT en JSON: {{"verdict": "OK"|"REFUS", "faille": "1 phrase", "co
     if verdict == "REFUS" or conf_finale < seuil:
         motif = f"veto avocat du diable ({modele_c}): {str(crit.get('faille',''))[:140]}" if verdict == "REFUS" else f"confiance corrigee {conf_finale} < seuil {seuil}"
         print(f"  [CERVEAU] {sym}: {motif}")
-        _journaliser(d, {"date": now, "action": "RIEN", "sym": sym, "confiance": conf_finale, "etape": "critique", "raison": motif,
+        _journaliser(d, {"date": now, "action": "RIEN", "sym": sym, "confiance": conf_finale, "etape": "critique", "raison": motif, "proposition": True,
                          "sl_pct": sl_pct, "modele": modele, "modele_critique": modele_c, "raison_analyste": str(dec.get("raison", ""))[:200]})
         return {"action": "RIEN", "raison": motif, "etape": "critique"}
 

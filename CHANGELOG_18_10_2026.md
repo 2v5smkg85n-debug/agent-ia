@@ -70,3 +70,7 @@ HEALTHCHECK_URL=https://hc-ping.com/xxxx
 - `cerveau.py` : la porte est consultee AVANT l'analyste (`porte_entree.blocage_global`) : fenetre interdite, BTC sous
   son EMA 84 j, trop de positions/risque, regime turbulent -> RIEN sans appel de modele.
 - Tests : 13.
+- `cerveau.py` : la calibration du seuil de confiance apprend desormais de toutes les PROPOSITIONS de l'analyste
+  (achat voulu mais bloque par le seuil, la checklist ou l'avocat du diable), pas seulement des achats executes ;
+  seuil de base 60 sans donnees (CERVEAU_SEUIL_BASE), remonte a 70+ si le bucket 60-69 perd, peut descendre a 55 ;
+  evaluation sur 8 h (CERVEAU_HEURES_EVAL) avec stop 2xATR et objectif 2:1 au lieu de 4 h / +1.5 % fixe.
