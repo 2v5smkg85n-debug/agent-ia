@@ -358,6 +358,19 @@ def decider(prix_data, rsi_data, patterns_data, lignes_marche, positions, liquid
                          "raison": "aucun score positif", "sl_pct": None})
         return {"action": "RIEN", "raison": "preselection: aucune crypto avec un score positif", "etape": "preselection"}
 
+    # Porte AVANT le modele : si un filtre global (fenetre, tendance lente BTC, chaleur, regime) bloquerait
+    # l'ouverture, inutile de depenser un appel de modele (quotas sans cle limites, modele local lent).
+    try:
+        import porte_entree as _pe0
+        _bloque, _ = _pe0.blocage_global({"positions": positions})
+    except Exception:
+        _bloque = None
+    if _bloque:
+        print(f"  [CERVEAU] porte fermee avant analyse: {_bloque}")
+        _journaliser(d, {"date": now, "action": "RIEN", "sym": candidats[0][1], "confiance": 0, "etape": "porte",
+                         "raison": _bloque, "sl_pct": None})
+        return {"action": "RIEN", "raison": f"porte: {_bloque}", "etape": "porte"}
+
     dossiers = [dossier(sym, prix_data[sym], rsi_data.get(sym), (patterns_data or {}).get(sym), reg) for _, sym in candidats]
     lignes_dossiers = []
     for (s, sym), dd in zip(candidats, dossiers):

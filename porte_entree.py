@@ -325,6 +325,35 @@ def dernieres_decisions(n=30):
         return []
 
 
+def blocage_global(pf, risque_nouveau=1.0):
+    """Filtres de la porte qui ne dependent PAS du symbole (fenetres, tendance lente BTC, chaleur, regime).
+    Retourne (raison_du_blocage ou None, infos). Sert au cerveau pour ne pas depenser un appel de modele
+    quand la porte refuserait de toute facon l'ouverture."""
+    infos = {}
+    if _actif("FENETRES"):
+        b, why = fenetre_interdite()
+        if b:
+            return f"fenetre interdite: {why}", infos
+    tl = tendance_lente_btc() if _actif("TENDANCE_LENTE") else {}
+    infos["tendance_lente"] = tl
+    if _actif("TENDANCE_LENTE") and tl.get("haussiere") is False:
+        return f"BTC sous son EMA {EMA_LENTE_JOURS} jours ({tl.get('ecart_pct')}%)", infos
+    if _actif("CHALEUR"):
+        ch = chaleur_portefeuille(pf, risque_nouveau=risque_nouveau)
+        infos["chaleur"] = ch
+        max_pos = MAX_POSITIONS_CRYPTO + (1 if tl.get("haussiere") else 0)
+        if ch["n_crypto"] >= max_pos:
+            return f"deja {ch['n_crypto']} positions crypto (max {max_pos})", infos
+        if ch["risque_apres"] > RISQUE_TOTAL_MAX:
+            return f"risque total ouvert {ch['risque_ouvert']:.2f} + {risque_nouveau:.2f} > {RISQUE_TOTAL_MAX:.2f} EUR", infos
+    if _actif("REGIME"):
+        reg = regime_actuel("BTCUSDT")
+        infos["regime"] = reg
+        if reg.get("mode") == "turbulent":
+            return f"regime turbulent (ATR 1h BTC {reg.get('atr_percentile')}e pct, ADX {reg.get('adx')})", infos
+    return None, infos
+
+
 def contexte_pour_ia():
     """Bloc texte pour le prompt du cerveau : tendance lente, regime, fenetres."""
     parts = []

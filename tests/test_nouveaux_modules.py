@@ -107,3 +107,27 @@ def test_etiquetage_label():
     assert lab == 1 and barr == "objectif"
     b1m2 = [(t0 + i * 60000, 100, 100.1, 98.9, 99.0, 1, 0) for i in range(3)]
     assert et._label(b1m2, t0, 100.0, 1.0, 2.0)[1] == "stop"
+
+
+def test_router_sans_cle_config():
+    import llm_router as lr
+    # chaque fournisseur libre est connu des limites et de l'ordre de decision
+    for nom, (url, modele, _) in lr.LIBRES.items():
+        assert nom in lr.LIMITES and url.startswith("https://") and modele
+        assert nom in lr.ORDRE["decision"]
+        assert lr.fournisseur_de(modele) == nom
+    assert lr.ORDRE["decision"][-1] == "local"      # le local reste le dernier filet
+
+
+def test_porte_blocage_global_signature():
+    import porte_entree as pe
+    # avec tous les filtres desactives, rien ne bloque et la fonction rend (None, dict)
+    import os
+    for k in ("FENETRES", "TENDANCE_LENTE", "CHALEUR", "REGIME"):
+        os.environ["PORTE_" + k] = "0"
+    try:
+        raison, infos = pe.blocage_global({"positions": []})
+        assert raison is None and isinstance(infos, dict)
+    finally:
+        for k in ("FENETRES", "TENDANCE_LENTE", "CHALEUR", "REGIME"):
+            os.environ.pop("PORTE_" + k, None)

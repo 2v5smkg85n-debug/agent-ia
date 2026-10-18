@@ -62,3 +62,11 @@ HEALTHCHECK_URL=https://hc-ping.com/xxxx
 - Les positions « triple barrière » (champ `tp_risque`) ne sont plus coupées à 3 h : stale à 12 h, durée 24 h, puis `BARRIERE-TEMPS`.
 - En cas d'API muette, chaque filtre laisse passer (fail-open) et le note dans `filtres_sautes`.
 - Le méta-modèle ne bloque rien tant qu'il n'a pas prouvé une AUC hors échantillon ≥ 0,55.
+
+## Complement (nuit du 18/10) : cerveau sans aucune cle API
+- `llm_router.py` : 4 fournisseurs publics **sans cle** ajoutes (OVHcloud AI Endpoints Llama 3.3 70B et gpt-oss-120b,
+  LLM7 DeepSeek V4 Flash, Pollinations). Limites par IP respectees (2/min, 1/min), pause automatique sur 429/402/5xx,
+  le modele local reste le dernier filet. `LLM_LIBRE=0` pour les couper.
+- `cerveau.py` : la porte est consultee AVANT l'analyste (`porte_entree.blocage_global`) : fenetre interdite, BTC sous
+  son EMA 84 j, trop de positions/risque, regime turbulent -> RIEN sans appel de modele.
+- Tests : 13.

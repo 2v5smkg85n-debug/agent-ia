@@ -3,9 +3,13 @@
 llm_router.py — un seul point d'appel pour tous les modeles de langage du bot.
 
 Ordre par role (le premier disponible qui a encore du quota gagne) :
-  decision : Groq gpt-oss-120b -> OpenRouter (modeles :free) -> Gemini 2.5 Flash -> Ollama local
-  critique : OpenRouter -> Gemini -> Groq -> Ollama local (modele critique)   (un AUTRE modele que l'analyste)
-  leger    : Ollama local -> Groq -> OpenRouter -> Gemini                      (resumes, classification, formatage)
+  decision : Groq -> OpenRouter -> OVH Llama 3.3 70B (sans cle) -> LLM7 DeepSeek (sans cle) -> Gemini -> OVH gpt-oss-120b (sans cle) -> Pollinations (sans cle) -> Ollama local
+  critique : OpenRouter -> OVH gpt-oss-120b -> LLM7 -> Gemini -> Groq -> OVH Llama -> Pollinations -> Ollama local (modele critique)
+  leger    : OVH Llama -> LLM7 -> Ollama local -> Groq -> OpenRouter -> Gemini
+
+FOURNISSEURS SANS CLE (aucune inscription) : OVHcloud AI Endpoints (2 req/min par modele et par IP), LLM7.io (~60 req/h),
+Pollinations (1 reponse / 30 s). Ce sont des acces publics non garantis : le routeur les met en pause automatiquement
+quand ils repondent 429/402 ou tombent, et retombe toujours sur le modele local. LLM_LIBRE=0 pour les couper.
 
 Quotas gratuits connus (verifies le 18/10/2026) :
   Groq       30 req/min, 1 000 req/jour, 8 000 tokens/min, 200 000 tokens/jour par modele
@@ -49,11 +53,29 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/chat")
 MODELE_LOCAL = os.getenv("LLM_MODELE_LOCAL", "qwen3.5:4b")
 MODELE_LOCAL_CRITIQUE = os.getenv("LLM_MODELE_LOCAL_CRITIQUE", "llama3.2:3b")
 
+# ------------------------------------------------------------------ fournisseurs SANS CLE
+# Points d'acces publics anonymes (verifies le 18/10/2026). Limites par IP, non contractuels :
+# ils peuvent disparaitre -> le routeur les saute automatiquement et retombe sur le modele local.
+# LLM_LIBRE=0 pour les desactiver.
+LIBRE_ACTIF = os.getenv("LLM_LIBRE", "1") == "1"
+OVH_URL = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions"   # 2 req/min/IP/modele
+LIBRES = {
+    # nom          : (url, modele, raisonneur ?)   raisonneur = le modele "reflechit" avant de repondre -> plus de tokens
+    "ovh_llama":    (OVH_URL, os.getenv("OVH_MODEL_1", "Meta-Llama-3_3-70B-Instruct"), False),
+    "ovh_gptoss":   (OVH_URL, os.getenv("OVH_MODEL_2", "gpt-oss-120b"), True),
+    "llm7":         ("https://api.llm7.io/v1/chat/completions", os.getenv("LLM7_MODEL", "DeepSeek-V4-Flash-0731"), True),   # ~60 req/h anonyme
+    "pollinations": ("https://text.pollinations.ai/openai", os.getenv("POLLINATIONS_MODEL", "openai"), True),              # 1 reponse / 30 s / IP
+}
+
 # (req/min, req/jour, tokens/min) — marge de securite appliquee dans _quota_ok
 LIMITES = {
     "groq": (30, 1000, 8000),
     "openrouter": (20, 1000 if os.getenv("OPENROUTER_PAID", "0") == "1" else 50, None),
     "gemini": (10, int(os.getenv("GEMINI_RPD", "100")), None),   # le quota reel du palier gratuit varie : le 429 declenche une pause de 30 min
+    "ovh_llama": (2, 1500, None),
+    "ovh_gptoss": (2, 1500, None),
+    "llm7": (1, 1000, None),
+    "pollinations": (1, 1000, None),
     "local": (None, None, None),
 }
 MARGE = 0.9
@@ -61,10 +83,11 @@ MAX_CHARS_PROMPT = 24000     # ~6 000 tokens : au-dela on coupe le debut (garde 
 TIMEOUT_LOCAL_MIN = int(os.getenv("LLM_TIMEOUT_LOCAL", "180"))   # CPU : un prompt de 3 000 tokens met 1-2 min sur un 4B
 NUM_CTX_LOCAL = int(os.getenv("LLM_NUM_CTX", "8192"))
 
+# Ordre d'essai par role. Les fournisseurs a cle sont sautes s'il n'y a pas de cle ; les "libres" si LLM_LIBRE=0.
 ORDRE = {
-    "decision": ["groq", "openrouter", "gemini", "local"],
-    "critique": ["openrouter", "gemini", "groq", "local_critique"],
-    "leger": ["local", "groq", "openrouter", "gemini"],
+    "decision": ["groq", "openrouter", "ovh_llama", "llm7", "gemini", "ovh_gptoss", "pollinations", "local"],
+    "critique": ["openrouter", "ovh_gptoss", "llm7", "gemini", "groq", "ovh_llama", "pollinations", "local_critique"],
+    "leger": ["ovh_llama", "llm7", "local", "groq", "openrouter", "gemini"],
 }
 
 
@@ -134,7 +157,7 @@ def _quota_ok(fournisseur, tokens_estimes=0):
     f["tokens_minute"] = [(t, n) for t, n in f.get("tokens_minute", []) if now - t < 60]
     if rpd and f["jour"] >= int(rpd * MARGE):
         return False
-    if rpm and len(f["minute"]) >= int(rpm * MARGE):
+    if rpm and len(f["minute"]) >= max(1, int(rpm * MARGE + 0.5)):
         return False
     if tpm and sum(n for _, n in f["tokens_minute"]) + tokens_estimes > tpm * MARGE:
         return False
@@ -169,6 +192,12 @@ def _noter(fournisseur, ok, tokens=0, latence_ms=0, modele="", pause_s=0):
         _sauver_quota(d)
 
 
+def _a_cle(nom):
+    if nom in LIBRES:
+        return LIBRE_ACTIF
+    return {"groq": cle_groq, "openrouter": cle_openrouter, "gemini": cle_gemini}.get(nom, lambda: True)()
+
+
 def quotas():
     """Resume pour le dashboard / Telegram."""
     d = _charger_quota()
@@ -180,7 +209,7 @@ def quotas():
             "appels_jour": f.get("jour", 0), "limite_jour": rpd, "ok": f.get("ok", 0), "echecs": f.get("echecs", 0),
             "latence_moy_ms": int(sum(lat) / len(lat)) if lat else None, "dernier_modele": f.get("dernier_modele"),
             "pause_min": max(0, int((f.get("pause_jusqua", 0) - time.time()) / 60)),
-            "cle": bool({"groq": cle_groq, "openrouter": cle_openrouter, "gemini": cle_gemini}.get(nom, lambda: "x")()),
+            "cle": bool(_a_cle(nom)),
         }
     return out
 
@@ -193,7 +222,9 @@ def _tronquer(prompt):
 
 
 def _openai_compatible(url, cle, modele, prompt, json_mode, temperature, max_tokens, timeout, extra_headers=None):
-    headers = {"Authorization": f"Bearer {cle}", "Content-Type": "application/json"}
+    headers = {"Content-Type": "application/json"}
+    if cle:                                   # les points d'acces anonymes refusent un en-tete Authorization
+        headers["Authorization"] = f"Bearer {cle}"
     if extra_headers:
         headers.update(extra_headers)
     payload = {"model": modele, "messages": [{"role": "user", "content": prompt}],
@@ -207,6 +238,16 @@ def _openai_compatible(url, cle, modele, prompt, json_mode, temperature, max_tok
     texte = (j["choices"][0]["message"].get("content") or "").strip()
     usage = j.get("usage", {}) or {}
     return texte, int(usage.get("total_tokens") or (len(prompt) // 4 + len(texte) // 4))
+
+
+def _libre(nom, prompt, json_mode, temperature, max_tokens):
+    url, modele, raisonneur = LIBRES[nom]
+    # Un modele raisonneur consomme des tokens de reflexion avant la reponse : on lui laisse de la place
+    mt = max_tokens + (700 if raisonneur else 0)
+    texte, tokens = _openai_compatible(url, None, modele, prompt, json_mode, temperature, mt, timeout=60)
+    if not texte:
+        raise RuntimeError("reponse vide (reflexion trop longue ?)")
+    return (texte, tokens), modele
 
 
 def _groq(prompt, json_mode, temperature, max_tokens):
@@ -289,6 +330,8 @@ def appeler(prompt, role="decision", json_mode=True, temperature=0.2, max_tokens
             continue
         if base in ("groq", "openrouter", "gemini") and not {"groq": cle_groq, "openrouter": cle_openrouter, "gemini": cle_gemini}[base]():
             continue                                   # pas de cle : on saute sans compter d'echec
+        if base in LIBRES and not LIBRE_ACTIF:
+            continue
         if not _quota_ok(base, tokens_est):
             continue
         t0 = time.time()
@@ -299,6 +342,8 @@ def appeler(prompt, role="decision", json_mode=True, temperature=0.2, max_tokens
                 (texte, tokens), modele = _openrouter(prompt, json_mode, temperature, max_tokens)
             elif f == "gemini":
                 (texte, tokens), modele = _gemini(prompt, json_mode, temperature, max_tokens)
+            elif f in LIBRES:
+                (texte, tokens), modele = _libre(f, prompt, json_mode, temperature, max_tokens)
             else:
                 m = MODELE_LOCAL_CRITIQUE if f == "local_critique" else MODELE_LOCAL
                 (texte, tokens), modele = _local(prompt, json_mode, temperature, max_tokens, m, max(timeout_local, TIMEOUT_LOCAL_MIN))
@@ -308,8 +353,14 @@ def appeler(prompt, role="decision", json_mode=True, temperature=0.2, max_tokens
             _noter(base, False)
         except Exception as e:
             msg = str(e)
-            # 429 = quota du fournisseur epuise -> pause 30 min (Gemini gratuit : quota journalier tres bas)
-            _noter(base, False, pause_s=1800 if "429" in msg else 0)
+            # 429/402 = quota epuise : Gemini -> pause 30 min ; fournisseur libre -> pause 3 min ; 5xx/absent -> 10 min
+            if "429" in msg or "402" in msg:
+                pause = 180 if base in LIBRES else 1800
+            elif base in LIBRES and any(k in msg for k in ("HTTP 5", "HTTP 404", "HTTP 401", "HTTP 403", "resolve", "Connection")):
+                pause = 600
+            else:
+                pause = 0
+            _noter(base, False, pause_s=pause)
             _log(f"{f} echec ({role}, {len(prompt)} car.): {msg[:200]}")
             continue
     return None, None
@@ -325,6 +376,9 @@ def fournisseur_de(modele):
         return "openrouter"
     if modele.startswith("gemini"):
         return "gemini"
+    for nom, (_, m, _) in LIBRES.items():
+        if modele == m:
+            return nom
     return "local"
 
 
@@ -354,7 +408,7 @@ def _log(msg):
 # ------------------------------------------------------------------ CLI
 def _test():
     prompt = 'Reponds uniquement en JSON: {"ok": true, "modele": "<ton nom>", "calcul": <resultat de 17*23>}'
-    for f in ["groq", "openrouter", "gemini", "local"]:
+    for f in ["groq", "openrouter", "gemini"] + list(LIBRES) + ["local"]:
         t0 = time.time()
         try:
             if f == "groq":
@@ -363,12 +417,14 @@ def _test():
                 (t, n), m = _openrouter(prompt, True, 0, 60)
             elif f == "gemini":
                 (t, n), m = _gemini(prompt, True, 0, 60)
+            elif f in LIBRES:
+                (t, n), m = _libre(f, prompt, True, 0, 60)
             else:
                 (t, n), m = _local(prompt, True, 0, 60, MODELE_LOCAL, 120)
             j = extraire_json(t) or {}
-            print(f"  {f:11s} OK  {m}  {int((time.time()-t0)*1000)} ms  calcul={j.get('calcul')} (attendu 391)")
+            print(f"  {f:12s} OK  {m}  {int((time.time()-t0)*1000)} ms  calcul={j.get('calcul')} (attendu 391)")
         except Exception as e:
-            print(f"  {f:11s} --  {str(e)[:120]}")
+            print(f"  {f:12s} --  {str(e)[:120]}")
 
 
 if __name__ == "__main__":
@@ -383,4 +439,4 @@ if __name__ == "__main__":
         for nom, v in q["fournisseurs"].items():
             lim = v["limite_jour"] or "illimite"
             pause = f"  PAUSE {v['pause_min']} min (quota 429)" if v.get("pause_min") else ""
-            print(f"  {nom:11s} cle={'oui' if v['cle'] else 'NON'}  appels={v['appels_jour']}/{lim}  ok={v['ok']}  echecs={v['echecs']}  latence={v['latence_moy_ms']} ms  {v['dernier_modele'] or ''}{pause}")
+            print(f"  {nom:12s} cle={'oui' if v['cle'] else 'NON'}  appels={v['appels_jour']}/{lim}  ok={v['ok']}  echecs={v['echecs']}  latence={v['latence_moy_ms']} ms  {v['dernier_modele'] or ''}{pause}")
