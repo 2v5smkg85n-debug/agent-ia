@@ -16,6 +16,9 @@ echo "Python du bot : $PY"
 
 echo "== 1. zram (swap compressee) =="
 if ! swapon --show | grep -q zram; then
+ if ! modprobe zram 2>/dev/null; then
+  echo "  module noyau zram indisponible sur ce VPS (noyau virtualise) : on garde la swap disque existante, rien a faire"
+ else
   apt-get install -y -q zram-tools >/dev/null 2>&1 || true
   if [ -f /etc/default/zramswap ]; then
     sed -i 's/^#\?ALGO=.*/ALGO=zstd/; s/^#\?PERCENT=.*/PERCENT=50/; s/^#\?PRIORITY=.*/PRIORITY=100/' /etc/default/zramswap
@@ -25,6 +28,8 @@ if ! swapon --show | grep -q zram; then
   grep -q "vm.swappiness" /etc/sysctl.conf || echo "vm.swappiness=100" >> /etc/sysctl.conf
   grep -q "vm.page-cluster" /etc/sysctl.conf || echo "vm.page-cluster=0" >> /etc/sysctl.conf
   sysctl -p >/dev/null 2>&1 || true
+  systemctl is-active --quiet zramswap || echo "  zramswap n'a pas demarre : journalctl -xeu zramswap --no-pager | tail -5"
+ fi
 fi
 swapon --show || true
 free -h | head -2

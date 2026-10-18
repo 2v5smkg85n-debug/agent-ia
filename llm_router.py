@@ -58,6 +58,8 @@ LIMITES = {
 }
 MARGE = 0.9
 MAX_CHARS_PROMPT = 24000     # ~6 000 tokens : au-dela on coupe le debut (garde la fin = la question)
+TIMEOUT_LOCAL_MIN = int(os.getenv("LLM_TIMEOUT_LOCAL", "180"))   # CPU : un prompt de 3 000 tokens met 1-2 min sur un 4B
+NUM_CTX_LOCAL = int(os.getenv("LLM_NUM_CTX", "8192"))
 
 ORDRE = {
     "decision": ["groq", "openrouter", "gemini", "local"],
@@ -233,18 +235,29 @@ def _gemini(prompt, json_mode, temperature, max_tokens):
     gen = {"temperature": temperature, "maxOutputTokens": max_tokens + 512, "thinkingConfig": {"thinkingBudget": 512}}
     if json_mode:
         gen["responseMimeType"] = "application/json"
-    r = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}], "generationConfig": gen}, timeout=35)
-    if r.status_code != 200:
-        raise RuntimeError(f"HTTP {r.status_code}: {r.text[:200]}")
-    j = r.json()
-    texte = j["candidates"][0]["content"]["parts"][0]["text"].strip()
+    def _appel(g):
+        r = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}], "generationConfig": g}, timeout=45)
+        if r.status_code != 200:
+            raise RuntimeError(f"HTTP {r.status_code}: {r.text[:200]}")
+        return r.json()
+    j = _appel(gen)
+    try:
+        texte = j["candidates"][0]["content"]["parts"][0]["text"].strip()
+    except (KeyError, IndexError, TypeError):
+        # reponse vide (MAX_TOKENS avale par la reflexion, ou filtre) : on retente sans reflexion, plus de place
+        gen2 = dict(gen, maxOutputTokens=max_tokens + 300, thinkingConfig={"thinkingBudget": 0})
+        j = _appel(gen2)
+        try:
+            texte = j["candidates"][0]["content"]["parts"][0]["text"].strip()
+        except (KeyError, IndexError, TypeError):
+            raise RuntimeError(f"reponse vide: {str(j)[:200]}")
     tokens = int((j.get("usageMetadata") or {}).get("totalTokenCount") or (len(prompt) // 4 + len(texte) // 4))
     return (texte, tokens), GEMINI_MODELE
 
 
 def _local(prompt, json_mode, temperature, max_tokens, modele, timeout):
     payload = {"model": modele, "stream": False, "messages": [{"role": "user", "content": prompt}],
-               "options": {"temperature": temperature, "num_predict": max_tokens}, "keep_alive": os.getenv("OLLAMA_KEEP_ALIVE", "30m")}
+               "options": {"temperature": temperature, "num_predict": max_tokens, "num_ctx": NUM_CTX_LOCAL}, "keep_alive": os.getenv("OLLAMA_KEEP_ALIVE", "30m")}
     if json_mode:
         payload["format"] = "json"
     if any(k in modele.lower() for k in ("qwen3", "deepseek-r1", "gpt-oss", "think")):
@@ -268,6 +281,8 @@ def appeler(prompt, role="decision", json_mode=True, temperature=0.2, max_tokens
         base = "local" if f.startswith("local") else f
         if eviter and base == eviter and base != "local":
             continue
+        if base in ("groq", "openrouter", "gemini") and not {"groq": cle_groq, "openrouter": cle_openrouter, "gemini": cle_gemini}[base]():
+            continue                                   # pas de cle : on saute sans compter d'echec
         if not _quota_ok(base, tokens_est):
             continue
         t0 = time.time()
@@ -280,14 +295,14 @@ def appeler(prompt, role="decision", json_mode=True, temperature=0.2, max_tokens
                 (texte, tokens), modele = _gemini(prompt, json_mode, temperature, max_tokens)
             else:
                 m = MODELE_LOCAL_CRITIQUE if f == "local_critique" else MODELE_LOCAL
-                (texte, tokens), modele = _local(prompt, json_mode, temperature, max_tokens, m, timeout_local)
+                (texte, tokens), modele = _local(prompt, json_mode, temperature, max_tokens, m, max(timeout_local, TIMEOUT_LOCAL_MIN))
             if texte:
                 _noter(base, True, tokens, (time.time() - t0) * 1000, modele)
                 return texte, modele
             _noter(base, False)
         except Exception as e:
             _noter(base, False)
-            _log(f"{f} echec: {str(e)[:160]}")
+            _log(f"{f} echec ({role}, {len(prompt)} car.): {str(e)[:200]}")
             continue
     return None, None
 
