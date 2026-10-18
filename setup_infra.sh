@@ -8,8 +8,11 @@
 #  6. logrotate pour paper_trading.log
 set -e
 DIR=/home/ubuntu/agent-ia
-VENV=$DIR/venv/bin
 cd "$DIR"
+# Python reellement utilise par le service (venv ou systeme)
+PY=$(systemctl show -p ExecStart paper_trading.service 2>/dev/null | grep -oE '/[^ ;]*python[0-9.]*' | head -1)
+[ -x "$PY" ] || PY=$(command -v python3)
+echo "Python du bot : $PY"
 
 echo "== 1. zram (swap compressee) =="
 if ! swapon --show | grep -q zram; then
@@ -43,7 +46,7 @@ EOF
 systemctl daemon-reload
 
 echo "== 4. service ws_kraken (prix temps reel, optionnel) =="
-if $VENV/python -c "import websockets" 2>/dev/null; then
+if $PY -c "import websockets" 2>/dev/null; then
 cat > /etc/systemd/system/ws_kraken.service <<EOF
 [Unit]
 Description=Agent IA - flux prix Kraken WebSocket
@@ -54,7 +57,7 @@ Wants=network-online.target
 Type=simple
 User=ubuntu
 WorkingDirectory=$DIR
-ExecStart=$VENV/python -u ws_kraken.py
+ExecStart=$PY -u ws_kraken.py
 Restart=always
 RestartSec=5
 StandardOutput=append:$DIR/ws_kraken.log
@@ -68,15 +71,15 @@ EOF
   systemctl enable --now ws_kraken.service
   echo "  ws_kraken.service actif"
 else
-  echo "  module websockets absent -> $VENV/pip install websockets  puis relancer ce script"
+  echo "  module websockets absent -> $PY -m pip install websockets (ou pip3 install --user websockets) puis relancer ce script"
 fi
 
 echo "== 5. cron (SQLite horaire, heartbeat, bilan) =="
 HC=$(grep -E "^HEALTHCHECK_URL=" $DIR/.env 2>/dev/null | cut -d= -f2- | tr -d '"' || true)
 CRON_TMP=$(mktemp)
 crontab -u ubuntu -l 2>/dev/null | grep -v "etat_sqlite.py\|healthchecks\|hc-ping\|registre_strategies.py rapport" > "$CRON_TMP" || true
-echo "17 * * * * cd $DIR && $VENV/python etat_sqlite.py migrer >> $DIR/etat_sqlite.log 2>&1" >> "$CRON_TMP"
-echo "5 7 * * * cd $DIR && $VENV/python registre_strategies.py rapport >> $DIR/registre.log 2>&1" >> "$CRON_TMP"
+echo "17 * * * * cd $DIR && $PY etat_sqlite.py migrer >> $DIR/etat_sqlite.log 2>&1" >> "$CRON_TMP"
+echo "5 7 * * * cd $DIR && $PY registre_strategies.py rapport >> $DIR/registre.log 2>&1" >> "$CRON_TMP"
 if [ -n "$HC" ]; then
   # battement de coeur : OK seulement si les 3 services tournent et que le log a bouge depuis 15 min
   echo "*/5 * * * * systemctl is-active --quiet paper_trading && systemctl is-active --quiet dashboard && [ \$(find $DIR/paper_trading.log -mmin -15 | wc -l) -gt 0 ] && curl -fsS -m 10 --retry 3 $HC >/dev/null 2>&1 || curl -fsS -m 10 $HC/fail >/dev/null 2>&1" >> "$CRON_TMP"
