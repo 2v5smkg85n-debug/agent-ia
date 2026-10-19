@@ -209,6 +209,17 @@ MARCHES_MT_ESSAI = {
 # ============================================
 # STOCKAGE PORTEFEUILLE
 # ============================================
+# Etat du fichier tel que ce processus l'a lu/ecrit pour la derniere fois. Sert a detecter ce qu'un AUTRE processus
+# (chat_naturel : ouvertures auto par l'IA, fermetures manuelles) a ecrit entre notre chargement et notre sauvegarde.
+_ETAT_DISQUE = {"liquidites": None}
+
+def _cle_position(p):
+    """Identite stable d'une position (meme apres une fermeture partielle qui change montant_eur)."""
+    try:
+        return (str(p.get("symbole")), round(float(p.get("prix_entree", 0) or 0), 4))
+    except Exception:
+        return (str(p.get("symbole")), 0.0)
+
 def charger_portefeuille():
     if os.path.exists(FICHIER_PAPER):
         try:
@@ -219,14 +230,73 @@ def charger_portefeuille():
                 pf["pic_capital"] = pf.get("capital_initial", CAPITAL_INITIAL)
             if "trades_fermes" not in pf:
                 pf["trades_fermes"] = []
+            _ETAT_DISQUE["liquidites"] = float(pf.get("liquidites", 0) or 0)
             return pf
         except:
             pass
     return None
 
+def _fusionner_avec_disque(pf):
+    """Reconcilie l'etat en memoire avec ce que chat_naturel a ecrit dans le fichier pendant le tick.
+
+    Sans cette fusion, le tick (charge au debut, sauvegarde a la fin, plusieurs minutes entre les deux) et le check SL
+    toutes les 3 s re-ecrivaient leur copie et effacaient toute position ouverte entre-temps par l'IA : le capital
+    revenait a 1000 EUR comme si l'ouverture n'avait jamais existe (constate le 19/10 sur ETHUSDT et BTCUSDT)."""
+    try:
+        with open(FICHIER_PAPER, "r") as f:
+            disque = json.load(f)
+    except Exception:
+        return pf
+    if not isinstance(disque, dict):
+        return pf
+    # 1) Liquidites : on applique le delta cree par les autres processus, quelle que soit leur comptabilite.
+    try:
+        liq_disque = float(disque.get("liquidites", 0) or 0)
+        if _ETAT_DISQUE["liquidites"] is not None:
+            delta = liq_disque - _ETAT_DISQUE["liquidites"]
+            if abs(delta) >= 0.01:
+                pf["liquidites"] = float(pf.get("liquidites", 0) or 0) + delta
+                print(f"  [FUSION] liquidites ajustees de {delta:+.2f} EUR (ecriture externe)")
+    except Exception:
+        pass
+    pos_mem = pf.get("positions", []) or []
+    pos_disque = disque.get("positions", []) or []
+    fermes_mem = (pf.get("trades_fermes") or [])[-100:]
+    fermes_disque = (disque.get("trades_fermes") or [])[-100:]
+    cles_mem = {_cle_position(p) for p in pos_mem}
+    cles_disque = {_cle_position(p) for p in pos_disque}
+    cles_fermes_mem = {_cle_position(t) for t in fermes_mem}
+    cles_fermes_disque = {_cle_position(t) for t in fermes_disque}
+    # 2) Positions ouvertes par un autre processus pendant ce tick -> adoptees (sauf si ce tick vient de les fermer).
+    for p in pos_disque:
+        k = _cle_position(p)
+        if k not in cles_mem and k not in cles_fermes_mem:
+            pos_mem.append(p)
+            cles_mem.add(k)
+            print(f"  [FUSION] position externe adoptee: {p.get('symbole')} {float(p.get('montant_eur', 0) or 0):.0f} EUR ({p.get('source', '?')})")
+    # 3) Positions fermees par un autre processus (fermeture manuelle via le chat) -> retirees, trade conserve.
+    restantes = []
+    for p in pos_mem:
+        k = _cle_position(p)
+        if k not in cles_disque and k in cles_fermes_disque and k not in cles_fermes_mem:
+            for t in fermes_disque:
+                if _cle_position(t) == k:
+                    pf.setdefault("trades_fermes", []).append(t)
+                    break
+            print(f"  [FUSION] fermeture externe prise en compte: {p.get('symbole')}")
+        else:
+            restantes.append(p)
+    pf["positions"] = restantes
+    return pf
+
 def sauver_portefeuille(pf):
+    try:
+        pf = _fusionner_avec_disque(pf)
+    except Exception as e:
+        print(f"  [FUSION] Erreur fusion (sauvegarde directe): {e}")
     with open(FICHIER_PAPER, "w") as f:
         json.dump(pf, f, ensure_ascii=False, indent=2)
+    _ETAT_DISQUE["liquidites"] = float(pf.get("liquidites", 0) or 0)
 
 def initialiser():
     pf = {

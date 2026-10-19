@@ -2165,6 +2165,17 @@ def _ouvrir_position_auto(symbole, montant, raison, tp_override=None, sl_overrid
         "score": 7, "tp": _tp, "sl": -_sl, "quantite": quantite,
         "frais_entree": frais, "signal_raison": raison[:200],
     }
+    # Relecture juste avant d'ecrire : entre le chargement et ici il y a eu plusieurs secondes d'appels reseau
+    # (prix, porte, flux d'ordres) pendant lesquelles paper_trading a pu fermer une position ou bouger les liquidites.
+    # Ecrire l'ancienne copie aurait ressuscite une position fermee ou annule son resultat.
+    _frais_data = _charger_paper() or data
+    positions = _frais_data.get("positions", [])
+    if any(p.get("symbole") == symbole for p in positions):
+        return f"Position deja ouverte sur {symbole}."
+    liquidites = float(_frais_data.get("liquidites", liquidites) or 0)
+    if liquidites < montant:
+        return f"Liquidites insuffisantes ({liquidites:.0f}EUR < {montant:.0f}EUR)."
+    data = _frais_data
     positions.append(pos)
     data["positions"] = positions
     data["liquidites"] = liquidites - montant
