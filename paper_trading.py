@@ -3066,15 +3066,21 @@ def boucle():
             signal.alarm(0)
         # === REVENUS PARALLELES === (hors du timeout du tick — Ollama a besoin de temps)
         _aujourdhui = datetime.now().strftime("%Y-%m-%d")
+        # Une seule tentative par jour, dans un thread: ne bloque plus la surveillance des stops.
+        # Desactivable avec REVENUS_PARALLELES=0 dans .env
         if _aujourdhui != _derniere_gen_revenus:
-            try:
-                import revenus_paralleles as rp
-                contenus = rp.generer_revenus_paralleles()
-                if contenus:
-                    _derniere_gen_revenus = _aujourdhui
-                    print(f"  [REVENUS] {len(contenus)} contenu(s) genere(s) par les sous-agents")
-            except Exception as _e:
-                print(f"  [REVENUS] Erreur generation: {_e}")
+            _derniere_gen_revenus = _aujourdhui
+            if os.getenv("REVENUS_PARALLELES", "1") != "0":
+                def _gen_revenus_bg():
+                    try:
+                        import revenus_paralleles as rp
+                        contenus = rp.generer_revenus_paralleles()
+                        if contenus:
+                            print(f"  [REVENUS] {len(contenus)} contenu(s) genere(s) par les sous-agents")
+                    except Exception as _e:
+                        print(f"  [REVENUS] Erreur generation: {_e}")
+                import threading as _th
+                _th.Thread(target=_gen_revenus_bg, daemon=True, name="revenus").start()
         # === META-TUNING === (ajuste TP/SL par crypto une fois par jour)
         if _aujourdhui != _dernier_meta_tuning:
             try:
