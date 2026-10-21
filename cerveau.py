@@ -32,6 +32,8 @@ FICHIER = os.path.join(DOSSIER, "journal_decisions.json")
 _LOCK = threading.Lock()
 
 TP_PCT = 1.5                   # ancien objectif fixe (utilise seulement si une decision n'a pas de sl_pct)
+CRITIQUE_MODE = os.getenv("CRITIQUE_MODE", "veto").strip().lower()   # veto | malus (voir decider)
+CRITIQUE_MALUS = int(os.getenv("CRITIQUE_MALUS", "10"))
 TP_RATIO_EVAL = 2.0            # objectif = 2 x le stop, comme en trading reel (stop_atr)
 SEUIL_CONFIANCE_BASE = int(os.getenv("CERVEAU_SEUIL_BASE", "60"))   # sans calibration : 60 (la calibration le remonte a 70+ si le bucket 60-69 perd)
 TOP_N = 3
@@ -513,10 +515,18 @@ Reponds UNIQUEMENT en JSON: {{"verdict": "OK"|"REFUS", "faille": "1 phrase", "co
     conf_finale = int((conf + conf_c) / 2) if conf_c is not None else conf
     if verdict == "REFUS":
         motif = f"veto avocat du diable ({modele_c}): {str(crit.get('faille',''))[:140]}"
-        print(f"  [CERVEAU] {sym}: {motif}")
-        _journaliser(d, {"date": now, "action": "RIEN", "sym": sym, "confiance": conf_finale, "etape": "critique", "raison": motif, "proposition": True,
-                         "sl_pct": sl_pct, "modele": modele, "modele_critique": modele_c, "raison_analyste": str(dec.get("raison", ""))[:200]})
-        return {"action": "RIEN", "raison": motif, "etape": "critique"}
+        # CRITIQUE_MODE=veto (defaut) : le REFUS bloque. CRITIQUE_MODE=malus : le REFUS retire CRITIQUE_MALUS points de
+        # confiance ; l'achat passe si la confiance reste >= seuil. A activer seulement si la ligne QUI A RAISON montre que
+        # les vetos bloquent surtout des objectifs (mesure du 21/10 : 9 objectifs / 8 stops, +10 R perdus).
+        if CRITIQUE_MODE == "malus" and (conf_finale - CRITIQUE_MALUS) >= seuil:
+            conf_finale = conf_finale - CRITIQUE_MALUS
+            print(f"  [CERVEAU] {sym}: critique REFUS -> malus -{CRITIQUE_MALUS} (confiance {conf_finale} >= {seuil}), on continue")
+            crit["faille"] = f"REFUS transforme en malus: {str(crit.get('faille',''))[:100]}"
+        else:
+            print(f"  [CERVEAU] {sym}: {motif}")
+            _journaliser(d, {"date": now, "action": "RIEN", "sym": sym, "confiance": conf_finale, "etape": "critique", "raison": motif, "proposition": True,
+                             "sl_pct": sl_pct, "modele": modele, "modele_critique": modele_c, "raison_analyste": str(dec.get("raison", ""))[:200]})
+            return {"action": "RIEN", "raison": motif, "etape": "critique"}
 
     raison = f"{str(dec.get('raison',''))[:160]} | confiance {conf_finale} (analyste {modele}, critique {modele_c or 'n/a'}: {str(crit.get('faille','RAS'))[:60]}) | invalidation: {str(dec.get('invalidation',''))[:60]}"
     print(f"  [CERVEAU] ACHAT {sym} confiance analyste {conf} >= {seuil}, corrigee {conf_finale} | checklist OK{' (malus ' + dec['malus_checklist'] + ')' if dec.get('malus_checklist') else ''} | critique OK")
