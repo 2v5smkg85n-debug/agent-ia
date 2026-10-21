@@ -2096,9 +2096,11 @@ def _detecter_action_vps(message):
                 return f"\n=== RESULTAT COMMANDE VPS (sante) ===\n" + "\n".join(resultats) + "\n"
     return None
 
-def _ouvrir_position_auto(symbole, montant, raison, tp_override=None, sl_override=None):
+def _ouvrir_position_auto(symbole, montant, raison, tp_override=None, sl_override=None, facteur_taille=1.0):
     """Ouvre une position manuellement via le chat IA (autonome).
-    tp_override/sl_override: si fournis (par un sous-agent), utilise ces valeurs au lieu des defauts."""
+    tp_override/sl_override: si fournis (par un sous-agent), utilise ces valeurs au lieu des defauts.
+    facteur_taille: multiplicateur applique apres le calcul de risque (0.5 = demi-taille quand le cerveau achete malgre
+    l'avis du critique) ; la taille ne descend jamais sous MONTANT_MIN."""
     data = _charger_paper()
     if not data:
         return "Portefeuille illisible."
@@ -2140,6 +2142,14 @@ def _ouvrir_position_auto(symbole, montant, raison, tp_override=None, sl_overrid
             print(f"  [REGLE] IA {symbole}: {_prep['raison']}")
             return f"Bloque: {_prep['raison']}"
         montant = _prep["montant"]
+        try:
+            _f = float(facteur_taille or 1.0)
+        except Exception:
+            _f = 1.0
+        if 0 < _f < 1.0:
+            _plancher = float(getattr(_je, "MONTANT_MIN", 20.0))
+            montant = round(max(_plancher, montant * _f), 2)
+            print(f"  [RISQUE] IA {symbole}: taille x{_f:g} (achat contre l'avis du critique) -> {montant:.0f} EUR")
         _sl_risque = _prep["sl_pct"]
         _ctx = _prep["ctx"]
         _sl = _sl_risque
@@ -2560,7 +2570,8 @@ REGLES:
             _tp_adapt = patterns_data[symbole]["tp"]
             _sl_adapt = patterns_data[symbole]["sl"]
             print(f"  [PATTERN] {symbole}: biais={patterns_data[symbole]['biais']:+.1f} patterns={patterns_data[symbole]['patterns']} -> TP={_tp_adapt}% SL={_sl_adapt}%")
-        resultat = _ouvrir_position_auto(symbole, montant, f"IA autonome: {raison}", tp_override=_tp_adapt, sl_override=_sl_adapt)
+        _facteur_cerveau = float((_dec_cerveau or {}).get("facteur_taille") or 1.0) if _dec_cerveau is not None else 1.0
+        resultat = _ouvrir_position_auto(symbole, montant, f"IA autonome: {raison}", tp_override=_tp_adapt, sl_override=_sl_adapt, facteur_taille=_facteur_cerveau)
         return f"🤖 Ouverture auto par l'IA{' ['+sous_agent_nom.upper()+']' if sous_agent_nom else ''}: {symbole} a {prix_data[symbole]:.4f}EUR. {raison[:100]}\n{resultat}"
     except Exception:
         return None

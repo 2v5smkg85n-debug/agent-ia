@@ -32,12 +32,19 @@ FICHIER = os.path.join(DOSSIER, "journal_decisions.json")
 _LOCK = threading.Lock()
 
 TP_PCT = 1.5                   # ancien objectif fixe (utilise seulement si une decision n'a pas de sl_pct)
-CRITIQUE_MODE = os.getenv("CRITIQUE_MODE", "veto").strip().lower()   # veto | malus (voir decider)
+CRITIQUE_MODE = os.getenv("CRITIQUE_MODE", "veto").strip().lower()   # veto (= auto-calibre, voir CERVEAU_VETO_CRITIQUE) | malus
 CRITIQUE_MALUS = int(os.getenv("CRITIQUE_MALUS", "10"))
 TP_RATIO_EVAL = 2.0            # objectif = 2 x le stop, comme en trading reel (stop_atr)
 SEUIL_CONFIANCE_BASE = int(os.getenv("CERVEAU_SEUIL_BASE", "60"))   # sans calibration : 60 (la calibration le remonte a 70+ si le bucket 60-69 perd)
 TOP_N = 3
 HEURES_EVAL = int(os.getenv("CERVEAU_HEURES_EVAL", "8"))   # horizon d'evaluation des propositions (stop 2xATR / objectif 2:1)
+# Veto de l'avocat du diable : "auto" (defaut) = le veto ne bloque que si ses refus passes ont reellement evite des pertes
+# (>= VETO_MIN_CAS cas tranches et solde en R negatif) ; sinon le trade passe a taille reduite et le refus est journalise.
+# "1" = veto toujours bloquant (ancien comportement), "0" = jamais bloquant (critique purement consultatif).
+VETO_CRITIQUE = os.getenv("CERVEAU_VETO_CRITIQUE", "auto").strip().lower()
+VETO_MIN_CAS = int(os.getenv("CERVEAU_VETO_MIN_CAS", "10"))
+VETO_FENETRE = 20                      # derniers refus tranches pris en compte (le critique peut changer avec le marche)
+FACTEUR_CONTRE_AVIS = float(os.getenv("CERVEAU_FACTEUR_CONTRE_AVIS", "0.5"))   # taille quand on achete malgre le critique
 MODELE_LOCAL = "qwen2.5:7b"
 MODELE_LOCAL_CRITIQUE = "phi4-mini"
 THINKING_BUDGET = 512          # Gemini 2.5 Flash: petit budget de raisonnement pour l'analyste (0 = desactive)
@@ -292,6 +299,37 @@ def seuil_adaptatif(d=None):
     return int(min(90, max(55, seuil)))
 
 
+def _refus_critique_tranches(d):
+    """Refus du critique deja evalues (veto applique OU achat execute malgre lui), les plus recents en dernier."""
+    out = []
+    for x in d.get("decisions", []):
+        if not x.get("evaluee") or x.get("resultat") not in ("tp", "sl"):
+            continue
+        if x.get("etape") == "critique" or x.get("critique_refus"):
+            out.append(x["resultat"])
+    return out[-VETO_FENETRE:]
+
+
+def veto_critique_arme(d=None):
+    """(arme, detail). Le veto bloque seulement si, sur les derniers refus tranches, laisser passer aurait perdu de
+    l'argent (objectif = +2 R, stop = -1 R). 9 objectifs / 8 stops = +10 R -> desarme : ses refus coutaient plus qu'ils
+    ne protegeaient. Tant qu'il n'y a pas VETO_MIN_CAS cas, on garde le veto (prudence par defaut)."""
+    if VETO_CRITIQUE in ("1", "oui", "true", "on"):
+        return True, "force par CERVEAU_VETO_CRITIQUE=1"
+    if VETO_CRITIQUE in ("0", "non", "false", "off"):
+        return False, "desactive par CERVEAU_VETO_CRITIQUE=0"
+    d = d or _charger()
+    res = _refus_critique_tranches(d)
+    tp, sl = res.count("tp"), res.count("sl")
+    n = tp + sl
+    r = TP_RATIO_EVAL * tp - sl
+    if n < VETO_MIN_CAS:
+        return True, f"arme par defaut ({n}/{VETO_MIN_CAS} refus tranches)"
+    if r <= 0:   # a l'equilibre, bloquer ne coute rien et protege -> veto
+        return True, f"arme : ses refus ont evite {-r:.0f} R sur {n} cas ({tp} objectif / {sl} stop)"
+    return False, f"desarme : ses refus auraient rapporte {r:+.0f} R sur {n} cas ({tp} objectif / {sl} stop)"
+
+
 def resume_calibration(d=None):
     d = d or _charger()
     cal = d.get("calibration", {})
@@ -513,27 +551,41 @@ Reponds UNIQUEMENT en JSON: {{"verdict": "OK"|"REFUS", "faille": "1 phrase", "co
     # Une porte par acteur : l'analyste est juge par le seuil, le critique par son verdict. La confiance corrigee
     # (moyenne) sert a la calibration et au sizing, elle n'est plus un second seuil (sinon 60 -> 55 -> RIEN a chaque fois).
     conf_finale = int((conf + conf_c) / 2) if conf_c is not None else conf
+    contre_avis, facteur = False, 1.0
     if verdict == "REFUS":
-        motif = f"veto avocat du diable ({modele_c}): {str(crit.get('faille',''))[:140]}"
-        # CRITIQUE_MODE=veto (defaut) : le REFUS bloque. CRITIQUE_MODE=malus : le REFUS retire CRITIQUE_MALUS points de
-        # confiance ; l'achat passe si la confiance reste >= seuil. A activer seulement si la ligne QUI A RAISON montre que
-        # les vetos bloquent surtout des objectifs (mesure du 21/10 : 9 objectifs / 8 stops, +10 R perdus).
-        if CRITIQUE_MODE == "malus" and (conf_finale - CRITIQUE_MALUS) >= seuil:
-            conf_finale = conf_finale - CRITIQUE_MALUS
-            print(f"  [CERVEAU] {sym}: critique REFUS -> malus -{CRITIQUE_MALUS} (confiance {conf_finale} >= {seuil}), on continue")
-            crit["faille"] = f"REFUS transforme en malus: {str(crit.get('faille',''))[:100]}"
+        faille = str(crit.get("faille", ""))[:140]
+        if CRITIQUE_MODE == "malus":
+            # Mode manuel (CRITIQUE_MODE=malus) : le REFUS retire CRITIQUE_MALUS points ; l'achat passe si >= seuil.
+            # Attention : l'analyste propose presque toujours 60-65, ce mode rebloque donc la plupart des cas.
+            if (conf_finale - CRITIQUE_MALUS) >= seuil:
+                conf_finale = conf_finale - CRITIQUE_MALUS
+                print(f"  [CERVEAU] {sym}: critique REFUS -> malus -{CRITIQUE_MALUS} (confiance {conf_finale} >= {seuil}), on continue")
+                crit["faille"] = f"REFUS transforme en malus: {faille[:100]}"
+                arme, detail_veto = False, "mode malus"
+            else:
+                arme, detail_veto = True, f"mode malus : {conf_finale} - {CRITIQUE_MALUS} < seuil {seuil}"
         else:
-            print(f"  [CERVEAU] {sym}: {motif}")
+            # Mode auto (defaut) : le veto ne bloque que si ses refus passes ont reellement evite des pertes.
+            arme, detail_veto = veto_critique_arme(d)
+        if arme:
+            motif = f"veto avocat du diable ({modele_c}): {faille}"
+            print(f"  [CERVEAU] {sym}: {motif} [{detail_veto}]")
             _journaliser(d, {"date": now, "action": "RIEN", "sym": sym, "confiance": conf_finale, "etape": "critique", "raison": motif, "proposition": True,
                              "sl_pct": sl_pct, "modele": modele, "modele_critique": modele_c, "raison_analyste": str(dec.get("raison", ""))[:200]})
             return {"action": "RIEN", "raison": motif, "etape": "critique"}
+        # Veto desarme par les faits : le refus devient un avis -> achat a taille reduite, et l'issue sera comptee
+        # dans le bilan du critique (critique_refus) ; si ses refus redeviennent justes, le veto se rearme tout seul.
+        contre_avis, facteur = True, (1.0 if CRITIQUE_MODE == "malus" else FACTEUR_CONTRE_AVIS)
+        print(f"  [CERVEAU] {sym}: le critique refuse ({faille[:80]}) mais {detail_veto} -> ACHAT a x{facteur:g}")
 
-    raison = f"{str(dec.get('raison',''))[:160]} | confiance {conf_finale} (analyste {modele}, critique {modele_c or 'n/a'}: {str(crit.get('faille','RAS'))[:60]}) | invalidation: {str(dec.get('invalidation',''))[:60]}"
-    print(f"  [CERVEAU] ACHAT {sym} confiance analyste {conf} >= {seuil}, corrigee {conf_finale} | checklist OK{' (malus ' + dec['malus_checklist'] + ')' if dec.get('malus_checklist') else ''} | critique OK")
+    avis = f"REFUS ignore: {str(crit.get('faille',''))[:60]}" if contre_avis else str(crit.get('faille', 'RAS'))[:60]
+    raison = f"{str(dec.get('raison',''))[:160]} | confiance {conf_finale} (analyste {modele}, critique {modele_c or 'n/a'}: {avis}) | invalidation: {str(dec.get('invalidation',''))[:60]}"
+    print(f"  [CERVEAU] ACHAT {sym} confiance analyste {conf} >= {seuil}, corrigee {conf_finale} | checklist OK{' (malus ' + dec['malus_checklist'] + ')' if dec.get('malus_checklist') else ''} | critique {'REFUS (avis, x' + format(facteur, 'g') + ')' if contre_avis else 'OK'}")
     _journaliser(d, {"date": now, "action": "ACHAT", "sym": sym, "confiance": conf_finale, "etape": "achat", "raison": raison[:300],
-                     "sl_pct": sl_pct, "modele": modele, "modele_critique": modele_c, "checklist": chk, "invalidation": str(dec.get("invalidation", ""))[:160]})
+                     "sl_pct": sl_pct, "modele": modele, "modele_critique": modele_c, "checklist": chk, "invalidation": str(dec.get("invalidation", ""))[:160],
+                     "critique_refus": contre_avis, "facteur_taille": facteur})
     return {"action": "ACHAT", "symbole": sym, "raison": raison, "confiance": conf_finale, "sl_pct": sl_pct,
-            "invalidation": dec.get("invalidation", ""), "etape": "achat"}
+            "invalidation": dec.get("invalidation", ""), "etape": "achat", "facteur_taille": facteur, "critique_refus": contre_avis}
 
 
 def _journaliser(d, rec):
@@ -567,7 +619,17 @@ def resume_etapes(d=None):
                    "analyste": "RIEN de l'analyste", "preselection": "RIEN presélection"}[k]
         taux = f"{s['tp']/n*100:.0f}%" if n else "-"
         lignes.append(f"{libelle}: {s['tp']} objectif / {s['sl']} stop / {s['neutre']} neutre ({taux}) -> {r:+.0f} R")
-    return "QUI A RAISON (sort 8h apres): " + " | ".join(lignes) if lignes else "QUI A RAISON: pas encore de cas evalue."
+    # Achats executes malgre un REFUS du critique (veto desarme) : c'est la mesure directe de son pouvoir predictif.
+    ca = {"tp": 0, "sl": 0, "neutre": 0}
+    for x in d.get("decisions", []):
+        if x.get("critique_refus") and x.get("evaluee") and x.get("resultat") in ca:
+            ca[x["resultat"]] += 1
+    if sum(ca.values()):
+        lignes.append(f"achats contre l'avis du critique: {ca['tp']} objectif / {ca['sl']} stop / {ca['neutre']} neutre -> {TP_RATIO_EVAL * ca['tp'] - ca['sl']:+.0f} R")
+    arme, detail = veto_critique_arme(d)
+    etat = f"Veto du critique: {'ARME' if arme else 'DESARME (refus = avis, taille x' + format(FACTEUR_CONTRE_AVIS, 'g') + ')'} - {detail}."
+    corps = "QUI A RAISON (sort 8h apres): " + " | ".join(lignes) if lignes else "QUI A RAISON: pas encore de cas evalue."
+    return corps + "\n" + etat
 
 
 def rapport():
