@@ -414,7 +414,8 @@ def evaluer_contrefactuel(max_par_appel=12):
         e = {"cle": cle, "sym": rec["infos"].get("sym"), "date": rec["infos"].get("date"), "ok": bool(rec.get("ok")),
              "verdicts": rec["infos"].get("verdicts", {}), "sl_pct": rec.get("sl_pct"), "tp_pct": rec.get("tp_pct"),
              "resultat": res, "var_fin": var_fin,
-             "r": (TP_RATIO_CF if res == "tp" else -1.0 if res == "sl" else (round(var_fin / float(rec["sl_pct"]), 2) if var_fin is not None else 0.0))}
+             "r": (TP_RATIO_CF if res == "tp" else -1.0 if res == "sl" else
+                   (round(max(-1.0, min(TP_RATIO_CF, var_fin / float(rec["sl_pct"]))), 2) if var_fin is not None else 0.0))}
         try:
             with _LOCK:
                 with open(LOG_EVAL, "a") as f:
@@ -520,7 +521,9 @@ if __name__ == "__main__":
         print(f"Passages juges 8 h apres : {b['n_juges']}")
         p = b["porte"]
         print(f"  porte OUVERTE : {p['ouverts']['tp']} objectif / {p['ouverts']['sl']} stop / {p['ouverts']['neutre']} neutre -> {p['ouverts']['r']:+.1f} R")
-        print(f"  porte BLOQUEE : {p['bloques']['tp']} objectif / {p['bloques']['sl']} stop / {p['bloques']['neutre']} neutre -> {p['bloques']['r']:+.1f} R (ce que les blocages ont evite si negatif)")
+        print(f"  porte BLOQUEE : {p['bloques']['tp']} objectif / {p['bloques']['sl']} stop / {p['bloques']['neutre']} neutre -> {p['bloques']['r']:+.1f} R (positif = les blocages ont coute des gains ; negatif = ils ont protege)")
+        if not b["filtres"]:
+            print("  (detail par filtre : les verdicts par filtre ne sont enregistres que depuis le 21/10 ; le tableau se remplit sous 24 h)")
         for f, st in sorted(b["filtres"].items(), key=lambda kv: -kv[1]["r_evite"]):
             bb = st["bloquerait"]
             print(f"  {f:15s} aurait bloque {bb['tp']+bb['sl']+bb['neutre']:3d} (objectif {bb['tp']}, stop {bb['sl']}) -> R evite {st['r_evite']:+.1f} : {st['verdict']}")

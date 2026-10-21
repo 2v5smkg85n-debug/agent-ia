@@ -534,6 +534,32 @@ def _journaliser(d, rec):
         _sauver(dd)
 
 
+def resume_etapes(d=None):
+    """Qui a raison ? Pour chaque etape finale (achat execute, veto du critique, porte, analyste RIEN), le sort
+    8 h apres des decisions deja evaluees : objectif / stop / neutre et solde en R (objectif = +2 R, stop = -1 R).
+    Un veto qui bloque surtout des objectifs coute ; un RIEN de l'analyste suivi d'un objectif est une occasion manquee."""
+    d = d or _charger()
+    st = {}
+    for x in d.get("decisions", []):
+        if not x.get("evaluee") or x.get("resultat") not in ("tp", "sl", "neutre"):
+            continue
+        k = x.get("etape") or x.get("action")
+        s = st.setdefault(k, {"tp": 0, "sl": 0, "neutre": 0})
+        s[x["resultat"]] += 1
+    lignes = []
+    for k in ["achat", "critique", "porte", "analyste", "preselection"]:
+        s = st.get(k)
+        if not s:
+            continue
+        n = s["tp"] + s["sl"]
+        r = TP_RATIO_EVAL * s["tp"] - s["sl"]
+        libelle = {"achat": "ACHATS executes", "critique": "veto du critique", "porte": "bloques par la porte",
+                   "analyste": "RIEN de l'analyste", "preselection": "RIEN presélection"}[k]
+        taux = f"{s['tp']/n*100:.0f}%" if n else "-"
+        lignes.append(f"{libelle}: {s['tp']} objectif / {s['sl']} stop / {s['neutre']} neutre ({taux}) -> {r:+.0f} R")
+    return "QUI A RAISON (sort 8h apres): " + " | ".join(lignes) if lignes else "QUI A RAISON: pas encore de cas evalue."
+
+
 def rapport():
     d = _charger()
     decs = d.get("decisions", [])
@@ -541,6 +567,7 @@ def rapport():
     riens = [x for x in decs if x["action"] == "RIEN"]
     lignes = [f"=== CERVEAU ({len(decs)} decisions, {len(achats)} ACHAT, {len(riens)} RIEN) — seuil de confiance {seuil_adaptatif(d)} ==="]
     lignes.append(resume_calibration(d))
+    lignes.append(resume_etapes(d))
     from collections import Counter
     lignes.append("Pourquoi RIEN: " + ", ".join(f"{k}: {v}" for k, v in Counter(x.get("etape") for x in riens).items()))
     for x in decs[-8:]:
