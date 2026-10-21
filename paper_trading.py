@@ -2501,6 +2501,12 @@ def tick():
         _cv.evaluer_decisions()
     except Exception as _e:
         print(f"  [CERVEAU] evaluation: {_e}")
+    # === PORTE: juge 8h apres chaque passage (ouvert ou bloque) -> ce que chaque filtre a evite / coute ===
+    try:
+        import porte_entree as _pe
+        _pe.evaluer_contrefactuel()
+    except Exception as _e:
+        print(f"  [PORTE] evaluation: {_e}")
     # === FIN D'ESSAI: ferme les positions MetaTrader restantes (plus de prix hors essai) ===
     if not _essai_actif():
         for _p in list(pf.get("positions", [])):

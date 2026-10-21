@@ -17,6 +17,7 @@ def etat():
     try:
         import porte_entree as pe
         e["porte_stats"] = pe.statistiques()
+        e["bilan_filtres"] = pe.bilan_filtres()
         e["porte_dernieres"] = pe.dernieres_decisions(25)[::-1]
         e["tendance_lente"] = pe.tendance_lente_btc()
         e["regime"] = pe.regime_actuel("BTCUSDT")
@@ -81,6 +82,23 @@ def build_page():
     ps = e.get("porte_stats") or {}
     out.append(f"<h2>Décisions de la porte (dernières {ps.get('total', 0)})</h2>")
     out.append(f"<p>Ouvertes : <b class='ok'>{ps.get('ouvertes', 0)}</b> · bloquées : " + " · ".join(f"{H(k)} <b>{v}</b>" for k, v in (ps.get("bloquees") or {}).items()) + "</p>")
+    # bilan contrefactuel : ce que chaque filtre a evite / coute (juge 8 h apres sur les bougies)
+    bf = e.get("bilan_filtres") or {}
+    if isinstance(bf, dict) and bf.get("filtres"):
+        pp = bf.get("porte", {})
+        o, b = pp.get("ouverts", {}), pp.get("bloques", {})
+        out.append(f"<h2>Ce que la porte a évité ou coûté (jugé 8 h après, {bf.get('n_juges', 0)} passages)</h2>")
+        out.append("<p class='m'>Chaque candidat, ouvert ou bloqué, est rejoué sur les bougies : objectif 2×stop touché d'abord = objectif, stop d'abord = stop. "
+                   "1 R = le risque d'un trade. Un filtre « utile » a évité plus de R qu'il n'en a coûté ; « à revoir » = il a surtout bloqué des gagnants. Rien n'est retiré automatiquement.</p>")
+        out.append(f"<p>Porte ouverte : objectif <b class='ok'>{o.get('tp', 0)}</b> · stop <b class='ko'>{o.get('sl', 0)}</b> · neutre {o.get('neutre', 0)} → <b>{o.get('r', 0):+.1f} R</b> &nbsp;|&nbsp; "
+                   f"Porte bloquée : objectif {b.get('tp', 0)} · stop {b.get('sl', 0)} · neutre {b.get('neutre', 0)} → <b>{b.get('r', 0):+.1f} R</b> (négatif = les blocages ont protégé)</p>")
+        out.append("<table><tr><th>Filtre</th><th>Aurait bloqué</th><th>dont objectif</th><th>dont stop</th><th>R évité</th><th>Sautés (API muette)</th><th>Verdict</th></tr>")
+        for f, st in sorted(bf["filtres"].items(), key=lambda kv: -kv[1].get("r_evite", 0)):
+            bb = st.get("bloquerait", {})
+            nb = bb.get("tp", 0) + bb.get("sl", 0) + bb.get("neutre", 0)
+            cls = "ok" if st.get("verdict") == "utile" else "ko" if st.get("verdict") == "a revoir" else "m"
+            out.append(f"<tr><td>{H(f)}</td><td>{nb}</td><td>{bb.get('tp', 0)}</td><td>{bb.get('sl', 0)}</td><td><b>{st.get('r_evite', 0):+.1f}</b></td><td>{st.get('sautes', 0)}</td><td class='{cls}'>{H(st.get('verdict', ''))}</td></tr>")
+        out.append("</table>")
     out.append("<table><tr><th>Date UTC</th><th>Symbole</th><th>Stratégie</th><th>Verdict</th><th>Raison</th><th>TFI</th><th>p méta</th></tr>")
     for d in e.get("porte_dernieres") or []:
         inf = d.get("infos") or {}

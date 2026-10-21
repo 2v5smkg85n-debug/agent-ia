@@ -131,3 +131,18 @@ def test_porte_blocage_global_signature():
     finally:
         for k in ("FENETRES", "TENDANCE_LENTE", "CHALEUR", "REGIME"):
             os.environ.pop("PORTE_" + k, None)
+
+
+def test_bilan_filtres_contrefactuel(tmp_path):
+    import json, porte_entree as pe
+    pe.LOG_EVAL = str(tmp_path / "e.jsonl")
+    evs = [{"cle": "a", "ok": False, "verdicts": {"cusum": False, "flux": True}, "resultat": "sl", "r": -1.0},
+           {"cle": "b", "ok": False, "verdicts": {"cusum": False, "flux": None}, "resultat": "tp", "r": 2.0},
+           {"cle": "c", "ok": True, "verdicts": {"cusum": True, "flux": True}, "resultat": "tp", "r": 2.0}]
+    (tmp_path / "e.jsonl").write_text("\n".join(json.dumps(e) for e in evs) + "\n")
+    b = pe.bilan_filtres()
+    assert b["n_juges"] == 3
+    assert b["filtres"]["cusum"]["r_evite"] == -1.0          # a bloque un stop (+1) et un objectif (-2) -> -1 R
+    assert b["filtres"]["flux"]["sautes"] == 1
+    assert b["porte"]["ouverts"]["r"] == 2.0
+    assert b["filtres"]["cusum"]["verdict"] == "trop peu de cas"
