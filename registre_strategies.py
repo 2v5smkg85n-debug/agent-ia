@@ -69,6 +69,13 @@ def casier(trades=None):
     if time.time() - _CASIER["t"] < 600 and _CASIER["d"]:
         return _CASIER["d"]
     tr = trades if trades is not None else tous_les_trades()
+    # Ne juger que les trades des strategies ENCORE EN SERVICE : les pertes de macd_cross / essai_bougies (retirees)
+    # ne doivent pas condamner un jour ou une crypto pour ia_autonome et rsi_oversold.
+    try:
+        retirees = {k for k, s in _charger().get("strategies", {}).items() if s.get("statut") == "retiree"}
+    except Exception:
+        retirees = set()
+    tr = [t for t in tr if _nom_strat(t) not in retirees and "_PARTIAL" not in str(t.get("source", ""))]
     par_sym, par_jour = {}, {}
     for t in tr:
         try:
@@ -91,7 +98,8 @@ def casier(trades=None):
                 if h is not None and h < 0:
                     out[k] = {"n": len(gs), "net": round(sum(gs), 2), "ic_haut": round(h, 3)}
         return out
-    d = {"cryptos": _juge(par_sym), "jours": _juge(par_jour), "maj": datetime.now().strftime("%Y-%m-%d %H:%M")}
+    d = {"cryptos": _juge(par_sym), "jours": _juge(par_jour), "maj": datetime.now().strftime("%Y-%m-%d %H:%M"),
+         "n_trades_juges": len(tr), "strategies_exclues": sorted(retirees)}
     _CASIER["t"], _CASIER["d"] = time.time(), d
     return d
 
@@ -335,12 +343,13 @@ def resume_pour_ia():
 def rapport_casier():
     k = casier()
     noms = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
-    l = [f"=== CASIER MESURE (>= {CASIER_MIN_N} trades, borne haute 90% du gain moyen < 0 ; maj {k.get('maj')}) ==="]
+    l = [f"=== CASIER MESURE (>= {CASIER_MIN_N} trades, borne haute 90% du gain moyen < 0 ; maj {k.get('maj')}) ===",
+         f"  juge sur {k.get('n_trades_juges', '?')} trades des strategies en service (exclues : {', '.join(k.get('strategies_exclues', [])) or 'aucune'})"]
     for s, v in sorted(k.get("cryptos", {}).items(), key=lambda kv: kv[1]["net"]):
         l.append(f"  crypto {s:10s} {v['n']:3d} trades  net {v['net']:+7.2f}  ic_haut {v['ic_haut']:+.3f}  -> interdite")
     for j, v in sorted(k.get("jours", {}).items()):
         l.append(f"  jour   {noms[j]:10s} {v['n']:3d} trades  net {v['net']:+7.2f}  ic_haut {v['ic_haut']:+.3f}  -> interdit")
-    if len(l) == 1:
+    if len(l) == 2:
         l.append("  rien d'interdit : aucune crypto ni aucun jour n'est perdant avec confiance")
     return "\n".join(l)
 
