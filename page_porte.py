@@ -92,6 +92,11 @@ def build_page():
                    "1 R = le risque d'un trade. Un filtre « utile » a évité plus de R qu'il n'en a coûté ; « à revoir » = il a surtout bloqué des gagnants. Rien n'est retiré automatiquement.</p>")
         out.append(f"<p>Porte ouverte : objectif <b class='ok'>{o.get('tp', 0)}</b> · stop <b class='ko'>{o.get('sl', 0)}</b> · neutre {o.get('neutre', 0)} → <b>{o.get('r', 0):+.1f} R</b> &nbsp;|&nbsp; "
                    f"Porte bloquée : objectif {b.get('tp', 0)} · stop {b.get('sl', 0)} · neutre {b.get('neutre', 0)} → <b>{b.get('r', 0):+.1f} R</b> (négatif = les blocages ont protégé)</p>")
+        try:
+            des = pe.filtres_desarmes()
+            out.append("<p>Mode auto (PORTE_AUTO) : <b>" + ("actif — filtres désarmés par les faits : " + (", ".join(sorted(des)) or "aucun") if des or __import__("config_env").lire("PORTE_AUTO", "0") == "1" else "inactif (PORTE_AUTO=1 pour que les filtres « à revoir » cessent de bloquer tout en restant mesurés)") + "</b></p>")
+        except Exception:
+            pass
         out.append("<table><tr><th>Filtre</th><th>Aurait bloqué</th><th>dont objectif</th><th>dont stop</th><th>R évité</th><th>Sautés (API muette)</th><th>Verdict</th></tr>")
         for f, st in sorted(bf["filtres"].items(), key=lambda kv: -kv[1].get("r_evite", 0)):
             bb = st.get("bloquerait", {})

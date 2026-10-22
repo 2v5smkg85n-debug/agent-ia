@@ -3076,7 +3076,11 @@ def boucle():
         # Desactivable avec REVENUS_PARALLELES=0 dans .env
         if _aujourdhui != _derniere_gen_revenus:
             _derniere_gen_revenus = _aujourdhui
-            if os.getenv("REVENUS_PARALLELES", "1") != "0":
+            try:
+                from config_env import lire as _lire_env
+            except Exception:
+                _lire_env = lambda n, d=None: os.getenv(n, d)
+            if _lire_env("REVENUS_PARALLELES", "1") != "0":
                 def _gen_revenus_bg():
                     try:
                         import revenus_paralleles as rp

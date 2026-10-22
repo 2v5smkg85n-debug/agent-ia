@@ -57,7 +57,11 @@ MODELE_LOCAL_CRITIQUE = os.getenv("LLM_MODELE_LOCAL_CRITIQUE", "llama3.2:3b")
 # Points d'acces publics anonymes (verifies le 18/10/2026). Limites par IP, non contractuels :
 # ils peuvent disparaitre -> le routeur les saute automatiquement et retombe sur le modele local.
 # LLM_LIBRE=0 pour les desactiver.
-LIBRE_ACTIF = os.getenv("LLM_LIBRE", "1") == "1"
+try:
+    from config_env import lire as _lire_env
+except Exception:
+    _lire_env = lambda n, d=None: os.getenv(n, d)
+LIBRE_ACTIF = _lire_env("LLM_LIBRE", "1") == "1"
 OVH_URL = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions"   # 2 req/min/IP/modele
 LIBRES = {
     # nom          : (url, modele, raisonneur ?)   raisonneur = le modele "reflechit" avant de repondre -> plus de tokens

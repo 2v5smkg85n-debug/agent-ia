@@ -57,8 +57,39 @@ def _fenetres():
 FENETRES = _fenetres()
 
 
+_NOM_FILTRE = {"FENETRES": "fenetres", "TENDANCE_LENTE": "tendance_lente", "CHALEUR": "chaleur", "REGIME": "regime",
+               "CUSUM": "cusum", "LIQUIDITE": "liquidite", "FLUX": "flux", "META": "meta"}
+_DESARMES = {"t": 0.0, "noms": set()}
+
+
+def filtres_desarmes():
+    """PORTE_AUTO=1 : un filtre dont le bilan contrefactuel dit 'a revoir' (>= 10 cas bloques qui, rejoues 8 h apres,
+    ont coute plus de R qu'ils n'en ont evite) ne bloque plus ; il reste juge et se rearme seul si son bilan redevient
+    positif. Meme logique que le veto auto-calibre du critique. Defaut : PORTE_AUTO=0 (rien ne change)."""
+    try:
+        from config_env import lire
+        if lire("PORTE_AUTO", "0") != "1":
+            return set()
+    except Exception:
+        return set()
+    if time.time() - _DESARMES["t"] > 600:
+        try:
+            b = bilan_filtres()
+            _DESARMES["noms"] = {f for f, st in b.get("filtres", {}).items() if st.get("verdict") == "a revoir"}
+        except Exception:
+            _DESARMES["noms"] = set()
+        _DESARMES["t"] = time.time()
+    return _DESARMES["noms"]
+
+
 def _actif(nom, defaut="1"):
-    return os.getenv(f"PORTE_{nom}", defaut) == "1"
+    if _NOM_FILTRE.get(nom) in filtres_desarmes():
+        return False
+    try:
+        from config_env import lire
+        return lire(f"PORTE_{nom}", defaut) == "1"
+    except Exception:
+        return os.getenv(f"PORTE_{nom}", defaut) == "1"
 
 
 def _cache(cle, ttl, fn):
@@ -236,93 +267,99 @@ def verifier(sym, prix, ctx, pf, montant, sl_pct=None, strategie=None, risque_no
     verdicts = {}
     infos["verdicts"] = verdicts
 
+    # Chaque filtre est TOUJOURS juge (verdict enregistre pour le bilan contrefactuel) ; il ne BLOQUE que s'il est
+    # actif (PORTE_<NOM>=1, defaut). Desactiver un filtre (PORTE_CUSUM=0) ne l'empeche donc pas d'etre mesure.
     # 1. fenetres
-    if _actif("FENETRES"):
+    try:
         b, why = fenetre_interdite()
         verdicts["fenetres"] = not b
-        if b:
+        if b and _actif("FENETRES"):
             bloque = f"fenetre interdite: {why}"
+    except Exception:
+        verdicts["fenetres"] = None
     # 2. tendance lente
-    tl = tendance_lente_btc() if _actif("TENDANCE_LENTE") else {}
+    tl = tendance_lente_btc()
     infos["tendance_lente"] = tl
-    if _actif("TENDANCE_LENTE"):
-        verdicts["tendance_lente"] = None if tl.get("haussiere") is None else bool(tl.get("haussiere"))
-        if tl.get("haussiere") is False:
-            if not bloque:
-                bloque = f"BTC sous son EMA {EMA_LENTE_JOURS} jours ({tl.get('ecart_pct')}%, pente {tl.get('pente_pct')}%): pas d'achat tant que la tendance lente est baissiere"
-        elif tl.get("haussiere") is None:
-            infos["filtres_sautes"].append("tendance_lente")
+    verdicts["tendance_lente"] = None if tl.get("haussiere") is None else bool(tl.get("haussiere"))
+    if tl.get("haussiere") is False:
+        if not bloque and _actif("TENDANCE_LENTE"):
+            bloque = f"BTC sous son EMA {EMA_LENTE_JOURS} jours ({tl.get('ecart_pct')}%, pente {tl.get('pente_pct')}%): pas d'achat tant que la tendance lente est baissiere"
+    elif tl.get("haussiere") is None:
+        infos["filtres_sautes"].append("tendance_lente")
     # 3. chaleur
-    if _actif("CHALEUR"):
+    try:
         ch = chaleur_portefeuille(pf, risque_nouveau=risque_nouveau)
         infos["chaleur"] = ch
         max_pos = MAX_POSITIONS_CRYPTO + (1 if tl.get("haussiere") else 0)
         verdicts["chaleur"] = not (ch["n_crypto"] >= max_pos or ch["risque_apres"] > RISQUE_TOTAL_MAX)
-        if not bloque and ch["n_crypto"] >= max_pos:
-            bloque = f"deja {ch['n_crypto']} positions crypto ouvertes (max {max_pos}, toutes correlees a BTC)"
-        elif not bloque and ch["risque_apres"] > RISQUE_TOTAL_MAX:
-            bloque = f"risque total ouvert {ch['risque_ouvert']:.2f} + {risque_nouveau:.2f} > {RISQUE_TOTAL_MAX:.2f} EUR"
+        if _actif("CHALEUR"):
+            if not bloque and ch["n_crypto"] >= max_pos:
+                bloque = f"deja {ch['n_crypto']} positions crypto ouvertes (max {max_pos}, toutes correlees a BTC)"
+            elif not bloque and ch["risque_apres"] > RISQUE_TOTAL_MAX:
+                bloque = f"risque total ouvert {ch['risque_ouvert']:.2f} + {risque_nouveau:.2f} > {RISQUE_TOTAL_MAX:.2f} EUR"
+    except Exception:
+        verdicts["chaleur"] = None
     # 4. regime
-    reg = regime_actuel("BTCUSDT") if _actif("REGIME") else {}
+    reg = regime_actuel("BTCUSDT")
     infos["regime"] = reg
-    if _actif("REGIME"):
-        verdicts["regime"] = None if not reg.get("mode") else reg.get("mode") != "turbulent"
+    verdicts["regime"] = None if not reg.get("mode") else reg.get("mode") != "turbulent"
     if not bloque and _actif("REGIME") and reg.get("mode") == "turbulent":
         bloque = f"regime turbulent (ATR 1h BTC au {reg.get('atr_percentile')}e percentile, ADX {reg.get('adx')})"
     # 5. CUSUM
-    if _actif("CUSUM"):
-        try:
-            import indicateurs as ind
-            b = ind.historique_ohlcv(sym, "1h", 72)
-            _atr = (ctx or {}).get("atr_pct") or 0.4
-            seuil = round(max(CUSUM_SEUIL_PCT, CUSUM_ATR_MULT * float(_atr)), 2)
-            ev, depuis, direction = cusum_evenement([x["cloture"] for x in b], seuil_pct=seuil) if b else (None, None, None)
-            infos["cusum"] = {"evenement": ev, "barres_depuis": depuis, "direction": direction, "seuil_pct": seuil}
-            verdicts["cusum"] = None if ev is None else bool(ev)
-            if ev is False or (ev is not None and not ev):
-                if not bloque:
-                    bloque = f"aucun evenement de prix (CUSUM {seuil}%) dans les {CUSUM_FENETRE_BARRES} dernieres heures (dernier il y a {depuis} h): c'est du bruit"
-            elif ev is None:
-                infos["filtres_sautes"].append("cusum")
-        except Exception:
-            verdicts["cusum"] = None
+    try:
+        import indicateurs as ind
+        b = ind.historique_ohlcv(sym, "1h", 72)
+        _atr = (ctx or {}).get("atr_pct") or 0.4
+        seuil = round(max(CUSUM_SEUIL_PCT, CUSUM_ATR_MULT * float(_atr)), 2)
+        ev, depuis, direction = cusum_evenement([x["cloture"] for x in b], seuil_pct=seuil) if b else (None, None, None)
+        infos["cusum"] = {"evenement": ev, "barres_depuis": depuis, "direction": direction, "seuil_pct": seuil}
+        verdicts["cusum"] = None if ev is None else bool(ev)
+        if ev is False or (ev is not None and not ev):
+            if not bloque and _actif("CUSUM"):
+                bloque = f"aucun evenement de prix (CUSUM {seuil}%) dans les {CUSUM_FENETRE_BARRES} dernieres heures (dernier il y a {depuis} h): c'est du bruit"
+        elif ev is None:
             infos["filtres_sautes"].append("cusum")
+    except Exception:
+        verdicts["cusum"] = None
+        infos["filtres_sautes"].append("cusum")
     # 6. liquidite
-    if _actif("LIQUIDITE"):
+    try:
         liq = liquidite(sym, montant)
         infos["liquidite"] = liq
         verdicts["liquidite"] = None if liq.get("spread_pct") is None else bool(liq["ok"])
         if not liq["ok"]:
-            if not bloque:
+            if not bloque and _actif("LIQUIDITE"):
                 bloque = liq["raison"]
         elif liq.get("spread_pct") is None:
             infos["filtres_sautes"].append("liquidite")
+    except Exception:
+        verdicts["liquidite"] = None
     # 7. flux d'ordres
-    if _actif("FLUX"):
-        try:
-            import flux_ordres as fo
-            tfi = fo.tfi(sym, minutes=30)
-            infos["tfi_30m"] = tfi
-            verdicts["flux"] = None if tfi is None else bool(tfi >= TFI_MIN)
-            if not bloque and tfi is not None and tfi < TFI_MIN:
-                bloque = f"flux d'ordres vendeur (TFI 30 min {tfi:+.2f} < {TFI_MIN})"
-            if tfi is None:
-                infos["filtres_sautes"].append("flux")
-        except Exception:
-            verdicts["flux"] = None
+    try:
+        import flux_ordres as fo
+        tfi = fo.tfi(sym, minutes=30)
+        infos["tfi_30m"] = tfi
+        verdicts["flux"] = None if tfi is None else bool(tfi >= TFI_MIN)
+        if not bloque and _actif("FLUX") and tfi is not None and tfi < TFI_MIN:
+            bloque = f"flux d'ordres vendeur (TFI 30 min {tfi:+.2f} < {TFI_MIN})"
+        if tfi is None:
             infos["filtres_sautes"].append("flux")
+    except Exception:
+        verdicts["flux"] = None
+        infos["filtres_sautes"].append("flux")
     # 8. meta-modele
-    if _actif("META"):
-        try:
-            import meta_modele as mm
-            p = mm.probabilite(mm.features_depuis_contexte(ctx or {}, regime=reg.get("mode"), tfi=infos.get("tfi_30m"), strategie=strategie))
-            infos["p_meta"] = p
-            verdicts["meta"] = None if p is None else bool(p >= META_SEUIL)
-            if not bloque and p is not None and p < META_SEUIL:
-                bloque = f"meta-modele: probabilite de succes {p:.2f} < {META_SEUIL}"
-        except Exception:
-            verdicts["meta"] = None
-            infos["filtres_sautes"].append("meta")
+    try:
+        import meta_modele as mm
+        p = mm.probabilite(mm.features_depuis_contexte(ctx or {}, regime=reg.get("mode"), tfi=infos.get("tfi_30m"), strategie=strategie))
+        infos["p_meta"] = p
+        verdicts["meta"] = None if p is None else bool(p >= META_SEUIL)
+        if not bloque and _actif("META") and p is not None and p < META_SEUIL:
+            bloque = f"meta-modele: probabilite de succes {p:.2f} < {META_SEUIL}"
+    except Exception:
+        verdicts["meta"] = None
+        infos["filtres_sautes"].append("meta")
+    infos["filtres_inactifs"] = [n for n in _NOM_FILTRE if not _actif(n)]
+    infos["filtres_desarmes_auto"] = sorted(filtres_desarmes())
 
     rec = {"ok": bloque is None, "raison": bloque or "porte ouverte", "infos": infos, "prix": prix, "montant": montant, "sl_pct": sl_pct,
            "tp_pct": round(float(sl_pct) * TP_RATIO_CF, 3) if sl_pct else None}

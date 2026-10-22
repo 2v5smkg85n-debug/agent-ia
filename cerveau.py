@@ -32,8 +32,12 @@ FICHIER = os.path.join(DOSSIER, "journal_decisions.json")
 _LOCK = threading.Lock()
 
 TP_PCT = 1.5                   # ancien objectif fixe (utilise seulement si une decision n'a pas de sl_pct)
-CRITIQUE_MODE = os.getenv("CRITIQUE_MODE", "veto").strip().lower()   # veto (= auto-calibre, voir CERVEAU_VETO_CRITIQUE) | malus
-CRITIQUE_MALUS = int(os.getenv("CRITIQUE_MALUS", "10"))
+try:
+    from config_env import lire as _lire_env      # lit aussi .env (les services ne le chargent pas toujours)
+except Exception:
+    _lire_env = lambda n, d=None: os.getenv(n, d)
+CRITIQUE_MODE = str(_lire_env("CRITIQUE_MODE", "veto")).strip().lower()   # veto (= auto-calibre, voir CERVEAU_VETO_CRITIQUE) | malus
+CRITIQUE_MALUS = int(_lire_env("CRITIQUE_MALUS", "10"))
 TP_RATIO_EVAL = 2.0            # objectif = 2 x le stop, comme en trading reel (stop_atr)
 SEUIL_CONFIANCE_BASE = int(os.getenv("CERVEAU_SEUIL_BASE", "60"))   # sans calibration : 60 (la calibration le remonte a 70+ si le bucket 60-69 perd)
 TOP_N = 3
@@ -41,7 +45,7 @@ HEURES_EVAL = int(os.getenv("CERVEAU_HEURES_EVAL", "8"))   # horizon d'evaluatio
 # Veto de l'avocat du diable : "auto" (defaut) = le veto ne bloque que si ses refus passes ont reellement evite des pertes
 # (>= VETO_MIN_CAS cas tranches et solde en R negatif) ; sinon le trade passe a taille reduite et le refus est journalise.
 # "1" = veto toujours bloquant (ancien comportement), "0" = jamais bloquant (critique purement consultatif).
-VETO_CRITIQUE = os.getenv("CERVEAU_VETO_CRITIQUE", "auto").strip().lower()
+VETO_CRITIQUE = _lire_env("CERVEAU_VETO_CRITIQUE", "auto").strip().lower()
 VETO_MIN_CAS = int(os.getenv("CERVEAU_VETO_MIN_CAS", "10"))
 VETO_FENETRE = 20                      # derniers refus tranches pris en compte (le critique peut changer avec le marche)
 FACTEUR_CONTRE_AVIS = float(os.getenv("CERVEAU_FACTEUR_CONTRE_AVIS", "0.5"))   # taille quand on achete malgre le critique
