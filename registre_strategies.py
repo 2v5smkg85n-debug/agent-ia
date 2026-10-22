@@ -14,6 +14,7 @@ les professeurs nourrissent l'IA sans ouvrir (decision user). Le registre indiqu
 une strategie bloquee meriterait d'etre reactivee — la decision reste humaine.
 """
 import json
+import time
 import os
 from datetime import datetime, timedelta
 
@@ -43,6 +44,74 @@ def tous_les_trades(pf_trades=None):
         except Exception:
             pf_trades = []
     return trades + list(pf_trades)
+
+
+# ---------------------------------------------------------------- casier mesure (remplace les listes noires en dur)
+CASIER_MIN_N = 15          # il faut au moins 15 trades sur une crypto / un jour pour la juger
+CASIER_Z = 1.645           # intervalle de confiance 90 % sur le gain moyen par trade
+_CASIER = {"t": 0.0, "d": {}}
+
+
+def _ic_haut(gains):
+    """Borne haute (90 %) du gain moyen par trade. Negative = perdant avec confiance."""
+    n = len(gains)
+    if n < 2:
+        return None
+    m = sum(gains) / n
+    var = sum((g - m) ** 2 for g in gains) / (n - 1)
+    return m + CASIER_Z * (var ** 0.5) / (n ** 0.5)
+
+
+def casier(trades=None):
+    """Cryptos et jours de semaine INTERDITS parce que mesures perdants avec confiance (>= CASIER_MIN_N trades et borne
+    haute 90 % du gain moyen < 0). Revise automatiquement : une crypto qui redevient gagnante sort du casier.
+    Remplace les anciennes listes noires fixes (LDO/ADA/DOT/PEPE/AVAX/BNB, lundi) qui dataient de 211 trades."""
+    if time.time() - _CASIER["t"] < 600 and _CASIER["d"]:
+        return _CASIER["d"]
+    tr = trades if trades is not None else tous_les_trades()
+    par_sym, par_jour = {}, {}
+    for t in tr:
+        try:
+            g = float(t.get("gain_eur", 0) or 0)
+        except Exception:
+            continue
+        s = str(t.get("symbole", "")).upper()
+        if s:
+            par_sym.setdefault(s, []).append(g)
+        try:
+            j = datetime.strptime(str(t.get("date_ouverture", t.get("date", "")))[:16], "%Y-%m-%d %H:%M").weekday()
+            par_jour.setdefault(j, []).append(g)
+        except Exception:
+            pass
+    def _juge(groupes):
+        out = {}
+        for k, gs in groupes.items():
+            if len(gs) >= CASIER_MIN_N:
+                h = _ic_haut(gs)
+                if h is not None and h < 0:
+                    out[k] = {"n": len(gs), "net": round(sum(gs), 2), "ic_haut": round(h, 3)}
+        return out
+    d = {"cryptos": _juge(par_sym), "jours": _juge(par_jour), "maj": datetime.now().strftime("%Y-%m-%d %H:%M")}
+    _CASIER["t"], _CASIER["d"] = time.time(), d
+    return d
+
+
+def crypto_interdite(sym):
+    """(interdite ?, motif) d'apres le casier mesure."""
+    s = str(sym or "").upper()
+    k = casier().get("cryptos", {}).get(s)
+    if k:
+        return True, f"{s}: {k['n']} trades, net {k['net']:+.2f} EUR, borne haute 90% {k['ic_haut']:+.3f} < 0"
+    return False, ""
+
+
+def jour_interdit(dt=None):
+    j = (dt or datetime.now()).weekday()
+    k = casier().get("jours", {}).get(j)
+    noms = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+    if k:
+        return True, f"{noms[j]}: {k['n']} trades, net {k['net']:+.2f} EUR, borne haute 90% {k['ic_haut']:+.3f} < 0"
+    return False, ""
 
 
 def droits_supplementaires():
@@ -263,6 +332,19 @@ def resume_pour_ia():
     return "\n".join(lignes)
 
 
+def rapport_casier():
+    k = casier()
+    noms = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+    l = [f"=== CASIER MESURE (>= {CASIER_MIN_N} trades, borne haute 90% du gain moyen < 0 ; maj {k.get('maj')}) ==="]
+    for s, v in sorted(k.get("cryptos", {}).items(), key=lambda kv: kv[1]["net"]):
+        l.append(f"  crypto {s:10s} {v['n']:3d} trades  net {v['net']:+7.2f}  ic_haut {v['ic_haut']:+.3f}  -> interdite")
+    for j, v in sorted(k.get("jours", {}).items()):
+        l.append(f"  jour   {noms[j]:10s} {v['n']:3d} trades  net {v['net']:+7.2f}  ic_haut {v['ic_haut']:+.3f}  -> interdit")
+    if len(l) == 1:
+        l.append("  rien d'interdit : aucune crypto ni aucun jour n'est perdant avec confiance")
+    return "\n".join(l)
+
+
 def rapport():
     d = mettre_a_jour()
     ordre = {"active": 0, "probation": 1, "candidate": 2, "retiree": 3}
@@ -287,5 +369,8 @@ if __name__ == "__main__":
     elif len(sys.argv) >= 4 and sys.argv[1] == "droit":
         donner_droit(sys.argv[2], sys.argv[3].lower() in ("on", "oui", "1", "true"), " ".join(sys.argv[4:]))
         print(rapport())
+    elif len(sys.argv) >= 2 and sys.argv[1] == "casier":
+        print(rapport_casier())
     else:
         print(rapport())
+        print(rapport_casier())

@@ -18,6 +18,16 @@ def etat():
         import porte_entree as pe
         e["porte_stats"] = pe.statistiques()
         e["bilan_filtres"] = pe.bilan_filtres()
+        try:
+            import registre_strategies as _rs
+            e["casier"] = _rs.casier()
+        except Exception as ex:
+            e["casier"] = {"erreur": str(ex)}
+        try:
+            import stop_atr as _sa
+            e["risque_par_trade"] = _sa.risque_courant()
+        except Exception as ex:
+            e["risque_par_trade"] = None
         e["porte_dernieres"] = pe.dernieres_decisions(25)[::-1]
         e["tendance_lente"] = pe.tendance_lente_btc()
         e["regime"] = pe.regime_actuel("BTCUSDT")
@@ -82,6 +92,16 @@ def build_page():
     ps = e.get("porte_stats") or {}
     out.append(f"<h2>Décisions de la porte (dernières {ps.get('total', 0)})</h2>")
     out.append(f"<p>Ouvertes : <b class='ok'>{ps.get('ouvertes', 0)}</b> · bloquées : " + " · ".join(f"{H(k)} <b>{v}</b>" for k, v in (ps.get("bloquees") or {}).items()) + "</p>")
+    # casier mesure + palier de risque
+    cas = e.get("casier") or {}
+    noms_j = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+    inter = [f"{s} ({v['n']} trades, {v['net']:+.1f} €)" for s, v in (cas.get("cryptos") or {}).items()] + \
+            [f"{noms_j[int(j)]} ({v['n']} trades, {v['net']:+.1f} €)" for j, v in (cas.get("jours") or {}).items()]
+    out.append("<h2>Casier mesuré &amp; risque par trade</h2>")
+    out.append("<p>Cryptos / jours interdits parce que perdants avec confiance (≥ 15 trades, borne haute 90 % du gain moyen &lt; 0 ; révisé toutes les 10 min) : "
+               + ("<b class='ko'>" + H(", ".join(inter)) + "</b>" if inter else "<b class='ok'>aucun</b>") + "</p>")
+    rp = e.get("risque_par_trade")
+    out.append(f"<p>Risque par trade actuel : <b>{rp if rp is not None else '?'} €</b> (palier 1 = 1 € ; ×2 dès 30 trades prouvés gagnants, ×3 dès 60 ; plafond 0,5 % du capital)</p>")
     # bilan contrefactuel : ce que chaque filtre a evite / coute (juge 8 h apres sur les bougies)
     bf = e.get("bilan_filtres") or {}
     if isinstance(bf, dict) and bf.get("filtres"):
@@ -94,7 +114,7 @@ def build_page():
                    f"Porte bloquée : objectif {b.get('tp', 0)} · stop {b.get('sl', 0)} · neutre {b.get('neutre', 0)} → <b>{b.get('r', 0):+.1f} R</b> (négatif = les blocages ont protégé)</p>")
         try:
             des = pe.filtres_desarmes()
-            out.append("<p>Mode auto (PORTE_AUTO) : <b>" + ("actif — filtres désarmés par les faits : " + (", ".join(sorted(des)) or "aucun") if des or __import__("config_env").lire("PORTE_AUTO", "0") == "1" else "inactif (PORTE_AUTO=1 pour que les filtres « à revoir » cessent de bloquer tout en restant mesurés)") + "</b></p>")
+            out.append("<p>Mode auto (PORTE_AUTO) : <b>" + ("actif — filtres désarmés par les faits : " + (", ".join(sorted(des)) or "aucun") if des or __import__("config_env").lire("PORTE_AUTO", "1") == "1" else "inactif (PORTE_AUTO=1 pour que les filtres « à revoir » cessent de bloquer tout en restant mesurés)") + "</b></p>")
         except Exception:
             pass
         out.append("<table><tr><th>Filtre</th><th>Aurait bloqué</th><th>dont objectif</th><th>dont stop</th><th>R évité</th><th>Sautés (API muette)</th><th>Verdict</th></tr>")

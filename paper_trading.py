@@ -67,10 +67,13 @@ PERTE_JOUR_MAX_PCT = 3.0      # stop trading si -3% en une journee (30 EUR sur 1
 CIRCUIT_BREAKER_CONSECUTIF = 3 # pause apres 3 pertes consecutives (plus de room)
 DRAWDOWN_REDUCTION_SEUIL = 0.97 # si capital < 97% du initial (-30EUR), reduit positions de 50%
 COMPOUND_AUTOMATIQUE = True
-HEURES_FAIBLE_LIQUIDITE = [(14, 15), (3, 4), (11, 12)]  # bloque 14h, 3h, 11h UTC (pires heures: -43EUR combine)
+# Heures : UNE seule source de verite = la porte d'entree (porte_entree.fenetre_interdite, PORTE_FENETRES_UTC, defaut 13h-15h)
+# + les regles mesurees du journal. Les anciennes listes (14h/3h/11h bloquees, bonus 12-13h et 16-17h) dataient d'un bilan
+# de 211 trades et se contredisaient (16-17h est la pire heure en triple barriere). Vides = aucun veto/bonus horaire ici.
+HEURES_FAIBLE_LIQUIDITE = []
 # DIVERSIFICATION TEMPORELLE: boost le score pendant les heures a fort volume
 # Ouverture Europe (8h-11h UTC) et ouverture US (13h-17h UTC) = plus de liquidité
-HEURES_FORT_VOLUME = [(7, 9), (12, 13), (16, 17), (18, 19), (20, 21), (22, 23)]  # UTC (meilleures heures: +43EUR combine)
+HEURES_FORT_VOLUME = []
 HEURES_FORT_BOOST = 1  # +1 au score pendant ces heures
 # Seuils pro: TP plus large pour laisser courir, SL serré pour couper vite
 # === STOP ADAPTE A LA VOLATILITE + RISQUE FIXE (decision user 16/10) ===
@@ -1019,16 +1022,22 @@ def ouvrir_position(pf, signal, prix_actuel):
             return False
     else:
         print(f"  [REGISTRE] {signal.get('nom', signal.get('symbole','?'))}: strategie '{_strat_signal}' autorisee a ouvrir (droit accorde)")
-    # BLACKLIST CRYPTOS PERDANTES (basee sur 211 trades historiques)
-    _cryptos_perdantes = {"LDOUSDT", "ADAUSDT", "DOTUSDT", "PEPEUSDT", "AVAXUSDT", "BNBUSDT"}
-    _sym_signal = signal.get("symbole", "").upper()
-    if _sym_signal in _cryptos_perdantes:
-        print(f"  [BLACKLIST] {_sym_signal}: crypto perdante historiquement -> bloquee")
-        return False
-    # BLOCAGE LUNDI (60 trades, -31.86EUR historique = la moitie des pertes)
-    if datetime.now().weekday() == 0:
-        print(f"  [BLACKLIST] Lundi: jour le plus perdant (-31.86EUR historique) -> skip")
-        return False
+    # CASIER MESURE (remplace les listes noires fixes LDO/ADA/DOT/PEPE/AVAX/BNB et "lundi interdit" de septembre) :
+    # une crypto ou un jour n'est interdit que s'il est perdant AVEC CONFIANCE (>= 15 trades, borne haute 90 % < 0),
+    # et il ressort du casier des que ce n'est plus le cas. Voir `python3 registre_strategies.py casier`.
+    try:
+        import registre_strategies as _rs_casier
+        _sym_signal = signal.get("symbole", "").upper()
+        _ban, _why = _rs_casier.crypto_interdite(_sym_signal)
+        if _ban:
+            print(f"  [CASIER] {_sym_signal}: crypto perdante avec confiance -> bloquee ({_why})")
+            return False
+        _ban, _why = _rs_casier.jour_interdit()
+        if _ban:
+            print(f"  [CASIER] jour perdant avec confiance -> skip ({_why})")
+            return False
+    except Exception as _e:
+        print(f"  [CASIER] indisponible ({_e}) -> pas de blocage")
     # MULTI-ENTREES: autorise plusieurs positions sur le meme actif SI en hausse
     # Si la position existante est en perte, on bloque (on n'average pas down)
     # Si la position existante est en gain, on autorise (on pyramide sur la hausse)
@@ -1436,7 +1445,7 @@ def ouvrir_position(pf, signal, prix_actuel):
         _heure_utc = datetime.now(timezone.utc).hour
         _jour = datetime.now(timezone.utc).weekday()  # 0=Lundi, 6=Dimanche
         _est_weekend = _jour >= 5  # Samedi=5, Dimanche=6
-        _est_heure_faible = True
+        _est_heure_faible = bool(HEURES_FORT_VOLUME)   # sans table horaire, aucune heure n'est "creuse"
         for _h_deb, _h_fin in HEURES_FORT_VOLUME:
             if _h_deb <= _heure_utc < _h_fin:
                 _est_heure_faible = False
@@ -2545,12 +2554,15 @@ def tick():
     if len(sl_derniere_heure) >= 3:
         print(f"  [RISK] ANTI-CASCADE: {len(sl_derniere_heure)} SL dans la derniere heure -> PAUSE 2h")
         return
-    # 3. Heures de faible liquidite
-    heure_utc = datetime.now(timezone.utc).hour
-    for h_debut, h_fin in HEURES_FAIBLE_LIQUIDITE:
-        if h_debut <= heure_utc < h_fin:
-            print(f"  [RISK] Heure de faible liquidite ({h_debut}h-{h_fin}h UTC) -> skip nouveaux trades")
+    # 3. Fenetres horaires interdites : source unique = porte d'entree (PORTE_FENETRES_UTC)
+    try:
+        import porte_entree as _pe_h
+        _b, _why = _pe_h.fenetre_interdite()
+        if _b:
+            print(f"  [RISK] fenetre interdite ({_why}) -> skip nouveaux trades")
             return
+    except Exception:
+        pass
     # 4. Limite trades par jour
     if len(trades_aujourdhui) >= MAX_TRADES_PAR_JOUR:
         print(f"  [RISK] Max {MAX_TRADES_PAR_JOUR} trades/jour atteint -> skip")

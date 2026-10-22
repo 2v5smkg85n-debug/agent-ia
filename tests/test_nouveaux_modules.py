@@ -146,3 +146,36 @@ def test_bilan_filtres_contrefactuel(tmp_path):
     assert b["filtres"]["flux"]["sautes"] == 1
     assert b["porte"]["ouverts"]["r"] == 2.0
     assert b["filtres"]["cusum"]["verdict"] == "trop peu de cas"
+
+
+def test_casier_mesure():
+    import registre_strategies as rs
+    rs._CASIER["t"] = 0
+    tr = [{"symbole": "LDOUSDT", "gain_eur": -1.0, "date_ouverture": "2026-10-20 10:00"}] * 16 \
+       + [{"symbole": "BTCUSDT", "gain_eur": 0.5, "date_ouverture": "2026-10-21 10:00"}] * 16
+    k = rs.casier(tr)
+    assert "LDOUSDT" in k["cryptos"] and "BTCUSDT" not in k["cryptos"]
+    assert 1 in k["jours"] and 2 not in k["jours"]          # mardi perdant, mercredi non
+    # trop peu de trades -> pas de verdict
+    rs._CASIER["t"] = 0
+    assert rs.casier([{"symbole": "X", "gain_eur": -1.0, "date_ouverture": "2026-10-20 10:00"}] * 5)["cryptos"] == {}
+
+
+def test_cadence_cooldown_et_plafond():
+    import porte_entree as pe
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    pf = {"positions": [], "trades_fermes": [{"symbole": "SOLUSDT", "date_ouverture": now.strftime("%Y-%m-%d %H:%M"),
+                                              "date_fermeture": (now - timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M"), "source": "x"}]}
+    assert pe.cadence(pf, "SOLUSDT")["ok"] is False
+    assert pe.cadence(pf, "BTCUSDT")["ok"] is True
+    pf["positions"] = [{"symbole": f"S{i}", "date_ouverture": now.strftime("%Y-%m-%d %H:%M")} for i in range(pe.MAX_OUVERTURES_JOUR)]
+    assert pe.cadence(pf, "BTCUSDT")["ok"] is False
+
+
+def test_palier_de_risque():
+    import stop_atr as sa
+    assert sa.risque_courant(trades=[], capital=1000) == sa.RISQUE_EUR
+    assert sa.risque_courant(trades=[{"gain_eur": 0.5}] * 40, capital=1000) == round(sa.RISQUE_EUR * 2, 2)
+    assert sa.risque_courant(trades=[{"gain_eur": 0.5}] * 70, capital=1000) == round(sa.RISQUE_EUR * 3, 2)
+    assert sa.risque_courant(trades=[{"gain_eur": 0.5}, {"gain_eur": -0.6}] * 35, capital=1000) == sa.RISQUE_EUR

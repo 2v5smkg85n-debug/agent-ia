@@ -78,6 +78,17 @@ def similaires(trades, sym, ctx, n=5, seuil=None, min_pertes=None):
             if gagnants:
                 top.remove(gagnants[-1])
             top.append(p)
+    # Symetrie (22/10) : garantir aussi AU MOINS UN GAGNANT similaire quand il en existe, pour que l'analyste raisonne
+    # par contraste (ce qui differenciait le gagnant du perdant) au lieu de ne voir que des pertes.
+    if scores and not any((t.get("gain") or 0) > 0 for t in top):
+        gagnant = next((t for _, t in scores if (t.get("gain") or 0) > 0 and t not in top), None)
+        if gagnant is not None:
+            pertes = [t for t in top if (t.get("gain") or 0) < 0]
+            if len(pertes) > min_pertes:
+                top.remove(pertes[-1])
+            elif len(top) >= n:
+                top.pop()
+            top.append(gagnant)
     sim_par_id = {id(t): s for s, t in scores}
     out = []
     for t in top:

@@ -357,7 +357,16 @@ def _enregistrer_trade_sous_agent(nom_sous_agent, gain, gagnant):
     _sauver_objectifs(obj)
 
 def _verifier_evolution():
-    """Verifie si l'IA doit evoluer et crée un sous-agent si necessaire."""
+    """Verifie si l'IA doit evoluer et crée un sous-agent si necessaire.
+    DESACTIVE le 22/10/2026 (carte blanche) : changer de strategie parce qu'un objectif x10/an n'est pas atteint,
+    c'est reproduire des erreurs au hasard. L'IA reste vivante ; ce sont le registre (statuts mesures), le journal
+    des erreurs et la porte auto-calibree qui font evoluer le bot, sur des faits. MODE_EVOLUTION=1 pour reactiver."""
+    try:
+        from config_env import lire as _lire_env
+        if _lire_env("MODE_EVOLUTION", "0") != "1":
+            return None
+    except Exception:
+        return None
     doit, raisons = _doit_evoluer()
     if not doit:
         return None

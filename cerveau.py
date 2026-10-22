@@ -21,6 +21,7 @@ Aucune nouvelle API: Gemini (cle existante) + Ollama local en secours.
 """
 import json
 import os
+import time
 import re
 import threading
 from datetime import datetime, timezone, timedelta
@@ -226,6 +227,37 @@ def dossier(sym, prix, rsi, pattern, reg):
 
 
 # ------------------------------------------------------------------ 1. preselection
+_FR = {"t": 0.0, "d": {}}
+
+
+def _force_relative(sym, jours=7):
+    """Variation 7 j de la crypto moins celle de BTC (points de %), sur bougies 4h. Cache 30 min."""
+    if sym == "BTCUSDT":
+        return 0.0
+    now = time.time()
+    if now - _FR["t"] > 1800:
+        _FR["t"], _FR["d"] = now, {}
+    if sym in _FR["d"]:
+        return _FR["d"][sym]
+    try:
+        import indicateurs as ind
+        n = jours * 6
+        def _var(s):
+            b = ind.historique_ohlcv(s, "4h", n + 1)
+            if not b or len(b) < n // 2:
+                return None
+            return (float(b[-1]["cloture"]) - float(b[0]["cloture"])) / float(b[0]["cloture"]) * 100
+        vb = _FR["d"].get("__btc__")
+        if vb is None:
+            vb = _var("BTCUSDT"); _FR["d"]["__btc__"] = vb
+        vs = _var(sym)
+        fr = round(vs - vb, 2) if (vs is not None and vb is not None) else None
+    except Exception:
+        fr = None
+    _FR["d"][sym] = fr
+    return fr
+
+
 def preselection(prix_data, rsi_data, patterns_data, positions, reg):
     """Score composite -> liste triee [(score, sym, details)]. Exclut ce que les regles bloquent."""
     try:
@@ -253,6 +285,15 @@ def preselection(prix_data, rsi_data, patterns_data, positions, reg):
         if reg.get("tendance_4h") == "baissiere": s -= 0.5; why.append("BTC 4h baissier")
         elif reg.get("tendance_4h") == "haussiere": s += 0.5
         if heure in getattr(je, "HEURES_PERDANTES", set()): s -= 2; why.append("heure perdante")
+        # Force relative 7 j par rapport a BTC : un TRI, pas un filtre (+1 si la crypto surperforme BTC, -1 si elle
+        # sous-performe nettement). A signal egal, on prefere ce qui est deja plus fort que le marche.
+        try:
+            fr = _force_relative(sym)
+            if fr is not None:
+                if fr > 2: s += 1; why.append(f"FR/BTC 7j {fr:+.1f}%")
+                elif fr < -5: s -= 1; why.append(f"FR/BTC 7j {fr:+.1f}%")
+        except Exception:
+            pass
         ctx = {"sym": sym, "heure": heure, "btc_var_1h": reg.get("var_1h"), "btc_var_bougie": reg.get("var_1h"), "rsi": rsi,
                "sl_recents_1h": je._stops_recents(60) if je else 0, "dist_haut_24h": None}
         if je:

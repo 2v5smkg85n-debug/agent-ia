@@ -38,6 +38,8 @@ CUSUM_SEUIL_PCT = float(os.getenv("CUSUM_SEUIL_PCT", "1.0"))        # seuil mini
 CUSUM_ATR_MULT = float(os.getenv("CUSUM_ATR_MULT", "2.0"))     # 2.5 -> 2.0 : un mouvement de 2 ATR est deja un evenement
 CUSUM_FENETRE_BARRES = int(os.getenv("CUSUM_FENETRE_BARRES", "8"))  # 4 -> 8 h : un repli puis un pattern de retournement prend souvent plus de 4 h
 SPREAD_MAX_PCT = float(os.getenv("SPREAD_MAX_PCT", "0.15"))
+COOLDOWN_H = float(os.getenv("PORTE_COOLDOWN_H", "2"))              # pas de reouverture sur la meme crypto pendant 2 h apres une fermeture (Freqtrade CooldownPeriod)
+MAX_OUVERTURES_JOUR = int(os.getenv("MAX_OUVERTURES_JOUR", "6"))     # plafond commun bot + IA (UTC)
 TP_RATIO_CF = float(os.getenv("TP_RATIO", "2.0"))                    # objectif = 2 x stop (meme regle que stop_atr) pour juger un trade bloque
 HEURES_CF = int(os.getenv("PORTE_HEURES_EVAL", "8"))                 # on juge un candidat 8 h apres (comme le cerveau)
 LOG_EVAL = os.path.join(DOSSIER, "porte_entree_eval.jsonl")
@@ -58,17 +60,18 @@ FENETRES = _fenetres()
 
 
 _NOM_FILTRE = {"FENETRES": "fenetres", "TENDANCE_LENTE": "tendance_lente", "CHALEUR": "chaleur", "REGIME": "regime",
-               "CUSUM": "cusum", "LIQUIDITE": "liquidite", "FLUX": "flux", "META": "meta"}
+               "CUSUM": "cusum", "LIQUIDITE": "liquidite", "FLUX": "flux", "META": "meta",
+               "CADENCE": "cadence", "CASIER": "casier"}
 _DESARMES = {"t": 0.0, "noms": set()}
 
 
 def filtres_desarmes():
     """PORTE_AUTO=1 : un filtre dont le bilan contrefactuel dit 'a revoir' (>= 10 cas bloques qui, rejoues 8 h apres,
     ont coute plus de R qu'ils n'en ont evite) ne bloque plus ; il reste juge et se rearme seul si son bilan redevient
-    positif. Meme logique que le veto auto-calibre du critique. Defaut : PORTE_AUTO=0 (rien ne change)."""
+    positif. Meme logique que le veto auto-calibre du critique. Defaut : PORTE_AUTO=1 depuis le 22/10 (PORTE_AUTO=0 pour revenir aux filtres toujours armes)."""
     try:
         from config_env import lire
-        if lire("PORTE_AUTO", "0") != "1":
+        if lire("PORTE_AUTO", "1") != "1":
             return set()
     except Exception:
         return set()
@@ -299,6 +302,25 @@ def verifier(sym, prix, ctx, pf, montant, sl_pct=None, strategie=None, risque_no
                 bloque = f"risque total ouvert {ch['risque_ouvert']:.2f} + {risque_nouveau:.2f} > {RISQUE_TOTAL_MAX:.2f} EUR"
     except Exception:
         verdicts["chaleur"] = None
+    # 3b. cadence (refroidissement par crypto + plafond du jour, commun bot/IA)
+    try:
+        cad = cadence(pf, sym)
+        infos["cadence"] = {"depuis_h": cad.get("depuis_h"), "n_jour": cad.get("n_jour")}
+        verdicts["cadence"] = bool(cad["ok"])
+        if not cad["ok"] and not bloque and _actif("CADENCE"):
+            bloque = cad["raison"]
+    except Exception:
+        verdicts["cadence"] = None
+    # 3c. casier mesure (cryptos / jours perdants avec confiance, revise automatiquement)
+    try:
+        import registre_strategies as _rs
+        ban_c, why_c = _rs.crypto_interdite(sym)
+        ban_j, why_j = _rs.jour_interdit()
+        verdicts["casier"] = not (ban_c or ban_j)
+        if (ban_c or ban_j) and not bloque and _actif("CASIER"):
+            bloque = f"casier: {why_c or why_j}"
+    except Exception:
+        verdicts["casier"] = None
     # 4. regime
     reg = regime_actuel("BTCUSDT")
     infos["regime"] = reg
@@ -488,6 +510,33 @@ def bilan_filtres():
         st["r_evite"] = round(-b["r"], 2)
         st["verdict"] = ("trop peu de cas" if nb < 10 else "utile" if st["r_evite"] > 0 else "a revoir")
     return out
+
+
+def cadence(pf, sym):
+    """Refroidissement par crypto (COOLDOWN_H apres la derniere fermeture) + plafond d'ouvertures du jour, commun a
+    tous les chemins (bot et IA). Dates du portefeuille en heure locale du VPS (UTC)."""
+    now = datetime.now()
+    s = str(sym or "").upper()
+    derniere, n_jour = None, 0
+    for t in (pf or {}).get("trades_fermes", []) or []:
+        try:
+            if str(t.get("symbole", "")).upper() == s:
+                dt = datetime.strptime(str(t.get("date_fermeture", ""))[:16], "%Y-%m-%d %H:%M")
+                if derniere is None or dt > derniere:
+                    derniere = dt
+            if str(t.get("date_ouverture", ""))[:10] == now.strftime("%Y-%m-%d") and "_PARTIAL" not in str(t.get("source", "")):
+                n_jour += 1
+        except Exception:
+            continue
+    for p in (pf or {}).get("positions", []) or []:
+        if str(p.get("date_ouverture", ""))[:10] == now.strftime("%Y-%m-%d"):
+            n_jour += 1
+    depuis_h = round((now - derniere).total_seconds() / 3600, 2) if derniere else None
+    if depuis_h is not None and depuis_h < COOLDOWN_H:
+        return {"ok": False, "raison": f"refroidissement {s}: fermee il y a {depuis_h} h (< {COOLDOWN_H:g} h)", "depuis_h": depuis_h, "n_jour": n_jour}
+    if n_jour >= MAX_OUVERTURES_JOUR:
+        return {"ok": False, "raison": f"deja {n_jour} ouvertures aujourd'hui (max {MAX_OUVERTURES_JOUR})", "depuis_h": depuis_h, "n_jour": n_jour}
+    return {"ok": True, "raison": "", "depuis_h": depuis_h, "n_jour": n_jour}
 
 
 def blocage_global(pf, risque_nouveau=1.0):
