@@ -28,6 +28,17 @@ FRAIS_AR_PCT = 0.2  # frais aller-retour paper (0.1% x 2) deja inclus dans gain_
 
 # Qui a le droit d'ouvrir des positions aujourd'hui (decision user: IA seulement)
 DROIT_OUVERTURE = {"ia_autonome", "ouverture_ia_chat", "manuel", "ia_chat"}   # droits de base (jamais retires)
+# Strategies VEHICULES : "ia_autonome" n'est pas une regle fixe, c'est le canal par lequel le cerveau (presel. -> analyste
+# -> critique -> porte) ouvre. Ses regles ont change le 16, 19 et 22/10. La retirer sur le net a vie = plus aucune
+# ouverture ET plus aucun trade pour la rejuger : impasse (constatee le 22/10 au soir). Elle est jugee sur l'EPOQUE
+# courante (depuis REGISTRE_EPOQUE) et, au pire, passe en probation (1 position, demi-taille), jamais "retiree".
+VEHICULES = {"ia_autonome", "ouverture_ia_chat", "ia_chat"}
+def _epoque():
+    try:
+        from config_env import lire
+        return str(lire("REGISTRE_EPOQUE", "2026-10-19"))
+    except Exception:
+        return "2026-10-19"
 ARCHIVE_FILE = os.path.join(DOSSIER, "trades_archive.json")
 
 
@@ -240,8 +251,38 @@ def calculer(trades):
             s["dernier"] = max(s["dernier"], d) if s["dernier"] else d
             if d >= seuil_30j:
                 s["n_30j"] += 1; s["net_30j"] += gain
+    # stats de l'epoque courante (depuis REGISTRE_EPOQUE) pour les vehicules du cerveau
+    ep = _epoque()
+    for t in trades:
+        if "_PARTIAL" in str(t.get("source", "")):
+            continue
+        k = _nom_strat(t)
+        if k not in stats:
+            continue
+        d_ = str(t.get("date_fermeture") or t.get("date_ouverture") or "")[:10]
+        if d_ and d_ >= ep:
+            e = stats[k].setdefault("epoque", {"depuis": ep, "n": 0, "g": 0, "net": 0.0, "brut_gains": 0.0, "brut_pertes": 0.0})
+            try:
+                g_ = float(t.get("gain_eur", 0) or 0)
+            except Exception:
+                g_ = 0.0
+            e["n"] += 1; e["net"] = round(e["net"] + g_, 2)
+            if g_ > 0: e["g"] += 1; e["brut_gains"] += g_
+            else: e["brut_pertes"] += g_
     for k, s in stats.items():
         s.pop("_serie", None)
+        if s.get("epoque"):
+            e = s["epoque"]
+            e["wr"] = round(100 * e["g"] / e["n"], 1) if e["n"] else 0.0
+            try:
+                import validation_stats as vs
+                post = vs.beta_posterior(e["g"], e["n"])
+                e["wr_ic_bas"], e["wr_ic_haut"] = post["ic_bas"], post["ic_haut"]
+                gm = e["brut_gains"] / e["g"] if e["g"] else 0.0
+                pm = e["brut_pertes"] / (e["n"] - e["g"]) if e["n"] - e["g"] else 0.0
+                e["point_mort"] = vs.point_mort(round(gm, 2), round(pm, 2))
+            except Exception:
+                pass
         s["wr"] = round(100 * s["g"] / s["n"], 1) if s["n"] else 0.0
         s["esperance"] = round(s["net"] / s["n"], 3) if s["n"] else 0.0   # EUR par trade, frais inclus
         s["gain_moyen"] = round(s["brut_gains"] / s["g"], 2) if s["g"] else 0.0
@@ -262,7 +303,21 @@ def calculer(trades):
         except Exception:
             s.pop("_gains", None)
         s["statut_auto"] = _statut_auto(s)
+        if k in VEHICULES:
+            s["statut_auto"] = _statut_vehicule(s)
     return stats
+
+
+def _statut_vehicule(s):
+    """Vehicule du cerveau : juge sur l'epoque courante. active par defaut ; probation (1 position, demi-taille) seulement
+    si l'epoque compte >= 30 trades perdants avec confiance (haut de l'intervalle 90 % du WR sous le point mort et net < 0).
+    Jamais 'retiree' : le cerveau doit pouvoir continuer a produire des trades pour etre rejuge."""
+    e = s.get("epoque") or {}
+    n, net = e.get("n", 0), e.get("net", 0.0)
+    ic_haut, pmort = e.get("wr_ic_haut"), e.get("point_mort")
+    if n >= 30 and net < 0 and ic_haut is not None and pmort is not None and ic_haut < pmort:
+        return "probation"
+    return "active"
 
 
 def mettre_a_jour(trades=None, verbose=False):
@@ -362,6 +417,9 @@ def rapport():
         tag = " [FORCE]" if s.get("force") else ""
         ouvre = "ouvre" if s.get("droit_ouverture") else "n'ouvre pas"
         lignes.append(f"{s['statut'].upper():9s}{tag} {k:22s} {s['n']:4d} trades | WR {s['wr']:5.1f}% | net {s['net']:+7.2f} | /trade {s['esperance']:+.2f} | stops {s['taux_stops']}% | 30j {s['net_30j']:+.1f} | {ouvre}")
+        if k in VEHICULES and s.get("epoque"):
+            e = s["epoque"]
+            lignes.append(f"          epoque depuis {e.get('depuis')}: {e.get('n', 0)} trades | WR {e.get('wr', 0):.0f}% [{e.get('wr_ic_bas', '?')}-{e.get('wr_ic_haut', '?')}] | point mort {e.get('point_mort', '?')}% | net {e.get('net', 0):+.2f} (vehicule du cerveau: jamais retiree, probation si perdante avec confiance sur >= 30 trades)")
         if s.get("recommandation"):
             lignes.append(f"          -> {s['recommandation']}")
     if d.get("historique_statuts"):

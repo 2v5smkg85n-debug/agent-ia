@@ -321,8 +321,14 @@ def _bucket(c):
     return "90+" if c >= 90 else "80-89" if c >= 80 else "70-79" if c >= 70 else "60-69" if c >= 60 else "<60"
 
 
+# Barre de reussite pour qu'une tranche de confiance soit jugee "bonne". Avec un objectif 2:1, le point mort est 33 %
+# hors frais et ~40 % frais compris (TP 2 %, SL 1 %, 0,2 % aller-retour) : 45 % laisse une marge. L'ancienne barre
+# (55 %) exigeait un taux de reussite de strategie 1:1 et poussait le seuil a 70 alors que la tranche 60-69 etait rentable.
+BARRE_REUSSITE = 45.0
+
+
 def seuil_adaptatif(d=None):
-    """Seuil = plus petit niveau de confiance ou le cerveau a >= 55% de reussite (>= 8 cas). Min 55, max 90."""
+    """Seuil = plus petit niveau de confiance ou le cerveau a >= BARRE_REUSSITE % de reussite (>= 8 cas). Min 55, max 90."""
     d = d or _charger()
     cal = d.get("calibration", {})
     seuil = SEUIL_CONFIANCE_BASE
@@ -330,14 +336,14 @@ def seuil_adaptatif(d=None):
     # Si meme les propositions < 60 reussissent (>= 8 cas, >= 60 %), le seuil peut descendre a 55
     st0 = cal.get("<60", {})
     n0 = st0.get("tp", 0) + st0.get("sl", 0)
-    if n0 >= 8 and st0["tp"] / n0 >= 0.60:
+    if n0 >= 8 and st0["tp"] / n0 * 100 >= BARRE_REUSSITE + 5:
         return 55
     for i, b in enumerate(ordre):
         st = cal.get(b, {})
         n = st.get("tp", 0) + st.get("sl", 0)
         if n >= 8:
             wr = st["tp"] / n * 100
-            if wr >= 55:
+            if wr >= BARRE_REUSSITE:
                 seuil = [60, 70, 80, 90][i]; break
             else:
                 seuil = max(seuil, [70, 80, 90, 90][i])

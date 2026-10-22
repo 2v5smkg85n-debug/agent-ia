@@ -1993,7 +1993,7 @@ def verifier_sorties(pf, prix_actuels):
                 print(f"  [LIVE] {sym}: {_raison}")
             elif _action == "TIGHTEN_SL":
                 # Serrer le SL au breakeven ou plus proche du prix actuel
-                _new_sl_pct = max(0.3, variation - 0.5)
+                _new_sl_pct = max(0.3, variation - (0.25 * float(pos["sl_risque"]) if pos.get("sl_risque") else 0.5))
                 _new_sl_price = prix_actuel * (1 - _new_sl_pct / 100.0)
                 if _new_sl_price > _sl_price:
                     _sl_price = _new_sl_price
@@ -2009,8 +2009,10 @@ def verifier_sorties(pf, prix_actuels):
         if prix_actuel <= _sl_price:
             positions_a_fermer.append((pos, prix_actuel, f"STOP-SUIVEUR (pic {_var_pic:+.1f}%, ferme a {variation:+.1f}%)", variation))
             continue
-        # SORTIE PATTERN BOUGIE: ferme si un pattern baissier fort est detecte (en profit >= 0.8%)
-        if variation > 0.8:
+        # SORTIE PATTERN BOUGIE: ferme si un pattern baissier fort est detecte, mais seulement a partir de 75 % de
+        # l'objectif de la position (avant : 0,8 % en dur -> coupait les gagnants a +1 % alors que l'objectif est 2:1)
+        _seuil_pattern = 0.75 * float(pos["tp_risque"]) if pos.get("tp_risque") else 0.8
+        if variation > _seuil_pattern:
             try:
                 from indicateurs import detecter_patterns_bougies, historique_ohlcv
                 _bougies_pos = historique_ohlcv(sym, "1h", 10)

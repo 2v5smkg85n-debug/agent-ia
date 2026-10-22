@@ -87,6 +87,19 @@ def analyser_position_live(position, prix_actuel):
     sym = position["symbole"]
     prix_entree = position.get("prix_entree", prix_actuel)
     variation = ((prix_actuel - prix_entree) / prix_entree) * 100 if prix_entree > 0 else 0
+    # 23/10/2026 : les seuils etaient en dur (+1.0 %, +1.5 %, -1.5 %) et dataient de l'epoque TP 0,9 % / SL 0,5 %.
+    # Avec le stop ATR (1-2 %) et l'objectif 2:1 (2-4 %), ils coupaient les gagnants a +1 % et les perdants a -1,5 %
+    # (18 trades du 19 au 22/10 : gains +0,2..+0,6 EUR, pertes -0,3..-0,9 EUR). Tout est maintenant relatif a la
+    # position : objectif tp, stop sl. Une position sans stop ATR garde l'ancien comportement.
+    _tp = float(position.get("tp_risque") or 0) or None
+    _sl = float(position.get("sl_risque") or 0) or None
+    _stop_atr = bool(_tp and _sl)
+    seuil_encaisse = (0.75 * _tp) if _stop_atr else 1.0        # ne pas encaisser avant 75 % de l'objectif
+    seuil_partiel = (0.75 * _tp) if _stop_atr else 2.0
+    seuil_resistance = (0.75 * _tp) if _stop_atr else 1.5
+    seuil_serrer = (0.75 * _tp) if _stop_atr else 1.5
+    seuil_breakeven = (1.5 * _tp) if _stop_atr else 3.0
+    marge_serrage = (0.25 * _sl) if _stop_atr else 0.5
 
     indic = _get_indicateurs(sym)
     if not indic:
@@ -119,33 +132,37 @@ def analyser_position_live(position, prix_actuel):
     # POSITION EN PROFIT
     if variation > 0:
         # Momentum inversé + profit → fermer (ne pas laisser le gain fondre)
-        if momentum_negatif and variation >= 1.0:
-            return ("FERMER", f"Momentum inversé (MACD<signal) en profit +{variation:.1f}% → encaisser")
+        if momentum_negatif and variation >= seuil_encaisse:
+            return ("FERMER", f"Momentum inversé (MACD<signal) en profit +{variation:.1f}% (>= 75 % de l'objectif) → encaisser")
 
         # RSI surachat + profit significatif → prendre profit partiel
-        if rsi_surachat and variation >= 2.0 and not position.get("partiellement_clote"):
+        if rsi_surachat and variation >= seuil_partiel and not position.get("partiellement_clote"):
             return ("PARTIAL_TP", f"RSI surachat ({rsi_val:.0f}) + profit +{variation:.1f}% → encaisser 50%")
 
         # Proche résistance + profit → fermer (risque de rebond baissier)
-        if proche_resistance and variation >= 1.5:
+        if proche_resistance and variation >= seuil_resistance:
             return ("FERMER", f"Proche résistance ({resistance:.2f}) + profit +{variation:.1f}% → encaisser")
 
         # Volume qui s'effondre + profit → serrer le SL (le move perd de la force)
-        if vol_faible and variation >= 1.5:
-            return ("TIGHTEN_SL", f"Volume faible ({vol_actuel:.0f} vs {vol_moyen:.0f}) → SL serré à {max(variation - 0.5, 0.3):.1f}%")
+        if vol_faible and variation >= seuil_serrer:
+            return ("TIGHTEN_SL", f"Volume faible ({vol_actuel:.0f} vs {vol_moyen:.0f}) → SL serré à {max(variation - marge_serrage, 0.3):.1f}%")
 
         # Tendance toujours haussière + profit modéré → HOLD (laisser courir)
         if tendance_haussiere and momentum_positif and variation < 5.0:
             return ("HOLD", f"Tendance haussière confirmée (SMA20>SMA50) → laisser courir +{variation:.1f}%")
 
         # Profit important sans momentum → serrer le SL au breakeven
-        if variation >= 3.0 and not momentum_positif:
+        if variation >= seuil_breakeven and not momentum_positif:
             return ("TIGHTEN_SL", f"Profit +{variation:.1f}% sans momentum → SL au breakeven")
 
         return ("HOLD", f"Profit +{variation:.1f}%, conditions neutres")
 
     # POSITION EN PERTE
     else:
+        # Position avec stop ATR : le stop EST le point d'invalidation calcule a l'ouverture (1,2-2 x ATR, borne).
+        # Couper avant sur un MACD 1h, c'est transformer des reprises en pertes ; on laisse le stop faire foi.
+        if _stop_atr:
+            return ("HOLD", f"Perte {variation:.1f}% : le stop ATR ({_sl:.2f}%) fait foi, pas de coupe anticipee")
         # Momentum inversé + perte → fermer (ne pas attendre le SL)
         if momentum_negatif and variation <= -1.5:
             return ("FERMER", f"Momentum inversé (MACD<signal) en perte {variation:.1f}% → couper avant SL")

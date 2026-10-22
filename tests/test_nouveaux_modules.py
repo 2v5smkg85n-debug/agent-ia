@@ -179,3 +179,35 @@ def test_palier_de_risque():
     assert sa.risque_courant(trades=[{"gain_eur": 0.5}] * 40, capital=1000) == round(sa.RISQUE_EUR * 2, 2)
     assert sa.risque_courant(trades=[{"gain_eur": 0.5}] * 70, capital=1000) == round(sa.RISQUE_EUR * 3, 2)
     assert sa.risque_courant(trades=[{"gain_eur": 0.5}, {"gain_eur": -0.6}] * 35, capital=1000) == sa.RISQUE_EUR
+
+
+def test_vehicule_jamais_retiree():
+    import registre_strategies as rs
+    tr = [{"strategie": "ia_autonome", "symbole": "X", "gain_eur": 0.3, "date_fermeture": "2026-10-01 10:00", "raison": "TP"}] * 40 \
+       + [{"strategie": "ia_autonome", "symbole": "X", "gain_eur": -0.7, "date_fermeture": "2026-10-02 10:00", "raison": "SL"}] * 14 \
+       + [{"strategie": "ia_autonome", "symbole": "X", "gain_eur": -0.56, "date_fermeture": "2026-10-22 10:00", "raison": "LIVE-EXIT"}] * 11 \
+       + [{"strategie": "ia_autonome", "symbole": "X", "gain_eur": 0.4, "date_fermeture": "2026-10-21 10:00", "raison": "TP"}] * 7
+    s = rs.calculer(tr)["ia_autonome"]
+    assert s["net"] < 0 and s["statut_auto"] == "active"          # net a vie negatif mais vehicule : reste active
+    assert s["epoque"]["n"] == 18
+    tr2 = tr[:54] + [{"strategie": "ia_autonome", "symbole": "X", "gain_eur": -0.6, "date_fermeture": "2026-10-22 10:00", "raison": "SL"}] * 25 \
+        + [{"strategie": "ia_autonome", "symbole": "X", "gain_eur": 0.4, "date_fermeture": "2026-10-22 10:00", "raison": "TP"}] * 5
+    assert rs.calculer(tr2)["ia_autonome"]["statut_auto"] == "probation"   # jamais retiree
+
+
+def test_sorties_live_relatives_a_l_objectif(monkeypatch):
+    import gestion_position_live as gl
+    # indicateurs simules : momentum negatif, rien d'autre
+    fake = {"macd_line": -1.0, "signal_line": 0.0, "macd_histo": -1.0, "rsi": 50.0, "sma20": 1.0, "sma50": 2.0,
+            "support": None, "resistance": None, "vol_actuel": 100.0, "vol_moyen": 100.0}
+    monkeypatch.setattr(gl, "_get_indicateurs", lambda sym: fake)
+    pos = {"symbole": "ETHUSDT", "prix_entree": 100.0, "sl_risque": 1.2, "tp_risque": 2.4}
+    a, _ = gl.analyser_position_live(pos, 101.0)        # +1.0 % : avant = FERMER ; maintenant < 75 % de 2.4 -> on laisse courir
+    assert a != "FERMER"
+    a, r = gl.analyser_position_live(pos, 101.9)        # +1.9 % >= 75 % de l'objectif + momentum inverse -> encaisser
+    assert a == "FERMER"
+    a, r = gl.analyser_position_live(pos, 98.5)         # -1.5 % : avant = FERMER ; le stop ATR fait foi
+    assert a == "HOLD" and "stop ATR" in r
+    ancien = {"symbole": "ETHUSDT", "prix_entree": 100.0}          # position sans stop ATR : ancien comportement
+    a, _ = gl.analyser_position_live(ancien, 101.0)
+    assert a == "FERMER"
