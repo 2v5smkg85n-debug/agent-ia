@@ -2394,6 +2394,15 @@ MEMOIRE D'APPRENTISSAGE (apprends de tes trades passes):
         print(f"  [PROF] {len(_signaux_prof)} signaux professeurs transmis a l'IA: {', '.join(sp['sym']+'('+str(sp['score'])+')' for sp in _signaux_prof)}")
     else:
         print(f"  [PROF] Aucun signal professeur positif trouve")
+    # === PROFESSEURS EXTERNES (NASOS, E0V1E, NFI) : votes journalises + fiabilite mesuree, aucun droit d'ouvrir ===
+    try:
+        import professeurs_externes as _pex
+        _txt_pex = _pex.contexte_pour_cerveau(list(prix_data.keys()), prix_data)
+        if _txt_pex:
+            _prof_str += "\n" + _txt_pex
+            print(f"  [PROF-EXT] contexte transmis ({len(_txt_pex)} car.)")
+    except Exception as _e:
+        print(f"  [PROF-EXT] indisponible: {_e}")
     # === MEMOIRE DES ERREURS + REGISTRE (le cerveau se souvient) ===
     _memoire_erreurs = ""
     try:

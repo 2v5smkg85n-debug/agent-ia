@@ -211,3 +211,32 @@ def test_sorties_live_relatives_a_l_objectif(monkeypatch):
     ancien = {"symbole": "ETHUSDT", "prix_entree": 100.0}          # position sans stop ATR : ancien comportement
     a, _ = gl.analyser_position_live(ancien, 101.0)
     assert a == "FERMER"
+
+
+def test_professeurs_externes_indicateurs_et_votes(tmp_path, monkeypatch):
+    import professeurs_externes as pe
+    # indicateurs : RSI de Wilder et EMA sur une serie connue
+    c = [float(x) for x in range(1, 40)]           # hausse continue -> RSI 100
+    assert round(pe._rsi(c, 14)[-1], 6) == 100.0
+    assert abs(pe._ema(c, 5)[-1] - 37.0) < 0.01     # EMA d'une droite converge vers x - (n-1)/2
+    assert pe._cti(c, 20)[-1] > 0.999               # correlation prix/temps parfaite
+    assert pe._aroon_up(c, 14)[-1] == 100.0
+    # serie synthetique : prix stable puis chute brutale de 4 % en tendance de fond haussiere -> NASOS (ewo1) doit voter
+    import math
+    b = []
+    p = 100.0
+    for i in range(420):
+        if i < 300: p = 60 + i * 0.15                # tendance de fond haussiere (EMA50 >> EMA200)
+        elif i < 410: p = p * 0.9995
+        else: p = p * 0.99                            # chute rapide des 10 dernieres bougies
+        b.append({"ouverture": p, "haut": p * 1.001, "bas": p * 0.999, "cloture": p, "volume": 10.0, "temps": i})
+    votes, ind, prot, motif = pe._votes_5m(b)
+    assert ind["rsi4"] < 35 and any(v[0] == "NASOS" for v in votes), (votes, ind)
+    # journal : fichier isole, fiabilite nulle -> aucun bonus de preselection
+    monkeypatch.setattr(pe, "FICHIER", str(tmp_path / "pex.json"))
+    d = pe._charger()
+    assert pe.fiabilite("NASOS", d) == (0, None, False)
+    d["stats"]["NASOS"].update({"n": 25, "tp": 12, "sl": 10, "neutre": 3})
+    assert pe.fiabilite("NASOS", d)[2] is True       # 12/22 = 55 % >= 45 % sur >= 20 tranches
+    d["stats"]["E0V1E"].update({"n": 25, "tp": 8, "sl": 14, "neutre": 3})
+    assert pe.fiabilite("E0V1E", d)[2] is False      # 36 % < 45 %

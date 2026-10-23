@@ -294,6 +294,15 @@ def preselection(prix_data, rsi_data, patterns_data, positions, reg):
                 elif fr < -5: s -= 1; why.append(f"FR/BTC 7j {fr:+.1f}%")
         except Exception:
             pass
+        # Professeurs externes (NASOS, E0V1E, NFI) : +0,5 par professeur FIABLE chez nous (>= 20 votes tranches,
+        # >= 45 % d'objectifs) qui vote pour cette crypto. Avant d'etre fiable, un professeur est seulement lu par l'analyste.
+        try:
+            import professeurs_externes as _pex
+            b, who = _pex.bonus_preselection(sym)
+            if b:
+                s += b; why.append("professeurs " + ",".join(who))
+        except Exception:
+            pass
         ctx = {"sym": sym, "heure": heure, "btc_var_1h": reg.get("var_1h"), "btc_var_bougie": reg.get("var_1h"), "rsi": rsi,
                "sl_recents_1h": je._stops_recents(60) if je else 0, "dist_haut_24h": None}
         if je:

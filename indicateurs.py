@@ -264,6 +264,12 @@ def _historique_kucoin(symbole, intervalle, limite):
         _sym = symbole.replace("USDT", "-USDT")
         url = (f"https://api.kucoin.com/api/v1/market/candles?"
                f"type={_ku_interval}&symbol={_sym}")
+        # Sans startAt, KuCoin ne renvoie que 100 bougies : on precise la fenetre quand on en veut plus (max 1500)
+        if limite and limite > 100:
+            import time as _t
+            _sec = {"5min": 300, "15min": 900, "1hour": 3600, "4hour": 14400, "1day": 86400}.get(_ku_interval, 3600)
+            _fin = int(_t.time())
+            url += f"&startAt={_fin - min(int(limite), 1500) * _sec}&endAt={_fin}"
         r = requests.get(url, timeout=15)
         if r.status_code != 200:
             return []

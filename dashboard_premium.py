@@ -1242,6 +1242,13 @@ def build_cerveau_page():
 </div>"""
 
     n_att = len(jr.get("a_verifier", []))
+    # --- Professeurs externes (NASOS, E0V1E, NFI) : votes et fiabilite mesuree, aucun droit d'ouvrir ---
+    pex_html = ""
+    try:
+        import professeurs_externes as _pex
+        pex_html = f'<pre style="font-size:11px;line-height:1.5;white-space:pre-wrap;color:#c9d1d9;margin:0">{html.escape(_pex.rapport())}</pre>'
+    except Exception as _e:
+        pex_html = f'<div class="lr-muted">indisponible: {html.escape(str(_e))}</div>'
     # --- Decisions du cerveau (analyste + avocat du diable) et calibration ---
     cerveau_html, calib_html, cerveau_titre = "", "", ""
     try:
@@ -1318,6 +1325,12 @@ body {{ background:#0d1117; color:#e6edf3; font-family:-apple-system,BlinkMacSys
   <div class="note" style="margin-bottom:6px">Preselection chiffree → analyste (checklist 6 points, confiance) → avocat du diable (2e modele) → porte. Chaque decision est reevaluee 4h apres sur les bougies. {cerveau_titre}</div>
   {calib_html if calib_html else '<div class="lr-muted">Calibration: pas encore de decision evaluee</div>'}
   {cerveau_html if cerveau_html else '<div class="lr-muted">Aucune decision journalisee</div>'}
+</div>
+
+<div class="section">
+  <h2>🎓 Professeurs externes</h2>
+  <div class="note" style="margin-bottom:6px">NASOS, E0V1E et NFI : trois strategies open source parmi les mieux classees 2022-2025 (Freqle), portees en Python pur. Elles votent dans le dossier de l'analyste, n'ouvrent rien, et chaque vote est juge par la barriere du bot (stop 2xATR, objectif 2:1, 24h). Elles gagnent une influence sur la preselection seulement a partir de 20 votes tranches et 45 % d'objectifs. PROFESSEURS_EXTERNES=0 pour couper.</div>
+  {pex_html}
 </div>
 
 <div class="section">
