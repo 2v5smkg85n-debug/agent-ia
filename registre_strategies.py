@@ -33,6 +33,28 @@ DROIT_OUVERTURE = {"ia_autonome", "ouverture_ia_chat", "manuel", "ia_chat"}   # 
 # ouverture ET plus aucun trade pour la rejuger : impasse (constatee le 22/10 au soir). Elle est jugee sur l'EPOQUE
 # courante (depuis REGISTRE_EPOQUE) et, au pire, passe en probation (1 position, demi-taille), jamais "retiree".
 VEHICULES = {"ia_autonome", "ouverture_ia_chat", "ia_chat"}
+# Strategies REMISES EN SERVICE (26/10) : l'historique les a vues gagner (peak_fader = consensus_reversion +15,48 EUR
+# en sept., pattern_reversal +20,22 EUR sur 43 trades, volume_spike 3/3) puis perdre sous d'autres reglages (sorties
+# cassees, positions a 300 EUR). Elles repartent en PROBATION (1 position, risque du palier) et sont jugees sur leurs
+# trades depuis la date de reprise, pas sur le passe : 30 trades, puis les regles normales s'appliquent a cette epoque.
+# Modifiable sans code : REGISTRE_REPRISES="consensus_reversion:2026-10-26,pattern_reversal:2026-10-26" dans .env.
+def _reprises():
+    brut = None
+    try:
+        from config_env import lire
+        brut = lire("REGISTRE_REPRISES", None)
+    except Exception:
+        brut = os.environ.get("REGISTRE_REPRISES")
+    if brut is None:
+        brut = "consensus_reversion:2026-10-26,pattern_reversal:2026-10-26,volume_spike:2026-10-26"
+    out = {}
+    for part in str(brut).split(","):
+        part = part.strip()
+        if not part:
+            continue
+        nom, _, date = part.partition(":")
+        out[nom.strip()] = (date.strip() or "2026-10-26")
+    return out
 def _epoque():
     try:
         from config_env import lire
@@ -253,6 +275,7 @@ def calculer(trades):
                 s["n_30j"] += 1; s["net_30j"] += gain
     # stats de l'epoque courante (depuis REGISTRE_EPOQUE) pour les vehicules du cerveau
     ep = _epoque()
+    reprises = _reprises()
     for t in trades:
         if "_PARTIAL" in str(t.get("source", "")):
             continue
@@ -260,8 +283,9 @@ def calculer(trades):
         if k not in stats:
             continue
         d_ = str(t.get("date_fermeture") or t.get("date_ouverture") or "")[:10]
-        if d_ and d_ >= ep:
-            e = stats[k].setdefault("epoque", {"depuis": ep, "n": 0, "g": 0, "net": 0.0, "brut_gains": 0.0, "brut_pertes": 0.0})
+        ep_k = reprises.get(k, ep)
+        if d_ and d_ >= ep_k:
+            e = stats[k].setdefault("epoque", {"depuis": ep_k, "n": 0, "g": 0, "net": 0.0, "brut_gains": 0.0, "brut_pertes": 0.0})
             try:
                 g_ = float(t.get("gain_eur", 0) or 0)
             except Exception:
@@ -305,7 +329,20 @@ def calculer(trades):
         s["statut_auto"] = _statut_auto(s)
         if k in VEHICULES:
             s["statut_auto"] = _statut_vehicule(s)
+        elif k in reprises:
+            s["statut_auto"] = _statut_reprise(s, reprises[k])
     return stats
+
+
+def _statut_reprise(s, depuis):
+    """Strategie remise en service : probation tant que l'epoque de reprise compte < 30 trades ; ensuite les regles
+    normales (_statut_auto) appliquees aux seuls trades depuis la reprise. Le passe reste visible, il ne juge plus."""
+    e = s.get("epoque") or {}
+    if e.get("depuis") != depuis or e.get("n", 0) < N_RETRAIT:
+        s.setdefault("epoque", {"depuis": depuis, "n": 0, "g": 0, "net": 0.0})
+        return "probation"
+    return _statut_auto({"n": e["n"], "net": e["net"], "wr": e.get("wr", 0.0), "wr_ic_bas": e.get("wr_ic_bas"),
+                         "wr_ic_haut": e.get("wr_ic_haut"), "point_mort": e.get("point_mort")})
 
 
 def _statut_vehicule(s):
@@ -420,6 +457,9 @@ def rapport():
         if k in VEHICULES and s.get("epoque"):
             e = s["epoque"]
             lignes.append(f"          epoque depuis {e.get('depuis')}: {e.get('n', 0)} trades | WR {e.get('wr', 0):.0f}% [{e.get('wr_ic_bas', '?')}-{e.get('wr_ic_haut', '?')}] | point mort {e.get('point_mort', '?')}% | net {e.get('net', 0):+.2f} (vehicule du cerveau: jamais retiree, probation si perdante avec confiance sur >= 30 trades)")
+        elif k in _reprises() and s.get("epoque"):
+            e = s["epoque"]
+            lignes.append(f"          REMISE EN SERVICE le {e.get('depuis')}: {e.get('n', 0)}/{N_RETRAIT} trades de probation | net depuis {e.get('net', 0):+.2f} (jugee sur cette epoque seulement ; le passe ci-dessus ne compte plus)")
         if s.get("recommandation"):
             lignes.append(f"          -> {s['recommandation']}")
     if d.get("historique_statuts"):

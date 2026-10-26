@@ -322,6 +322,14 @@ def _tendance_haussiere(symbole, bougies_4h):
         return False
 
 
+def _prof_momentum_actif():
+    try:
+        from config_env import lire
+        return str(lire("PROF_MOMENTUM", "1")).strip().lower() not in ("0", "false", "non", "off")
+    except Exception:
+        return True
+
+
 def _downshift_rider(symbole, bougies_4h):
     """Détecte un momentum haussier confirmé sur 4h avec MACD.
 
@@ -1079,8 +1087,15 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
             elif not _momentum_1h_positif(bougies_1h):
                 print(f"  [PROF] 🚀 Momentum sur {nom}: SKIP (momentum 1h negatif)")
             else:
-                # downshift_rider DESACTIVE (aspirateur a capital — analyse IA v4.4)
-                score_momentum, raison_momentum = 0, ""
+                # downshift_rider : desactive le 22/09 ("aspirateur a capital" : 71 trades 48 %, -3,34 EUR, positions a 300 EUR).
+                # Remis le 26/10 comme VOTANT seulement (son vote entre dans le consensus et le dossier du cerveau ;
+                # consensus_tendance reste jugee par le registre). PROF_MOMENTUM=0 dans .env pour le couper.
+                if _prof_momentum_actif():
+                    score_momentum, raison_momentum = _downshift_rider(symbole, bougies_4h)
+                    if score_momentum > 0:
+                        print(f"  [PROF] 🚀 Professeur Momentum sur {nom}: score {score_momentum} — {raison_momentum}")
+                else:
+                    score_momentum, raison_momentum = 0, ""
         votes["momentum"] = (score_momentum, raison_momentum)
 
         # 2. Professeur Reversion (RSI 1h)
@@ -1125,7 +1140,10 @@ def generer_signaux_professeur(prix_actuels, marches_paper):
 
         # === APPRENTISSAGE DU PROFESSEUR ===
         # Determine la strategie dominante pour l'apprentissage
-        best_prof = max(votes.items(), key=lambda x: x[1][0])
+        # Le momentum (downshift_rider) vote mais ne peut pas etre la strategie dominante : un signal porte par lui
+        # serait etiquete consensus_momentum, bloque faute de droit, et volerait l'ouverture aux autres professeurs.
+        _candidats = [kv for kv in votes.items() if kv[0] != "momentum"] or list(votes.items())
+        best_prof = max(_candidats, key=lambda x: x[1][0])
         strategie = best_prof[0] if best_prof[1][0] > 0 else "consensus"
         boost_prof, raison_prof = _boost_apprentissage_prof(strategie, symbole)
         if boost_prof != 0:

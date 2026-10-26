@@ -1961,6 +1961,19 @@ def verifier_sorties(pf, prix_actuels):
         # === TP: ENCAISSE LES GAINS AU TAKE-PROFIT ===
         # Ferme la position des que le TP est atteint (au lieu d'etendre le TP)
         # BUG CRITIQUE CORRIGE: avant, le TP etait etendu (0.9->1.9->2.9...) au lieu de fermer
+        # 26/10 : STOP SUIVEUR APRES L'OBJECTIF. Les meilleures journees (18/09 : +35 EUR sur 9 trades, 9 gagnants) venaient
+        # de gains laisses courir a +3..+7 % derriere un stop suiveur. Ici il ne s'arme QU'UNE FOIS L'OBJECTIF ATTEINT :
+        # on garantit au moins 90 % de l'objectif et on suit le pic a 0,5 x stop (mini 0,4 %). Il ne peut donc qu'ajouter
+        # par rapport a une fermeture seche au TP. TRAILING_APRES_TP=0 dans .env pour revenir au TP sec.
+        if (variation >= _tp or pos.get("pic_pct")) and pos.get("tp_risque") and _trailing_apres_tp():
+            _pic = max(float(pos.get("pic_pct", 0.0) or 0.0), variation)
+            pos["pic_pct"] = _pic
+            _plancher = max(_tp * 0.9, _pic - max(0.5 * _sl, 0.4))
+            if variation <= _plancher:
+                positions_a_fermer.append((pos, prix_actuel, f"TP-SUIVI (objectif {_tp:.2f}% atteint, pic {_pic:+.2f}%, ferme a {variation:+.2f}%)", variation))
+                continue
+            print(f"  [TP-SUIVI] {sym}: objectif {_tp:.2f}% atteint, pic {_pic:+.2f}%, on laisse courir (plancher {_plancher:+.2f}%)")
+            continue
         if variation >= _tp:
             positions_a_fermer.append((pos, prix_actuel, f"TP ({variation:+.2f}%, TP={_tp}%)", variation))
             continue
@@ -2316,6 +2329,14 @@ def fermer_position(pf, position, prix_actuel, raison, variation):
 # ============================================
 # CYCLE PRINCIPAL
 # ============================================
+def _trailing_apres_tp():
+    try:
+        from config_env import lire
+        return str(lire("TRAILING_APRES_TP", "1")).strip().lower() not in ("0", "false", "non", "off")
+    except Exception:
+        return os.getenv("TRAILING_APRES_TP", "1") not in ("0", "false", "non", "off")
+
+
 def _essai_actif():
     return datetime.now(timezone.utc) < ESSAI_FIN_UTC
 

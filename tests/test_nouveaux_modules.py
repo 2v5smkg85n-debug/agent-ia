@@ -240,3 +240,17 @@ def test_professeurs_externes_indicateurs_et_votes(tmp_path, monkeypatch):
     assert pe.fiabilite("NASOS", d)[2] is True       # 12/22 = 55 % >= 45 % sur >= 20 tranches
     d["stats"]["E0V1E"].update({"n": 25, "tp": 8, "sl": 14, "neutre": 3})
     assert pe.fiabilite("E0V1E", d)[2] is False      # 36 % < 45 %
+
+
+def test_reprise_probation_puis_regles_normales(monkeypatch):
+    import registre_strategies as rs
+    monkeypatch.setattr(rs, "_reprises", lambda: {"pattern_reversal": "2026-10-26"})
+    vieux = [{"strategie": "pattern_reversal", "symbole": "X", "gain_eur": -0.8, "date_fermeture": "2026-10-10 10:00", "raison": "SL"}] * 25
+    s = rs.calculer(vieux)["pattern_reversal"]
+    assert s["statut_auto"] == "probation"            # le passe (-20 EUR) ne la retire plus
+    nouveaux = [{"strategie": "pattern_reversal", "symbole": "X", "gain_eur": 0.9, "date_fermeture": "2026-10-27 10:00", "raison": "TP"}] * 20 \
+             + [{"strategie": "pattern_reversal", "symbole": "X", "gain_eur": -0.5, "date_fermeture": "2026-10-28 10:00", "raison": "SL"}] * 10
+    s = rs.calculer(vieux + nouveaux)["pattern_reversal"]
+    assert s["epoque"]["n"] == 30 and s["statut_auto"] == "active"   # jugee sur l'epoque : 30 trades, 67 %, net > 0
+    pires = [{"strategie": "pattern_reversal", "symbole": "X", "gain_eur": -0.6, "date_fermeture": "2026-10-28 10:00", "raison": "SL"}] * 30
+    assert rs.calculer(vieux + pires)["pattern_reversal"]["statut_auto"] == "retiree"   # et peut etre retiree sur l'epoque
