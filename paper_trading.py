@@ -445,6 +445,53 @@ def strategies_gagnantes():
 # ============================================
 # ANALYSE DES SIGNAUX
 # ============================================
+def _strategies_detectees(signaux_txt):
+    """Liste des strategies dont la condition est VRAIMENT presente dans les lignes d'indicateurs.
+    Correctif 27/10 : avant, la premiere regle etait `"MACD" in s`, et comme indicateurs.py ecrit toujours une
+    ligne MACD (y compris "MACD: neutre"), TOUT signal technique etait baptise macd_cross (strategie retiree)
+    -> tout etait bloque par la liste noire, et rsi_oversold / pattern_reversal / volume_spike n'avaient plus
+    jamais la parole (dernier trade 28/09). Ici on ne retient que les conditions reelles, dans l'ordre des
+    strategies prouvees en premier."""
+    sig = [str(s) for s in (signaux_txt or [])]
+    low = [s.lower() for s in sig]
+    found = []
+    if any("survente" in s and s.startswith("rsi") for s in low):
+        found.append("rsi_oversold")
+    if any(s.startswith("bougie") for s in low):
+        found.append("pattern_reversal")
+    if any(s.startswith("volume") for s in low):
+        found.append("volume_spike")
+    if any("bande basse" in s or "sous bande" in s for s in low):
+        found.append("bollinger_bounce")
+    if any(s.startswith("divergence") for s in low):
+        found.append("divergence_rsi")
+    if any(s.startswith("macd") and "croisement haussier" in s for s in low):
+        found.append("macd_cross")
+    if any(s.startswith("vwap") and "bullish" in s for s in low):
+        found.append("vwap_bounce")
+    if any(s.startswith("momentum:") for s in low):
+        found.append("momentum")
+    if any(s.startswith("breakout") or s.startswith("squeeze") for s in low):
+        found.append("breakout")
+    if any(s.startswith("sma") and "haussiere" in s for s in low):
+        found.append("sma_trend")
+    return found or ["technique"]
+
+
+def _nommer_strategie_technique(signaux_txt):
+    """Nom de strategie d'un signal technique : la premiere strategie detectee QUI A LE DROIT d'ouvrir
+    (registre), sinon la premiere detectee. Le registre juge ensuite cette strategie sur ses propres trades."""
+    found = _strategies_detectees(signaux_txt)
+    try:
+        import registre_strategies as _rs
+        for s in found:
+            if _rs.a_le_droit(s) and _rs.autorisee(s)[0]:
+                return s
+    except Exception:
+        pass
+    return found[0]
+
+
 def analyser_signaux_techniques(prix_actuels):
     """Analyse TOUS les marches avec les VRAIS indicateurs techniques (pas l'IA).
     Crypto (Binance) + Forex/Actions/Indices/Matieres (Yahoo Finance)."""
@@ -501,19 +548,7 @@ def analyser_signaux_techniques(prix_actuels):
                     "marche": config["marche"],
                     "etoile": config.get("etoile", False),
                     "source": "indicateurs",
-                    "strategie": (
-                        "macd_cross" if any("MACD" in s for s in analyse.get("signaux", [])) else
-                        "rsi_oversold" if any("survente" in s.lower() for s in analyse.get("signaux", [])) else
-                        "bollinger_bounce" if any("bande basse" in s.lower() or "sous bande" in s.lower() for s in analyse.get("signaux", [])) else
-                        "divergence_rsi" if any("DIVERGENCE" in s for s in analyse.get("signaux", [])) else
-                        "volume_spike" if any("VOLUME" in s for s in analyse.get("signaux", [])) else
-                        "vwap_bounce" if any("VWAP" in s for s in analyse.get("signaux", [])) else
-                        "pattern_reversal" if any("BOUGIE" in s for s in analyse.get("signaux", [])) else
-                        "momentum" if any("MOMENTUM" in s for s in analyse.get("signaux", [])) else
-                        "breakout" if any("BREAKOUT" in s for s in analyse.get("signaux", [])) else
-                        "sma_trend" if any("SMA" in s for s in analyse.get("signaux", [])) else
-                        "technique"
-                    ),
+                    "strategie": _nommer_strategie_technique(analyse.get("signaux", [])),
                     "score": score,
                     "raison": "; ".join(analyse["signaux"][:2])
                 })
