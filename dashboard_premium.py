@@ -1715,7 +1715,13 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(out.encode())
             return
         try:
-            d = json.load(open(DATA_FILE))
+            try:
+                d = json.load(open(DATA_FILE))
+            except Exception:
+                import json_sur as _js  # 31/10 : fichier a moitie ecrit -> on affiche la partie lisible plutot qu'une erreur
+                d, _methode = _js.reparer_texte(open(DATA_FILE, encoding="utf-8").read())
+                if d is None:
+                    raise ValueError(f"paper_trading.json illisible ({_methode})")
         except Exception as e:
             self.send_response(500)
             self.send_header("Content-Type", "text/plain")

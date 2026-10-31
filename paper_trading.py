@@ -226,8 +226,14 @@ def _cle_position(p):
 def charger_portefeuille():
     if os.path.exists(FICHIER_PAPER):
         try:
-            with open(FICHIER_PAPER, "r") as f:
-                pf = json.load(f)
+            try:
+                import json_sur as _js
+                pf = _js.lire(FICHIER_PAPER)  # 31/10 : repare un fichier tronque au lieu de rendre le bot muet
+                if not isinstance(pf, dict):
+                    raise ValueError("pas un dict")
+            except ImportError:
+                with open(FICHIER_PAPER, "r") as f:
+                    pf = json.load(f)
             # Migration Phase 2: ajoute les champs manquants sur les anciens portefeuilles
             if "pic_capital" not in pf:
                 pf["pic_capital"] = pf.get("capital_initial", CAPITAL_INITIAL)
@@ -235,8 +241,8 @@ def charger_portefeuille():
                 pf["trades_fermes"] = []
             _ETAT_DISQUE["liquidites"] = float(pf.get("liquidites", 0) or 0)
             return pf
-        except:
-            pass
+        except Exception as _e:
+            print(f"  [PORTEFEUILLE] lecture impossible : {_e}")
     return None
 
 def _fusionner_avec_disque(pf):
@@ -297,8 +303,12 @@ def sauver_portefeuille(pf):
         pf = _fusionner_avec_disque(pf)
     except Exception as e:
         print(f"  [FUSION] Erreur fusion (sauvegarde directe): {e}")
-    with open(FICHIER_PAPER, "w") as f:
-        json.dump(pf, f, ensure_ascii=False, indent=2)
+    try:
+        import json_sur as _js
+        _js.ecrire(FICHIER_PAPER, pf)  # 31/10 : atomique (tmp + replace), jamais de fichier a moitie ecrit
+    except ImportError:
+        with open(FICHIER_PAPER, "w") as f:
+            json.dump(pf, f, ensure_ascii=False, indent=2)
     _ETAT_DISQUE["liquidites"] = float(pf.get("liquidites", 0) or 0)
 
 def initialiser():

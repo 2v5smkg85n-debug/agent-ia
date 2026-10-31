@@ -138,6 +138,15 @@ def check_log_stale():
     return True
 
 
+def _json_valide(chemin):
+    try:
+        with open(chemin) as f:
+            d = json.load(f)
+        return isinstance(d, dict) and "liquidites" in d
+    except Exception:
+        return False
+
+
 def check_json_corrompu():
     """Check 3: paper_trading.json corrompu ?"""
     if not os.path.exists(JSON_FILE):
@@ -162,10 +171,26 @@ def check_json_corrompu():
             incrementer_stat("JSON corrompu", auto=True)
         except Exception:
             pass
-        # Cherche un backup
-        backups = sorted(Path(DOSSIER).glob("paper_trading.json.bak*"))
+        # 31/10 : d'abord REPARER le fichier (troncature / donnees en trop) : on garde positions et liquidites reelles
+        try:
+            import json_sur
+            obj = json_sur.lire(JSON_FILE, journal=_log)
+            if isinstance(obj, dict) and "liquidites" in obj:
+                json_sur.completer_trades_depuis_sqlite(obj, journal=_log)
+                json_sur.ecrire(JSON_FILE, obj)
+                _telegram("🔧 WATCHDOG: paper_trading.json corrompu, REPARE (positions et liquidites conservees)")
+                try:
+                    enregistrer_solution("JSON corrompu", "Reparation json_sur (troncature)")
+                except Exception:
+                    pass
+                return False
+        except Exception as _e:
+            _log(f"  reparation impossible : {_e}")
+        # Cherche un backup VALIDE (du plus recent au plus ancien)
+        backups = sorted(Path(DOSSIER).glob("paper_trading.json.bak*"), key=lambda p: p.stat().st_mtime, reverse=True)
+        backups = [b for b in backups if _json_valide(str(b))]
         if backups:
-            backup = str(backups[-1])
+            backup = str(backups[0])
             _log(f"Restauration depuis {backup}")
             shutil.copy2(backup, JSON_FILE)
             _telegram(f"🔧 WATCHDOG: paper_trading.json corrompu, restauré depuis {backup}")
@@ -321,9 +346,15 @@ def backup_json():
         return
     bak = JSON_FILE + ".bak"
     try:
+        # 31/10 : on ne sauvegarde JAMAIS un fichier invalide (le .bak etait la copie du fichier deja casse)
+        with open(JSON_FILE) as f:
+            d = json.load(f)
+        if not isinstance(d, dict) or "liquidites" not in d:
+            return
         shutil.copy2(JSON_FILE, bak)
+        shutil.copy2(JSON_FILE, JSON_FILE + ".bak." + time.strftime("%Y%m%d-%H"))
         # Garde seulement les 3 derniers backups
-        baks = sorted(Path(DOSSIER).glob("paper_trading.json.bak*"), key=lambda p: p.stat().st_mtime)
+        baks = sorted(Path(DOSSIER).glob("paper_trading.json.bak.*"), key=lambda p: p.stat().st_mtime)
         for old in baks[:-3]:
             old.unlink()
     except Exception:

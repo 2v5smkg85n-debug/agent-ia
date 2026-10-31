@@ -668,11 +668,20 @@ def _charger_paper():
     except Exception:
         return None
 
+def _ecrire_json_atomique(chemin, obj):
+    """31/10 : ecriture atomique de paper_trading.json (tmp + os.replace) ; evite le fichier tronque qui a rendu le bot muet."""
+    try:
+        import json_sur as _js
+        _js.ecrire(chemin, obj)
+    except ImportError:
+        with open(chemin, "w") as f:
+            json.dump(obj, f, ensure_ascii=False, indent=2)
+
+
 def _sauver_paper(pf):
     """Sauvegarde paper_trading.json."""
     try:
-        with open(FICHIER_PAPER, "w") as f:
-            json.dump(pf, f, indent=2)
+        _ecrire_json_atomique(FICHIER_PAPER, pf)
     except Exception as e:
         print(f"  [BUDGET] Erreur sauvegarde paper: {e}")
 
@@ -2199,8 +2208,7 @@ def _ouvrir_position_auto(symbole, montant, raison, tp_override=None, sl_overrid
     data["positions"] = positions
     data["liquidites"] = liquidites - montant
     try:
-        with open(FICHIER_PAPER, "w") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        _ecrire_json_atomique(FICHIER_PAPER, data)
     except Exception:
         return "Erreur lors de l'ouverture."
     try:
@@ -2632,8 +2640,7 @@ def _fermer_position(symbole):
     data["positions"] = [p for p in positions if p.get("symbole") != sym]
     data["liquidites"] = data.get("liquidites", 0) + montant
     try:
-        with open(FICHIER_PAPER, "w") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        _ecrire_json_atomique(FICHIER_PAPER, data)
     except Exception:
         return "Erreur lors de la fermeture."
     emoji = "✅" if gain > 0 else "❌"
