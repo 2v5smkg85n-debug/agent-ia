@@ -239,6 +239,12 @@ def charger_portefeuille():
                 pf["pic_capital"] = pf.get("capital_initial", CAPITAL_INITIAL)
             if "trades_fermes" not in pf:
                 pf["trades_fermes"] = []
+            # 31/10 : apres une reparation de fichier tronque, les cles de fin peuvent manquer -> valeurs neutres
+            for _k, _v in (("total_frais", 0.0), ("historique", []), ("pertes_consecutives", 0), ("dernier_tick", None),
+                           ("date_creation", datetime.now().strftime("%Y-%m-%d %H:%M"))):
+                if _k not in pf:
+                    pf[_k] = _v
+                    print(f"  [PORTEFEUILLE] cle '{_k}' absente -> valeur par defaut")
             _ETAT_DISQUE["liquidites"] = float(pf.get("liquidites", 0) or 0)
             return pf
         except Exception as _e:
