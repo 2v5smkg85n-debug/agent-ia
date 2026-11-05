@@ -27,6 +27,27 @@ PORT = int(ENV.get("DASHBOARD_PORT", "8765"))
 DATA_FILE = "paper_trading.json"
 CACHE_FILE = "prix_cache.json"
 
+
+def fmt_prix(x):
+    """Prix lisible quel que soit l'ordre de grandeur (PEPE 0.0000045 affichait 0.0000)."""
+    try:
+        x = float(x)
+    except Exception:
+        return "N/A"
+    a = abs(x)
+    if a == 0:
+        return "0"
+    if a >= 1000:
+        return f"{x:,.2f}".replace(",", " ")
+    if a >= 1:
+        return f"{x:.4f}"
+    if a >= 0.01:
+        return f"{x:.5f}"
+    # tres petits prix : 4 chiffres significatifs
+    import math
+    d = int(-math.floor(math.log10(a))) + 3
+    return f"{x:.{min(d, 12)}f}"
+
 # CoinGecko pour prix temps reel
 COINGECKO_MAP = {
     "BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "BNB": "binancecoin",
@@ -292,16 +313,16 @@ def build_positions_chart(d):
             <span class="pos-pnl" style="color:{pnl_color}">{pnl_eur:+.2f}€ ({pnl_pct:+.1f}%)</span>
           </div>
           <div class="pos-info">
-            <span>Entree: {prix_entree:.4f}€</span>
-            <span>Actuel: <span class="actuel-val">{prix_actuel:.4f}€</span></span>
+            <span>Entree: {fmt_prix(prix_entree)}€</span>
+            <span>Actuel: <span class="actuel-val">{fmt_prix(prix_actuel)}€</span></span>
             <span class="var-val">24h: {var_text}</span>
             <span>Qty: {quantite:.6f}</span>
           </div>
           <div class="chart-container">{chart_html}</div>
           <div class="pos-labels">
-            <span class="sl-label">🟥 SL: {sl_price:.4f}€ (-{STOP_LOSS_PCT}%)</span>
+            <span class="sl-label">🟥 SL: {fmt_prix(sl_price)}€ (-{STOP_LOSS_PCT}%)</span>
             <span class="dist-label">TP: {dist_tp:+.1f}% | SL: {dist_sl:.1f}%</span>
-            <span class="tp-label">🟩 TP: {tp_price:.4f}€ (+{TAKE_PROFIT_PCT}%)</span>
+            <span class="tp-label">🟩 TP: {fmt_prix(tp_price)}€ (+{TAKE_PROFIT_PCT}%)</span>
           </div>
           <div class="pos-footer">
             <span>📊 {esc(strategie)}</span>
@@ -612,7 +633,7 @@ def build_premium_page(d):
         tag, tag_cls = _tag_strategie(p)
         pnl_text = f"{pnl_eur:+.2f}€" if prix_disponible else "N/A"
         pct_text = f"{pnl_pct:+.2f}%" if prix_disponible else "prix indispo"
-        prix_actuel_text = f"{prix_actuel:.4f}" if prix_disponible else "N/A"
+        prix_actuel_text = fmt_prix(prix_actuel) if prix_disponible else "N/A"
         marche = p.get("marche", "crypto")
         positions_html += f"""
         <div class="pos-card" onclick="this.classList.toggle('expanded')">
@@ -628,7 +649,7 @@ def build_premium_page(d):
           </div>
           <div class="gauge">
             <div class="gauge-track"><div class="gauge-zero" style="left:{sl_pct/span*100 if span else 50:.1f}%"></div><div class="gauge-dot" style="left:{pos_pct:.1f}%;background:{pnl_color}"></div></div>
-            <div class="gauge-labels"><span class="neg">SL -{sl_pct:g}% · {prix_sl:.4f}</span><span>entree {prix_entree:.4f}</span><span class="posv">TP +{tp_pct:g}% · {prix_tp:.4f}</span></div>
+            <div class="gauge-labels"><span class="neg">SL -{sl_pct:g}% · {fmt_prix(prix_sl)}</span><span>entree {fmt_prix(prix_entree)}</span><span class="posv">TP +{tp_pct:g}% · {fmt_prix(prix_tp)}</span></div>
           </div>
           <div class="pos-details">
             <span>Actuel: {prix_actuel_text}</span>
@@ -1087,7 +1108,7 @@ def build_kraken_page():
         pos_html += f"""
 <div class="lr-row">
   <div><div class="lr-name">{html.escape(sym.replace('USDT',''))}</div><div class="lr-n">{html.escape(p.get('paire','') or '')} · {html.escape(p.get('date_ouverture','')[5:16])}</div></div>
-  <div class="lr-n">entree {p['prix_entree']:.4f}<br>bid {bid:.4f}</div>
+  <div class="lr-n">entree {fmt_prix(p['prix_entree'])}<br>bid {fmt_prix(bid)}</div>
   <div class="lr-pnl" style="color:{col}">{var:+.2f}%<br><span style="font-size:11px">{pnl:+.2f}€ net</span></div>
 </div>"""
 
@@ -1101,7 +1122,7 @@ def build_kraken_page():
         hist_html += f"""
 <div class="lr-row">
   <div><div class="lr-name">{html.escape(t.get('symbole','?').replace('USDT',''))}</div><div class="lr-n">{html.escape(t.get('date_fermeture','')[5:16])} · {html.escape(str(t.get('raison',''))[:16])}</div></div>
-  <div class="lr-n">{t.get('prix_entree',0):.4f} → {t.get('prix_sortie',0):.4f}<br>frais {ft:.2f}€ ({t.get('frais_pct_entree',0):.2f}+{t.get('frais_pct_sortie',0):.2f}% {mk})</div>
+  <div class="lr-n">{fmt_prix(t.get('prix_entree',0))} → {fmt_prix(t.get('prix_sortie',0))}<br>frais {ft:.2f}€ ({t.get('frais_pct_entree',0):.2f}+{t.get('frais_pct_sortie',0):.2f}% {mk})</div>
   <div class="lr-pnl" style="color:{col}">{t.get('variation_pct',0):+.2f}%<br><span style="font-size:11px">{g:+.2f}€</span></div>
 </div>"""
 

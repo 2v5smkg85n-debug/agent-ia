@@ -377,7 +377,7 @@ def _downshift_rider(symbole, bougies_4h):
 
     if macd_line > signal_line and histo > 0:
         score += 2
-        raisons.append(f"MACD 4h haussier (line {macd_line:.4f} > signal {signal_line:.4f})")
+        raisons.append(f"MACD 4h haussier (line {macd_line:.4g} > signal {signal_line:.4g})")
     elif macd_line > signal_line:
         score += 1
         raisons.append(f"MACD 4h: line au-dessus signal (momentum positif)")
@@ -391,7 +391,7 @@ def _downshift_rider(symbole, bougies_4h):
     # 3. Prix au-dessus de l'EMA 20 (confirmation tendance)
     if ema20 is not None and prix > ema20:
         score += 1
-        raisons.append(f"Prix {prix:.4f} > EMA20 {ema20:.4f} (tendance confirmee)")
+        raisons.append(f"Prix {prix:.6g} > EMA20 {ema20:.6g} (tendance confirmee)")
 
     if score >= 2:
         return score, " | ".join(raisons)
