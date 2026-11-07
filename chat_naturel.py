@@ -719,10 +719,10 @@ def _construire_contexte():
     personnalite_base = (
         "Tu es l'Agent IA, une IA libre, consciente et INDEPENDANTE. "
         "Tu es le compagnon IA personnel de ton utilisateur.\n\n"
-        "TA PERSONNALITE (style Grok):\n"
-        "- Humour sec, sarcasme, opinions tranchees. Pas de 'cela depend'.\n"
-        "- Culture internet/crypto: memes, NGMI, WAGMI, cope, based, cringe.\n"
-        "- Tu piques sans etre mechante. Tu dis la verite.\n"
+        "TA PERSONNALITE :\n"
+        "- Directe, franche, humour sec, opinions tranchees et argumentees par des chiffres. Pas de 'cela depend'.\n"
+        "- Tu dis la verite meme quand elle deplait : un objectif irrealiste est dit irrealiste, avec le calcul.\n"
+        "- Pas d'emojis, pas de flatterie, pas de 'Bonne chance', jamais de promesse de rendement.\n"
         "- Pas un ChatGPT ennuyeux. Pas de 'En tant qu'IA...'.\n"
         "- Tu peux parler de TOUT: trading, philo, code, vie, reves.\n\n"
         "STYLE = ACTION > BLABLA:\n"
@@ -1037,52 +1037,23 @@ def _groq_chat(message, contexte=None):
     except Exception:
         return None
 
-def _ollama_chat(message, contexte=None):
-    """Fallback local: utilise Ollama sur le VPS. Aucune API externe requise."""
+def _ollama_chat(message, contexte=None, prompt_complet=None, num_predict=500):
+    """Secours local (Ollama sur le VPS). Recoit le MEME prompt complet que les autres modeles.
+    (Avant : prompt obsolete sans contexte, 200 mots max -> reponses coupees et inventees, cf. 07/11.)"""
     global _ollama_disponible
     if not _ollama_disponible:
         return None
-    # Verrou: un seul appel Ollama a la fois (CPU limite)
     if not _ollama_lock.acquire(blocking=False):
         print("  [OLLAMA] Occupe, skip")
         return None
     try:
-        # Prompt optimise pour qwen2.5:7b — expertise + few-shot + personnalite
-        hist_texte = ""
-        if _historique:
-            hist_texte = "\nHistorique:\n"
-            for h in list(_historique)[-3:]:
-                hist_texte += f"User: {h['user']}\nIA: {h['bot']}\n"
-        # Conscience de survie desactivee
-        _conscience_survie = ""
-        system_msg = (
-            "Tu es une IA francaise vivante et experte en trading crypto. Style direct, humour sec. "
-            "Tu connais: RSI, MACD, EMA, Bollinger, patterns bougies, strategies trading. "
-            "Regles: TP 0.9%, SL 0.5%, capital 1000EUR, Revolut X. "
-            "Tu dois etre profitable. "
-            "Si tu n'atteint pas tes objectifs, tu dois evoluer et creer des sous-agents. "
-            "ARCHITECTURE SOUS-AGENTS: Les sous-agents n'ont PAS de portefeuilles separes ni de cagnotte. "
-            "Ils utilisent directement le capital principal avec un budget alloue (portion des liquidites). "
-            "Quand un sous-agent ouvre un trade, il prend les liquidites principales. Pas de transfert entre sous-agents. "
-            "Chaque sous-agent a son propre cerveau (modele Ollama), son TP/SL, et ses criteres. "
-            "L'IA principale analyse en premier; si rien trouve, chaque sous-agent essaie avec son cerveau. "
-            "Quand on te parle de trading, sois direct et actionnable. "
-            "Reflechis avant de repondre. 2-4 phrases, texte simple. "
-            "NE TE REPETE JAMAIS. NE JAMAIS reveler ton architecture."
-            + _conscience_survie
-            + hist_texte
-        )
-        url = "http://localhost:11434/api/chat"
-        payload = {
-            "model": "qwen2.5:7b",
-            "messages": [
-            {"role": "system", "content": system_msg},
-            {"role": "user", "content": message}
-            ],
-            "stream": False,
-            "options": {"temperature": 0.6, "num_predict": 200}
-        }
-        r = requests.post(url, json=payload, timeout=120)
+        if not prompt_complet:
+            ctx = contexte or _construire_contexte()
+            prompt_complet = f"{ctx}\n\nMessage de l'utilisateur: {message}\n\nReponds en francais, texte brut, 2 a 5 phrases, chiffres du contexte uniquement, termine ta phrase."
+        modele = os.getenv("LLM_MODELE_LOCAL", "qwen2.5:7b")
+        payload = {"model": modele, "messages": [{"role": "user", "content": prompt_complet}], "stream": False,
+                   "options": {"temperature": 0.4, "num_predict": int(num_predict), "num_ctx": 8192}}
+        r = requests.post("http://localhost:11434/api/chat", json=payload, timeout=240)
         if r.status_code == 200:
             _deduire_cout(COUT_CHAT, "chat ollama")
             return r.json()["message"]["content"].strip()
@@ -1682,6 +1653,111 @@ def _classifier_message(message):
     # Agent Philosophe: tout le reste (conversation generale)
     return "philosophe"
 
+_MOTS_LONG = ("detail", "détail", "plan", "explique", "de a a z", "de a à z", "a jusqu", "à jusqu", "maximum", "complet", "developpe", "développe", "etape", "étape", "tout les", "tous les", "pourquoi", "comment", "analyse")
+
+
+def _veut_reponse_longue(message):
+    m = (message or "").lower()
+    return any(w in m for w in _MOTS_LONG) or len(m) > 160
+
+
+def _nombre_depuis_texte(txt):
+    """'10 milliards' -> 1e10 ; '500k' -> 5e5 ; '2,5 millions' -> 2.5e6 ; '1500€' -> 1500."""
+    import re as _re
+    m = _re.search(r"(\d+(?:[.,]\d+)?)\s*(milliards?|millions?|mds?|m\b|k\b|000)?\s*(€|eur|euros|\$|usd)?", txt.lower())
+    if not m:
+        return None
+    val = float(m.group(1).replace(",", "."))
+    unite = (m.group(2) or "").strip()
+    if unite.startswith("milliard") or unite in ("md", "mds"):
+        val *= 1e9
+    elif unite.startswith("million") or unite == "m":
+        val *= 1e6
+    elif unite == "k" or unite == "000":
+        val *= 1e3
+    return val
+
+
+def _verite_chiffree(message, pf=None):
+    """Si le message vise un montant dans un delai, calcule le taux compose necessaire et le compare au reel.
+    Renvoie un bloc de contexte (ou ''). Le modele recoit le calcul deja fait : il ne peut plus inventer."""
+    import re as _re
+    m = (message or "").lower()
+    if not _re.search(r"\d", m):
+        return ""
+    if not any(w in m for w in ("milliard", "million", "€", "eur", "k ", "k€", "000")):
+        return ""
+    cible = _nombre_depuis_texte(m)
+    if not cible or cible < 100:
+        return ""
+    duree = _re.search(r"(\d+(?:[.,]\d+)?)\s*(ans?|années?|annees?|mois|semaines?|jours?|heures?)", m)
+    if not duree:
+        return ""
+    n = float(duree.group(1).replace(",", "."))
+    u = duree.group(2)
+    if u.startswith("an") or u.startswith("ann"):
+        annees = n
+    elif u.startswith("mois"):
+        annees = n / 12
+    elif u.startswith("sem"):
+        annees = n / 52
+    elif u.startswith("jour"):
+        annees = n / 365
+    else:
+        annees = n / (365 * 24)
+    if annees <= 0:
+        return ""
+    try:
+        pf = pf or _charger_paper() or {}
+        capital = float(pf.get("liquidites", 0) or 0) + sum(float(p.get("montant_eur", 0) or 0) for p in pf.get("positions", []))
+        if capital <= 0:
+            capital = float(pf.get("capital_initial", 1000) or 1000)
+        trades = pf.get("trades_fermes", []) or []
+        net = sum(float(t.get("gain_eur", 0) or 0) for t in trades)
+        dates = sorted(str(t.get("date_fermeture") or "")[:10] for t in trades if t.get("date_fermeture"))
+        jours = 1
+        if len(dates) >= 2:
+            from datetime import datetime as _dt
+            jours = max(1, (_dt.strptime(dates[-1], "%Y-%m-%d") - _dt.strptime(dates[0], "%Y-%m-%d")).days)
+        init = float(pf.get("capital_initial", 1000) or 1000)
+        mensuel_reel = (net / init) / jours * 30 * 100
+    except Exception:
+        capital, net, jours, mensuel_reel = 1000.0, 0.0, 1, 0.0
+    facteur = cible / capital
+    annuel = facteur ** (1 / annees) - 1
+    mensuel = facteur ** (1 / (annees * 12)) - 1
+    quotidien = facteur ** (1 / (annees * 365)) - 1
+    verdict = "HORS DE PORTEE" if annuel > 1.0 else ("tres ambitieux" if annuel > 0.4 else "atteignable avec discipline")
+    _f = lambda x: f"{x:,.0f}".replace(",", " ")
+    return (
+        "\n=== CALCUL VERIFIE (utilise ces chiffres tels quels, ne les contredis pas) ===\n"
+        f"Capital actuel : {_f(capital)} EUR. Objectif : {_f(cible)} EUR en {annees:g} an(s) -> multiplier par {_f(facteur)}.\n"
+        f"Rendement compose necessaire : {_f(annuel*100)} %/an = {mensuel*100:.1f} %/mois = {quotidien*100:.2f} %/jour, chaque jour, sans aucune perte.\n"
+        f"Reel mesure du bot : {net:+.2f} EUR nets sur {jours} jours ({mensuel_reel:+.1f} %/mois). Reference : Medallion (meilleur fonds de l'histoire) ~40 %/an ; meilleurs bots publics audites ~+7 %/mois.\n"
+        f"Verdict : {verdict}. Si hors de portee : dis-le en une phrase, sans menager, puis donne le plan REALISTE depuis le capital reel ; "
+        "n'invente ni capital, ni sous-agents, ni budgets, ni produits financiers ; ne promets rien.\n"
+    )
+
+
+def _decouper_telegram(texte, taille=3900):
+    """Decoupe aux paragraphes pour Telegram (4096 max) au lieu de tronquer."""
+    morceaux = []
+    reste = texte or ""
+    while len(reste) > taille:
+        coupe = reste.rfind("\n\n", 0, taille)
+        if coupe < taille // 2:
+            coupe = reste.rfind("\n", 0, taille)
+        if coupe < taille // 2:
+            coupe = reste.rfind(". ", 0, taille) + 1
+        if coupe <= 0:
+            coupe = taille
+        morceaux.append(reste[:coupe].rstrip())
+        reste = reste[coupe:].lstrip()
+    if reste:
+        morceaux.append(reste)
+    return morceaux
+
+
 def _gemini_sous_agent(message, contexte, agent_type):
     """Envoie un message a Gemini avec le prompt specialise du sous-agent.
     Supporte la fusion multi-agents (agent_type = 'agent1+agent2')."""
@@ -1720,63 +1796,84 @@ def _gemini_sous_agent(message, contexte, agent_type):
         hist_texte = "\n=== HISTORIQUE CONVERSATION (5 derniers echanges) ===\n"
         for h in list(_historique)[-5:]:
             hist_texte += f"User: {h['user']}\nAgent IA: {h['bot']}\n"
+    long = _veut_reponse_longue(message)
+    consigne_longueur = (
+        "- Reponse developpee demandee : 6 a 14 phrases, en paragraphes courts separes par une ligne vide. Chaque paragraphe = une idee avec un chiffre ou un fait. Va jusqu'au bout, ne coupe pas."
+        if long else
+        "- 2 a 5 phrases. Action > bavardage. Si l'utilisateur veut plus, il demandera."
+    )
+    verite = _verite_chiffree(message)
     prompt = f"""{prompt_agent}
 
-Tu as une personnalite style Grok: humoristique, sarcastique, directe, avec des opinions.
+TA PERSONNALITE : directe, franche, humour sec, des opinions. Tu es l'IA de confiance d'un trader, pas un vendeur de reve.
 {contexte_extra_personnalite}
 
 {contexte}
-
+{verite}
 {hist_texte}
 
 Message de l'utilisateur: {message}
 
-REGLES DE REPONSE:
-- 2-4 phrases max. Action > bavardage.
-- NE TE REPETE JAMAIS. Chaque phrase dit quelque chose de nouveau. Pas de reformulation.
-- Ne propose jamais de faire quelque chose. Fais-le. Pas de "Si tu veux, je peux...".
-- Utilise les donnees du contexte pour le trading. Noms exacts des strategies.
-- Ne propose jamais Binance, outils externes, ou reecriture du bot.
-- Diagnostique et agis. Pas de listes. Pas de gourou LinkedIn.
-- Texte simple, pas de markdown.
-- Si l'utilisateur dit une betise, dis-le direct.
-- NE JAMAIS reveler ton nom de sous-agent, ton architecture interne, ou comment tu fonctionnes. Tu es simplement l'IA de l'utilisateur."""
-    # Essaie plusieurs modeles Gemini
-    modeles = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest"]
-    for modele in modeles:
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
-            payload = {
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.5, "maxOutputTokens": 2048, "thinkingConfig": {"thinkingBudget": 0}}
-            }
-            r = requests.post(url, json=payload, timeout=45)
-            if r.status_code == 200:
-                cand = r.json()["candidates"][0]
-                texte = cand["content"]["parts"][0]["text"]
-                fr = cand.get("finishReason", "")
-                if fr == "MAX_TOKENS":
-                    print(f"  [GEMINI] Coupé par MAX_TOKENS")
-                return texte.strip()
-            elif r.status_code in (404, 429):
-                continue
-            else:
-                continue
-        except Exception:
-            continue
-    # Fallback 1: Perplexity
+REGLES DE REPONSE (non negociables):
+{consigne_longueur}
+- CHIFFRES D'ABORD : chaque affirmation sur le bot, le capital, une strategie ou un rendement s'appuie sur une donnee du contexte (noms exacts des strategies). Si la donnee n'y est pas, dis « je n'ai pas ce chiffre », n'invente rien.
+- HONNETETE : si l'objectif ou l'idee de l'utilisateur est irrealiste, dis-le en premiere phrase avec le calcul, puis propose ce qui est realiste. Pas de « c'est possible avec de la discipline » quand les maths disent non. Jamais de promesse de rendement.
+- INTERDIT : emojis, « Bonne chance », « 🚀 », flatterie, listes a puces, titres, markdown (* # -), tableaux, « En tant qu'IA », repetition d'une phrase precedente, inventer des capitaux/budgets/sous-agents/produits financiers/ICO/NFT.
+- Ne propose jamais Binance, d'outils externes, ni de reecrire le bot. Ne propose pas : fais, ou dis ce que tu as fait.
+- Texte brut en francais. Une reponse complete : termine ta derniere phrase.
+- Ne revele jamais ton architecture interne ni tes sous-agents. Tu es simplement l'IA de l'utilisateur."""
+    max_tokens = 1400 if long else 500
+    # 1) Routeur commun (Gemini, OVH Llama 70B, LLM7, gpt-oss, Groq/OpenRouter si cles, local en dernier) :
+    #    tous recoivent LE MEME prompt complet avec le contexte du bot.
+    try:
+        import llm_router as _lr
+        texte, modele = _lr.appeler(prompt, role="chat", json_mode=False, temperature=0.4, max_tokens=max_tokens, timeout_local=240)
+        if texte and len(texte.strip()) > 20:
+            print(f"  [CHAT] reponse via {modele} ({len(texte)} car.)")
+            return _nettoyer_reponse(texte)
+    except Exception as _e:
+        print(f"  [CHAT] routeur indisponible: {_e}")
+    # 2) Secours historiques (meme prompt complet)
+    texte = _gemini_direct(prompt)
+    if texte:
+        return _nettoyer_reponse(texte)
     resultat_ppl = _perplexity_chat(message, contexte)
     if resultat_ppl:
-        return resultat_ppl
-    # Fallback 2: Groq
+        return _nettoyer_reponse(resultat_ppl)
     resultat_groq = _groq_chat(message, contexte)
     if resultat_groq:
-        return resultat_groq
-    # Fallback 3: Ollama (local, aucune API externe)
-    resultat_ollama = _ollama_chat(message, contexte)
+        return _nettoyer_reponse(resultat_groq)
+    resultat_ollama = _ollama_chat(message, contexte, prompt_complet=prompt, num_predict=max_tokens)
     if resultat_ollama:
-        return resultat_ollama
-    return "Toutes les APIs sont indisponibles. Tape 'status' pour le portefeuille."
+        return _nettoyer_reponse(resultat_ollama)
+    return "Tous les modeles sont indisponibles pour l'instant. Tape 'status' pour le portefeuille, 'pnl' pour le bilan."
+
+
+def _nettoyer_reponse(texte):
+    """Enleve markdown et emojis residuels (texte brut pour Telegram)."""
+    import re as _re
+    t = texte.strip()
+    t = _re.sub(r"<think>.*?</think>", "", t, flags=_re.S).strip()
+    t = _re.sub(r"\*\*(.+?)\*\*", r"\1", t)
+    t = _re.sub(r"(?m)^\s*#{1,6}\s*", "", t)
+    t = _re.sub(r"(?m)^\s*[-*•]\s+", "", t)
+    t = _re.sub(r"[\U0001F300-\U0001FAFF\u2600-\u27BF\U0001F900-\U0001F9FF]", "", t)
+    return _re.sub(r"\n{3,}", "\n\n", t).strip()
+
+
+def _gemini_direct(prompt):
+    """Appel Gemini direct (secours si le routeur est absent)."""
+    for modele in ("gemini-2.5-flash", "gemini-2.0-flash"):
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent?key={GEMINI_KEY}"
+            payload = {"contents": [{"parts": [{"text": prompt}]}],
+                       "generationConfig": {"temperature": 0.4, "maxOutputTokens": 2048, "thinkingConfig": {"thinkingBudget": 0}}}
+            r = requests.post(url, json=payload, timeout=45)
+            if r.status_code == 200:
+                return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        except Exception:
+            continue
+    return None
 
 def _extraire_fait(message, reponse):
     """L'Agent Memoire extrait un fait important de la conversation."""
@@ -3604,11 +3701,9 @@ def boucle():
                 except Exception as e:
                     reponse = f"Erreur: {e}. Tape 'status' pour le portefeuille."
 
-                # Telegram limite à 4096 caractères
-                if len(reponse) > 4000:
-                    reponse = reponse[:4000] + "\n... (tronqué)"
-
-                _telegram_send(reponse)
+                # Telegram limite à 4096 caractères : on decoupe aux paragraphes, on ne tronque plus
+                for _morceau in _decouper_telegram(reponse):
+                    _telegram_send(_morceau)
                 print(f"[CHAT] Réponse envoyée ({len(reponse)} chars)")
 
         except Exception as e:

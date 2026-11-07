@@ -92,6 +92,8 @@ ORDRE = {
     "decision": ["groq", "openrouter", "ovh_llama", "llm7", "gemini", "ovh_gptoss", "pollinations", "local"],
     "critique": ["openrouter", "ovh_gptoss", "llm7", "gemini", "groq", "ovh_llama", "pollinations", "local_critique"],
     "leger": ["ovh_llama", "llm7", "local", "groq", "openrouter", "gemini"],
+    # chat : qualite de redaction d'abord (Gemini 2.5 Flash, Llama 3.3 70B, DeepSeek, gpt-oss-120b), local en dernier
+    "chat": ["gemini", "ovh_llama", "llm7", "ovh_gptoss", "groq", "openrouter", "pollinations", "local"],
 }
 
 
