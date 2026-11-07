@@ -14,3 +14,9 @@ Réponses Telegram génériques, coupées, inventées (« 10 sous-agents à 50 k
 
 ## Retour arrière
 `git checkout b6b340b -- chat_naturel.py llm_router.py` puis redémarrage de chat_naturel.service.
+
+## Correctif du soir : plus de réponse après le déploiement
+Avec `LLM_LIBRE=0` (choix de l'utilisateur : les modèles publics sans clé sont coupés) et Gemini en pause quota, le chat tombait sur le modèle local avec le prompt complet (~6 000 tokens, num_ctx 8192) : 4 minutes de calcul CPU dans le routeur, puis 4 autres dans le secours, pendant lesquelles la boucle Telegram était bloquée. Résultat : silence.
+- Le modèle local sort du rôle `chat` du routeur ; il est appelé une seule fois par le chat, avec un prompt compact (`_prompt_compact_local` : consigne + capital/positions/stats réduits + calcul vérifié + question + règles, ~3 000 car.), num_ctx 4096, 700 tokens max, timeout 150 s (`CHAT_TIMEOUT_LOCAL`), modèle du routeur (qwen3.5:4b, plus léger que qwen2.5:7b).
+- Les questions passent dans un fil séparé : `status`, `pnl`, `positions` répondent pendant qu'un modèle réfléchit ; après 25 s sans réponse (`CHAT_ACCUSE_S`), un accusé de réception est envoyé au lieu d'un silence.
+- Tests : 39.

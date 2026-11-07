@@ -53,3 +53,15 @@ def test_longueur_adaptative():
     assert cn._veut_reponse_longue("Explique moi de A jusqu'à Z")
     assert cn._veut_reponse_longue("Details moi le plan au maximum")
     assert not cn._veut_reponse_longue("ça va ?")
+
+
+def test_prompt_compact_local_garde_la_question_et_le_calcul():
+    import chat_naturel as cn
+    ctx = "=== ETAT DU BOT ===\n" + "Capital 1005 EUR. ligne de stats\n" * 300
+    msg = "10 milliards en 5ans fait moi le plan"
+    verite = cn._verite_chiffree(msg, {"capital_initial": 1000, "liquidites": 1000, "positions": [], "trades_fermes": []})
+    prompt = f"Tu es l'Agent Trader.\n\n{ctx}\n{verite}\n\nMessage de l'utilisateur: {msg}\n\nREGLES: termine ta phrase."
+    compact = cn._prompt_compact_local(prompt, msg)
+    assert len(compact) < len(prompt) / 2
+    for morceau in ("CALCUL VERIFIE", "Message de l'utilisateur", "REGLES", "Capital 1005 EUR"):
+        assert morceau in compact

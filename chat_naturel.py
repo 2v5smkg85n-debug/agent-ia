@@ -1037,9 +1037,32 @@ def _groq_chat(message, contexte=None):
     except Exception:
         return None
 
+def _prompt_compact_local(prompt_complet, message, max_contexte=2500):
+    """Version courte du prompt pour le modele local (CPU) : on garde la consigne, la verite chiffree,
+    la question et les regles ; le contexte du bot est reduit a ses premieres lignes (capital, positions, stats).
+    Un prompt de 6 000 tokens met plus de 4 minutes sur un 4B en CPU -> Telegram semblait mort (07/11)."""
+    if not prompt_complet:
+        return None
+    if len(prompt_complet) <= max_contexte + 2500:
+        return prompt_complet
+    tete, _, reste = prompt_complet.partition("=== ETAT")
+    if not reste:
+        return prompt_complet[:max_contexte] + "\n[...contexte coupe...]\n" + prompt_complet[-2500:]
+    idx_fin = prompt_complet.rfind("Message de l'utilisateur:")
+    if idx_fin < 0:
+        idx_fin = len(prompt_complet) - 1500
+    corps = prompt_complet[len(tete):idx_fin]
+    verite = ""
+    i = corps.find("=== CALCUL VERIFIE")
+    if i >= 0:
+        j = corps.find("\n\n", i)
+        verite = corps[i:j if j > 0 else None]
+    return tete + corps[:max_contexte] + "\n[...contexte coupe pour le modele local...]\n" + verite + "\n" + prompt_complet[idx_fin:]
+
+
 def _ollama_chat(message, contexte=None, prompt_complet=None, num_predict=500):
-    """Secours local (Ollama sur le VPS). Recoit le MEME prompt complet que les autres modeles.
-    (Avant : prompt obsolete sans contexte, 200 mots max -> reponses coupees et inventees, cf. 07/11.)"""
+    """Secours local (Ollama sur le VPS). Recoit le MEME prompt que les autres modeles, en version compacte
+    (CPU). Une seule tentative, timeout borne : le chat ne doit jamais rester muet plusieurs minutes."""
     global _ollama_disponible
     if not _ollama_disponible:
         return None
@@ -1048,17 +1071,28 @@ def _ollama_chat(message, contexte=None, prompt_complet=None, num_predict=500):
         return None
     try:
         if not prompt_complet:
-            ctx = contexte or _construire_contexte()
+            ctx = (contexte or _construire_contexte())[:2500]
             prompt_complet = f"{ctx}\n\nMessage de l'utilisateur: {message}\n\nReponds en francais, texte brut, 2 a 5 phrases, chiffres du contexte uniquement, termine ta phrase."
-        modele = os.getenv("LLM_MODELE_LOCAL", "qwen2.5:7b")
-        payload = {"model": modele, "messages": [{"role": "user", "content": prompt_complet}], "stream": False,
-                   "options": {"temperature": 0.4, "num_predict": int(num_predict), "num_ctx": 8192}}
-        r = requests.post("http://localhost:11434/api/chat", json=payload, timeout=240)
+        prompt_local = _prompt_compact_local(prompt_complet, message)
+        try:
+            import llm_router as _lr
+            modele = _lr.MODELE_LOCAL                      # qwen3.5:4b par defaut (LLM_MODELE_LOCAL dans .env)
+        except Exception:
+            modele = os.getenv("LLM_MODELE_LOCAL", "qwen2.5:7b")
+        timeout = int(os.getenv("CHAT_TIMEOUT_LOCAL", "150"))
+        payload = {"model": modele, "messages": [{"role": "user", "content": prompt_local}], "stream": False,
+                   "keep_alive": "30m",
+                   "options": {"temperature": 0.4, "num_predict": min(int(num_predict), 700), "num_ctx": 4096}}
+        t0 = time.time()
+        r = requests.post("http://localhost:11434/api/chat", json=payload, timeout=timeout)
         if r.status_code == 200:
             _deduire_cout(COUT_CHAT, "chat ollama")
+            print(f"  [OLLAMA] {modele} a repondu en {time.time()-t0:.0f}s ({len(prompt_local)} car. de prompt)")
             return r.json()["message"]["content"].strip()
+        print(f"  [OLLAMA] HTTP {r.status_code}")
         return None
-    except Exception:
+    except Exception as _e:
+        print(f"  [OLLAMA] echec: {str(_e)[:120]}")
         return None
     finally:
         _ollama_lock.release()
@@ -1825,18 +1859,25 @@ REGLES DE REPONSE (non negociables):
     max_tokens = 1400 if long else 500
     # 1) Routeur commun (Gemini, OVH Llama 70B, LLM7, gpt-oss, Groq/OpenRouter si cles, local en dernier) :
     #    tous recoivent LE MEME prompt complet avec le contexte du bot.
+    #    Le modele local n'est PAS dans le role chat du routeur : il est appele une seule fois plus bas,
+    #    avec un prompt compact (sinon 2 x 4 min de calcul CPU et Telegram semble mort).
+    routeur_ok = False
     try:
         import llm_router as _lr
-        texte, modele = _lr.appeler(prompt, role="chat", json_mode=False, temperature=0.4, max_tokens=max_tokens, timeout_local=240)
+        routeur_ok = True
+        t0 = time.time()
+        texte, modele = _lr.appeler(prompt, role="chat", json_mode=False, temperature=0.4, max_tokens=max_tokens)
         if texte and len(texte.strip()) > 20:
-            print(f"  [CHAT] reponse via {modele} ({len(texte)} car.)")
+            print(f"  [CHAT] reponse via {modele} en {time.time()-t0:.0f}s ({len(texte)} car.)")
             return _nettoyer_reponse(texte)
+        print(f"  [CHAT] aucun fournisseur distant n'a repondu ({time.time()-t0:.0f}s) -> modele local")
     except Exception as _e:
         print(f"  [CHAT] routeur indisponible: {_e}")
-    # 2) Secours historiques (meme prompt complet)
-    texte = _gemini_direct(prompt)
-    if texte:
-        return _nettoyer_reponse(texte)
+    # 2) Secours historiques (meme prompt complet). Gemini direct seulement si le routeur n'a pas pu l'essayer.
+    if not routeur_ok:
+        texte = _gemini_direct(prompt)
+        if texte:
+            return _nettoyer_reponse(texte)
     resultat_ppl = _perplexity_chat(message, contexte)
     if resultat_ppl:
         return _nettoyer_reponse(resultat_ppl)
@@ -3695,20 +3736,55 @@ def boucle():
                     except Exception:
                         pass
 
-                # Traite et répond
-                try:
-                    reponse = _traiter_message(texte)
-                except Exception as e:
-                    reponse = f"Erreur: {e}. Tape 'status' pour le portefeuille."
-
-                # Telegram limite à 4096 caractères : on decoupe aux paragraphes, on ne tronque plus
-                for _morceau in _decouper_telegram(reponse):
-                    _telegram_send(_morceau)
-                print(f"[CHAT] Réponse envoyée ({len(reponse)} chars)")
+                # Traite et répond. Les commandes rapides repondent tout de suite ; les questions qui passent
+                # par un modele tournent dans un fil separe : la boucle continue de lire Telegram (status, pnl...
+                # restent disponibles pendant qu'un modele reflechit) et un accuse de reception part apres 25 s.
+                if _est_commande_rapide(texte):
+                    _repondre_et_envoyer(texte, rapide=True)
+                else:
+                    threading.Thread(target=_repondre_et_envoyer, args=(texte,), daemon=True).start()
 
         except Exception as e:
             print(f"[CHAT] Erreur: {e}")
             time.sleep(10)
+
+_reponse_lock = threading.Lock()
+_ATTENTE_ACCUSE_S = int(os.getenv("CHAT_ACCUSE_S", "25"))
+
+
+def _repondre_et_envoyer(texte, rapide=False):
+    """Calcule la reponse et l'envoie (decoupee si > 4096 car.). Un seul modele a la fois ;
+    si la reponse tarde (> 25 s), l'utilisateur recoit un mot au lieu d'un silence.
+    rapide=True : commande sans modele, repond tout de suite sans attendre le verrou."""
+    if rapide:
+        try:
+            reponse = _traiter_message(texte)
+        except Exception as e:
+            reponse = f"Erreur: {e}. Tape 'status' pour le portefeuille."
+        for _morceau in _decouper_telegram(reponse):
+            _telegram_send(_morceau)
+        return
+    fini = threading.Event()
+
+    def _accuse():
+        if not fini.is_set():
+            _telegram_send("Je verifie les chiffres, reponse dans une a deux minutes.")
+    minuteur = threading.Timer(_ATTENTE_ACCUSE_S, _accuse)
+    minuteur.daemon = True
+    minuteur.start()
+    try:
+        with _reponse_lock:
+            try:
+                reponse = _traiter_message(texte)
+            except Exception as e:
+                reponse = f"Erreur: {e}. Tape 'status' pour le portefeuille."
+    finally:
+        fini.set()
+        minuteur.cancel()
+    for _morceau in _decouper_telegram(reponse):
+        _telegram_send(_morceau)
+    print(f"[CHAT] Reponse envoyee ({len(reponse)} chars)")
+
 
 if __name__ == "__main__":
     boucle()
