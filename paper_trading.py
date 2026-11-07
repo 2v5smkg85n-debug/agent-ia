@@ -573,6 +573,51 @@ def analyser_signaux_techniques(prix_actuels):
         time.sleep(0.3)
     return signaux
 
+def analyser_signaux_tendance(prix_actuels):
+    """STRATEGIES DE TENDANCE (07/11/2026, droit d'ouvrir accorde par l'utilisateur) : cassure Donchian 20 (bougies 4 h,
+    volume, EMA 84 j) et momentum 20/90 j au-dessus de la SMA 200 (TSMOM). Evaluees a CHAQUE cycle, independamment des
+    indicateurs 1 h ; elles sautent les couches concues pour le retour a la moyenne (trader_pro, maitres, TradingView,
+    news), comme le professeur virtuel, puis passent le registre (probation : 1 position max chacune), le stop ATR,
+    la porte (chaleur, cadence, casier, regime, liquidite, flux, meta ; fenetres et CUSUM mesures sans bloquer) et la
+    protection du capital. TENDANCE=0 dans .env pour couper. Voir strategies_tendance.py."""
+    signaux = []
+    try:
+        import strategies_tendance as _st
+        if not _st.actif():
+            return []
+    except Exception as e:
+        print(f"    Strategies de tendance indisponibles: {e}")
+        return []
+    _top_cryptos = None
+    try:
+        _tc = json.load(open(os.path.join(DOSSIER, "top_cryptos.json")))
+        _top_cryptos = set(_tc.get("top", []))
+    except Exception:
+        pass
+    for sym, config in MARCHES_PAPER.items():
+        if sym not in prix_actuels or config.get("marche", "crypto") != "crypto":
+            continue
+        if _top_cryptos and sym not in _top_cryptos:
+            continue
+        try:
+            for _sig_t in _st.signaux(sym, prix_actuels[sym], nom=config.get("nom"), marche="crypto"):
+                _sig_t["etoile"] = config.get("etoile", False)
+                print(f"    [TENDANCE] {config.get('nom', sym)}: {_sig_t['strategie']} — {_sig_t['raison'][:110]}")
+                signaux.append(_sig_t)
+        except Exception as _e_t:
+            print(f"    [TENDANCE] {sym}: erreur {str(_e_t)[:80]}")
+        time.sleep(0.2)
+    if not signaux:
+        print("    [TENDANCE] aucune cassure Donchian ni retournement de momentum")
+    return signaux
+
+def _saute_couches(sig):
+    """Signaux qui sautent les couches de retour a la moyenne (apprentissage, trader_pro, maitres, intel, TradingView,
+    news) : le professeur virtuel (strategies deja backtestees) et les strategies de tendance (cassure/momentum : un RSI
+    « surachat » y est normal, ces couches les refuseraient systematiquement). Le registre, la porte et la protection
+    du capital s'appliquent a tous."""
+    return (sig.get("source") or "") in ("professeur_virtuel", "tendance")
+
 def analyser_signaux_ia(prix_actuels):
     """Fallback: analyse via IA pour les marches non-crypto (actions, forex, etc.)."""
     gagnantes = strategies_gagnantes()
@@ -1956,6 +2001,40 @@ def verifier_sorties(pf, prix_actuels):
                     continue
         except Exception:
             pass
+        # STRATEGIES DE TENDANCE (donchian_breakout, tsmom ; 07/11/2026) : stop 2 x ATR fixe a l'ouverture, objectif 3:1 puis
+        # stop suiveur, sortie PROPRE de la strategie (cloture 4 h sous le plus bas 10 bougies / rendement 20 j negatif),
+        # barriere 7 jours (ci-dessus). Les sorties « 24 h » (live-exit, pattern, stale) ne s'appliquent pas a elles.
+        try:
+            import strategies_tendance as _st_s
+            _est_tend = _st_s.est_tendance(pos.get("strategie"))
+        except Exception:
+            _est_tend = False
+        if _est_tend:
+            _sl_t = float(pos.get("sl_risque") or _sl_check)
+            _tp_t = float(pos.get("tp_risque") or round(_sl_t * 3, 2))
+            if variation <= -_sl_t:
+                _sl_price = prix_entree * (1 - _sl_t / 100.0) * (1 - 0.05 / 100.0)
+                _sl_var = (_sl_price - prix_entree) / prix_entree * 100
+                positions_a_fermer.append((pos, _sl_price, f"SL-EXEC (perte {_sl_var:+.1f}%, SL={_sl_t}%) [tendance]", _sl_var))
+                continue
+            if variation >= _tp_t or pos.get("pic_pct"):
+                _pic = max(float(pos.get("pic_pct", 0.0) or 0.0), variation)
+                pos["pic_pct"] = _pic
+                _plancher = max(_tp_t * 0.9, _pic - max(0.5 * _sl_t, 0.4))
+                if variation <= _plancher:
+                    positions_a_fermer.append((pos, prix_actuel, f"TP-SUIVI (objectif {_tp_t:.2f}% atteint, pic {_pic:+.2f}%, ferme a {variation:+.2f}%) [tendance]", variation))
+                    continue
+                print(f"  [TENDANCE] {sym}: objectif {_tp_t:.2f}% atteint, pic {_pic:+.2f}%, on laisse courir (plancher {_plancher:+.2f}%)")
+                continue
+            try:
+                _fin_t, _why_t = _st_s.sortie(pos)
+            except Exception as _e_s:
+                _fin_t, _why_t = False, f"erreur {str(_e_s)[:60]}"
+            if _fin_t:
+                positions_a_fermer.append((pos, prix_actuel, f"SORTIE-TENDANCE ({variation:+.2f}%: {_why_t})", variation))
+                continue
+            print(f"  [TENDANCE] {sym} ({pos.get('strategie')}): {variation:+.2f}% | stop -{_sl_t}% objectif +{_tp_t}% | {_why_t}")
+            continue
         if _essai_actif() and pos.get('strategie') == 'essai_bougies':
             _tp_check, _sl_check = pos.get("essai_tp", TAKE_PROFIT_PCT), pos.get("essai_sl", STOP_LOSS_PCT)  # essai: TP/SL fixes par marche
         # SL D'URGENCE ABSOLU: ferme a -0.8% quoi qu'il arrive (empeche les SL-RETARD)
@@ -2680,6 +2759,12 @@ def tick():
             signaux_prof = prof.generer_signaux_professeur(prix, MARCHES_PAPER)
         except Exception as e:
             print(f"    Professeur indisponible: {e}")
+        print("\nStrategies de tendance (Donchian 20 / TSMOM 20-90 j)...")
+        signaux_tendance = []
+        try:
+            signaux_tendance = analyser_signaux_tendance(prix)
+        except Exception as e:
+            print(f"    Tendance indisponible: {e}")
         print("\nAnalyse strategies gagnantes (backtest reel)...")
         signaux_gagnants = []
         try:
@@ -2691,6 +2776,8 @@ def tick():
         # Ajouter les signaux du Professeur Virtuel (priorite: les 2 sources coexistent)
         if signaux_prof:
             tous_signaux = list(signaux_prof) + tous_signaux
+        if signaux_tendance:
+            tous_signaux = list(signaux_tendance) + tous_signaux
         # Fallback: si aucune strategie gagnante ne signale, on utilise les indicateurs techniques
         if not tous_signaux:
             print("\nAucun signal gagnant -> indicateurs techniques...")
@@ -2703,8 +2790,8 @@ def tick():
             tous_signaux = signaux_ia
         if tous_signaux:
             # Les signaux du Professeur Virtuel bypassent l'apprentissage (strategies nouvelles)
-            _signaux_prof_avant = [s for s in tous_signaux if s.get("source") == "professeur_virtuel"]
-            _signaux_autres_avant = [s for s in tous_signaux if s.get("source") != "professeur_virtuel"]
+            _signaux_prof_avant = [s for s in tous_signaux if _saute_couches(s)]
+            _signaux_autres_avant = [s for s in tous_signaux if not _saute_couches(s)]
             # === APPRENTISSAGE: filtrer les signaux avec l'apprentissage ===
             try:
                 import apprentissage_trader as ap
@@ -2730,8 +2817,8 @@ def tick():
             # === TRADER PRO: score multi-facteurs comme un pro ===
             # Les signaux du Professeur Virtuel bypassent les filtres en aval
             # (strategies backtestees, score deja calcule par le professeur)
-            _signaux_prof_passe = [s for s in tous_signaux if s.get("source") == "professeur_virtuel"]
-            _signaux_non_prof = [s for s in tous_signaux if s.get("source") != "professeur_virtuel"]
+            _signaux_prof_passe = [s for s in tous_signaux if _saute_couches(s)]
+            _signaux_non_prof = [s for s in tous_signaux if not _saute_couches(s)]
             tous_signaux = _signaux_non_prof  # les signaux du prof sont mis de cote
             try:
                 import trader_pro as tp_module
@@ -2825,7 +2912,7 @@ def tick():
                         signaux_intel.append(sig)
                         continue
                     # Les signaux du professeur gardent leur TP/SL (2.5%/1.0%)
-                    if sig.get("source") == "professeur_virtuel":
+                    if _saute_couches(sig):
                         signaux_intel.append(sig)
                         continue
                     # Multi-timeframe
@@ -2867,8 +2954,8 @@ def tick():
             # Les signaux du professeur bypassent TradingView (strategies deja validees)
             try:
                 import tradingview_signals as tv
-                _tv_input = [s for s in tous_signaux if s.get("source") != "professeur_virtuel"]
-                _tv_prof = [s for s in tous_signaux if s.get("source") == "professeur_virtuel"]
+                _tv_input = [s for s in tous_signaux if not _saute_couches(s)]
+                _tv_prof = [s for s in tous_signaux if _saute_couches(s)]
                 _tv_input = tv.enrichir_signaux(_tv_input, intervalle="1h")
                 tous_signaux = _tv_input + _tv_prof
             except ImportError:
@@ -2880,7 +2967,7 @@ def tick():
             try:
                 from news_crypto import score_news_sentiment
                 for sig in tous_signaux:
-                    if sig.get("source") == "professeur_virtuel":
+                    if _saute_couches(sig):
                         continue
                     _news_score, _news_details = score_news_sentiment(sig["symbole"])
                     if _news_score != 0:

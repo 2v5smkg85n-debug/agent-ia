@@ -303,6 +303,15 @@ def preselection(prix_data, rsi_data, patterns_data, positions, reg):
                 s += b; why.append("professeurs " + ",".join(who))
         except Exception:
             pass
+        # Score de tendance (9 canaux Donchian 5-360 j, Catching Crypto Trends) : +0,5 si >= 5/9 haussiers, -0,5 si <= 2/9.
+        # Un TRI, pas un filtre.
+        try:
+            import strategies_tendance as _stt
+            bt, why_t = _stt.bonus_preselection(sym)
+            if bt:
+                s += bt; why.append(why_t)
+        except Exception:
+            pass
         ctx = {"sym": sym, "heure": heure, "btc_var_1h": reg.get("var_1h"), "btc_var_bougie": reg.get("var_1h"), "rsi": rsi,
                "sl_recents_1h": je._stops_recents(60) if je else 0, "dist_haut_24h": None}
         if je:

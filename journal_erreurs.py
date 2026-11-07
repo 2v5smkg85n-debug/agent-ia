@@ -166,12 +166,14 @@ def _generer_regles(d):
         r["perte_moy"] = round(st["perte"] / st["n"], 2) if st["n"] else 0
 
 
-def regles_bloquent(ctx, compter=True):
-    """(bloque, raison). Incremente les stats de la regle declenchee."""
+def regles_bloquent(ctx, compter=True, exemptees=()):
+    """(bloque, raison). Incremente les stats de la regle declenchee.
+       exemptees : classes de regles qui ne s'appliquent pas a cette entree (ex. 'achat_sommet' pour une cassure Donchian,
+       qui achete PAR DEFINITION au plus haut : la regle a ete apprise sur des achats de retour a la moyenne)."""
     with _LOCK:
         d = _charger()
         for cls, r in d["regles"].items():
-            if not r.get("active"):
+            if not r.get("active") or cls in exemptees:
                 continue
             try:
                 if _TESTS_REGLES[cls](ctx):
@@ -203,7 +205,16 @@ def preparer_entree(sym, prix, montant_prevu, liquidites, liquidite_min=200.0, s
        ok, raison, montant, sl_pct, tp_pct, barriere_h, ctx. Applique les regles + stop ATR + porte unique + risque fixe."""
     ctx = contexte_entree(sym, prix)
     ctx["strategie"] = strategie
-    bloque, raison = regles_bloquent(ctx)
+    # Strategies de tendance (donchian_breakout, tsmom ; 07/11/2026) : elles achetent au plus haut par construction et
+    # tiennent des jours ; les regles 'achat_sommet' et 'mauvaise_heure' (apprises sur des trades de 24 h) ne s'appliquent
+    # pas a elles. 'contre_btc' et 'cascade' (marche en train de tomber) restent.
+    _tendance = False
+    try:
+        import strategies_tendance as _st
+        _tendance = _st.est_tendance(strategie)
+    except Exception:
+        pass
+    bloque, raison = regles_bloquent(ctx, exemptees=("achat_sommet", "mauvaise_heure") if _tendance else ())
     if bloque:
         return {"ok": False, "raison": raison, "ctx": ctx, "montant": 0, "sl_pct": None, "tp_pct": None, "barriere_h": None}
     atr = ctx.get("atr_pct")
@@ -225,6 +236,14 @@ def preparer_entree(sym, prix, montant_prevu, liquidites, liquidite_min=200.0, s
         tp, barriere, risque_eur = round(sl * 2, 2), 24, RISQUE_EUR
         montant = min(RISQUE_EUR / (sl / 100.0), max(0.0, liquidites - liquidite_min))
         raison_sl = f"SL {sl}% (ATR {atr if atr is not None else '?'}%) montant {montant:.0f} EUR"
+    # --- tendance : objectif 3:1 (stop suiveur ensuite) et barriere 7 jours ; stop 2 x ATR et taille = risque / stop inchanges
+    if _tendance:
+        try:
+            tp = round(sl * float(_st.TP_RATIO), 2)
+            barriere = int(_st.BARRIERE_H)
+            raison_sl += f" | tendance: objectif {_st.TP_RATIO:g}:1, barriere {barriere} h"
+        except Exception:
+            pass
     # --- Thompson : la taille suit la confiance statistique de la strategie (x0.5 a x1.25, jamais plus de risque max)
     try:
         import registre_strategies as _rs

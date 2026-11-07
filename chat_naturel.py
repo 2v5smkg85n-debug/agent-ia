@@ -2549,6 +2549,15 @@ MEMOIRE D'APPRENTISSAGE (apprends de tes trades passes):
             print(f"  [PROF-EXT] contexte transmis ({len(_txt_pex)} car.)")
     except Exception as _e:
         print(f"  [PROF-EXT] indisponible: {_e}")
+    # === TENDANCE (score 9 canaux Donchian, signaux donchian_breakout / tsmom — strategies avec droit d'ouvrir depuis le 07/11) ===
+    try:
+        import strategies_tendance as _stt
+        _txt_t = _stt.contexte_pour_cerveau(list(prix_data.keys()))
+        if _txt_t:
+            _prof_str += "\n" + _txt_t
+            print(f"  [TENDANCE] contexte transmis ({len(_txt_t)} car.)")
+    except Exception as _e:
+        print(f"  [TENDANCE] indisponible: {_e}")
     # === MEMOIRE DES ERREURS + REGISTRE (le cerveau se souvient) ===
     _memoire_erreurs = ""
     try:

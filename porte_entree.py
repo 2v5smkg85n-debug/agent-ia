@@ -61,7 +61,15 @@ FENETRES = _fenetres()
 
 _NOM_FILTRE = {"FENETRES": "fenetres", "TENDANCE_LENTE": "tendance_lente", "CHALEUR": "chaleur", "REGIME": "regime",
                "CUSUM": "cusum", "LIQUIDITE": "liquidite", "FLUX": "flux", "META": "meta",
-               "CADENCE": "cadence", "CASIER": "casier"}
+               "CADENCE": "cadence", "CASIER": "casier", "ADX_RANGE": "adx_range"}
+# ADX(14) 4 h de la crypto au-dela duquel on n'achete PAS a contre-tendance (strategies de retour a la moyenne seulement :
+# rsi_oversold, consensus_reversion, pattern_reversal, bollinger_bounce...). Vantixs 2023-2025 : facteur de profit 1,11 sans
+# ce filtre, 1,78 avec ; en tendance etablie (ADX > 30) la meme regle perd. Mesure par le bilan contrefactuel ; PORTE_ADX_RANGE=0 coupe.
+try:
+    from config_env import lire as _lire_adx
+    ADX_RANGE_MAX = float(_lire_adx("ADX_RANGE_MAX", "25") or 25)
+except Exception:
+    ADX_RANGE_MAX = float(os.getenv("ADX_RANGE_MAX", "25"))
 _DESARMES = {"t": 0.0, "noms": set()}
 
 
@@ -269,6 +277,15 @@ def verifier(sym, prix, ctx, pf, montant, sl_pct=None, strategie=None, risque_no
     # c'est ce qui permet, 8 h plus tard, de mesurer ce que chaque filtre a evite ou coute (evaluer_contrefactuel / bilan_filtres).
     verdicts = {}
     infos["verdicts"] = verdicts
+    # Strategies de tendance (donchian_breakout, tsmom ; 07/11/2026) : « fenetres » et « CUSUM » sont juges (bilan) mais ne
+    # bloquent pas : une cassure Donchian EST un evenement de prix, et les fenetres ont ete apprises sur des trades de 24 h.
+    try:
+        import strategies_tendance as _st
+        _tendance = _st.est_tendance(strategie)
+        _reversion = _st.est_reversion(strategie)
+    except Exception:
+        _tendance, _reversion = False, False
+    infos["famille"] = "tendance" if _tendance else ("reversion" if _reversion else "autre")
 
     # Chaque filtre est TOUJOURS juge (verdict enregistre pour le bilan contrefactuel) ; il ne BLOQUE que s'il est
     # actif (PORTE_<NOM>=1, defaut). Desactiver un filtre (PORTE_CUSUM=0) ne l'empeche donc pas d'etre mesure.
@@ -276,7 +293,7 @@ def verifier(sym, prix, ctx, pf, montant, sl_pct=None, strategie=None, risque_no
     try:
         b, why = fenetre_interdite()
         verdicts["fenetres"] = not b
-        if b and _actif("FENETRES"):
+        if b and _actif("FENETRES") and not _tendance:
             bloque = f"fenetre interdite: {why}"
     except Exception:
         verdicts["fenetres"] = None
@@ -327,6 +344,21 @@ def verifier(sym, prix, ctx, pf, montant, sl_pct=None, strategie=None, risque_no
     verdicts["regime"] = None if not reg.get("mode") else reg.get("mode") != "turbulent"
     if not bloque and _actif("REGIME") and reg.get("mode") == "turbulent":
         bloque = f"regime turbulent (ATR 1h BTC au {reg.get('atr_percentile')}e percentile, ADX {reg.get('adx')})"
+    # 4b. ADX range (retour a la moyenne seulement) : pas d'achat a contre-tendance quand la crypto est en tendance etablie
+    try:
+        if _reversion:
+            _adx4 = _st.adx_4h(sym)
+            infos["adx_4h"] = None if _adx4 is None else round(float(_adx4), 1)
+            verdicts["adx_range"] = None if _adx4 is None else bool(float(_adx4) <= ADX_RANGE_MAX)
+            if _adx4 is not None and float(_adx4) > ADX_RANGE_MAX:
+                if not bloque and _actif("ADX_RANGE"):
+                    bloque = f"ADX 4h {float(_adx4):.0f} > {ADX_RANGE_MAX:.0f}: tendance etablie, pas d'achat a contre-tendance ({strategie})"
+            elif _adx4 is None:
+                infos["filtres_sautes"].append("adx_range")
+        else:
+            verdicts["adx_range"] = None
+    except Exception:
+        verdicts["adx_range"] = None
     # 5. CUSUM
     try:
         import indicateurs as ind
@@ -337,7 +369,7 @@ def verifier(sym, prix, ctx, pf, montant, sl_pct=None, strategie=None, risque_no
         infos["cusum"] = {"evenement": ev, "barres_depuis": depuis, "direction": direction, "seuil_pct": seuil}
         verdicts["cusum"] = None if ev is None else bool(ev)
         if ev is False or (ev is not None and not ev):
-            if not bloque and _actif("CUSUM"):
+            if not bloque and _actif("CUSUM") and not _tendance:
                 bloque = f"aucun evenement de prix (CUSUM {seuil}%) dans les {CUSUM_FENETRE_BARRES} dernieres heures (dernier il y a {depuis} h): c'est du bruit"
         elif ev is None:
             infos["filtres_sautes"].append("cusum")
