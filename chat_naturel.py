@@ -1989,6 +1989,8 @@ def _est_commande_rapide(message):
         return "prof"
     if msg in ["best", "meilleurs", "top", "meilleurs trades"]:
         return "best"
+    if msg in ["hyperliquid", "hl", "meilleurs traders", "les meilleurs", "baleines"]:
+        return "hyperliquid"
     if msg in ["worst", "pires", "pires trades", "pertes trades"]:
         return "worst"
     # Mode fun / normal (Grok-like toggle)
@@ -2052,6 +2054,16 @@ def _rapide_pnl():
     else:
         txt += "\n➖ Break even"
     return txt
+
+def _rapide_hyperliquid():
+    """Rapport du professeur Hyperliquid (les meilleurs traders verifies sur chaine)."""
+    try:
+        import professeur_hyperliquid as _hl
+        txt = _hl.rapport()
+        return txt if len(txt) <= 3800 else txt[:3780] + "\n(...)"
+    except Exception as e:
+        return f"Professeur Hyperliquid indisponible: {e}"
+
 
 def _rapide_prof():
     """Stats du professeur."""
@@ -2549,6 +2561,16 @@ MEMOIRE D'APPRENTISSAGE (apprends de tes trades passes):
             print(f"  [PROF-EXT] contexte transmis ({len(_txt_pex)} car.)")
     except Exception as _e:
         print(f"  [PROF-EXT] indisponible: {_e}")
+    # === PROFESSEUR HYPERLIQUID (10/11) : les meilleurs traders verifies sur chaine ; suivre seulement les meilleurs, apprendre
+    # leur facon de trader ; aucun droit d'ouvrir ===
+    try:
+        import professeur_hyperliquid as _hl
+        _txt_hl = _hl.contexte_pour_cerveau(list(prix_data.keys()), prix_data)
+        if _txt_hl:
+            _prof_str += "\n" + _txt_hl
+            print(f"  [HYPERLIQUID] contexte transmis ({len(_txt_hl)} car.)")
+    except Exception as _e:
+        print(f"  [HYPERLIQUID] indisponible: {_e}")
     # === TENDANCE (score 9 canaux Donchian, signaux donchian_breakout / tsmom — strategies avec droit d'ouvrir depuis le 07/11) ===
     try:
         import strategies_tendance as _stt
@@ -3473,6 +3495,8 @@ def _traiter_message(message):
         return _rapide_prof()
     elif rapide == "best":
         return _rapide_best()
+    elif rapide == "hyperliquid":
+        return _rapide_hyperliquid()
     elif rapide == "worst":
         return _rapide_worst()
     elif rapide == "fun_on":

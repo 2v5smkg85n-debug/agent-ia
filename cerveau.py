@@ -303,6 +303,15 @@ def preselection(prix_data, rsi_data, patterns_data, positions, reg):
                 s += b; why.append("professeurs " + ",".join(who))
         except Exception:
             pass
+        # Professeur Hyperliquid (les meilleurs traders verifies sur chaine) : +0,5 s'ils sont longs / -0,5 s'ils sont courts,
+        # SEULEMENT une fois sa fiabilite prouvee chez nous (>= 20 votes tranches, >= 45 %). Avant : seulement lu.
+        try:
+            import professeur_hyperliquid as _hl
+            bh, why_h = _hl.bonus_preselection(sym)
+            if bh:
+                s += bh; why.append(why_h)
+        except Exception:
+            pass
         # Score de tendance (9 canaux Donchian 5-360 j, Catching Crypto Trends) : +0,5 si >= 5/9 haussiers, -0,5 si <= 2/9.
         # Un TRI, pas un filtre.
         try:

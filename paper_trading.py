@@ -2765,6 +2765,15 @@ def tick():
             signaux_tendance = analyser_signaux_tendance(prix)
         except Exception as e:
             print(f"    Tendance indisponible: {e}")
+        # Professeur Hyperliquid (10/11/2026) : les meilleurs traders verifies sur chaine. Il n'ouvre rien : il rafraichit
+        # ses lectures en arriere-plan (positions 15 min, cohorte 6 h), vote, et le cerveau le lit. PROF_HYPERLIQUID=0 coupe.
+        try:
+            import professeur_hyperliquid as _hl
+            if _hl._actif():
+                _hl.rafraichir_si_besoin([s for s in prix if MARCHES_PAPER.get(s, {}).get("marche", "crypto") == "crypto"])
+                print("\n    " + _hl.resume_court(list(prix.keys())))
+        except Exception as e:
+            print(f"    Hyperliquid indisponible: {e}")
         print("\nAnalyse strategies gagnantes (backtest reel)...")
         signaux_gagnants = []
         try:
