@@ -48,6 +48,19 @@ REVOLUT_X_CRYPTO = {
 }
 # SPREAD_BLACKLIST vide: on utilise REVOLUT_X_CRYPTO pour filtrer
 SPREAD_BLACKLIST = set()
+# 11/11/2026 : cryptos listees sur Revolut X mais PAS negociables pour le bot — prix micro (0,000003 EUR, affiche 0,0000),
+# spread 16 % ou plus : impossible a executer au prix du paper. PEPE etait « retire » dans paper_trading.py et prix_revolut
+# mais revenait par le scanner d'etoiles filantes (qui lit REVOLUT_X_CRYPTO) -> trade Donchian perdant le 10/11.
+NON_NEGOCIABLES = {"PEPEUSDT", "FLOKIUSDT", "SHIBUSDT"}
+
+
+def negociable(symbole):
+    """True si la crypto est tradable sur Revolut X pour le bot : listee, avec un symbole Revolut connu (prix EUR
+    recuperable) et hors NON_NEGOCIABLES."""
+    s = str(symbole or "").upper()
+    if not s.endswith("USDT"):
+        s += "USDT"
+    return s in REVOLUT_X_CRYPTO and s in SYMBOLES_REVOLUT and s not in NON_NEGOCIABLES
 
 # Mapping symbole bot -> symbole Revolut X
 SYMBOLES_REVOLUT = {

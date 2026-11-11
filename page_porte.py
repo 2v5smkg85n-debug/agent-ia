@@ -26,9 +26,21 @@ def etat():
         try:
             import stop_atr as _sa
             e["risque_par_trade"] = _sa.risque_courant()
+            e["risque_par_strategie"] = {}
+            try:
+                _reg = json.load(open(os.path.join(DOSSIER, "registre_strategies.json"))).get("strategies", {})
+                for _k, _v in _reg.items():
+                    if _v.get("droit_ouverture"):
+                        e["risque_par_strategie"][_k] = _sa.risque_courant(strategie=_k)
+            except Exception:
+                pass
         except Exception as ex:
             e["risque_par_trade"] = None
         e["porte_dernieres"] = pe.dernieres_decisions(25)[::-1]
+        try:
+            e["porte_desarmes"] = sorted(pe.filtres_desarmes())
+        except Exception:
+            e["porte_desarmes"] = []
         e["tendance_lente"] = pe.tendance_lente_btc()
         e["regime"] = pe.regime_actuel("BTCUSDT")
         e["fenetre"] = pe.fenetre_interdite()
@@ -41,6 +53,17 @@ def etat():
             s["nom"] = next((k for k, v in d["strategies"].items() if v is s), "?")
     except Exception:
         e["registre"] = []
+    try:
+        import entonnoir as _en
+        e["entonnoir"] = _en.bilan()
+        e["entonnoir"]["desarmees"] = _en.desarmees()
+    except Exception as ex:
+        e["entonnoir"] = {"erreur": str(ex)}
+    try:
+        import pret_pour_le_reel as _ppr
+        e["reel"] = _ppr.etat()
+    except Exception as ex:
+        e["reel"] = {"erreur": str(ex)}
     try:
         import meta_modele
         e["meta"] = meta_modele.resume()
@@ -83,7 +106,7 @@ def build_page():
     # contexte marche
     tl, rg, fen = e.get("tendance_lente") or {}, e.get("regime") or {}, e.get("fenetre") or (False, "")
     out.append("<h2>Contexte marché (ce que la porte regarde)</h2><table>")
-    out.append(f"<tr><th>Tendance lente BTC (EMA {tl.get('ema_jours')} j)</th><td class='{'ok' if tl.get('haussiere') else 'ko'}'>{'HAUSSIÈRE' if tl.get('haussiere') else ('BAISSIÈRE → aucun achat' if tl.get('haussiere') is False else 'inconnue')}</td><td class='m'>prix {tl.get('ecart_pct')}% vs EMA, pente {tl.get('pente_pct')}%/5j</td></tr>")
+    out.append(f"<tr><th>Tendance lente BTC (EMA {tl.get('ema_jours')} j)</th><td class='{'ok' if tl.get('haussiere') else 'ko'}'>{'HAUSSIÈRE' if tl.get('haussiere') else (('BAISSIÈRE → aucun achat' if 'tendance_lente' not in (e.get('porte_desarmes') or []) else 'BAISSIÈRE (filtre désarmé, ne bloque pas)') if tl.get('haussiere') is False else 'inconnue')}</td><td class='m'>prix {tl.get('ecart_pct')}% vs EMA, pente {tl.get('pente_pct')}%/5j</td></tr>")
     out.append(f"<tr><th>Régime 1h BTC</th><td>{H(str(rg.get('mode')))}</td><td class='m'>ADX {rg.get('adx')} · ATR {rg.get('atr_pct')}% = {rg.get('atr_percentile')}e percentile</td></tr>")
     out.append(f"<tr><th>Fenêtre interdite</th><td class='{'ko' if fen[0] else 'ok'}'>{'OUI' if fen[0] else 'non'}</td><td class='m'>{H(str(fen[1]))}</td></tr>")
     ws = e.get("ws")
@@ -101,7 +124,36 @@ def build_page():
     out.append("<p>Cryptos / jours interdits parce que perdants avec confiance (≥ 15 trades, borne haute 90 % du gain moyen &lt; 0 ; révisé toutes les 10 min) : "
                + ("<b class='ko'>" + H(", ".join(inter)) + "</b>" if inter else "<b class='ok'>aucun</b>") + "</p>")
     rp = e.get("risque_par_trade")
-    out.append(f"<p>Risque par trade actuel : <b>{rp if rp is not None else '?'} €</b> (palier 1 = 1 € ; ×2 dès 30 trades prouvés gagnants, ×3 dès 60 ; plafond 0,5 % du capital)</p>")
+    rps = e.get("risque_par_strategie") or {}
+    out.append(f"<p>Risque par trade : base <b>{rp if rp is not None else '?'} €</b> = 0,25 % du capital ; par stratégie (époque courante, ×2 dès 30 trades prouvés, ×3 dès 60, ×0,5 en probation ; plafond 1 % ; paliers de drawdown −5/−10/−15 %) : "
+               + (" · ".join(f"{H(k)} <b>{v} €</b>" for k, v in sorted(rps.items())) if rps else "aucune stratégie avec droit d'ouvrir") + "</p>")
+    # pret pour le reel
+    rl = e.get("reel") or {}
+    if isinstance(rl, dict) and rl.get("conditions"):
+        out.append(f"<h2>Prêt pour le réel ? <span class='{'ok' if rl.get('pret') else 'm'}'>{rl.get('n_ok')}/{rl.get('n_total')} conditions</span></h2><table>")
+        for c in rl["conditions"]:
+            out.append(f"<tr><td class='{'ok' if c['ok'] else 'ko'}'>{'OK' if c['ok'] else '—'}</td><td>{H(c['nom'])}</td><td class='m'>{H(str(c['valeur']))}</td></tr>")
+        out.append("</table>")
+        out.append("<p class='m'>" + H((f"Vert : proposition de départ réel {rl.get('capital_reel_depart'):.0f} € au même risque en %, 1 mois à cette taille, puis paliers." if rl.get("pret")
+                                       else "Le bot continue en paper avec les règles du réel (risque en % du capital, frais, stop 2×ATR). Les conditions se remplissent avec les trades, rien n'est à forcer.")) + "</p>")
+    # entonnoir : les couches en amont de la porte, mesurees
+    en = e.get("entonnoir") or {}
+    if isinstance(en, dict) and not en.get("erreur"):
+        cs = en.get("couches") or {}
+        out.append(f"<h2>Entonnoir — toutes les couches qui tuent un signal avant la porte (jugées 8 h après, {en.get('n_juges', 0)} vetos jugés / {en.get('n_vetos', 0)} enregistrés)</h2>")
+        out.append("<p class='m'>Apprentissage, trader pro, agents, maîtres, intel, TradingView, ML, sous-agents, cooldowns, volatilité, gates, bougies, méta-IA, S/R, corrélation, règles d'erreur : "
+                   "chaque veto est rejoué sur les bougies comme à la porte. Une couche qui a coûté ≥ 10 R sur ≥ 30 cas est désarmée (elle ne bloque plus mais reste mesurée) et se réarme si son bilan redevient ≥ 0. "
+                   "Les couches de sécurité (liquidité, flash crash, circuit breaker, max positions, blacklist/registre, Revolut X, casier, protection du capital) ne se désarment jamais.</p>")
+        out.append("<p>Couches désarmées par les faits : <b class='ko'>" + H(", ".join(en.get("desarmees") or []) or "aucune") + "</b></p>")
+        if cs:
+            out.append("<table><tr><th>Couche</th><th>Vetos jugés</th><th>dont objectif</th><th>dont stop</th><th>R évité</th><th>Laissés passer</th><th>Verdict</th></tr>")
+            for c, st in sorted(cs.items(), key=lambda kv: kv[1].get("r_evite", 0)):
+                v = st.get("verdict", "")
+                cls = "ok" if v == "utile" else "ko" if v.startswith("DESARMEE") else "m"
+                out.append(f"<tr><td>{H(c)}</td><td>{st.get('n')}</td><td>{st.get('tp')}</td><td>{st.get('sl')}</td><td><b>{st.get('r_evite', 0):+.1f}</b></td><td>{st.get('laisses_passer', 0)}</td><td class='{cls}'>{H(v)}</td></tr>")
+            out.append("</table>")
+        else:
+            out.append("<p class='m'>Aucun veto jugé pour l'instant (il faut 8 h après le premier veto enregistré).</p>")
     # bilan contrefactuel : ce que chaque filtre a evite / coute (juge 8 h apres sur les bougies)
     bf = e.get("bilan_filtres") or {}
     if isinstance(bf, dict) and bf.get("filtres"):

@@ -486,6 +486,28 @@ def decider(prix_data, rsi_data, patterns_data, lignes_marche, positions, liquid
     """Retourne {"action": "ACHAT"/"RIEN", "symbole", "raison", "confiance", "sl_pct"...} ou None si indisponible."""
     d = _charger()
     seuil = seuil_adaptatif(d)
+    # 11/11/2026 : le seuil suit le REGIME ou le cerveau gagne vraiment. Ses achats ne sont pas rentables partout
+    # (ia_autonome@range : 35 trades, 63 % ok, +1,38 % ; ailleurs ~50 %). Registre par regime : si le WR du vehicule dans le
+    # regime du moment depasse le point mort de 10 points sur >= 20 trades -> seuil -15 (min 55) ; s'il est sous le point
+    # mort sur >= 20 trades -> seuil +10 (max 90). Mesure, reversible (CERVEAU_SEUIL_REGIME=0 pour couper).
+    try:
+        if os.getenv("CERVEAU_SEUIL_REGIME", "1") == "1":
+            import registre_strategies as _rs_reg
+            import porte_entree as _pe_reg
+            _mode = (_pe_reg.regime_actuel("BTCUSDT") or {}).get("mode")
+            _sv = (_rs_reg._charger().get("strategies", {}).get("ia_autonome") or {})
+            _pr = (_sv.get("par_regime") or {}).get(_mode or "", {})
+            _pm = float(_sv.get("point_mort") or 36.0)
+            if _pr.get("n", 0) >= 20:
+                _wr = _pr.get("g", 0) / _pr["n"] * 100
+                if _wr >= _pm + 10:
+                    seuil = max(55, seuil - 15)
+                    print(f"  [CERVEAU] regime {_mode}: le cerveau y gagne ({_wr:.0f}% sur {_pr['n']}) -> seuil {seuil}")
+                elif _wr < _pm:
+                    seuil = min(90, seuil + 10)
+                    print(f"  [CERVEAU] regime {_mode}: le cerveau y perd ({_wr:.0f}% sur {_pr['n']}) -> seuil {seuil}")
+    except Exception:
+        pass
     reg = regime_btc()
     pre = preselection(prix_data, rsi_data, patterns_data, positions, reg)
     print(f"  [CERVEAU] Regime BTC: {reg.get('tendance_4h')} (1h {reg.get('var_1h')}%, 24h {reg.get('var_24h')}%) | seuil confiance {seuil}")
@@ -530,6 +552,13 @@ def decider(prix_data, rsi_data, patterns_data, lignes_marche, positions, liquid
         _porte_txt = _pe.contexte_pour_ia()
     except Exception:
         pass
+    try:
+        import entonnoir as _en
+        _t = _en.contexte_pour_ia()
+        if _t:
+            _porte_txt = (_porte_txt + "\n" + _t).strip()
+    except Exception:
+        pass
     prompt_analyste = f"""Tu es l'analyste d'un desk de trading crypto. Tu dois choisir AU PLUS UNE entree (achat spot, stop = 2 x ATR 1h (0.8-3%), objectif = 2 x le stop, barriere de temps 24h) ou RIEN.
 
 REGIME BTC: tendance 4h {reg.get('tendance_4h')}, 1h {reg.get('var_1h')}%, 24h {reg.get('var_24h')}%, ATR 1h {reg.get('atr_1h')}%.
@@ -543,11 +572,11 @@ CANDIDATES (preselectionnees par le systeme):
 {resume_calibration(d)}
 {prof_txt}
 
-CADRE: le stop est a 2 x ATR et l'objectif a 2 x le stop, donc une reussite sur trois suffit a etre rentable (point mort ~36%). Tu n'as pas besoin d'une certitude, tu as besoin d'un avantage lisible. Les filtres mecaniques (tendance lente BTC, fenetres horaires, regime, liquidite, flux d'ordres) sont deja appliques par la porte APRES toi: ne les re-applique pas plus severement qu'eux.
+CADRE: le stop est a 2 x ATR et l'objectif a 2 x le stop, donc une reussite sur trois suffit a etre rentable (point mort ~36%). Tu n'as pas besoin d'une certitude, tu as besoin d'un avantage lisible. Les filtres mecaniques (tendance lente BTC, fenetres horaires, regime, liquidite, flux d'ordres) sont deja appliques par la porte APRES toi: ne les re-applique pas plus severement qu'eux. Un filtre marque DESARME ci-dessus a ete mesure nuisible (il bloquait plus d'objectifs que de stops): tu ne dois JAMAIS repondre RIEN a cause de lui.
 
 METHODE (obligatoire, en plusieurs etapes):
 0. Pour chaque candidate, reponds honnetement: "ce mouvement est-il distinguable d'une marche aleatoire ?" OUI si au moins deux elements independants vont dans le meme sens (ex: pattern haussier + RSI bas, rebond sur support + meche basse, fin de baisse + volume). NON si un seul indicateur isole.
-1. Verifie la checklist: tendance_btc_ok (tendance LENTE BTC haussiere ci-dessus ET BTC ne baisse pas sur l'heure; une 4h baissiere sous une tendance lente haussiere est un REPLI, pas un veto: c'est le contexte normal d'un achat sur pattern/RSI), pattern_confirme (pattern haussier 1h avec contexte: fin de baisse, support, meche basse, volume ou flux acheteur), pas_au_sommet (RSI < 60 et > 1% sous le plus haut 24h), volatilite_ok (ATR 1h entre 0.2% et 2.0%, regime pas turbulent), heure_ok (pas 13h-15h UTC, pas d'annonce macro USD dans l'heure), pas_erreur_passee (les PERTES similaires listees n'ont pas perdu pour une raison toujours presente aujourd'hui), distinguable_du_bruit (etape 0).
+1. Verifie la checklist: tendance_btc_ok (BTC ne baisse pas sur l'heure ; si la tendance lente est HAUSSIERE c'est un plus ; si elle est BAISSIERE mais DESARMEE, elle ne compte pas contre ; une 4h baissiere est un REPLI, pas un veto: c'est le contexte normal d'un achat sur pattern/RSI), pattern_confirme (pattern haussier 1h avec contexte: fin de baisse, support, meche basse, volume ou flux acheteur), pas_au_sommet (RSI < 60 et > 1% sous le plus haut 24h), volatilite_ok (ATR 1h entre 0.2% et 2.0%, regime pas turbulent), heure_ok (pas 13h-15h UTC, pas d'annonce macro USD dans l'heure), pas_erreur_passee (les PERTES similaires listees n'ont pas perdu pour une raison toujours presente aujourd'hui), distinguable_du_bruit (etape 0).
 2. Choisis la meilleure candidate si la checklist est vraie (tendance_btc_ok ou volatilite_ok peut manquer, un seul des deux, en baissant la confiance). RIEN seulement si aucune candidate n'a de configuration lisible.
 3. Donne une confiance 0-100 honnete et differenciee (pas toujours 60): ta fiabilite passee est affichee ci-dessus.
 4. Precise ce qui invaliderait l'idee (ex: cloture 1h sous le support).

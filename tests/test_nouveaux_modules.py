@@ -13,7 +13,7 @@ def test_stop_atr_bornes_et_ratio():
     assert sa.stop_pct(5.0, nuit) == sa.SL_MAX
     r = sa.calculer(0.5, 1000.0, 200.0, maintenant=nuit)
     assert r["sl_pct"] == 1.0 and r["tp_pct"] == 2.0 and r["barriere_h"] == 24
-    assert abs(r["montant"] * (r["sl_pct"] + sa.FRAIS_AR_PCT) / 100 - sa.RISQUE_EUR) < 0.02
+    assert abs(r["montant"] * (r["sl_pct"] + sa.FRAIS_AR_PCT) / 100 - r["risque_eur"]) < 0.02   # 11/11 : risque en % du capital
     us = datetime(2026, 10, 18, 14, 0, tzinfo=timezone.utc)
     assert sa.stop_pct(0.5, us) > sa.stop_pct(0.5, nuit)
     assert sa.calculer(0.5, 1000.0, regime="turbulent", maintenant=nuit)["montant"] < r["montant"]
@@ -175,10 +175,12 @@ def test_cadence_cooldown_et_plafond():
 
 def test_palier_de_risque():
     import stop_atr as sa
-    assert sa.risque_courant(trades=[], capital=1000) == sa.RISQUE_EUR
-    assert sa.risque_courant(trades=[{"gain_eur": 0.5}] * 40, capital=1000) == round(sa.RISQUE_EUR * 2, 2)
-    assert sa.risque_courant(trades=[{"gain_eur": 0.5}] * 70, capital=1000) == round(sa.RISQUE_EUR * 3, 2)
-    assert sa.risque_courant(trades=[{"gain_eur": 0.5}, {"gain_eur": -0.6}] * 35, capital=1000) == sa.RISQUE_EUR
+    # 11/11/2026 : base = RISQUE_PCT (0,25 %) du capital = 2,5 EUR sur 1 000 ; paliers x2 / x3 sur preuve ; plafond 1 %
+    base = round(1000 * sa.RISQUE_PCT / 100, 2)
+    assert sa.risque_courant(trades=[], capital=1000, capital_initial=1000) == base
+    assert sa.risque_courant(trades=[{"gain_eur": 0.5}] * 40, capital=1000, capital_initial=1000) == round(base * 2, 2)
+    assert sa.risque_courant(trades=[{"gain_eur": 0.5}] * 70, capital=1000, capital_initial=1000) == round(base * 3, 2)
+    assert sa.risque_courant(trades=[{"gain_eur": 0.5}, {"gain_eur": -0.6}] * 35, capital=1000, capital_initial=1000) == base
 
 
 def test_vehicule_jamais_retiree():
@@ -188,8 +190,11 @@ def test_vehicule_jamais_retiree():
        + [{"strategie": "ia_autonome", "symbole": "X", "gain_eur": -0.56, "date_fermeture": "2026-10-22 10:00", "raison": "LIVE-EXIT"}] * 11 \
        + [{"strategie": "ia_autonome", "symbole": "X", "gain_eur": 0.4, "date_fermeture": "2026-10-21 10:00", "raison": "TP"}] * 7
     s = rs.calculer(tr)["ia_autonome"]
-    assert s["net"] < 0 and s["statut_auto"] == "active"          # net a vie negatif mais vehicule : reste active
+    # 11/11 : epoque de 18 trades dans le rouge -> probation (demi-taille), jamais retiree ; active des que l'epoque est > 0
+    assert s["net"] < 0 and s["statut_auto"] == "probation"
     assert s["epoque"]["n"] == 18
+    tr_pos = tr[:54] + [{"strategie": "ia_autonome", "symbole": "X", "gain_eur": 0.4, "date_fermeture": "2026-10-22 10:00", "raison": "TP"}] * 16
+    assert rs.calculer(tr_pos)["ia_autonome"]["statut_auto"] == "active"
     tr2 = tr[:54] + [{"strategie": "ia_autonome", "symbole": "X", "gain_eur": -0.6, "date_fermeture": "2026-10-22 10:00", "raison": "SL"}] * 25 \
         + [{"strategie": "ia_autonome", "symbole": "X", "gain_eur": 0.4, "date_fermeture": "2026-10-22 10:00", "raison": "TP"}] * 5
     assert rs.calculer(tr2)["ia_autonome"]["statut_auto"] == "probation"   # jamais retiree

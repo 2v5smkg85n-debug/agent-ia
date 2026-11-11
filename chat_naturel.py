@@ -1295,7 +1295,7 @@ def _rapide_aide():
 🔢 Math — calculs, stats, probabilités
 📝 Résumé — synthèses, TL;DR
 
-Commandes chat: status, positions, trades, pnl, prof, best, worst, meteo, gps, air, fun, normal, aide
+Commandes chat: status, positions, trades, pnl, prof, best, worst, hyperliquid, entonnoir, reel, meteo, gps, air, fun, normal, aide
 Commandes VPS: logs, services, health
 
 Tape 'fun' pour le mode sauvage 😈
@@ -1991,6 +1991,10 @@ def _est_commande_rapide(message):
         return "best"
     if msg in ["hyperliquid", "hl", "meilleurs traders", "les meilleurs", "baleines"]:
         return "hyperliquid"
+    if msg in ["entonnoir", "couches", "filtres", "vetos", "veto", "pourquoi il bloque", "pourquoi ca bloque"]:
+        return "entonnoir"
+    if msg in ["reel", "réel", "pret pour le reel", "prêt pour le réel", "passer en reel", "passer en réel", "pret", "prêt"]:
+        return "reel"
     if msg in ["worst", "pires", "pires trades", "pertes trades"]:
         return "worst"
     # Mode fun / normal (Grok-like toggle)
@@ -2054,6 +2058,41 @@ def _rapide_pnl():
     else:
         txt += "\n➖ Break even"
     return txt
+
+def _rapide_entonnoir():
+    """Bilan des couches qui tuent un signal avant la porte (entonnoir.py) + bilan de la porte."""
+    try:
+        import entonnoir as _en
+        txt = "🪣 " + _en.resume_court()
+    except Exception as e:
+        txt = f"Entonnoir indisponible: {e}"
+    try:
+        import porte_entree as _pe
+        b = _pe.bilan_filtres()
+        des = sorted(_pe.filtres_desarmes())
+        txt += f"\n\n🚪 Porte : {b.get('n_juges', 0)} passages jugés ; filtres désarmés : {', '.join(des) if des else 'aucun'}"
+        for f, st in sorted(b.get("filtres", {}).items(), key=lambda kv: kv[1].get("r_evite", 0))[:6]:
+            bb = st.get("bloquerait", {})
+            txt += f"\n  {f}: aurait bloqué {bb.get('tp', 0) + bb.get('sl', 0) + bb.get('neutre', 0)} (objectif {bb.get('tp', 0)}, stop {bb.get('sl', 0)}) → R évité {st.get('r_evite', 0):+.1f} : {st.get('verdict', '')}"
+    except Exception:
+        pass
+    return txt if len(txt) <= 3800 else txt[:3780] + "\n(...)"
+
+
+def _rapide_reel():
+    """Ou en est le bot sur le chemin du reel (pret_pour_le_reel.py)."""
+    try:
+        import pret_pour_le_reel as _ppr
+        txt = "🎯 " + _ppr.rapport()
+        try:
+            import stop_atr as _sa
+            txt += f"\n\nRisque par trade (base) : {_sa.risque_courant():.2f} € = {_sa.RISQUE_PCT} % du capital ; plafond {_sa.RISQUE_MAX_PCT} %."
+        except Exception:
+            pass
+        return txt if len(txt) <= 3800 else txt[:3780] + "\n(...)"
+    except Exception as e:
+        return f"Rapport réel indisponible: {e}"
+
 
 def _rapide_hyperliquid():
     """Rapport du professeur Hyperliquid (les meilleurs traders verifies sur chaine)."""
@@ -3497,6 +3536,10 @@ def _traiter_message(message):
         return _rapide_best()
     elif rapide == "hyperliquid":
         return _rapide_hyperliquid()
+    elif rapide == "entonnoir":
+        return _rapide_entonnoir()
+    elif rapide == "reel":
+        return _rapide_reel()
     elif rapide == "worst":
         return _rapide_worst()
     elif rapide == "fun_on":

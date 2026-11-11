@@ -215,6 +215,16 @@ def preparer_entree(sym, prix, montant_prevu, liquidites, liquidite_min=200.0, s
     except Exception:
         pass
     bloque, raison = regles_bloquent(ctx, exemptees=("achat_sommet", "mauvaise_heure") if _tendance else ())
+    _note_regle = ""
+    if bloque:
+        # 11/11/2026 : veto mesure (entonnoir.py). La regle reste jugee 8 h apres ; si elle coute plus qu'elle ne protege,
+        # elle est desarmee et l'entree continue (la porte et le risque gardent la main).
+        try:
+            import entonnoir as _en
+            if not _en.veto("regle_erreurs", {"symbole": sym, "strategie": strategie, "prix_entree": prix}, prix, msg=""):
+                bloque, _note_regle = False, f" | regle desarmee (mesuree nuisible) : {raison}"
+        except Exception:
+            pass
     if bloque:
         return {"ok": False, "raison": raison, "ctx": ctx, "montant": 0, "sl_pct": None, "tp_pct": None, "barriere_h": None}
     atr = ctx.get("atr_pct")
@@ -229,7 +239,7 @@ def preparer_entree(sym, prix, montant_prevu, liquidites, liquidite_min=200.0, s
     # --- stop 2 x ATR, objectif 2:1, barriere 24 h, taille = risque / (stop + frais)
     try:
         import stop_atr as _sa
-        calc = _sa.calculer(atr, liquidites, liquidite_min, regime=regime)
+        calc = _sa.calculer(atr, liquidites, liquidite_min, regime=regime, strategie=strategie)
         sl, tp, barriere, montant, risque_eur, raison_sl = calc["sl_pct"], calc["tp_pct"], calc["barriere_h"], calc["montant"], calc["risque_eur"], calc["raison"]
     except Exception:
         sl = round(min(SL_MAX, max(SL_MIN, ATR_MULT * atr)), 2) if atr else SL_MIN
@@ -244,7 +254,7 @@ def preparer_entree(sym, prix, montant_prevu, liquidites, liquidite_min=200.0, s
             raison_sl += f" | tendance: objectif {_st.TP_RATIO:g}:1, barriere {barriere} h"
         except Exception:
             pass
-    # --- Thompson : la taille suit la confiance statistique de la strategie (x0.5 a x1.25, jamais plus de risque max)
+    # --- Thompson : la taille suit la confiance statistique de la strategie (x0.5 a x1.5, jamais plus de risque max)
     try:
         import registre_strategies as _rs
         _f = _rs.facteur_taille(strategie, regime) if strategie else 1.0
@@ -273,19 +283,37 @@ def preparer_entree(sym, prix, montant_prevu, liquidites, liquidite_min=200.0, s
             return {"ok": False, "raison": f"PORTE: {verdict['raison']}", "ctx": ctx, "montant": 0, "sl_pct": sl, "tp_pct": tp, "barriere_h": barriere}
     except Exception as _e:
         ctx["porte"] = {"erreur": str(_e)[:80]}
-    return {"ok": True, "raison": raison_sl, "montant": round(montant, 2), "sl_pct": sl, "tp_pct": tp, "barriere_h": barriere, "ctx": ctx}
+    return {"ok": True, "raison": raison_sl + _note_regle, "montant": round(montant, 2), "sl_pct": sl, "tp_pct": tp, "barriere_h": barriere, "ctx": ctx}
 
 
 # ------------------------------------------------------------------ fermeture
+def _famille(position):
+    """'tendance' (donchian_breakout, tsmom : achete la force, tient des jours) ou 'retour' (le reste, 24 h)."""
+    try:
+        import strategies_tendance as _st
+        if _st.est_tendance(position.get("strategie") or position.get("source")):
+            return "tendance"
+    except Exception:
+        pass
+    return "retour"
+
+
 def _classes_fermeture(position, raison, gain, prix_sortie):
     ctx = position.get("contexte") or {}
     classes = []
     if gain >= 0:
         return classes
+    # 11/11/2026 : classification PAR FAMILLE. Un trade de tendance achete au plus haut par construction et un stop de
+    # 2 x ATR sur une cassure n'est pas une erreur 'achat_sommet' ; la lecon « eviter les achats pres des sommets » tiree
+    # d'un Donchian contredisait la strategie elle-meme. 'mauvaise_heure' (apprise sur 24 h) et 'gain_non_encaisse'
+    # (+1 % alors que l'objectif est 3 R) ne s'appliquent pas non plus aux trades de tendance.
+    tendance = _famille(position) == "tendance"
     if _TESTS_REGLES["contre_btc"](ctx): classes.append("contre_btc")
     if _TESTS_REGLES["cascade"](ctx): classes.append("cascade")
-    if _TESTS_REGLES["mauvaise_heure"]({"heure": (_dt(position.get("date_ouverture")) or datetime.now()).hour}): classes.append("mauvaise_heure")
-    if _TESTS_REGLES["achat_sommet"](ctx): classes.append("achat_sommet")
+    if not tendance and _TESTS_REGLES["mauvaise_heure"]({"heure": (_dt(position.get("date_ouverture")) or datetime.now()).hour}): classes.append("mauvaise_heure")
+    if not tendance and _TESTS_REGLES["achat_sommet"](ctx): classes.append("achat_sommet")
+    if tendance:
+        return classes
     # gain_non_encaisse: plus haut atteint depuis l'entree >= +1%
     try:
         import indicateurs as ind

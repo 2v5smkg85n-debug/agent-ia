@@ -131,7 +131,8 @@ def scanner_etoiles():
         import prix_revolut as pr
         revolut_syms = set()
         for sym in pr.REVOLUT_X_CRYPTO:
-            revolut_syms.add(sym.replace("USDT", "").upper())
+            if pr.negociable(sym):          # 11/11 : listee ET negociable (PEPE/FLOKI/SHIB exclus : prix micro, spread 16 %)
+                revolut_syms.add(sym.replace("USDT", "").upper())
     except Exception:
         revolut_syms = set()
 
@@ -248,7 +249,7 @@ def scanner_et_ajouter(marches_paper, max_ajout=3):
         # Filtre Revolut X sur le cache aussi
         try:
             import prix_revolut as pr
-            revolut_syms = set(s.replace("USDT", "").upper() for s in pr.REVOLUT_X_CRYPTO)
+            revolut_syms = set(s.replace("USDT", "").upper() for s in pr.REVOLUT_X_CRYPTO if pr.negociable(s))
             etoiles = [e for e in etoiles if e.get("symbole_base", "") in revolut_syms]
         except Exception:
             pass

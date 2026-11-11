@@ -221,7 +221,7 @@ def _statut_auto(s):
     return "probation"
 
 
-def facteur_taille(strat, regime=None, mini=0.5, maxi=1.25):
+def facteur_taille(strat, regime=None, mini=0.5, maxi=1.5):
     """Echantillonnage de Thompson : tire un WR plausible dans la loi a posteriori de la strategie et le compare
     a son point mort. Retourne un multiplicateur de taille [mini, maxi] (1.0 si inconnu). Ne touche pas au risque max."""
     try:
@@ -236,7 +236,7 @@ def facteur_taille(strat, regime=None, mini=0.5, maxi=1.25):
             a, b = 5.0 + r["g"], 5.0 + r["n"] - r["g"]
         tirage = vs.echantillon_beta(a, b) * 100
         pmort = s.get("point_mort") or 50.0
-        # +10 points au-dessus du point mort -> x1.25 ; -10 points -> x0.5
+        # +20 points au-dessus du point mort -> x1.5 ; -10 points -> x0.5 (11/11 : plafond 1.25 -> 1.5)
         f = 1.0 + (tirage - pmort) / 40.0
         return round(max(mini, min(maxi, f)), 2)
     except Exception:
@@ -338,8 +338,17 @@ def _statut_reprise(s, depuis):
     """Strategie remise en service : probation tant que l'epoque de reprise compte < 30 trades ; ensuite les regles
     normales (_statut_auto) appliquees aux seuls trades depuis la reprise. Le passe reste visible, il ne juge plus."""
     e = s.get("epoque") or {}
-    if e.get("depuis") != depuis or e.get("n", 0) < N_RETRAIT:
+    if e.get("depuis") != depuis:
         s.setdefault("epoque", {"depuis": depuis, "n": 0, "g": 0, "net": 0.0})
+        return "probation"
+    n = e.get("n", 0)
+    # 11/11/2026 : la lecture bayesienne de retrait (>= 15 trades, HAUT de l'intervalle 90 % du WR sous le point mort,
+    # net < 0) s'applique aussi pendant la probation d'une reprise. Avant, une strategie reprise pouvait perdre 30 trades
+    # avant d'etre rejugee (pattern_reversal : 19 trades, -4,99 EUR, ic_haut 60,0 < point mort 60,4 et toujours en service).
+    if n >= 15 and n < N_RETRAIT and e.get("net", 0.0) < 0 and e.get("wr_ic_haut") is not None and e.get("point_mort") is not None \
+            and e["wr_ic_haut"] < e["point_mort"]:
+        return "retiree"
+    if n < N_RETRAIT:
         return "probation"
     return _statut_auto({"n": e["n"], "net": e["net"], "wr": e.get("wr", 0.0), "wr_ic_bas": e.get("wr_ic_bas"),
                          "wr_ic_haut": e.get("wr_ic_haut"), "point_mort": e.get("point_mort")})
@@ -353,6 +362,10 @@ def _statut_vehicule(s):
     n, net = e.get("n", 0), e.get("net", 0.0)
     ic_haut, pmort = e.get("wr_ic_haut"), e.get("point_mort")
     if n >= 30 and net < 0 and ic_haut is not None and pmort is not None and ic_haut < pmort:
+        return "probation"
+    # 11/11/2026 : tant que l'epoque courante est dans le rouge apres >= 15 trades, le vehicule tourne a demi-taille
+    # (probation) ; il redevient 'active' des que l'epoque repasse au-dessus de zero. Jamais 'retiree'.
+    if n >= 15 and net < 0:
         return "probation"
     return "active"
 

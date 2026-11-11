@@ -1021,6 +1021,27 @@ def _valider_sous_agents_trade(pf, signal, prix_actuel):
             print(f"  {w}")
     return True, score_mod_total, raisons
 
+def _entonnoir_appliquer(couche, avant, apres, prix):
+    """Couche qui filtre une liste de signaux : les signaux tues sont enregistres (entonnoir.py) ; si la couche est
+    desarmee (mesuree nuisible), ils continuent."""
+    try:
+        import entonnoir as _en
+        return _en.appliquer(couche, avant, apres, prix)
+    except Exception:
+        return apres
+
+
+def _veto(couche, signal, prix_actuel, msg):
+    """Veto mesure (entonnoir.py, 11/11/2026) : affiche msg, enregistre le candidat tue pour le juger 8 h apres, et renvoie
+    True s'il faut vraiment bloquer (couche armee) ou False si la couche est desarmee car mesuree nuisible."""
+    try:
+        import entonnoir as _en
+        return _en.veto(couche, signal, prix_actuel, msg=msg)
+    except Exception:
+        print(msg)
+        return True
+
+
 def ouvrir_position(pf, signal, prix_actuel):
     # PROTECTION: bloquer si prix invalide (0 ou None)
     if not prix_actuel or prix_actuel <= 0:
@@ -1050,12 +1071,12 @@ def ouvrir_position(pf, signal, prix_actuel):
             _raison = _t.get('raison', '')
             # Cooldown apres perte (SL): 90 min
             if _gain < 0 and 'SL' in _raison and _min_ecoule < 90:
-                print(f"  [COOLDOWN-SL] {signal.get('nom',_sym)}: SL il y a {_min_ecoule:.0f}min — cooldown 90min")
-                return False
+                if _veto("cooldown_sl", signal, prix_actuel, f"  [COOLDOWN-SL] {signal.get('nom',_sym)}: SL il y a {_min_ecoule:.0f}min — cooldown 90min"):
+                    return False
             # Cooldown apres TOUTE fermeture (gain ou perte): 30 min minimum
-            if _min_ecoule < 30:
-                print(f"  [COOLDOWN] {signal.get('nom',_sym)}: ferme il y a {_min_ecoule:.0f}min — cooldown 30min")
-                return False
+            elif _min_ecoule < 30:
+                if _veto("cooldown", signal, prix_actuel, f"  [COOLDOWN] {signal.get('nom',_sym)}: ferme il y a {_min_ecoule:.0f}min — cooldown 30min"):
+                    return False
             break
     except Exception:
         pass
@@ -1076,8 +1097,8 @@ def ouvrir_position(pf, signal, prix_actuel):
                 _atr_pct = (_atr / prix_actuel) * 100
                 # Si ATR > 3%, la volatilité est trop élevée — risque de SL immédiat
                 if _atr_pct > 2.5:
-                    print(f"  [VOLATILITE] {signal.get('nom', signal.get('symbole','?'))}: ATR {_atr_pct:.1f}% > 2.5% — trop volatile, skip")
-                    return False
+                    if _veto("volatilite", signal, prix_actuel, f"  [VOLATILITE] {signal.get('nom', signal.get('symbole','?'))}: ATR {_atr_pct:.1f}% > 2.5% — trop volatile, skip"):
+                        return False
     except Exception:
         pass
     # ANTI FLASH-CRASH: bloquer les nouveaux trades si circuit breaker actif
@@ -1159,8 +1180,8 @@ def ouvrir_position(pf, signal, prix_actuel):
                         continue
                     # Position en perte ou plate: bloque si fenetre pas ecoulee
                     if _age <= _fen:
-                        print(f"  [ANTI-CORR] {signal.get('nom',_sym)}: actif en perte ({_var_existante:+.1f}%) -> entree bloquee")
-                        return False
+                        if _veto("anti_corr", signal, prix_actuel, f"  [ANTI-CORR] {signal.get('nom',_sym)}: actif en perte ({_var_existante:+.1f}%) -> entree bloquee"):
+                            return False
                 except Exception:
                     pass
         except Exception:
@@ -1213,8 +1234,8 @@ def ouvrir_position(pf, signal, prix_actuel):
                 if _strat_key:
                     _poids_val = _strats.get(f"{_sym_key}_{_strat_key}", 0.20)
                     if _poids_val <= 0.06:  # MIN_POIDS = 0.05, donc 0.06 = strat perdante
-                        print(f"  [POIDS STRAT] {signal.get('nom', _sym_key)}: stratégie '{_strat_key}' poids={_poids_val:.2f} (perdante) -> entrée bloquée")
-                        return False
+                        if _veto("poids_strat", signal, prix_actuel, f"  [POIDS STRAT] {signal.get('nom', _sym_key)}: stratégie '{_strat_key}' poids={_poids_val:.2f} (perdante) -> entrée bloquée"):
+                            return False
                     # Ajuster la taille selon le poids (stratégie faible = position réduite)
                     if _poids_val < 0.20:
                         signal["poids_strat"] = _poids_val
@@ -1233,8 +1254,8 @@ def ouvrir_position(pf, signal, prix_actuel):
             from sentiment_gate import gate_achat
             _allow, _raison = gate_achat(signal["symbole"])
             if not _allow:
-                print(f"  [SENTIMENT GATE] {signal.get('nom', signal['symbole'])}: entrée bloquée — {_raison}")
-                return False
+                if _veto("sentiment_gate", signal, prix_actuel, f"  [SENTIMENT GATE] {signal.get('nom', signal['symbole'])}: entrée bloquée — {_raison}"):
+                    return False
         except ImportError:
             pass  # module absent -> pas de gate
         except Exception as _e:
@@ -1246,8 +1267,8 @@ def ouvrir_position(pf, signal, prix_actuel):
             from macro_calendar import gate_achat as _macro_gate
             _allow, _raison = _macro_gate(signal["symbole"])
             if not _allow:
-                print(f"  [MACRO GATE] {signal.get('nom', signal['symbole'])}: entrée bloquée — {_raison}")
-                return False
+                if _veto("macro_gate", signal, prix_actuel, f"  [MACRO GATE] {signal.get('nom', signal['symbole'])}: entrée bloquée — {_raison}"):
+                    return False
         except ImportError:
             pass  # module absent -> pas de gate
         except Exception as _e:
@@ -1259,8 +1280,8 @@ def ouvrir_position(pf, signal, prix_actuel):
             from social_consensus import gate_achat as _social_gate
             _allow, _raison = _social_gate(signal["symbole"])
             if not _allow:
-                print(f"  [SOCIAL GATE] {signal.get('nom', signal['symbole'])}: entrée bloquée — {_raison}")
-                return False
+                if _veto("social_gate", signal, prix_actuel, f"  [SOCIAL GATE] {signal.get('nom', signal['symbole'])}: entrée bloquée — {_raison}"):
+                    return False
         except ImportError:
             pass  # module absent -> pas de gate
         except Exception as _e:
@@ -1276,8 +1297,8 @@ def ouvrir_position(pf, signal, prix_actuel):
             _pattern_info = _pa
             if _pa["score_apprentissage"] <= -0.5:
                 _pats = ", ".join(p["pattern"] for p in _pa.get("patterns", [])) or "aucun"
-                print(f"  [BOUGIES] {signal.get('nom', signal['symbole'])}: {_pats} score={_pa['score_apprentissage']:.2f} — entrée bloquée (pattern perdant)")
-                return False
+                if _veto("bougies", signal, prix_actuel, f"  [BOUGIES] {signal.get('nom', signal['symbole'])}: {_pats} score={_pa['score_apprentissage']:.2f} — entrée bloquée (pattern perdant)"):
+                    return False
             if _pa["patterns"]:
                 _pats = ", ".join(p["pattern"] for p in _pa["patterns"])
                 print(f"  [BOUGIES] {signal.get('nom', signal['symbole'])}: {_pats} score={_pa['score_apprentissage']:.2f}")
@@ -1292,16 +1313,16 @@ def ouvrir_position(pf, signal, prix_actuel):
             from meta_intelligence import meta_analyse, positions_correlees, taille_position_optimale
             _ma = meta_analyse(signal["symbole"])
             if _ma["recommendation"] == "SKIP":
-                print(f"  [META-IA] {signal.get('nom', signal['symbole'])}: SKIP (confiance {_ma['confiance']:.2f}, backtest win {_ma.get('backtest_win_rate',0)*100:.0f}%)")
-                return False
+                if _veto("meta_ia", signal, prix_actuel, f"  [META-IA] {signal.get('nom', signal['symbole'])}: SKIP (confiance {_ma['confiance']:.2f}, backtest win {_ma.get('backtest_win_rate',0)*100:.0f}%)"):
+                    return False
             if _ma.get("correlation_bloquee"):
-                print(f"  [META-IA] {signal.get('nom', signal['symbole'])}: bloque (correlation avec position existante)")
-                return False
+                if _veto("meta_ia_correlation", signal, prix_actuel, f"  [META-IA] {signal.get('nom', signal['symbole'])}: bloque (correlation avec position existante)"):
+                    return False
             # Ajuster la taille de position selon la confiance
             _tp = taille_position_optimale(_ma["confiance"], pf["liquidites"], risk_base=RISK_PAR_TRADE)
             if _tp["montant"] < 10:
-                print(f"  [META-IA] {signal.get('nom', signal['symbole'])}: skip (confiance trop basse)")
-                return False
+                if _veto("meta_ia_confiance", signal, prix_actuel, f"  [META-IA] {signal.get('nom', signal['symbole'])}: skip (confiance trop basse)"):
+                    return False
             signal["meta_confiance"] = _ma["confiance"]
             signal["meta_taille"] = _tp["taille"]
             print(f"  [META-IA] {signal.get('nom', signal['symbole'])}: {_ma['recommendation']} confiance={_ma['confiance']:.2f} taille={_tp['taille']} ({_tp['montant']:.0f}€)")
@@ -1323,8 +1344,8 @@ def ouvrir_position(pf, signal, prix_actuel):
                         except Exception:
                             pass
                         if not _allow:
-                            print(f"  [PLUGIN {_fn}] entrée bloquée: {_raison}")
-                            return False
+                            if _veto("plugin", signal, prix_actuel, f"  [PLUGIN {_fn}] entrée bloquée: {_raison}"):
+                                return False
                     except Exception as _e:
                         print(f"  [PLUGIN {_fn}] hook_entree erreur: {_e}")
                         try:
@@ -1342,15 +1363,15 @@ def ouvrir_position(pf, signal, prix_actuel):
             from filtre_confluence_htf import _entree_bloquee_confluence
             _blk_conf, _raison_conf = _entree_bloquee_confluence(signal)
             if _blk_conf:
-                print("  [CONFLUENCE] " + str(signal.get("nom", signal.get("strategie", signal.get("symbole", "?")))) + ": entree bloquee (" + str(_raison_conf) + ")")
-                return False
+                if _veto("confluence_htf", signal, prix_actuel, "  [CONFLUENCE] " + str(signal.get("nom", signal.get("strategie", signal.get("symbole", "?")))) + ": entree bloquee (" + str(_raison_conf) + ")"):
+                    return False
         except Exception:
             pass
     # FILTRE REVOLUT X: ne trade que les cryptos reellement disponibles sur Revolut X
     try:
-        from prix_revolut import REVOLUT_X_CRYPTO
-        if signal.get("marche") == "crypto" and signal["symbole"] not in REVOLUT_X_CRYPTO:
-            print(f"  [REVOLUT-X] {signal.get('nom',signal['symbole'])}: pas sur Revolut X -> SKIP")
+        from prix_revolut import negociable as _negociable
+        if signal.get("marche") == "crypto" and not _negociable(signal["symbole"]):
+            print(f"  [REVOLUT-X] {signal.get('nom',signal['symbole'])}: pas negociable sur Revolut X (absente, prix micro ou spread > 10 %) -> SKIP")
             return False
     except Exception:
         pass
@@ -1381,8 +1402,8 @@ def ouvrir_position(pf, signal, prix_actuel):
         if _res and prix_actuel > 0:
             _dist_res = ((_res - prix_actuel) / prix_actuel) * 100
             if _dist_res > 0 and _dist_res < 0.5:
-                print(f"  [S/R] {signal.get('nom',signal['symbole'])}: prix trop proche resistance ({_dist_res:.1f}%) -> SKIP")
-                return False
+                if _veto("resistance", signal, prix_actuel, f"  [S/R] {signal.get('nom',signal['symbole'])}: prix trop proche resistance ({_dist_res:.1f}%) -> SKIP"):
+                    return False
             _dist_sup = ((prix_actuel - _sup) / prix_actuel) * 100 if _sup and _sup < prix_actuel else 999
             if _dist_sup >= 0 and _dist_sup < 1.0:
                 print(f"  [S/R] {signal.get('nom',signal['symbole'])}: proche support {_dist_sup:.1f}% -> BONUS (+1 score)")
@@ -1558,8 +1579,8 @@ def ouvrir_position(pf, signal, prix_actuel):
     # FILTRE SCORE MINIMUM: seuil 2 (ouvre plus de positions)
     _score_min = signal.get("score", 0)
     if _score_min < 2:
-        print(f"  [SKIP] {signal.get('nom',signal['symbole'])} -> score {_score_min} < 2 (trop faible)")
-        return False
+        if _veto("score_min", signal, prix_actuel, f"  [SKIP] {signal.get('nom',signal['symbole'])} -> score {_score_min} < 2 (trop faible)"):
+            return False
     # SIZING DYNAMIQUE BASE SUR LE SENTIMENT ET LE SCORE
     # Le bot ajuste la taille de position selon le sentiment du marche:
     # - Score eleve + sentiment haussier = grosse position (jusqu'a 50%)
@@ -1755,8 +1776,8 @@ def ouvrir_position(pf, signal, prix_actuel):
                 _nb_correl += 1
                 break
     if _nb_correl >= 2:
-        print(f"  [CORREL] {signal.get('nom',sym)}: deja {_nb_correl} positions correlees -> skip")
-        return False
+        if _veto("correlation", signal, prix_actuel, f"  [CORREL] {signal.get('nom',sym)}: deja {_nb_correl} positions correlees -> skip"):
+            return False
     elif _nb_correl == 1:
         montant = montant * 0.5  # reduit de 50% si 1 position correlee
         print(f"  [CORREL] {signal.get('nom',sym)}: 1 position correlee -> x0.5 ({montant:.0f}EUR)")
@@ -2244,7 +2265,10 @@ def verifier_sorties(pf, prix_actuels):
                 # ANTI-FRAIS: ne ferme pas si le gain net apres frais est negatif
                 # (frais 0.2% AR). Ferme seulement si variation > 0.2% ou perte > -1%
                 if age_min >= _stale_max and variation < seuil_min:
-                    if variation >= 0.2 or variation <= -1.0:
+                    # 11/11/2026 : une position « triple barriere » a un stop 2 x ATR et une barriere de temps ; la couper a -1 %
+                    # apres 12 h etait un second stop cache plus serre que le vrai (sorties « Temps » a -1 % alors que les sorties
+                    # a la barriere 24 h sont en moyenne positives, +0,81 %). On ne coupe plus un perdant avant son stop/barriere.
+                    if variation >= 0.2 or (variation <= -1.0 and not pos.get("tp_risque")):
                         positions_a_fermer.append((pos, prix_actuel, f"TEMPS-stale ({variation:+.2f}%)", variation))
                     else:
                         print(f"  [ANTI-FRAIS] {sym}: garde position ({variation:+.2f}%) - gain net apres frais negatif")
@@ -2669,6 +2693,15 @@ def tick():
         _pe.evaluer_contrefactuel()
     except Exception as _e:
         print(f"  [PORTE] evaluation: {_e}")
+    # === ENTONNOIR: juge 8h apres chaque veto des couches en amont de la porte -> desarme celles qui coutent (11/11) ===
+    try:
+        import entonnoir as _en
+        _en.juger()
+        _des = _en.desarmees()
+        if _des:
+            print(f"  [ENTONNOIR] couches desarmees (mesurees nuisibles) : {', '.join(_des)}")
+    except Exception as _e:
+        print(f"  [ENTONNOIR] evaluation: {_e}")
     # === FIN D'ESSAI: ferme les positions MetaTrader restantes (plus de prix hors essai) ===
     if not _essai_actif():
         for _p in list(pf.get("positions", [])):
@@ -2805,9 +2838,11 @@ def tick():
             try:
                 import apprentissage_trader as ap
                 signaux_avant_app = len(_signaux_autres_avant)
+                _avant_app = list(_signaux_autres_avant)
                 _signaux_autres_avant = ap.filtrer_signaux_avec_apprentissage(_signaux_autres_avant)
                 if len(_signaux_autres_avant) < signaux_avant_app:
                     print(f"  [APPRENTISSAGE] {signaux_avant_app - len(_signaux_autres_avant)} signaux filtres")
+                _signaux_autres_avant = _entonnoir_appliquer("apprentissage", _avant_app, _signaux_autres_avant, prix)
             except Exception as e:
                 print(f"    Apprentissage indisponible: {e}")
             tous_signaux = _signaux_autres_avant + _signaux_prof_avant
@@ -2858,16 +2893,18 @@ def tick():
                         signaux_pro.append(sig)
                     else:
                         print(f"  [PRO] {sym}: SKIP - {reco_pro} (score {score_pro:+.1f})")
-                tous_signaux = signaux_pro
+                tous_signaux = _entonnoir_appliquer("trader_pro", tous_signaux, signaux_pro, prix)
             except Exception as e:
                 print(f"    Trader pro indisponible: {e}")
             # === MULTI-AGENTS IA: 4 agents débattent et ajustent le score ===
             try:
                 import agents_consensus as ac
                 signaux_avant_agents = len(tous_signaux)
+                _avant_agents = list(tous_signaux)
                 tous_signaux = ac.enrichir_signaux(tous_signaux, prix, pf.get("positions", []))
                 if len(tous_signaux) < signaux_avant_agents:
                     print(f"  [AGENTS] {signaux_avant_agents - len(tous_signaux)} signal(aux) filtré(s) par le consensus IA")
+                tous_signaux = _entonnoir_appliquer("agents_consensus", _avant_agents, tous_signaux, prix)
             except Exception as e:
                 print(f"    Multi-agents indisponible: {e}")
             # === MASTER TRADERS: consensus des 10 plus grands traders ===
@@ -2901,7 +2938,7 @@ def tick():
                     else:  # Donnees insuffisantes ou erreur API - laisser passer
                         print(f"  [MAITRES] {sym}: passe-temps (donnees insuffisantes)")
                     signaux_maitres.append(sig)
-                tous_signaux = signaux_maitres
+                tous_signaux = _entonnoir_appliquer("maitres", tous_signaux, signaux_maitres, prix)
             except Exception as e:
                 print(f"    Master traders indisponible: {e}")
             # === FIN DES FILTRES EN AVAL ===
@@ -2950,7 +2987,7 @@ def tick():
                     elif mtf_conf == "CONFIRME_VENTE":
                         print(f"  [INTEL] {sym}: MTF contredit (vente) - score reduit")
                     signaux_intel.append(sig)
-                tous_signaux = signaux_intel
+                tous_signaux = _entonnoir_appliquer("intel_diversification", tous_signaux, signaux_intel, prix)
             except Exception as e:
                 print(f"    Intelligence pro indisponible: {e}")
             # === SUPER INTELLIGENCE: DESACTIVE (erreurs 429/401/403 sur toutes les sources API) ===
@@ -2965,7 +3002,9 @@ def tick():
                 import tradingview_signals as tv
                 _tv_input = [s for s in tous_signaux if not _saute_couches(s)]
                 _tv_prof = [s for s in tous_signaux if _saute_couches(s)]
+                _avant_tv = list(_tv_input)
                 _tv_input = tv.enrichir_signaux(_tv_input, intervalle="1h")
+                _tv_input = _entonnoir_appliquer("tradingview", _avant_tv, _tv_input, prix)
                 tous_signaux = _tv_input + _tv_prof
             except ImportError:
                 print("  (tradingview-ta non installe: pip3 install tradingview-ta)")
@@ -3002,9 +3041,11 @@ def tick():
             try:
                 from ml_filtre import confirmer_signaux_ml
                 signaux_avant = len(tous_signaux)
+                _avant_ml = list(tous_signaux)
                 tous_signaux = confirmer_signaux_ml(tous_signaux)
                 if len(tous_signaux) < signaux_avant:
                     print(f"  -> filtre ML: {signaux_avant} -> {len(tous_signaux)} signaux confirmes")
+                tous_signaux = _entonnoir_appliquer("ml_filtre", _avant_ml, tous_signaux, prix)
             except Exception as e:
                 print(f"  (filtre ML indisponible: {e})")
             for signal in tous_signaux:
@@ -3019,8 +3060,8 @@ def tick():
                     # === SOUS-AGENTS DE TRADING: validation pre-ouverture ===
                     sa_ok, sa_score_mod, sa_raisons = _valider_sous_agents_trade(pf, signal, prix[signal["symbole"]])
                     if not sa_ok:
-                        print(f"  [SOUS-AGENTS] {signal.get('nom',signal['symbole'])} BLOQUE par sous-agent(s)")
-                        continue
+                        if _veto("sous_agents", signal, prix[signal["symbole"]], f"  [SOUS-AGENTS] {signal.get('nom',signal['symbole'])} BLOQUE par sous-agent(s)"):
+                            continue
                     if sa_score_mod != 0:
                         signal["score"] = signal.get("score", 0) + sa_score_mod
                         print(f"  [SOUS-AGENTS] {signal.get('nom',signal['symbole'])}: score ajuste {sa_score_mod:+.1f} -> {signal['score']:.1f}")

@@ -23,7 +23,7 @@ SL_MAX = float(os.getenv("SL_MAX", "3.0"))
 TP_RATIO = float(os.getenv("TP_RATIO", "2.0"))
 TP_RATIO_RANGE = float(os.getenv("TP_RATIO_RANGE", "1.5"))
 BARRIERE_H = int(os.getenv("BARRIERE_H", "24"))
-RISQUE_EUR = float(os.getenv("RISQUE_EUR", "1.0"))
+RISQUE_EUR = float(os.getenv("RISQUE_EUR", "1.0"))                # plancher et valeur de secours (le risque reel est en % : voir risque_courant)
 FRAIS_AR_PCT = float(os.getenv("FRAIS_AR_PCT", "0.2"))     # 0.1 % par cote dans le paper
 SESSION_US = (13, 17)                                       # heures UTC incluses/exclues : 13 <= h < 17
 
@@ -54,64 +54,129 @@ def stop_pct(atr, maintenant=None):
     return round(min(SL_MAX, max(SL_MIN, mult * atr)), 2)
 
 
-# ---------------------------------------------------------------- palier de risque automatique (22/10/2026)
-# Le risque par trade part de RISQUE_EUR (1 EUR = 0,1 % de 1 000 EUR) et ne monte QUE sur preuve :
-#   palier 2 (x2) : >= 30 trades depuis le nouveau depart ET borne basse 90 % du gain moyen > 0
-#   palier 3 (x3) : >= 60 trades ET meme condition
-# Il redescend tout seul si la preuve disparait. Plafond : RISQUE_MAX_PCT du capital (0,5 %).
-RISQUE_MAX_PCT = float(os.getenv("RISQUE_MAX_PCT", "0.5"))
+# ---------------------------------------------------------------- risque par trade (22/10/2026, revu le 11/11/2026)
+# Jusqu'au 11/11 le risque etait 1 EUR fixe (0,1 % du capital) et le palier x2 exigeait que TOUTES les strategies melangees
+# soient prouvees gagnantes : il n'a jamais ete atteint -> 76 trades, WR 50 %, net -0,56 EUR, « sur place » mathematique.
+# Desormais :
+#   - base = RISQUE_PCT du capital (0,25 % = 2,5 EUR sur 1 000 ; un systematique prudent risque 0,25-0,5 %, 1 % au plus),
+#   - la preuve se mesure PAR STRATEGIE sur son epoque courante (registre) : >= 30 trades et borne basse 90 % du gain
+#     moyen > 0 -> x2 ; >= 60 -> x3 ; une strategie en probation -> x0,5 ; plafond RISQUE_MAX_PCT (1 %) du capital,
+#   - protocole de drawdown (paliers) : capital sous le depart de 5 % -> x0,75 ; 10 % -> x0,5 ; 15 % -> x0,25.
+# Tout redescend seul quand la preuve disparait. RISQUE_EUR reste le plancher (1 EUR) et la valeur de secours.
+RISQUE_PCT = float(os.getenv("RISQUE_PCT", "0.25"))
+RISQUE_MAX_PCT = float(os.getenv("RISQUE_MAX_PCT", "1.0"))
 PALIERS = [(60, 3.0), (30, 2.0)]
-_RC = {"t": 0.0, "v": None}
+DRAWDOWN_PALIERS = [(15.0, 0.25), (10.0, 0.5), (5.0, 0.75)]
+_RC = {}
 
 
-def risque_courant(trades=None, capital=None, verbose=False):
-    """Risque en EUR par trade selon le palier prouve. Lit paper_trading.json si trades/capital absents (cache 5 min)."""
+def _borne_basse(gains):
+    n = len(gains)
+    if n < 2:
+        return None, None
+    m = sum(gains) / n
+    sd = (sum((g - m) ** 2 for g in gains) / (n - 1)) ** 0.5
+    return m, m - 1.645 * sd / (n ** 0.5)
+
+
+def _trades_strategie(trades, strategie):
+    """Trades de la strategie dans son epoque courante (registre : reprise ou vehicule) ; sinon tous ses trades."""
+    def _nom(t):
+        return str(t.get("strategie") or t.get("source") or "inconnu")
+    mine = [t for t in trades if _nom(t) == str(strategie) and "_PARTIAL" not in str(t.get("source", ""))]
+    try:
+        import json as _j
+        reg = _j.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "registre_strategies.json")))
+        depuis = ((reg.get("strategies", {}).get(str(strategie)) or {}).get("epoque") or {}).get("depuis")
+        if depuis:
+            mine = [t for t in mine if str(t.get("date_fermeture") or t.get("date_ouverture") or "") >= str(depuis)]
+    except Exception:
+        pass
+    return mine
+
+
+def _statut_strategie(strategie):
+    try:
+        import json as _j
+        reg = _j.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "registre_strategies.json")))
+        return (reg.get("strategies", {}).get(str(strategie)) or {}).get("statut")
+    except Exception:
+        return None
+
+
+def risque_courant(trades=None, capital=None, verbose=False, strategie=None, capital_initial=None):
+    """Risque en EUR par trade : base RISQUE_PCT du capital x palier prouve DE LA STRATEGIE x protocole de drawdown,
+    borne [RISQUE_EUR, RISQUE_MAX_PCT du capital]. Lit paper_trading.json si trades/capital absents (cache 5 min)."""
     import time as _t
-    if trades is None and capital is None and _RC["v"] is not None and _t.time() - _RC["t"] < 300:
-        return _RC["v"]
+    cle = str(strategie or "")
+    lu = trades is None and capital is None
+    if lu and cle in _RC and _t.time() - _RC[cle][0] < 300:
+        return _RC[cle][1]
     try:
         if trades is None or capital is None:
             import json as _j
             pf = _j.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "paper_trading.json")))
-            trades = pf.get("trades_fermes", []) if trades is None else trades
+            if trades is None:
+                trades = pf.get("trades_fermes", [])
+                try:
+                    import registre_strategies as _rs
+                    trades = _rs.tous_les_trades(trades)      # archive + courant : l'epoque d'une strategie peut etre ancienne
+                except Exception:
+                    pass
             if capital is None:
                 capital = float(pf.get("liquidites", 0) or 0) + sum(float(p.get("montant_eur", 0) or 0) for p in pf.get("positions", []))
+            if capital_initial is None:
+                capital_initial = float(pf.get("capital_initial", 0) or 0) or None
     except Exception:
         trades, capital = trades or [], capital or 1000.0
+    capital = float(capital or 1000.0)
+    base = max(RISQUE_EUR, capital * RISQUE_PCT / 100.0)
+    plafond = max(RISQUE_EUR, capital * RISQUE_MAX_PCT / 100.0)
+    # --- preuve par strategie (ou globale si aucune strategie donnee)
+    mine = _trades_strategie(trades or [], strategie) if strategie else [t for t in (trades or []) if "_PARTIAL" not in str(t.get("source", ""))]
     gains = []
-    for t in trades or []:
-        if "_PARTIAL" in str(t.get("source", "")):
-            continue
+    for t in mine:
         try:
             gains.append(float(t.get("gain_eur", 0) or 0))
         except Exception:
             pass
     n = len(gains)
-    mult, preuve = 1.0, "palier 1 (base)"
-    if n >= 2:
-        m = sum(gains) / n
-        sd = (sum((g - m) ** 2 for g in gains) / (n - 1)) ** 0.5
-        borne_basse = m - 1.645 * sd / (n ** 0.5)
+    m, bb = _borne_basse(gains)
+    mult, preuve = 1.0, f"palier 1 ({n} trade{'s' if n != 1 else ''}{' de ' + str(strategie) if strategie else ''}"
+    if bb is not None:
         for n_min, k in PALIERS:
-            if n >= n_min and borne_basse > 0:
-                mult, preuve = k, f"palier x{k:g} ({n} trades, gain moyen {m:+.2f}, borne basse 90% {borne_basse:+.2f} > 0)"
+            if n >= n_min and bb > 0:
+                mult, preuve = k, f"palier x{k:g} ({n} trades{' de ' + str(strategie) if strategie else ''}, gain moyen {m:+.2f}, borne basse 90% {bb:+.2f} > 0"
                 break
         else:
-            preuve = f"palier 1 ({n} trades, borne basse 90% du gain moyen {borne_basse:+.2f}{' <= 0' if borne_basse <= 0 else ''}{', il faut >= 30 trades' if n < 30 else ''})"
-    plafond = (capital or 1000.0) * RISQUE_MAX_PCT / 100.0
-    r = round(min(RISQUE_EUR * mult, max(RISQUE_EUR, plafond)), 2)
+            preuve += f", borne basse 90% du gain moyen {bb:+.2f}{' <= 0' if bb <= 0 else ''}{', il faut >= 30 trades' if n < 30 else ''}"
+    preuve += ")"
+    statut = _statut_strategie(strategie) if strategie else None
+    if statut == "probation":
+        mult *= 0.5
+        preuve += " x0.5 probation"
+    # --- protocole de drawdown
+    dd_mult = 1.0
+    if capital_initial and capital_initial > 0:
+        dd = (capital_initial - capital) / capital_initial * 100.0
+        for seuil, f in DRAWDOWN_PALIERS:
+            if dd >= seuil:
+                dd_mult = f
+                preuve += f" | drawdown {dd:.1f}% -> x{f:g}"
+                break
+    r = round(min(plafond, max(RISQUE_EUR, base * mult * dd_mult)), 2)
     if verbose:
-        print(f"Risque par trade : {r:.2f} EUR — {preuve} ; plafond {plafond:.2f} EUR ({RISQUE_MAX_PCT}% du capital)")
-    if trades is None or capital is None:
-        _RC["t"], _RC["v"] = _t.time(), r
+        print(f"Risque par trade : {r:.2f} EUR = base {base:.2f} ({RISQUE_PCT}% de {capital:.0f}) — {preuve} ; plafond {plafond:.2f} EUR ({RISQUE_MAX_PCT}%)")
+    if lu:
+        _RC[cle] = (_t.time(), r)
     return r
 
 
-def calculer(atr, liquidites, liquidite_min=200.0, regime="normal", maintenant=None, risque_eur=None, frais_ar_pct=None):
+def calculer(atr, liquidites, liquidite_min=200.0, regime="normal", maintenant=None, risque_eur=None, frais_ar_pct=None, strategie=None):
     """Retourne dict: sl_pct, tp_pct, barriere_h, montant, risque_eur, raison."""
     if risque_eur is None:
         try:
-            risque = risque_courant()
+            risque = risque_courant(strategie=strategie)
         except Exception:
             risque = RISQUE_EUR
     else:
@@ -140,7 +205,16 @@ def point_mort_wr(sl, tp, frais_ar):
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == "risque":
-        risque_courant(verbose=True)
+        risque_courant(verbose=True, strategie=sys.argv[2] if len(sys.argv) > 2 else None)
+        if len(sys.argv) <= 2:
+            try:
+                import json as _j
+                reg = _j.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "registre_strategies.json")))
+                for k, v in sorted(reg.get("strategies", {}).items()):
+                    if v.get("droit_ouverture"):
+                        risque_courant(verbose=True, strategie=k)
+            except Exception:
+                pass
         sys.exit(0)
     print("Exemples (ATR -> stop / objectif / montant pour 1 EUR de risque, 1000 EUR de liquidites) :")
     for a in (0.3, 0.5, 0.8, 1.2, 2.0):

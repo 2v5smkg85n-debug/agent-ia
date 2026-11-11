@@ -9,7 +9,7 @@ et AVANT le calcul du stop/taille. Chaque filtre est independant, desactivable p
 Filtres (dans l'ordre, du moins cher au plus cher) :
   1. PORTE_FENETRES       13h00-15h00 UTC par defaut (FENETRES_UTC=...) + annonce macro USD High dans l'heure
   2. PORTE_TENDANCE_LENTE BTC au-dessus de son EMA 12 semaines (journalier) et EMA en hausse
-  3. PORTE_CHALEUR        max N positions crypto ouvertes (meme cluster BTC) et risque total ouvert <= RISQUE_TOTAL_MAX EUR
+  3. PORTE_CHALEUR        max N positions crypto ouvertes (meme cluster BTC) et risque total ouvert <= RISQUE_TOTAL_PCT % du capital
   4. PORTE_REGIME         pas d'entree en regime "turbulent" (ATR 1h au-dessus du 90e percentile sur 100 bougies)
   5. PORTE_CUSUM          un evenement de prix (CUSUM symetrique, seuil max(1 %, 2.5 x ATR 1h)) dans les 4 dernieres heures
   6. PORTE_LIQUIDITE      spread Kraken <= 0.15 % et profondeur a +/-0.5 % >= 10 x le montant
@@ -31,8 +31,20 @@ LOG = os.path.join(DOSSIER, "porte_entree_log.jsonl")
 _LOCK = threading.Lock()
 _CACHE = {}
 
-RISQUE_TOTAL_MAX = float(os.getenv("RISQUE_TOTAL_MAX", "3.0"))
-MAX_POSITIONS_CRYPTO = int(os.getenv("MAX_POSITIONS_CRYPTO", "2"))
+# 11/11/2026 : la chaleur suit le capital. Avant : 3 EUR de risque total et 2 positions, calibres pour 1 EUR de risque par
+# trade ; avec le risque en % du capital (stop_atr.risque_courant) ces plafonds auraient bloque tout second trade.
+RISQUE_TOTAL_PCT = float(os.getenv("RISQUE_TOTAL_PCT", "2.0"))        # risque total ouvert <= 2 % du capital (20 EUR sur 1 000)
+RISQUE_TOTAL_MAX = float(os.getenv("RISQUE_TOTAL_MAX", "3.0"))        # plancher absolu (ancien plafond fixe)
+MAX_POSITIONS_CRYPTO = int(os.getenv("MAX_POSITIONS_CRYPTO", "4"))    # 2 -> 4 (+1 si BTC haussier) ; MAX_POSITIONS=5 et le plancher de 200 EUR gardent la main
+
+
+def risque_total_max(pf=None):
+    """Plafond de risque total ouvert, en EUR : max(RISQUE_TOTAL_MAX, RISQUE_TOTAL_PCT % du capital)."""
+    try:
+        cap = float((pf or {}).get("liquidites", 0) or 0) + sum(float(p.get("montant_eur", 0) or 0) for p in (pf or {}).get("positions", []))
+    except Exception:
+        cap = 0.0
+    return round(max(RISQUE_TOTAL_MAX, cap * RISQUE_TOTAL_PCT / 100.0), 2)
 EMA_LENTE_JOURS = int(os.getenv("EMA_LENTE_JOURS", "84"))           # 12 semaines
 CUSUM_SEUIL_PCT = float(os.getenv("CUSUM_SEUIL_PCT", "1.0"))        # seuil minimum ; seuil reel = max(1 %, CUSUM_ATR_MULT x ATR 1h)
 CUSUM_ATR_MULT = float(os.getenv("CUSUM_ATR_MULT", "2.0"))     # 2.5 -> 2.0 : un mouvement de 2 ATR est deja un evenement
@@ -311,12 +323,13 @@ def verifier(sym, prix, ctx, pf, montant, sl_pct=None, strategie=None, risque_no
         ch = chaleur_portefeuille(pf, risque_nouveau=risque_nouveau)
         infos["chaleur"] = ch
         max_pos = MAX_POSITIONS_CRYPTO + (1 if tl.get("haussiere") else 0)
-        verdicts["chaleur"] = not (ch["n_crypto"] >= max_pos or ch["risque_apres"] > RISQUE_TOTAL_MAX)
+        _rtm = risque_total_max(pf)
+        verdicts["chaleur"] = not (ch["n_crypto"] >= max_pos or ch["risque_apres"] > _rtm)
         if _actif("CHALEUR"):
             if not bloque and ch["n_crypto"] >= max_pos:
                 bloque = f"deja {ch['n_crypto']} positions crypto ouvertes (max {max_pos}, toutes correlees a BTC)"
-            elif not bloque and ch["risque_apres"] > RISQUE_TOTAL_MAX:
-                bloque = f"risque total ouvert {ch['risque_ouvert']:.2f} + {risque_nouveau:.2f} > {RISQUE_TOTAL_MAX:.2f} EUR"
+            elif not bloque and ch["risque_apres"] > _rtm:
+                bloque = f"risque total ouvert {ch['risque_ouvert']:.2f} + {risque_nouveau:.2f} > {_rtm:.2f} EUR ({RISQUE_TOTAL_PCT:g}% du capital)"
     except Exception:
         verdicts["chaleur"] = None
     # 3b. cadence (refroidissement par crypto + plafond du jour, commun bot/IA)
@@ -590,8 +603,8 @@ def blocage_global(pf, risque_nouveau=1.0):
         max_pos = MAX_POSITIONS_CRYPTO + (1 if tl.get("haussiere") else 0)
         if ch["n_crypto"] >= max_pos:
             return f"deja {ch['n_crypto']} positions crypto (max {max_pos})", infos
-        if ch["risque_apres"] > RISQUE_TOTAL_MAX:
-            return f"risque total ouvert {ch['risque_ouvert']:.2f} + {risque_nouveau:.2f} > {RISQUE_TOTAL_MAX:.2f} EUR", infos
+        if ch["risque_apres"] > risque_total_max(pf):
+            return f"risque total ouvert {ch['risque_ouvert']:.2f} + {risque_nouveau:.2f} > {risque_total_max(pf):.2f} EUR", infos
     if _actif("REGIME"):
         reg = regime_actuel("BTCUSDT")
         infos["regime"] = reg
@@ -601,20 +614,35 @@ def blocage_global(pf, risque_nouveau=1.0):
 
 
 def contexte_pour_ia():
-    """Bloc texte pour le prompt du cerveau : tendance lente, regime, fenetres."""
+    """Bloc texte pour le prompt du cerveau : tendance lente, regime, fenetres — en disant ce que la porte FAIT vraiment.
+    11/11/2026 : avant, le texte annoncait « aucun achat ne passera la porte » quand BTC etait sous son EMA 84 j alors que ce
+    filtre etait desarme (mesure nuisible : -212 R) ; l'analyste repondait RIEN pendant des jours."""
     parts = []
     try:
+        des = filtres_desarmes()
         tl = tendance_lente_btc()
         if tl.get("haussiere") is not None:
-            parts.append(f"TENDANCE LENTE BTC (EMA {EMA_LENTE_JOURS} j): {'HAUSSIERE' if tl['haussiere'] else 'BAISSIERE -> aucun achat ne passera la porte'} "
-                         f"(prix {tl['ecart_pct']:+.1f}% vs EMA, pente {tl['pente_pct']:+.2f}%/5j)")
+            if tl["haussiere"]:
+                suite = "HAUSSIERE"
+            elif _actif("TENDANCE_LENTE"):
+                suite = "BAISSIERE -> aucun achat ne passera la porte"
+            else:
+                suite = ("BAISSIERE mais ce filtre est DESARME (mesure nuisible : il bloquait plus d'objectifs que de stops) "
+                         "-> ce n'est PAS une raison de repondre RIEN ; juge chaque crypto sur son setup")
+            parts.append(f"TENDANCE LENTE BTC (EMA {EMA_LENTE_JOURS} j): {suite} (prix {tl['ecart_pct']:+.1f}% vs EMA, pente {tl['pente_pct']:+.2f}%/5j)")
         reg = regime_actuel("BTCUSDT")
         if reg.get("mode") != "inconnu":
             parts.append(f"REGIME 1h BTC: {reg['mode'].upper()} (ADX {reg.get('adx')}, ATR {reg.get('atr_pct')}% = {reg.get('atr_percentile')}e percentile)"
-                         + (" -> objectif reduit a 1.5x le stop" if reg["mode"] == "range" else "") + (" -> la porte bloque" if reg["mode"] == "turbulent" else ""))
+                         + (" -> objectif reduit a 1.5x le stop" if reg["mode"] == "range" else "")
+                         + (" -> la porte bloque" if reg["mode"] == "turbulent" and _actif("REGIME") else ""))
         b, why = fenetre_interdite()
-        if b:
+        if b and _actif("FENETRES"):
             parts.append(f"FENETRE INTERDITE EN CE MOMENT: {why}")
+        if des:
+            parts.append("FILTRES DE LA PORTE DESARMES (mesures nuisibles, n'en tiens pas compte) : " + ", ".join(sorted(des)))
+        armes = [v for k, v in _NOM_FILTRE.items() if v not in des and _actif(k)]
+        if armes:
+            parts.append("FILTRES ENCORE ARMES : " + ", ".join(sorted(armes)))
     except Exception:
         pass
     return "\n".join(parts)
