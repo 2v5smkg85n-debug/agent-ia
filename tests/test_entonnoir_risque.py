@@ -166,3 +166,28 @@ def test_professeurs_veto_sans_droit_ouvrir(monkeypatch, tmp_path):
     monkeypatch.setenv("PROF_VETO", "0")
     monkeypatch.setattr(pv, "_avis_virtuel", lambda: (False, "x"))
     assert pv.avis("ETHUSDT") == (True, "")
+
+
+def test_preuve_a_vie_pour_strategie_active(tmp_path, monkeypatch):
+    """Une strategie 'active' au registre est jugee sur toute sa vie (61 trades depuis la creation), pas seulement
+    sur son epoque ; une strategie en probation reste jugee sur son epoque."""
+    import json, stop_atr as sa
+    reg = {"strategies": {"rsi_oversold": {"statut": "active", "epoque": {"depuis": "2026-10-19"}},
+                          "pattern_reversal": {"statut": "probation", "epoque": {"depuis": "2026-10-26"}}}}
+    monkeypatch.setattr(sa.os.path, "dirname", lambda p: str(tmp_path))
+    (tmp_path / "registre_strategies.json").write_text(json.dumps(reg))
+    trades = [{"strategie": "rsi_oversold", "gain_eur": 0.5, "date_fermeture": "2026-09-25 10:00"} for _ in range(40)]
+    trades += [{"strategie": "rsi_oversold", "gain_eur": 0.5, "date_fermeture": "2026-10-20 10:00"} for _ in range(25)]
+    trades += [{"strategie": "pattern_reversal", "gain_eur": -0.5, "date_fermeture": "2026-10-01 10:00"} for _ in range(20)]
+    trades += [{"strategie": "pattern_reversal", "gain_eur": 0.5, "date_fermeture": "2026-10-27 10:00"} for _ in range(5)]
+    mine, portee = sa._trades_strategie(trades, "rsi_oversold")
+    assert portee == "vie" and len(mine) == 65
+    mine2, portee2 = sa._trades_strategie(trades, "pattern_reversal")
+    assert portee2 == "epoque" and len(mine2) == 5
+    monkeypatch.setenv("RISQUE_PREUVE_VIE", "0")
+    mine3, portee3 = sa._trades_strategie(trades, "rsi_oversold")
+    assert portee3 == "epoque" and len(mine3) == 25
+    monkeypatch.delenv("RISQUE_PREUVE_VIE")
+    # 65 trades a vie, tous positifs -> palier x3 (plafond 1 %)
+    r = sa.risque_courant(trades=trades, capital=1000.0, strategie="rsi_oversold", capital_initial=1000.0)
+    assert r == 7.5

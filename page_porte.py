@@ -30,7 +30,7 @@ def etat():
             try:
                 _reg = json.load(open(os.path.join(DOSSIER, "registre_strategies.json"))).get("strategies", {})
                 for _k, _v in _reg.items():
-                    if _v.get("droit_ouverture"):
+                    if _v.get("droit_ouverture") and _v.get("statut") != "retiree":
                         e["risque_par_strategie"][_k] = _sa.risque_courant(strategie=_k)
             except Exception:
                 pass
@@ -130,7 +130,7 @@ def build_page():
                + ("<b class='ko'>" + H(", ".join(inter)) + "</b>" if inter else "<b class='ok'>aucun</b>") + "</p>")
     rp = e.get("risque_par_trade")
     rps = e.get("risque_par_strategie") or {}
-    out.append(f"<p>Risque par trade : base <b>{rp if rp is not None else '?'} €</b> = 0,25 % du capital ; par stratégie (époque courante, ×2 dès 30 trades prouvés, ×3 dès 60, ×0,5 en probation ; plafond 1 % ; paliers de drawdown −5/−10/−15 %) : "
+    out.append(f"<p>Risque par trade : base <b>{rp if rp is not None else '?'} €</b> = 0,25 % du capital ; par stratégie (une stratégie « active » est jugée sur toute sa vie depuis la création du bot, les autres sur leur époque courante ; ×2 dès 30 trades prouvés, ×3 dès 60, ×0,5 en probation ; plafond 1 % ; paliers de drawdown −5/−10/−15 %) : "
                + (" · ".join(f"{H(k)} <b>{v} €</b>" for k, v in sorted(rps.items())) if rps else "aucune stratégie avec droit d'ouvrir") + "</p>")
     # pret pour le reel
     rl = e.get("reel") or {}

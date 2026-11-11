@@ -80,19 +80,28 @@ def _borne_basse(gains):
 
 
 def _trades_strategie(trades, strategie):
-    """Trades de la strategie dans son epoque courante (registre : reprise ou vehicule) ; sinon tous ses trades."""
+    """Trades qui servent de preuve a la strategie.
+    - statut 'active' au registre (prouvee sur toute sa vie, jamais retiree ni reprise) : TOUS ses trades depuis la
+      creation du bot (11/11/2026, demande : « privilegier celles qui ont fait leurs preuves depuis le debut ») ;
+      RISQUE_PREUVE_VIE=0 revient a l'epoque seule ;
+    - sinon (probation, reprise, vehicule du cerveau) : ses trades depuis le debut de son epoque courante.
+    Renvoie (trades, 'vie'|'epoque')."""
     def _nom(t):
         return str(t.get("strategie") or t.get("source") or "inconnu")
     mine = [t for t in trades if _nom(t) == str(strategie) and "_PARTIAL" not in str(t.get("source", ""))]
+    portee = "epoque"
     try:
         import json as _j
         reg = _j.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "registre_strategies.json")))
-        depuis = ((reg.get("strategies", {}).get(str(strategie)) or {}).get("epoque") or {}).get("depuis")
+        s = reg.get("strategies", {}).get(str(strategie)) or {}
+        if s.get("statut") == "active" and os.getenv("RISQUE_PREUVE_VIE", "1") == "1":
+            return mine, "vie"
+        depuis = (s.get("epoque") or {}).get("depuis")
         if depuis:
             mine = [t for t in mine if str(t.get("date_fermeture") or t.get("date_ouverture") or "") >= str(depuis)]
     except Exception:
         pass
-    return mine
+    return mine, portee
 
 
 def _statut_strategie(strategie):
@@ -133,7 +142,11 @@ def risque_courant(trades=None, capital=None, verbose=False, strategie=None, cap
     base = max(RISQUE_EUR, capital * RISQUE_PCT / 100.0)
     plafond = max(RISQUE_EUR, capital * RISQUE_MAX_PCT / 100.0)
     # --- preuve par strategie (ou globale si aucune strategie donnee)
-    mine = _trades_strategie(trades or [], strategie) if strategie else [t for t in (trades or []) if "_PARTIAL" not in str(t.get("source", ""))]
+    portee = ""
+    if strategie:
+        mine, portee = _trades_strategie(trades or [], strategie)
+    else:
+        mine = [t for t in (trades or []) if "_PARTIAL" not in str(t.get("source", ""))]
     gains = []
     for t in mine:
         try:
@@ -142,11 +155,12 @@ def risque_courant(trades=None, capital=None, verbose=False, strategie=None, cap
             pass
     n = len(gains)
     m, bb = _borne_basse(gains)
-    mult, preuve = 1.0, f"palier 1 ({n} trade{'s' if n != 1 else ''}{' de ' + str(strategie) if strategie else ''}"
+    _qui = (" de " + str(strategie) + (" a vie" if portee == "vie" else " (epoque)")) if strategie else ""
+    mult, preuve = 1.0, f"palier 1 ({n} trade{'s' if n != 1 else ''}{_qui}"
     if bb is not None:
         for n_min, k in PALIERS:
             if n >= n_min and bb > 0:
-                mult, preuve = k, f"palier x{k:g} ({n} trades{' de ' + str(strategie) if strategie else ''}, gain moyen {m:+.2f}, borne basse 90% {bb:+.2f} > 0"
+                mult, preuve = k, f"palier x{k:g} ({n} trades{_qui}, gain moyen {m:+.2f}, borne basse 90% {bb:+.2f} > 0"
                 break
         else:
             preuve += f", borne basse 90% du gain moyen {bb:+.2f}{' <= 0' if bb <= 0 else ''}{', il faut >= 30 trades' if n < 30 else ''}"
@@ -211,7 +225,7 @@ if __name__ == "__main__":
                 import json as _j
                 reg = _j.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "registre_strategies.json")))
                 for k, v in sorted(reg.get("strategies", {}).items()):
-                    if v.get("droit_ouverture"):
+                    if v.get("droit_ouverture") and v.get("statut") != "retiree":
                         risque_courant(verbose=True, strategie=k)
             except Exception:
                 pass
