@@ -142,3 +142,27 @@ def test_classes_fermeture_famille_tendance(monkeypatch):
     monkeypatch.setitem(sys.modules, "indicateurs", fake)
     assert "achat_sommet" not in je._classes_fermeture(pos_t, "SL", -1.0, 1.0)
     assert "achat_sommet" in je._classes_fermeture(pos_r, "SL", -1.0, 1.0)
+
+
+def test_professeurs_veto_sans_droit_ouvrir(monkeypatch, tmp_path):
+    """La couche professeurs ne fait que bloquer : avis() renvoie (False, raison) quand un professeur dit NON, et le veto
+    passe par l'entonnoir (couche 'professeurs', desarmable)."""
+    import professeurs_veto as pv
+    import entonnoir as en
+    monkeypatch.setattr(en, "LOG", str(tmp_path / "log.jsonl"))
+    monkeypatch.setattr(en, "LOG_EVAL", str(tmp_path / "eval.jsonl"))
+    monkeypatch.setattr(pv, "_avis_hyperliquid", lambda sym: (False, "les meilleurs d'Hyperliquid sont vendeurs partout (0 achat / 6 ventes)"))
+    monkeypatch.setattr(pv, "_avis_virtuel", lambda: (False, "professeur virtuel : BTC sous EMA50 4h"))
+    ok, raison = pv.avis("ETHUSDT")
+    assert ok is False and "Hyperliquid" in raison and "virtuel" in raison
+    sig = {"symbole": "ETHUSDT", "strategie": "donchian_breakout", "sl_pct": 3.0}
+    assert en.veto("professeurs", sig, 3000.0, msg="test") is True  # armee par defaut : bloque
+    monkeypatch.setenv("ENTONNOIR_PROFESSEURS", "0")
+    assert en.veto("professeurs", sig, 3000.0, msg="test") is False  # desarmee a la main : laisse passer
+    monkeypatch.delenv("ENTONNOIR_PROFESSEURS")
+    monkeypatch.setattr(pv, "_avis_hyperliquid", lambda sym: (True, ""))
+    monkeypatch.setattr(pv, "_avis_virtuel", lambda: (True, ""))
+    assert pv.avis("ETHUSDT") == (True, "")
+    monkeypatch.setenv("PROF_VETO", "0")
+    monkeypatch.setattr(pv, "_avis_virtuel", lambda: (False, "x"))
+    assert pv.avis("ETHUSDT") == (True, "")

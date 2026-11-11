@@ -2067,6 +2067,11 @@ def _rapide_entonnoir():
     except Exception as e:
         txt = f"Entonnoir indisponible: {e}"
     try:
+        import professeurs_veto as _pv
+        txt += "\n\n🎓 " + _pv.resume_court() + " (couche mesurée « professeurs », sans droit d'ouvrir)"
+    except Exception:
+        pass
+    try:
         import porte_entree as _pe
         b = _pe.bilan_filtres()
         des = sorted(_pe.filtres_desarmes())

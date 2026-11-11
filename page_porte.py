@@ -57,6 +57,11 @@ def etat():
         import entonnoir as _en
         e["entonnoir"] = _en.bilan()
         e["entonnoir"]["desarmees"] = _en.desarmees()
+        try:
+            import professeurs_veto as _pv
+            e["entonnoir"]["professeurs"] = _pv.resume_court()
+        except Exception:
+            pass
     except Exception as ex:
         e["entonnoir"] = {"erreur": str(ex)}
     try:
@@ -141,10 +146,12 @@ def build_page():
     if isinstance(en, dict) and not en.get("erreur"):
         cs = en.get("couches") or {}
         out.append(f"<h2>Entonnoir — toutes les couches qui tuent un signal avant la porte (jugées 8 h après, {en.get('n_juges', 0)} vetos jugés / {en.get('n_vetos', 0)} enregistrés)</h2>")
-        out.append("<p class='m'>Apprentissage, trader pro, agents, maîtres, intel, TradingView, ML, sous-agents, cooldowns, volatilité, gates, bougies, méta-IA, S/R, corrélation, règles d'erreur : "
+        out.append("<p class='m'>Apprentissage, trader pro, agents, maîtres, professeurs (Hyperliquid + professeur virtuel, sans droit d'ouvrir), intel, TradingView, ML, sous-agents, cooldowns, volatilité, gates, bougies, méta-IA, S/R, corrélation, règles d'erreur : "
                    "chaque veto est rejoué sur les bougies comme à la porte. Une couche qui a coûté ≥ 10 R sur ≥ 30 cas est désarmée (elle ne bloque plus mais reste mesurée) et se réarme si son bilan redevient ≥ 0. "
                    "Les couches de sécurité (liquidité, flash crash, circuit breaker, max positions, blacklist/registre, Revolut X, casier, protection du capital) ne se désarment jamais.</p>")
         out.append("<p>Couches désarmées par les faits : <b class='ko'>" + H(", ".join(en.get("desarmees") or []) or "aucune") + "</b></p>")
+        if en.get("professeurs"):
+            out.append("<p>" + H(en["professeurs"]) + " — couche mesurée, ne peut que bloquer, désarmée seule si elle coûte des R.</p>")
         if cs:
             out.append("<table><tr><th>Couche</th><th>Vetos jugés</th><th>dont objectif</th><th>dont stop</th><th>R évité</th><th>Laissés passer</th><th>Verdict</th></tr>")
             for c, st in sorted(cs.items(), key=lambda kv: kv[1].get("r_evite", 0)):

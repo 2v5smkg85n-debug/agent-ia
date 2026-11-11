@@ -3,7 +3,8 @@
 entonnoir.py — chaque veto du bot est enregistre, juge 8 h apres, et desarme tout seul s'il coute plus qu'il ne protege.
 
 Pourquoi (11/11/2026) : entre un signal et une ouverture, le bot traverse une vingtaine de couches (apprentissage,
-trader pro, agents, maitres, intelligence, ML, sous-agents, cooldowns, volatilite, gates sentiment/macro/social,
+trader pro, agents, maitres, professeurs (Hyperliquid + professeur virtuel, voir professeurs_veto.py), intelligence, ML,
+sous-agents, cooldowns, volatilite, gates sentiment/macro/social,
 bougies, meta-IA, S/R, correlation, regles d'erreur...). Chacune a ete ajoutee pour une bonne raison, aucune n'etait
 mesuree : seule la porte l'etait, et son bilan contrefactuel a montre que ses propres filtres avaient coute +119,8 R
 en 3 semaines (648 candidats bloques -> 141 objectifs / 212 stops / 295 neutres). Le meme tableau manquait pour tout

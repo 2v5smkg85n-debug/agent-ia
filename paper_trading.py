@@ -1260,6 +1260,17 @@ def ouvrir_position(pf, signal, prix_actuel):
             pass  # module absent -> pas de gate
         except Exception as _e:
             print(f"  [SENTIMENT GATE erreur {_e}] entrée autorisée (fail-open)")
+    # COUCHE MESUREE « PROFESSEURS » (11/11/2026) — sans droit d'ouvrir. Quand les meilleurs d'Hyperliquid sont vendeurs
+    # (sur la crypto ou partout) et/ou que la garde BTC du professeur virtuel dit STOP, veto sur l'achat. L'entonnoir juge
+    # chaque blocage 8 h apres et desarme la couche toute seule si elle coute des R. Voir professeurs_veto.py.
+    try:
+        import professeurs_veto as _pv
+        _ok_p, _why_p = _pv.avis(signal["symbole"])
+        if not _ok_p:
+            if _veto("professeurs", signal, prix_actuel, f"  [PROFESSEURS] {signal.get('nom', signal['symbole'])}: {_why_p}"):
+                return False
+    except Exception as _e_p:
+        print(f"  [PROFESSEURS erreur {str(_e_p)[:60]}] entrée autorisée (fail-open)")
     # FILTRE MACRO CALENDAR (gate d'entrée): bloque les achats avant un event High impact
     # (CPI, NFP, FOMC, ECB...) dans les 2 prochaines heures. Off par défaut.
     if os.getenv("MACRO_GATE", "0") == "1":
