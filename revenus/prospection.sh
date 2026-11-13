@@ -10,7 +10,9 @@ ICI="$(cd "$(dirname "$0")" && pwd)"
 F="$ICI/donnees/prospection.csv"
 mkdir -p "$ICI/donnees"
 [ -f "$F" ] || echo "date;groupe;contact;canal;statut;reponse;relance" > "$F"
-cmd="${1:-liste}"
+# le clavier iPhone colle parfois une espace insécable : on ne garde que les lettres
+cmd=$(printf %s "${1:-liste}" | tr -cd "a-z")
+[ -n "$cmd" ] || cmd=liste
 case "$cmd" in
   ajouter)
     [ -n "${3:-}" ] || { echo "usage: ajouter GROUPE CONTACT [CANAL]"; exit 1; }
