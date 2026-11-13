@@ -17,7 +17,7 @@ sur le VPS à côté du bot, rien ne touche au trading.
 ## Installation sur le VPS (une seule ligne)
 
 ```
-cd ~/agent-ia && git pull -q && bash revenus/installer.sh
+cd ~/agent-ia && curl -sL https://github.com/2v5smkg85n-debug/agent-ia/archive/refs/heads/main.tar.gz | tar xz --strip-components=1 agent-ia-main/revenus agent-ia-main/tests/test_revenus.py && bash revenus/installer.sh
 ```
 
 Ça installe des timers systemd indépendants du bot :

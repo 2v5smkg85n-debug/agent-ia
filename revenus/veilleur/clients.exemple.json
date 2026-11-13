@@ -4,24 +4,73 @@
       "nom": "Moi (agent-ia)",
       "telegram_chat_id": "",
       "controles": [
-        {"nom": "Bot de trading (service)", "type": "systemd", "unite": "paper_trading.service"},
-        {"nom": "Chat Telegram (service)", "type": "systemd", "unite": "chat_naturel.service"},
-        {"nom": "Dashboard", "type": "http", "url": "http://127.0.0.1:8765/", "code": 200, "delai_max_s": 5},
-        {"nom": "Journal du bot frais", "type": "fichier", "chemin": "/home/ubuntu/agent-ia/paper_trading.log", "age_max_min": 30},
-        {"nom": "Scanner de leads (battement)", "type": "battement", "cle": "leads", "intervalle_max_min": 180}
-      ]
-    },
-    {
-      "nom": "Exemple client agence",
-      "telegram_chat_id": "-1001234567890",
-      "controles": [
-        {"nom": "Chatbot du site", "type": "http", "url": "https://client.example/api/chat", "methode": "POST",
-         "corps": {"message": "Bonjour, quels sont vos horaires ?"}, "delai_max_s": 10,
-         "attendu": ["h"], "interdit": ["error", "undefined", "traceback", "as an ai"],
-         "question_semantique": "Cette réponse donne-t-elle des horaires d'ouverture à un client ?"},
-        {"nom": "Workflow n8n facturation", "type": "battement", "cle": "client-facturation", "intervalle_max_min": 1500},
-        {"nom": "Bot Telegram du client", "type": "telegram", "token": "123456:ABC..."}
+        {
+          "nom": "Bot de trading (service)",
+          "type": "systemd",
+          "unite": "paper_trading.service"
+        },
+        {
+          "nom": "Chat Telegram (service)",
+          "type": "systemd",
+          "unite": "chat_naturel.service"
+        },
+        {
+          "nom": "Dashboard",
+          "type": "http",
+          "url": "http://127.0.0.1:8765/",
+          "code": 200,
+          "delai_max_s": 5
+        },
+        {
+          "nom": "Journal du bot frais",
+          "type": "fichier",
+          "chemin": "/home/ubuntu/agent-ia/paper_trading.log",
+          "age_max_min": 30
+        },
+        {
+          "nom": "Scanner de leads (battement)",
+          "type": "battement",
+          "cle": "leads",
+          "intervalle_max_min": 180
+        }
       ]
     }
-  ]
+  ],
+  "_exemple_client_agence_a_copier_dans_clients": {
+    "nom": "Exemple client agence",
+    "telegram_chat_id": "-1001234567890",
+    "controles": [
+      {
+        "nom": "Chatbot du site",
+        "type": "http",
+        "url": "https://client.example/api/chat",
+        "methode": "POST",
+        "corps": {
+          "message": "Bonjour, quels sont vos horaires ?"
+        },
+        "delai_max_s": 10,
+        "attendu": [
+          "h"
+        ],
+        "interdit": [
+          "error",
+          "undefined",
+          "traceback",
+          "as an ai"
+        ],
+        "question_semantique": "Cette réponse donne-t-elle des horaires d'ouverture à un client ?"
+      },
+      {
+        "nom": "Workflow n8n facturation",
+        "type": "battement",
+        "cle": "client-facturation",
+        "intervalle_max_min": 1500
+      },
+      {
+        "nom": "Bot Telegram du client",
+        "type": "telegram",
+        "token": "123456:ABC..."
+      }
+    ]
+  }
 }
