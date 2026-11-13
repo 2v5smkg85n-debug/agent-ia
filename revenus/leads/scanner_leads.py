@@ -251,8 +251,12 @@ def concurrence_codeur(lien):
     code, page = commun.http_get(lien, timeout=15)
     if code != 200:
         return ""
-    m = re.search(r"(\d+)\s*offres?\s*·\s*(\d+)\s*vues", html.unescape(page))
-    return f"{m.group(1)} offres, {m.group(2)} vues" if m else ""
+    texte = re.sub(r"<[^>]+>", " ", html.unescape(page))
+    o = re.search(r"(\d+)\s*offres?", texte)
+    v = re.search(r"(\d+)\s*vues", texte)
+    if not o:
+        return ""
+    return f"{o.group(1)} offres" + (f", {v.group(1)} vues" if v else "")
 
 
 SOURCES = [source_codeur, source_adzuna, source_francetravail]
