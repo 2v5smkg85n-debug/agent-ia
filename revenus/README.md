@@ -12,6 +12,7 @@ sur le VPS à côté du bot, rien ne touche au trading.
 | 4 | Produits numériques (29-59 €) | modèles n8n + fiches de publication | `modeles/` | Gumroad tout de suite (statut requis pour encaisser durablement) |
 | 5 | Journées de formation (500-900 € HT) | programme, tarifs, pitch | `formation/` | sessions offertes tout de suite ; facturation après SIREN |
 | 6 | Apport d'affaires / affiliation (500 € par journée Axion-IA, commissions) | messages, programmes, convention | `apport/` | après SIREN |
+| — | Prospection : les 30 premiers contacts vérifiés (agences, e-commerçants, clubs/CCI/experts-comptables), messages prêts, 5 envois par jour, suivi `prospection.sh` | `CONTACTS_30.md` | tout de suite |
 | — | Micro-entreprise (étape finale) | mode d'emploi, chiffres 2026 | `MICRO_ENTREPRISE.md` | quand un premier client veut payer |
 
 ## Installation sur le VPS (une seule ligne)
