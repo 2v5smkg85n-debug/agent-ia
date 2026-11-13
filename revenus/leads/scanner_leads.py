@@ -246,6 +246,15 @@ def source_francetravail():
     return out
 
 
+def concurrence_codeur(lien):
+    """Lit « 68 offres · 928 vues » sur la page du projet (pour savoir si ça vaut la peine de répondre)."""
+    code, page = commun.http_get(lien, timeout=15)
+    if code != 200:
+        return ""
+    m = re.search(r"(\d+)\s*offres?\s*·\s*(\d+)\s*vues", html.unescape(page))
+    return f"{m.group(1)} offres, {m.group(2)} vues" if m else ""
+
+
 SOURCES = [source_codeur, source_adzuna, source_francetravail]
 
 
@@ -268,6 +277,8 @@ def scanner(envoyer=True, ia=None):
             lead["niveau"] = niveau(lead["score"])
             lead["vu_le"] = commun.horodatage()
             lead["statut"] = "nouveau"
+            if lead["source"] == "codeur" and lead["score"] >= seuil:
+                lead["concurrence"] = concurrence_codeur(lead["lien"])
             if ia and lead["score"] >= seuil:
                 avis = commun.ollama(
                     "Tu es un commercial d'une agence d'automatisation IA française. En UNE phrase, "
@@ -291,7 +302,8 @@ def formater(leads, titre="Leads"):
     for l in leads[:12]:
         bud = f" | {l['budget']}" if l.get("budget") else ""
         ent = f" | {l['entreprise']}" if l.get("entreprise") else ""
-        lignes.append(f"\n[{l['score']}] {l['titre']}{bud}{ent}\n{l['source']} · {l['date']}\n{l['lien']}")
+        conc = f" · {l['concurrence']}" if l.get("concurrence") else ""
+        lignes.append(f"\n[{l['score']}] {l['titre']}{bud}{ent}\n{l['source']} · {l['date']}{conc}\n{l['lien']}")
         if l.get("avis_ia"):
             lignes.append("→ " + l["avis_ia"])
     return "\n".join(lignes)
