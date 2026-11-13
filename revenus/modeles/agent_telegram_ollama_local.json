@@ -1,0 +1,16 @@
+{
+  "name": "Agent Telegram avec IA locale (Ollama) — sans API payante",
+  "nodes": [
+    {"parameters": {"updates": ["message"], "additionalFields": {}}, "name": "Message Telegram", "type": "n8n-nodes-base.telegramTrigger", "typeVersion": 1.1, "position": [0, 0], "webhookId": "a1b2c3d4-telegram-ollama", "credentials": {"telegramApi": {"id": "", "name": "Bot Telegram"}}},
+    {"parameters": {"method": "POST", "url": "http://localhost:11434/api/generate", "sendBody": true, "specifyBody": "json", "jsonBody": "={{ JSON.stringify({ model: 'qwen2.5:3b', stream: false, prompt: 'Tu es l\\'assistant de l\\'entreprise. Réponds en français, en 3 phrases maximum.\\nQuestion : ' + $json.message.text }) }}", "options": {"timeout": 90000}}, "name": "IA locale (Ollama)", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [260, 0]},
+    {"parameters": {"chatId": "={{ $('Message Telegram').item.json.message.chat.id }}", "text": "={{ $json.response || 'Je n\\'ai pas pu répondre, réessayez.' }}", "additionalFields": {}}, "name": "Répondre", "type": "n8n-nodes-base.telegram", "typeVersion": 1.2, "position": [520, 0], "credentials": {"telegramApi": {"id": "", "name": "Bot Telegram"}}},
+    {"parameters": {"url": "=http://localhost:8791/battement/agent-telegram?token={{ $env.VEILLEUR_TOKEN }}", "options": {"timeout": 5000}}, "name": "Battement (supervision)", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [780, 0], "continueOnFail": true}
+  ],
+  "connections": {
+    "Message Telegram": {"main": [[{"node": "IA locale (Ollama)", "type": "main", "index": 0}]]},
+    "IA locale (Ollama)": {"main": [[{"node": "Répondre", "type": "main", "index": 0}]]},
+    "Répondre": {"main": [[{"node": "Battement (supervision)", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"},
+  "meta": {"templateCredsSetupCompleted": false}
+}
