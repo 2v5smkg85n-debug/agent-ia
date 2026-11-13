@@ -50,6 +50,18 @@ def charger_config():
     return cfg
 
 
+def _expandre(obj):
+    """Remplace ${NOM} par la valeur du .env (ex. ${DASHBOARD_TOKEN}) dans toute la config."""
+    import re
+    if isinstance(obj, str):
+        return re.sub(r"\$\{(\w+)\}", lambda m: commun.env(m.group(1), ""), obj)
+    if isinstance(obj, list):
+        return [_expandre(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _expandre(v) for k, v in obj.items()}
+    return obj
+
+
 # ------------------------------------------------------------------ contrôles
 def ctrl_http(c):
     debut = time.time()
@@ -134,7 +146,7 @@ def passe(envoyer=True):
             if not fn:
                 continue
             try:
-                ok, detail = fn(c)
+                ok, detail = fn(_expandre(c))
             except Exception as e:
                 ok, detail = False, f"erreur contrôle : {e}"
             e = etat.get(cle, {"echecs": 0, "statut": "OK", "depuis": commun.horodatage()})

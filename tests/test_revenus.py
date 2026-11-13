@@ -100,3 +100,9 @@ def test_veilleur_alerte_apres_deux_echecs(tmp_path, monkeypatch):
     assert len(envoyes) == 2 and "rétabli" in envoyes[1]
     rap = veilleur.rapport(envoyer=False)
     assert "C" in rap and "incident" in rap
+
+
+def test_veilleur_expansion_variables_env(monkeypatch):
+    monkeypatch.setattr(commun, "env", lambda k, d=None: "SECRET" if k == "DASHBOARD_TOKEN" else d)
+    c = veilleur._expandre({"url": "http://x/?token=${DASHBOARD_TOKEN}", "attendu": ["${DASHBOARD_TOKEN}"], "code": 200})
+    assert c["url"].endswith("token=SECRET") and c["attendu"] == ["SECRET"] and c["code"] == 200
