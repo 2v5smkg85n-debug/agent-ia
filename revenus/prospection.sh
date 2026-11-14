@@ -2,6 +2,7 @@
 # Suivi de prospection — tient sur une ligne depuis l'iPhone.
 #   bash revenus/prospection.sh ajouter A "Nodva" mail        -> note l'envoi, relance prévue à J+4
 #   bash revenus/prospection.sh reponse "Nodva" "ok rdv mardi" -> note une réponse (statut repondu)
+#   bash revenus/prospection.sh relance "Nodva"             -> note que la relance est partie
 #   bash revenus/prospection.sh relances                       -> contacts à relancer aujourd'hui ou avant
 #   bash revenus/prospection.sh liste                          -> tout le fichier
 # Fichier : revenus/donnees/prospection.csv  (date;groupe;contact;canal;statut;reponse;relance)
@@ -32,10 +33,13 @@ csv.writer(open(f,"w",encoding="utf-8",newline=""),delimiter=";",lineterminator=
 print(f"{n} ligne(s) mise(s) à jour")
 PY
     ;;
+  relance)
+    [ -n "${2:-}" ] || { echo "usage: relance CONTACT"; exit 1; }
+    python3 "$ICI/prospection.py" relance "$2" ;;
   relances)
     auj=$(date +%F)
     awk -F';' -v d="$auj" 'NR>1 && $5=="envoye" && $7!="" && $7<=d {print "à relancer : "$3" ("$2", envoyé le "$1", "$4")"}' "$F"
     ;;
   liste) column -s';' -t "$F" 2>/dev/null || cat "$F" ;;
-  *) echo "commandes : ajouter | reponse | relances | liste"; exit 1 ;;
+  *) echo "commandes : ajouter | reponse | relance | relances | liste"; exit 1 ;;
 esac

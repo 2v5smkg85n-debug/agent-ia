@@ -106,3 +106,37 @@ def test_veilleur_expansion_variables_env(monkeypatch):
     monkeypatch.setattr(commun, "env", lambda k, d=None: "SECRET" if k == "DASHBOARD_TOKEN" else d)
     c = veilleur._expandre({"url": "http://x/?token=${DASHBOARD_TOKEN}", "attendu": ["${DASHBOARD_TOKEN}"], "code": 200})
     assert c["url"].endswith("token=SECRET") and c["attendu"] == ["SECRET"] and c["code"] == 200
+
+
+def test_prospection_campagne_et_suivi(monkeypatch):
+    import prospection
+    tmp = tempfile.mkdtemp()
+    monkeypatch.setattr(prospection, "CSV", os.path.join(tmp, "prospection.csv"))
+    monkeypatch.setattr(prospection, "DONNEES", tmp)
+    camp = prospection.charger_campagne()
+    assert len(camp) == 30 and len({c["id"] for c in camp}) == 30
+    for c in camp:
+        assert c["corps"] in prospection.CORPS
+        assert c.get("email") or c.get("formulaire")
+        assert "[" not in prospection.corps(c).split("\n\n")[0]  # pas de crochet dans l'accroche
+    # jour 1 = 5 contacts, tous avec une adresse mail
+    j1 = prospection.contacts_du_jour(5)
+    assert [c["jour"] for c in j1] == [1] * 5 and all(c["email"] for c in j1)
+    # on note un envoi : il sort de la file, la relance est à J+4
+    prospection.noter_envoi("A", "Nodva", "mail")
+    assert "nodva" in prospection.deja_contactes()
+    assert all(c["nom"] != "Nodva" for c in prospection.contacts_du_jour(5))
+    lignes = prospection.lire_csv()
+    assert lignes[0]["statut"] == "envoye" and lignes[0]["relance"] > lignes[0]["date"]
+    # réponse puis relance
+    prospection.cmd_reponse("Nodva", "rdv mardi")
+    assert prospection.lire_csv()[0]["statut"] == "repondu"
+    # sans SMTP ni signature, l'envoi auto refuse
+    monkeypatch.setenv("PROSPECTION_AUTO", "1")
+    monkeypatch.setenv("PROSPECTION_SIGNATURE", "")
+    assert prospection.cmd_envoyer() == []
+    # un mail construit avec SMTP factice contient objet et signature
+    monkeypatch.setenv("PROSPECTION_SIGNATURE", "Test Untel — test@example.org")
+    monkeypatch.setenv("SMTP_EXPEDITEUR", "Test Untel <test@example.org>")
+    assert prospection.envoyer_mail(j1[0], test=True)
+    assert "test@example.org" in prospection.corps(j1[0])

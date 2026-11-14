@@ -9,7 +9,7 @@ PY="$(command -v python3)"
 UNITES=/etc/systemd/system
 
 if [ "${1:-}" = "desinstaller" ]; then
-  for u in revenus-leads.timer revenus-veilleur.timer revenus-veilleur-rapport.timer revenus-veilleur-serveur.service revenus-ombre.service; do
+  for u in revenus-leads.timer revenus-veilleur.timer revenus-veilleur-rapport.timer revenus-prospection.timer revenus-veilleur-serveur.service revenus-ombre.service; do
     sudo systemctl disable --now "$u" 2>/dev/null || true
   done
   sudo rm -f $UNITES/revenus-*.service $UNITES/revenus-*.timer
@@ -80,12 +80,14 @@ unite_timer revenus-veilleur "OnBootSec=2min
 OnUnitActiveSec=5min"
 unite_simple revenus-veilleur-rapport "Veilleur : rapport quotidien" "$RACINE/revenus/veilleur/veilleur.py rapport"
 unite_timer revenus-veilleur-rapport "OnCalendar=*-*-* 08:00:00"
+unite_simple revenus-prospection "Prospection : messages du jour et relances (Telegram ou SMTP)" "$RACINE/revenus/prospection.py matin"
+unite_timer revenus-prospection "OnCalendar=*-*-* 07:30:00"
 unite_service revenus-veilleur-serveur "Veilleur : battements et état (port 8791)" "$RACINE/revenus/veilleur/veilleur.py serveur"
 unite_service revenus-ombre "Mode ombre : webhooks des marchands (port 8790)" "$RACINE/revenus/audit_regles/regles_ombre.py serveur"
 
 [ -f "$RACINE/revenus/veilleur/clients.json" ] || cp "$RACINE/revenus/veilleur/clients.exemple.json" "$RACINE/revenus/veilleur/clients.json"
 sudo systemctl daemon-reload
-sudo systemctl enable --now revenus-leads.timer revenus-veilleur.timer revenus-veilleur-rapport.timer revenus-veilleur-serveur.service revenus-ombre.service
+sudo systemctl enable --now revenus-leads.timer revenus-veilleur.timer revenus-veilleur-rapport.timer revenus-prospection.timer revenus-veilleur-serveur.service revenus-ombre.service
 echo
 systemctl list-timers --no-pager | grep revenus || true
 echo

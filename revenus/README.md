@@ -25,6 +25,7 @@ cd ~/agent-ia && curl -sL https://github.com/2v5smkg85n-debug/agent-ia/archive/r
 - `revenus-leads.timer` : scanner toutes les 2 h, leads chauds sur Telegram ;
 - `revenus-veilleur.timer` : passe de contrôle toutes les 5 min, alerte à la panne et au rétablissement ;
 - `revenus-veilleur-rapport.timer` : rapport de disponibilité à 8 h ;
+- `revenus-prospection.timer` : à 8 h 30 (Paris), les 5 messages de prospection du jour sur Telegram, prêts à coller, et les relances dues ; avec `PROSPECTION_AUTO=1` + SMTP dans `.env`, il envoie lui-même les mails depuis ton compte (voir `prospection.py`) ;
 - `revenus-veilleur-serveur.service` : reçoit les battements des workflows (port 8791) ;
 - `revenus-ombre.service` : reçoit les webhooks des marchands (port 8790).
 Deux jetons (`VEILLEUR_TOKEN`, `OMBRE_TOKEN`) sont générés dans `.env`. Désinstallation :
