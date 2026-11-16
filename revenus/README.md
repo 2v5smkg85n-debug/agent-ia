@@ -13,6 +13,7 @@ sur le VPS à côté du bot, rien ne touche au trading.
 | 5 | Journées de formation (500-900 € HT) | programme, tarifs, pitch | `formation/` | sessions offertes tout de suite ; facturation après SIREN |
 | 6 | Apport d'affaires / affiliation (500 € par journée Axion-IA, commissions) | messages, programmes, convention | `apport/` | après SIREN |
 | — | Prospection : les 30 premiers contacts vérifiés (agences, e-commerçants, clubs/CCI/experts-comptables), messages prêts, 5 envois par jour, suivi `prospection.sh` | `CONTACTS_30.md` | tout de suite |
+| 7 | TikTok Récompenses Créateurs (après 10 000 abonnés et 100 000 vues/30 j) | Studio : un épisode de mini-série par jour, écrit/dit/animé/monté sur le VPS, livré sur Telegram, à publier depuis l'iPhone | `tiktok/` | tout de suite (ffmpeg + piper à installer) |
 | — | Micro-entreprise (étape finale) | mode d'emploi, chiffres 2026 | `MICRO_ENTREPRISE.md` | quand un premier client veut payer |
 
 ## Installation sur le VPS (une seule ligne)
@@ -26,6 +27,7 @@ cd ~/agent-ia && curl -sL https://github.com/2v5smkg85n-debug/agent-ia/archive/r
 - `revenus-veilleur.timer` : passe de contrôle toutes les 5 min, alerte à la panne et au rétablissement ;
 - `revenus-veilleur-rapport.timer` : rapport de disponibilité à 8 h ;
 - `revenus-prospection.timer` : à 8 h 30 (Paris), les 5 messages de prospection du jour sur Telegram, prêts à coller, et les relances dues ; avec `PROSPECTION_AUTO=1` + SMTP dans `.env`, il envoie lui-même les mails depuis ton compte (voir `prospection.py`) ;
+- `revenus-tiktok.timer` : à 18 h 30 (Paris), l'épisode TikTok du jour (vidéo + légende) sur Telegram, à publier à 20 h (voir `tiktok/README.md`) ;
 - `revenus-veilleur-serveur.service` : reçoit les battements des workflows (port 8791) ;
 - `revenus-ombre.service` : reçoit les webhooks des marchands (port 8790).
 Deux jetons (`VEILLEUR_TOKEN`, `OMBRE_TOKEN`) sont générés dans `.env`. Désinstallation :

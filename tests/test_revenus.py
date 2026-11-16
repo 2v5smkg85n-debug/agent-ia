@@ -140,3 +140,33 @@ def test_prospection_campagne_et_suivi(monkeypatch):
     monkeypatch.setenv("SMTP_EXPEDITEUR", "Test Untel <test@example.org>")
     assert prospection.envoyer_mail(j1[0], test=True)
     assert "test@example.org" in prospection.corps(j1[0])
+
+
+def test_studio_tiktok_bible_et_texte_de_secours(monkeypatch, tmp_path):
+    sys.path.insert(0, os.path.join(RACINE, "revenus", "tiktok"))
+    import studio  # noqa: E402
+    monkeypatch.setattr(studio, "ETAT", str(tmp_path / "etat.json"))
+    monkeypatch.setattr(studio, "SAISONS", str(tmp_path / "saisons.json"))
+    b = studio.bible()
+    assert len(b["series"]) == 3
+    for s in b["series"]:
+        assert len(s["episodes"]) == 12 and len(s["palette"]) == 3
+        for ep in s["episodes"]:
+            assert ep["accroche"] and ep["suspens"] and len(ep["beats"]) >= 2
+    # rotation : la série 1 jusqu'au bout, puis la 2
+    e = studio.etat()
+    s, n = studio.choisir(b, e)
+    assert s["id"] == "ligne13" and n == 1
+    e["episodes"]["ligne13"] = 12
+    s, n = studio.choisir(b, e)
+    assert s["id"] == "lettres2043" and n == 1
+    # sans Ollama : texte de secours qui commence par l'accroche et finit par le suspens
+    texte, secours = studio.ecrire_episode(b, b["series"][0], 3)
+    assert secours and texte.startswith("Mon matricule") and texte.endswith("comme toi.")
+    # minutage et regroupement des sous-titres
+    mots = studio.minutage_mots(texte, 0.4, 30.0)
+    assert len(mots) == len(texte.split()) and abs(mots[-1][2] - 30.4) < 1e-6
+    grp = studio.groupes(mots)
+    assert all(1 <= len(g) <= 4 for g in grp) and sum(len(g) for g in grp) == len(mots)
+    # légende < 1 000 caractères (limite Telegram)
+    assert len(studio.legende_tiktok(b["series"][0], 3, b["series"][0]["episodes"][2], False)) < 1000
