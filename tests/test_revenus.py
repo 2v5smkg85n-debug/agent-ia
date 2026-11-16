@@ -4,6 +4,8 @@ import os
 import sys
 import tempfile
 
+import pytest
+
 ICI = os.path.dirname(os.path.abspath(__file__))
 RACINE = os.path.dirname(ICI)
 sys.path.insert(0, os.path.join(RACINE, "revenus"))
@@ -170,3 +172,74 @@ def test_studio_tiktok_bible_et_texte_de_secours(monkeypatch, tmp_path):
     assert all(1 <= len(g) <= 4 for g in grp) and sum(len(g) for g in grp) == len(mots)
     # légende < 1 000 caractères (limite Telegram)
     assert len(studio.legende_tiktok(b["series"][0], 3, b["series"][0]["episodes"][2], False)) < 1000
+
+
+def test_studio_tiktok_texte_propre_et_sous_titres():
+    sys.path.insert(0, os.path.join(RACINE, "revenus", "tiktok"))
+    import studio  # noqa: E402
+    b = studio.bible()
+    # le suspens entre guillemets n'est dit qu'une fois, et chaque étape commence par une majuscule
+    texte, secours = studio.ecrire_episode(b, b["series"][0], 1)
+    assert secours and texte.count("descendez ici") == 1 and "«" not in texte and " ." not in texte
+    assert ". Il note l'heure" in texte
+    # ponctuation isolée recollée au mot précédent, guillemets retirés
+    assert studio.jetons("Elle dit : « Viens. » Puis rien .") == ["Elle", "dit :", "Viens.", "Puis", "rien."]
+    # une fin de phrase ferme toujours le groupe de sous-titres
+    mots = studio.minuter(texte, 0.4, 30.0)
+    for g in studio.groupes(mots):
+        assert 1 <= len(g) <= 4 and not any(m[0].endswith((".", "!", "?")) for m in g[:-1])
+    assert studio.mot_fort("2043,") and studio.mot_fort("Personne") and not studio.mot_fort("lettre")
+
+
+def test_studio_tiktok_sous_titres_recales_sur_les_silences():
+    np = pytest.importorskip("numpy")
+    sys.path.insert(0, os.path.join(RACINE, "revenus", "tiktok"))
+    import studio  # noqa: E402
+    sr = 8000
+    rng = np.random.default_rng(1)
+    parle = lambda s: (rng.random(int(s * sr)).astype("float32") - 0.5) * 0.4  # noqa: E731
+    blanc = np.zeros(int(0.5 * sr), dtype="float32")
+    # trois phrases de 2 s, 6 s et 1 s : un minutage « au poids » se tromperait de plusieurs secondes
+    voix = np.concatenate([parle(2.0), blanc, parle(6.0), blanc, parle(1.0), blanc])
+    texte = "Une phrase assez longue pour peser lourd. Courte. Fin de l'histoire ici."
+    mots = studio.minuter(texte, 0.4, len(voix) / sr, voix, sr)
+    assert [m[0] for m in mots] == texte.split()
+    fins = [m[2] for m in mots if m[0].endswith(".")]
+    assert abs(fins[0] - 2.4) < 0.05 and abs(fins[1] - 8.9) < 0.05 and abs(fins[2] - 10.4) < 0.05
+    assert abs(mots[7][1] - 2.9) < 0.05  # « Courte. » démarre juste après le premier silence
+    vol = studio.enveloppe(voix, sr, 24, 24 * 11, 0.4)
+    assert vol.max() <= 1.0 and vol[24 * 1] > 0.5 and vol[int(24 * 2.85)] < 0.5
+
+
+def test_studio_tiktok_scenes_animees():
+    pytest.importorskip("numpy")
+    pytest.importorskip("PIL")
+    sys.path.insert(0, os.path.join(RACINE, "revenus", "tiktok"))
+    import scenes  # noqa: E402
+    import studio  # noqa: E402
+    b = studio.bible()
+    for s in b["series"]:
+        palette = tuple(studio.hexa(c) for c in s["palette"])
+        regl = scenes.reglages_serie(s)
+        assert regl["decor"] in ("metro", "lettres", "immeuble")
+        # toutes les scènes du décor + les deux scènes communes se dessinent en 540×960
+        for nom in scenes.DECORS[regl["decor"]] + ["horloge", "nombre"]:
+            info = dict(regl, heure=(2, 14), nombre=640, etiquette="EUROS", suspens=True)
+            dessine = scenes.fabriquer({"scene": nom, "graine": 3, "info": info}, palette)
+            for t in (0.0, 0.8, 3.5):
+                im = dessine(t, t / 4.0, 0.6)
+                assert im.size == (scenes.L, scenes.H) and im.mode == "RGB", nom
+            assert len(dessine.foyer) == 2
+        # le découpage couvre toute la vidéo sans trou, change de scène à chaque plan, finit sur le suspens
+        texte, _ = studio.ecrire_episode(b, s, 1)
+        mots = studio.minuter(texte, 0.4, 28.0)
+        plans = scenes.decouper_plans(mots, s, 1, 32.0)
+        assert plans[0]["t0"] == 0.0 and plans[-1]["t1"] == 32.0 and len(plans) >= 5
+        assert all(abs(x["t1"] - y["t0"]) < 1e-9 and x["scene"] != y["scene"] for x, y in zip(plans, plans[1:]))
+        assert plans[-1]["suspens"] and not plans[0]["suspens"] and plans[0]["transition"] == "aucune"
+        assert all(p["scene"] in scenes.SCENES for p in plans)
+    # une série ajoutée dans bible.json sans réglage reçoit le décor générique
+    assert scenes.reglages_serie({"id": "nouvelle"})["decor"] == "mystere"
+    assert scenes.reglages_serie({"id": "x", "animation": {"decor": "metro"}})["decor"] == "metro"
+    im = scenes.finitions()(scenes.fabriquer(plans[0], palette)(1.0, 0.3, 0.5), 0, 0.4)
+    assert scenes.cadrer(scenes.parasite(im, 1), 1.15, 270, 300, (1080, 1920)).size == (1080, 1920)
