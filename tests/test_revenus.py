@@ -211,6 +211,92 @@ def test_studio_tiktok_sous_titres_recales_sur_les_silences():
     assert vol.max() <= 1.0 and vol[24 * 1] > 0.5 and vol[int(24 * 2.85)] < 0.5
 
 
+def test_studio_tiktok_voix_decoupe_et_prononciation():
+    sys.path.insert(0, os.path.join(RACINE, "revenus", "tiktok"))
+    import studio  # noqa: E402
+    import voix  # noqa: E402
+    b = studio.bible()
+    # les prises de la voix portent exactement les mots des sous-titres, pour tous les épisodes
+    for s in b["series"]:
+        for n in range(1, len(s["episodes"]) + 1):
+            texte, _ = studio.ecrire_episode(b, s, n)
+            prises = voix.allures(voix.decouper(texte))
+            assert [m for p in prises for m in p["mots"]] == studio.jetons(texte)
+            assert all(0.6 <= p["vitesse"] <= 1.3 and 0 <= p["pause"] < 1.5 for p in prises) and prises[-1]["pause"] == 0
+    assert voix.jetons_cites("Elle dit : « Viens. » Puis rien .") == (["Elle", "dit :", "Viens.", "Puis", "rien."],
+                                                                    [False, False, True, False, False])
+    # ce qui est dit n'est pas ce qui est écrit : heures, unités, guillemets
+    assert voix.prononcer("À 2 h 14 précises, puis 2h14.") == "À 2 heures 14 précises, puis 2 heures 14."
+    assert voix.prononcer("1 h du matin, 20 km/h, 640 € par mois, le 7B") == "1 heure du matin, 20 kilomètres heure, 640 euros par mois, le 7 B"
+    assert voix.prononcer("Il dit : « Viens. »") == "Il dit : Viens."
+    assert voix.prononcer("L'homme hésite.") == "L'homme hésite."
+    # la parole de la radio est une prise à part, avec l'effet haut-parleur ; une parole ordinaire ne l'a pas
+    p = voix.allures(voix.decouper("La radio grésille. Une voix calme annonce : Prochain arrêt, Sainte-Blaise. Je freine."))
+    assert [(x["texte"], x["radio"]) for x in p] == [("La radio grésille.", False), ("Une voix calme annonce :", False),
+                                                    ("Prochain arrêt, Sainte-Blaise.", True), ("Je freine.", False)]
+    p = voix.decouper("Josiane sourit : « Roland avait ton âge. » Je me tais.")
+    assert [x["cite"] for x in p] == [False, True, False] and not any(x["radio"] for x in p)
+    p = voix.allures(voix.decouper("Une accroche qui claque fort. Une phrase du milieu, tranquille et longue. La dernière phrase du suspens."))
+    assert p[0]["vitesse"] > p[1]["vitesse"] > p[2]["vitesse"] and p[1]["pause"] > p[0]["pause"]
+
+
+def test_studio_tiktok_voix_montage_et_reperes(tmp_path, monkeypatch):
+    np = pytest.importorskip("numpy")
+    sys.path.insert(0, os.path.join(RACINE, "revenus", "tiktok"))
+    import studio  # noqa: E402
+    import voix  # noqa: E402
+    sr = 24000
+    rng = np.random.default_rng(3)
+
+    def parle(s):  # un « mot » : bruit large bande, comme une voix
+        return (rng.standard_normal(int(s * sr)) * 0.2).astype("float32")
+
+    texte = "La radio grésille, puis se tait. Une voix annonce : Prochain arrêt. Je note tout."
+    blanc = np.zeros(int(0.15 * sr), dtype="float32")
+    faux = [np.concatenate([blanc, parle(1.4), np.zeros(int(0.12 * sr), dtype="float32"), parle(1.1), blanc]),
+            parle(1.2), parle(0.9), parle(1.1)]
+
+    def fausse_synthese(prises, dossier, journal=None):
+        assert [p["texte"] for p in prises] == ["La radio grésille, puis se tait.", "Une voix annonce :", "Prochain arrêt.", "Je note tout."]
+        return [x.copy() for x in faux], sr
+
+    monkeypatch.setattr(voix, "synthetiser", fausse_synthese)
+    wav = str(tmp_path / "v.wav")
+    duree = studio.dire(texte, wav)
+    reperes = voix.lire_reperes(wav)
+    a, sr2 = studio.lire_wav(wav)
+    assert sr2 == sr and abs(duree - len(a) / sr) < 1e-6 and duree > 5.5
+    assert float(np.abs(a).max()) <= 0.99  # jamais d'écrêtage
+    # la virgule coupe la première prise sur son vrai silence ; la parole radio a son propre repère
+    assert [r[0] for r in reperes] == [["La", "radio", "grésille,"], ["puis", "se", "tait."], ["Une", "voix", "annonce :"],
+                                       ["Prochain", "arrêt."], ["Je", "note", "tout."]]
+    assert abs(reperes[0][2] - 1.4) < 0.08 and abs(reperes[1][1] - 1.54) < 0.08
+    for (_, _, f0, _), (_, d1, _, _) in zip(reperes, reperes[1:]):
+        assert d1 >= f0
+    # sous-titres : chaque morceau démarre à son repère exact
+    mots = studio.minuter(texte, 0.4, duree, a, sr, reperes)
+    assert [m[0] for m in mots] == studio.jetons(texte)
+    assert abs(mots[3][1] - (0.4 + reperes[1][1])) < 1e-6 and abs(mots[-1][2] - (0.4 + reperes[-1][2])) < 1e-6
+    assert all(y[1] >= x[1] for x, y in zip(mots, mots[1:]))
+    # des repères qui ne correspondent pas au texte sont ignorés (retour au recalage habituel)
+    assert studio.minuter("Un autre texte.", 0.4, 2.0, None, 0, reperes)[0][0] == "Un"
+
+    def aigus(x):  # part d'énergie au-dessus de 5 kHz
+        sp = np.abs(np.fft.rfft(x)) ** 2
+        f = np.fft.rfftfreq(len(x), 1.0 / sr)
+        return float(sp[f > 5000].sum() / sp.sum())
+
+    i0, i1 = int((reperes[3][1] + 0.1) * sr), int((reperes[3][2] - 0.1) * sr)
+    j0, j1 = int((reperes[4][1] + 0.1) * sr), int((reperes[4][2] - 0.1) * sr)
+    assert aigus(a[i0:i1]) < 0.02 < aigus(a[j0:j1])  # la radio : bande étroite ; la narration : pleine bande
+    assert abs(voix._niveau(a[j0:j1], sr) - 0.175) < 0.04  # niveau constant de la narration
+    # sans Kokoro, le studio retombe sur Piper sans rien casser
+    monkeypatch.setattr(voix, "synthetiser", lambda *a_, **k_: (None, 0))
+    monkeypatch.setattr(studio, "telecharger_voix", lambda: False)
+    monkeypatch.setattr(studio, "VOIX_DIR", str(tmp_path / "absent"))
+    assert studio.dire(texte, wav) == 0.0 and voix.lire_reperes(wav) is None
+
+
 def test_studio_tiktok_scenes_animees():
     pytest.importorskip("numpy")
     pytest.importorskip("PIL")

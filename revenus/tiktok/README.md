@@ -8,7 +8,7 @@ Toi, tu publies depuis l'iPhone en deux minutes. Rien ne sort du serveur à part
 | Étape | Outil | Sur le VPS |
 |---|---|---|
 | Scénario (180-230 mots) | Ollama local, à partir de `bible.json` (3 séries, 12 épisodes chacune, personnages, suspens) | déjà installé |
-| Voix | Piper TTS, voix `fr_FR-siwis-medium` (fichier téléchargé une fois, 63 Mo) | `pip3 install --user piper-tts` |
+| Voix | Kokoro, voix française `ff_siwis` (naturelle, 24 kHz), dans son environnement isolé ; Piper `fr_FR-siwis-medium` en secours | `python3 revenus/tiktok/studio.py voix` (une fois) |
 | Image | décors animés dessinés image par image (`scenes.py`), un plan par phrase, caméra qui bouge, sous-titres mot à mot calés sur la voix, titre d'ouverture, carte « La suite demain à 20 h » | `pillow numpy` |
 | Nappe sonore | générée (bourdons + souffle), libre de droits | — |
 | Montage | ffmpeg H.264 + AAC, 70-90 s, 20-40 Mo (débit plafonné pour rester sous la limite Telegram) | `sudo apt-get install -y ffmpeg` |
@@ -19,15 +19,16 @@ Timer : `revenus-tiktok.timer` à 17:30 UTC (18:30 Paris l'hiver) ; la vidéo es
 ## Commandes
 
 ```
-python3 revenus/tiktok/studio.py test        # vérifie ffmpeg / pillow / numpy / piper / voix
-python3 revenus/tiktok/studio.py voix        # télécharge la voix (une fois)
+python3 revenus/tiktok/studio.py test        # vérifie ffmpeg / pillow / numpy / voix
+python3 revenus/tiktok/studio.py voix        # installe la voix Kokoro (une fois, 3 à 5 minutes, 600 Mo de disque)
 python3 revenus/tiktok/studio.py apercu      # 20 s de rendu envoyées sur Telegram
 python3 revenus/tiktok/studio.py episode     # l'épisode suivant, tout de suite
 python3 revenus/tiktok/studio.py episode sept_b   # force une série (ligne13 | lettres2043 | sept_b)
 python3 revenus/tiktok/studio.py etat        # avancement des séries
 ```
 
-Réglages `.env` (facultatifs) : `STUDIO_MODELE` (défaut `OLLAMA_MODEL`), `STUDIO_VITESSE` (1.06 = débit de la voix, plus grand = plus lent),
+Réglages `.env` (facultatifs) : `STUDIO_MODELE` (défaut `OLLAMA_MODEL`), `STUDIO_ALLURE` (0.90 = débit de la voix Kokoro, plus grand = plus rapide), `STUDIO_MOTEUR_VOIX=piper` (revenir à l'ancienne voix ;
+`STUDIO_VITESSE` 1.06 règle alors son débit, plus grand = plus lent),
 `STUDIO_NAPPE` (0.10 = volume de la nappe), `STUDIO_ROTATION=alternance` (une série différente chaque jour au lieu d'une série jusqu'au bout),
 `STUDIO_GARDER` (7 vidéos conservées dans `revenus/donnees/tiktok/videos/`), `STUDIO_CRF` / `STUDIO_PRESET` / `STUDIO_DEBIT` (qualité ffmpeg),
 `STUDIO_FPS` (24 images par seconde ; 20 allège le calcul sur un petit VPS), `STUDIO_FLASH=0` (coupes sans flash ni parasites).
@@ -43,13 +44,33 @@ Tout est calculé sur le VPS, sans image externe ni clé : `scenes.py` dessine c
   (« 2 h 14 ») déclenche l'horloge lumineuse, un nombre (« 640 euros », « 108 marches ») le compteur.
 - **Caméra** : elle avance, recule ou glisse à chaque plan ; coupe avec flash doux, à-coup de zoom ou parasites ; petite secousse sur les mots forts.
 - **La voix pilote l'image** : l'onde de la radio, les néons, les halos battent avec le volume réel de la voix.
-- **Sous-titres** : chaque mot arrive quand il est dit, le mot en cours est surligné ; les phrases sont recalées sur les silences réels de Piper.
+- **Sous-titres** : chaque mot arrive quand il est dit, le mot en cours est surligné ; chaque phrase et chaque virgule sont calées sur la voix
+  réelle (écart médian mesuré : 0,05 s).
 - **Début et fin** : le titre claque dans les deux premières secondes ; sur la phrase de suspens l'image se resserre et s'assombrit, coupe au noir,
   puis carte « LA SUITE / DEMAIN À 20 H » avec le numéro du prochain épisode.
 - Les textes restent dans la zone visible de TikTok (hors boutons de droite et légende du bas).
 
 Pour une nouvelle série dans `bible.json`, ajoute si tu veux `"animation": {"decor": "metro"}` (`metro`, `lettres`, `immeuble` ; sinon un décor
 « mystère » mélange les scènes) et, au choix, `panneau`, `fantome`, `stations`, `date`, `cachet`, `annees`, `porte`, `etage`, `etages`.
+
+## La voix (ce qui fait rester)
+
+`voix.py` remplace Piper par Kokoro, un moteur plus naturel qui tourne lui aussi sur le VPS, sans clé (modèle Apache 2.0, 354 Mo téléchargés
+une fois, empreinte vérifiée). C'est la même comédienne que la voix d'avant (corpus SIWIS), en plus vivante.
+
+- **Une phrase = une prise** : la voix est synthétisée phrase par phrase, puis montée. Le début et la fin de chaque phrase sont donc connus
+  exactement, et les sous-titres n'ont plus rien à deviner.
+- **Un rythme de conteuse** : accroche plus franche, silence après l'accroche, phrases courtes posées, long silence puis diction ralentie sur la
+  phrase de suspens. Les silences suivent la ponctuation (point, point d'interrogation, points de suspension) et ne sont jamais identiques.
+- **Les paroles de la radio** (« Prochain arrêt, Sainte-Blaise ») sortent d'un haut-parleur de cabine : bande étroite, légère saturation, souffle,
+  ouverture et relâchement de la fréquence. Vaut pour toute parole annoncée par radio, téléphone, interphone ou répondeur.
+- **Ce qui est dit n'est pas ce qui est écrit** : « 2 h 14 » est prononcé « deux heures quatorze », « 20 km/h » « vingt kilomètres heure »,
+  « 7B » « sept B » ; les sous-titres gardent l'écriture d'origine.
+- **Un son fini** : coupe-bas, un peu de chaleur et d'air, compression douce, limiteur sans écrêtage, niveau constant (environ −16,5 LUFS).
+
+Kokoro a besoin d'un numpy récent : il est installé à part dans `revenus/donnees/tiktok/venv_voix`, sans toucher aux paquets Python du serveur
+(le bot de trading n'est pas concerné). Si l'environnement est absent ou en panne, le studio retombe tout seul sur Piper et le signale dans
+`studio.log`. Calcul : environ 40 s pour un épisode de 85 s.
 
 ## Routine iPhone (2 minutes, à 20 h)
 

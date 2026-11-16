@@ -3,7 +3,7 @@
 
 Tout tourne en local sur le VPS, sans clé ni API payante :
   - texte     : Ollama local (bible.json = séries, personnages, 12 épisodes chacune)
-  - voix      : Piper TTS (voix fr_FR-siwis-medium, téléchargée une fois)
+  - voix      : Kokoro (voix française naturelle, voix.py) ; Piper en secours si Kokoro n'est pas installé
   - image     : décors animés 1080×1920 (scenes.py, PIL + numpy), un plan par phrase, sous-titres mot à mot
   - montage   : ffmpeg (H.264 + AAC), 70-90 s, < 45 Mo
   - livraison : Telegram sendVideo + légende prête à coller dans TikTok
@@ -11,7 +11,7 @@ Tout tourne en local sur le VPS, sans clé ni API payante :
 Commandes :
   python3 revenus/tiktok/studio.py episode [id_serie]   → épisode suivant (ou de la série donnée)
   python3 revenus/tiktok/studio.py apercu              → 20 s de rendu pour vérifier voix + image
-  python3 revenus/tiktok/studio.py voix                → télécharge la voix Piper
+  python3 revenus/tiktok/studio.py voix                → installe la voix Kokoro (une fois) + la voix Piper de secours
   python3 revenus/tiktok/studio.py etat                → où en est chaque série
   python3 revenus/tiktok/studio.py test                → vérifie ffmpeg / PIL / numpy / piper (sans réseau)
 
@@ -189,7 +189,7 @@ Réponds UNIQUEMENT avec un tableau JSON de 12 objets ayant exactement les clés
     return True
 
 
-# ----------------------------------------------------------------------------- voix (Piper)
+# ----------------------------------------------------------------------------- voix (Kokoro, sinon Piper)
 def piper_dispo():
     try:
         r = subprocess.run([sys.executable, "-m", "piper", "--help"], capture_output=True, timeout=60)
@@ -210,7 +210,17 @@ def telecharger_voix():
 
 
 def dire(texte, sortie):
-    """Texte → WAV mono via Piper. Retourne la durée (s) ou 0."""
+    """Texte → WAV mono. Kokoro d'abord (voix naturelle + repères exacts dans « sortie.json »), sinon Piper.
+    Retourne la durée (s) ou 0."""
+    import voix as voix_k
+    if os.path.exists(sortie + ".json"):
+        os.remove(sortie + ".json")
+    if env("STUDIO_MOTEUR_VOIX", "kokoro").lower() != "piper":
+        d = voix_k.dire(texte, sortie, journal=_log)
+        if d > 0:
+            return d
+        if voix_k.python_kokoro():
+            _log("Kokoro n'a rien rendu : repli sur Piper.")
     modele = os.path.join(VOIX_DIR, VOIX + ".onnx")
     if not os.path.exists(modele) and not telecharger_voix():
         return 0.0
@@ -334,10 +344,20 @@ def blancs(voix, sr, mini=0.40):
     return [(a / sr, b / sr) for a, b in zip(bords[::2], bords[1::2]) if (b - a) / sr >= mini]
 
 
-def minuter(texte, debut, duree, voix=None, sr=0):
-    """Minutage des sous-titres. Avec la voix, chaque phrase est recalée sur les silences réels de Piper
-    (les mots tombent juste) ; sinon, simple répartition sur la durée."""
+def minuter(texte, debut, duree, voix=None, sr=0, reperes=None):
+    """Minutage des sous-titres. Avec les repères de Kokoro, chaque prise a son début et sa fin exacts ; avec la
+    voix Piper, chaque phrase est recalée sur ses silences réels ; sinon, simple répartition sur la durée."""
     mots = jetons(texte)
+    if reperes and [m for r in reperes for m in r[0]] == mots:
+        res = []
+        for groupe, t0, t1, poids in reperes:
+            total = sum(poids) or 1.0
+            t = debut + t0
+            for m, p in zip(groupe, poids):
+                d = max(0.0, t1 - t0) * p / total
+                res.append((m, t, t + d))
+                t += d
+        return res
     base = _repartir(mots, debut, duree)
     if voix is None or not sr or len(mots) < 2:
         return base
@@ -512,7 +532,9 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
         voix, sr = lire_wav(voix_wav or audio_wav)
     except Exception as ex:
         _log(f"Lecture de la voix impossible ({ex}) : animation sans réaction au son.")
-    mots = minuter(texte, debut_voix, duree_voix, voix if voix_wav else None, sr)
+    import voix as voix_k
+    mots = minuter(texte, debut_voix, duree_voix, voix if voix_wav else None, sr,
+                   voix_k.lire_reperes(voix_wav) if voix_wav else None)
     volume = enveloppe(voix, sr, fps, n_images, debut_voix if voix_wav else 0.0) if voix is not None else np.zeros(n_images)
     grp = groupes(mots)
     fin_voix = mots[-1][2] if mots else debut_voix + duree_voix
@@ -868,11 +890,11 @@ def cmd_episode(force=None):
     voix_wav, mix_wav, mp4 = base + "_voix.wav", base + "_mix.wav", base + ".mp4"
     duree_voix = dire(texte, voix_wav)
     if duree_voix <= 0:
-        telegram(f"Studio TikTok : la voix (Piper) a échoué pour {s['titre']} ép. {n}. Voir {JOURNAL}.")
+        telegram(f"Studio TikTok : la voix a échoué pour {s['titre']} ép. {n}. Voir {JOURNAL}.")
         return 1
     total, duree_voix = mixer(voix_wav, mix_wav, graine=n)
     ok = rendre(texte, mix_wav, total, 0.4, duree_voix, s, n, mp4, suivant=n < len(s["episodes"]), voix_wav=voix_wav)
-    for x in (voix_wav, mix_wav):
+    for x in (voix_wav, voix_wav + ".json", mix_wav):
         if os.path.exists(x):
             os.remove(x)
     if not ok:
@@ -907,7 +929,7 @@ def cmd_apercu():
     base = os.path.join(VIDEOS, "apercu")
     d = dire(texte, base + "_voix.wav")
     if d <= 0:
-        print("Piper indisponible : lance d'abord  python3 revenus/tiktok/studio.py voix")
+        print("Voix indisponible : lance d'abord  python3 revenus/tiktok/studio.py voix")
         return 1
     total, d = mixer(base + "_voix.wav", base + "_mix.wav", apres=2.5)
     ok = rendre(texte, base + "_mix.wav", total, 0.4, d, s, 1, base + ".mp4", voix_wav=base + "_voix.wav")
@@ -915,6 +937,17 @@ def cmd_apercu():
     if ok and telegram_video(base + ".mp4", "Aperçu du studio TikTok"):
         print("Envoyé sur Telegram.")
     return 0 if ok else 1
+
+
+def cmd_voix():
+    """Installe Kokoro (voix naturelle) ; garde ou télécharge Piper comme secours."""
+    import voix as voix_k
+    ok = voix_k.installer()
+    if not ok:
+        print("Kokoro non installé : le studio continue avec la voix Piper.")
+    secours = piper_dispo() and telecharger_voix()
+    print("Voix de secours Piper : " + ("prête." if secours else "absente (facultatif si Kokoro est prêt)."))
+    return 0 if (ok or secours) else 1
 
 
 def cmd_test():
@@ -927,8 +960,12 @@ def cmd_test():
             rapport.append((mod, True))
         except Exception:
             rapport.append((mod, False))
-    rapport.append(("piper", piper_dispo()))
-    rapport.append(("voix " + VOIX, os.path.exists(os.path.join(VOIX_DIR, VOIX + ".onnx"))))
+    import voix as voix_k
+    kokoro = bool(voix_k.python_kokoro())
+    print(("OK   " if kokoro else "ABSENT ") + "voix Kokoro (naturelle)" + ("" if kokoro else " → python3 revenus/tiktok/studio.py voix"))
+    if not kokoro:  # Piper n'est indispensable que si Kokoro manque
+        rapport.append(("piper", piper_dispo()))
+        rapport.append(("voix " + VOIX, os.path.exists(os.path.join(VOIX_DIR, VOIX + ".onnx"))))
     rapport.append(("police", any(os.path.exists(p) for p in POLICES)))
     b = bible()
     rapport.append((f"bible : {len(b['series'])} séries, {sum(len(s['episodes']) for s in b['series'])} épisodes", True))
@@ -961,7 +998,7 @@ if __name__ == "__main__":
     if cmd == "apercu":
         sys.exit(cmd_apercu())
     if cmd == "voix":
-        sys.exit(0 if telecharger_voix() else 1)
+        sys.exit(cmd_voix())
     if cmd == "test":
         sys.exit(cmd_test())
     if cmd == "etat":
