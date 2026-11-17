@@ -448,11 +448,18 @@ def test_studio_tiktok_plans_photographiques(monkeypatch, tmp_path):
     plans = scenes.decouper_plans(mots, s, 1, 32.0)
     assert plans[0]["t0"] == 0.0 and plans[-1]["t1"] == 32.0 and plans[-1]["suspens"]
     assert all(p["scene"].startswith("photo:") and p["serie"] == "ligne13" for p in plans)
-    assert all(x["scene"] != y["scene"] for x, y in zip(plans, plans[1:]))
-    phrase = "Je conduis la nuit. À 2 h 14 précises, tout change. Pas de quai. Mes mains serrent le manipulateur. La radio grésille."
+    assert all((x["scene"], x["cadrage"]) != (y["scene"], y["cadrage"]) for x, y in zip(plans, plans[1:]))
+    # montage nerveux : aucun plan ne traîne, et rien n'est révélé avant l'heure (la femme du quai attend l'épisode 4)
+    assert max(p["t1"] - p["t0"] for p in plans[:-1]) < 5.0
+    assert not {p["scene"] for p in plans} & {"photo:femme", "photo:quai", "photo:archives"}
+    assert "photo:femme" not in bq.scenes(1) and "photo:femme" in bq.scenes(4) and "photo:femme" in bq.scenes()
+    phrase = ("Je conduis la nuit. À 2 h 14 précises, tout change. Pas de quai. Mes mains serrent le manipulateur. La radio grésille. "
+              "Une femme en uniforme attend.")
     pl = scenes.decouper_plans(studio.minuter(phrase, 0.4, 16.0), s, 1, 18.0, mini=0.5)
     par_texte = {p["texte"]: p for p in pl}
-    assert par_texte["À 2 h 14 précises, tout change."]["scene"] == "photo:horloge"
+    assert next(p for p in pl if p["texte"].startswith("À 2 h 14"))["scene"] == "photo:horloge"
+    assert all(p["scene"] != "photo:femme" for p in pl)
+    assert any(p["scene"] == "photo:femme" for p in scenes.decouper_plans(studio.minuter(phrase, 0.4, 16.0), s, 4, 18.0, mini=0.5))
     assert par_texte["Pas de quai."]["scene"] != "photo:quai"  # un mot nié n'appelle pas son image
     main = par_texte["Mes mains serrent le manipulateur."]
     assert main["scene"] == "photo:cabine" and main["cadrage"] == 1  # le cadrage que la phrase appelle
@@ -463,6 +470,22 @@ def test_studio_tiktok_plans_photographiques(monkeypatch, tmp_path):
     c = dessine.plein(2.5, 0.7, 0.8, 1, 1.14, 0.0, (0.0, 0.0), 0.3)
     assert a.size == c.size == (1080, 1920) and a.mode == "RGB" and a.tobytes() != c.tobytes()
     assert scenes.parasite(a, 3).size == (1080, 1920) and dessine(1.0, 0.3, 0.5).size == (scenes.L, scenes.H)
+    # derrière le pare-brise, le tunnel défile même quand la caméra ne bouge pas ; STUDIO_DEFILE=0 le fige
+    np = pytest.importorskip("numpy")
+    monkeypatch.setenv("STUDIO_VIBRATION", "0")
+
+    def ecart(plan_):
+        f = scenes.fabriquer(plan_, palette)
+        x = np.asarray(f.plein(1.0, 0.5, 0.0, 0, 1.1), dtype="int16")[300:900:6, 200:880:6]
+        y = np.asarray(f.plein(1.0 + 0.4, 0.5, 0.0, 0, 1.1), dtype="int16")[300:900:6, 200:880:6]
+        return float(np.abs(x - y).mean())
+    tunnel = {"scene": "photo:tunnel", "serie": "ligne13", "cadrage": 0, "graine": 3, "camera": "droite", "t0": 0.0}
+    assert bq.fiches["tunnel"].get("defile") and "roule" in bq.fiches["tunnel"]["effets"]
+    bouge = ecart(tunnel)
+    monkeypatch.setenv("STUDIO_DEFILE", "0")
+    assert bouge > 2 * ecart(tunnel) and bouge > 1.5
+    monkeypatch.delenv("STUDIO_DEFILE")
+    monkeypatch.delenv("STUDIO_VIBRATION")
     # STUDIO_PHOTOS=0, dossier absent ou image illisible : retour aux décors dessinés, sans erreur
     monkeypatch.setenv("STUDIO_PHOTOS", "0")
     assert all(p["scene"] in scenes.SCENES for p in scenes.decouper_plans(mots, s, 1, 32.0))

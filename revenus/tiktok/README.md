@@ -34,7 +34,8 @@ Réglages `.env` (facultatifs) : `STUDIO_MODELE` (défaut `OLLAMA_MODEL`), `STUD
 `STUDIO_NAPPE` (0.10 = volume de la nappe), `STUDIO_ROTATION=alternance` (une série différente chaque jour au lieu d'une série jusqu'au bout),
 `STUDIO_GARDER` (7 vidéos conservées dans `revenus/donnees/tiktok/videos/`), `STUDIO_CRF` / `STUDIO_PRESET` / `STUDIO_DEBIT` (qualité ffmpeg),
 `STUDIO_FPS` (24 images par seconde ; 20 allège le calcul sur un petit VPS), `STUDIO_FLASH=0` (coupes sans flash ni parasites),
-`STUDIO_PHOTOS=0` (revenir aux décors dessinés pour toutes les séries).
+`STUDIO_PHOTOS=0` (revenir aux décors dessinés pour toutes les séries), `STUDIO_DEFILE=0` (tunnel figé), `STUDIO_VIBRATION=0` (cabine sans vibration),
+`STUDIO_PLAN_MAXI` (3.4 = durée maximale d'un plan photographique, en secondes).
 
 ## L'animation (ce qui retient le regard)
 
@@ -65,17 +66,25 @@ commande, les archives, le quai Sainte-Blaise. Les deux autres séries gardent l
 
 - **Relief** : chaque image a une carte de profondeur (`<nom>_prof.png`, blanc = proche). Quand la caméra avance ou glisse, le premier plan
   bouge plus que le fond, comme dans une vraie prise de vue, au lieu d'un simple zoom sur une photo.
+- **Le tunnel défile** : derrière le pare-brise et les vitres, le tunnel avance vers la caméra (deux copies de la zone lointaine grossissent
+  en boucle autour du point de fuite et se relaient ; `defile` dans `plans.json`). La cabine, elle, reste nette et vibre légèrement, avec un
+  double à-coup à chaque joint de rail (`roule`). `STUDIO_DEFILE=0` fige le tunnel, `STUDIO_VIBRATION=0` coupe les vibrations.
+- **Montage nerveux** : un plan toutes les deux à trois secondes (3,4 s au plus, réglable avec `STUDIO_PLAN_MAXI`), coupé à la fin d'une
+  phrase ou à une virgule, jamais au milieu d'un groupe de mots. Environ 34 plans pour un épisode de 85 s.
+- **Pas de révélation avant l'heure** : `depuis` réserve une image aux épisodes qui ont le droit de la montrer (les archives à partir de
+  l'épisode 2, la femme et le quai à partir de l'épisode 4).
 - **Lumière vivante** : les néons vacillent, les voyants respirent, le voyant de la radio suit la voix, les lumières du tunnel passent sur la
   cabine, la poussière flotte sur le quai et aux archives. Vignettage et grain de pellicule sont refaits à chaque image.
 - **Choix du plan** : par les mots de la phrase, comme pour les décors (`mots` dans `plans.json`). Une phrase sans mot-clé prend un plan
   passe-partout (`repli`), jamais un plan précis ; « Pas de quai » ne montre pas le quai ; « 2 h 14 » montre l'horloge.
 - **Reprises** : une image déjà vue revient cadrée autrement (`cadrages` : visage serré, main sur le levier, voyant de la radio…), et un
-  cadrage qui a ses propres mots est pris dès que la phrase les contient (« mes mains » → la main sur le manipulateur).
+  cadrage qui a ses propres mots est pris dès que la phrase les contient (« mes mains » → la main sur le manipulateur). Si la phrase désigne
+  un détail de l'image déjà à l'écran, le montage reste dessus et serre.
 - **Sécurité** : image absente ou illisible → le décor dessiné indiqué par `dessin` prend sa place, l'épisode sort quand même.
-- **Coût en calcul** : environ 0,12 s par image de vidéo, soit 4 à 5 minutes pour un épisode de 85 s ; fichier de 15 à 20 Mo.
+- **Coût en calcul** : environ 0,17 s par image de vidéo, soit 6 minutes pour un épisode de 85 s ; fichier de 20 à 25 Mo.
 
 Ajouter une image : un JPEG 9:16 d'au moins 1080 px de large dans `medias/<serie>/`, une fiche dans `plans.json` (`nom`, `fichier`, `mots`,
-`cadrages`, `effets` parmi `neons`, `voyants`, `voix`, `passage`, `poussiere`, et `dessin`). La carte de profondeur est facultative : sans
+`cadrages`, `effets` parmi `neons`, `voyants`, `voix`, `passage`, `poussiere`, `roule`, et `dessin` ; en option `defile` et `depuis`). La carte de profondeur est facultative : sans
 elle l'image reste plane mais garde caméra, lumières et grain. Celles de la ligne 13 ont été calculées une fois, hors VPS, avec le modèle
 Depth Anything V2 Small (https://huggingface.co/onnx-community/depth-anything-v2-small).
 

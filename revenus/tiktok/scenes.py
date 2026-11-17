@@ -1205,6 +1205,14 @@ def decouper_plans(mots, serie, numero, duree_totale, mini=1.9, maxi=5.8):
     if not mots:
         return [{"t0": 0.0, "t1": duree_totale, "scene": DECORS[reglages_serie(serie)["decor"]][0], "info": reglages_serie(serie),
                  "graine": numero, "camera": "avant", "transition": "aucune", "suspens": False}]
+    banque = None
+    try:  # la série a ses propres images (medias/<serie>/) : le montage se fait avec elles
+        import photos
+        banque = photos.banque(serie.get("id"))
+    except Exception:
+        banque = None
+    if banque:  # de vraies images : montage plus nerveux, un plan toutes les deux à trois secondes
+        mini, maxi = min(mini, 1.5), min(maxi, float(os.environ.get("STUDIO_PLAN_MAXI", "3.4")))
     ph = phrases(mots)
     debut_suspens = ph[-1][0][1]
     blocs = []
@@ -1225,19 +1233,17 @@ def decouper_plans(mots, serie, numero, duree_totale, mini=1.9, maxi=5.8):
                 continue
             milieu = (x[0][1] + x[-1][2]) / 2
             cand = [i for i in range(2, len(x) - 2) if x[i][0].endswith((",", ";", ":"))] or list(range(2, len(x) - 2))
+            if banque:  # montage nerveux : on coupe d'abord à la fin d'une phrase, jamais au milieu d'un groupe de mots
+                tient = [j for j in range(len(x) - 1) if x[j][2] - x[0][1] >= 0.9 and x[-1][2] - x[j + 1][1] >= 0.9]
+                cand = ([j for j in tient if x[j][0].endswith((".", "!", "?", "…", "»"))]
+                        or [j for j in tient if x[j][0].endswith((",", ";", ":"))] or cand)
             i = min(cand, key=lambda j: abs(x[j][2] - milieu))
             pile = [x[:i + 1], x[i + 1:]] + pile
     regl = reglages_serie(serie)
     dispo = DECORS[regl["decor"]]
     mots_cles = {n: SCENES[n][1].split() for n in dispo}
-    banque = None
-    try:  # la série a ses propres images (medias/<serie>/) : le montage se fait avec elles
-        import photos
-        banque = photos.banque(serie.get("id"))
-    except Exception:
-        banque = None
     if banque:
-        dispo = banque.scenes()
+        dispo = banque.scenes(numero)
         mots_cles = {n: banque.mots(n) for n in dispo}
 
     def scores(net, exclues=()):
@@ -1293,6 +1299,11 @@ def decouper_plans(mots, serie, numero, duree_totale, mini=1.9, maxi=5.8):
                     dernier_nombre = i
         if scene is None and i == i_final and scene_finale and scene_finale != precedente:
             scene = scene_finale
+        if scene is None and banque and plans and str(precedente).startswith("photo:"):
+            # la phrase désigne un détail de l'image en cours : on reste dessus et on serre (« le voyant est éteint »)
+            detail = banque.appele(precedente, re.findall(r"[a-z0-9]+", net))
+            if detail is not None and detail != plans[-1]["cadrage"]:
+                scene = precedente
         if scene is None:
             exclues = {precedente} | ({scene_finale} if i == i_final - 1 else set())
             if i + 1 < len(coupes) and "marches" in dispo:
