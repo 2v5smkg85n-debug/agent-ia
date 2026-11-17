@@ -158,15 +158,19 @@ Possible plus tard si tu le veux ; d'ici là, le bouton « Publier », c'est toi
 Quand les 12 épisodes d'une série sont épuisés, Ollama écrit une saison suivante dans `revenus/donnees/tiktok/saisons.json` (2 épisodes avant la fin, puis à la demande).
 ## Si un épisode sort avec la mauvaise voix ou sans les images
 
-Le timer fabrique l'épisode avec le code présent sur le serveur à 17:30 UTC. Si le serveur n'a pas reçu la dernière version (`git pull`),
+Le timer fabrique l'épisode avec le code présent sur le serveur à 17:30 UTC. Si le serveur n'a pas reçu la dernière version,
 l'épisode sort avec les anciens décors dessinés ; si la voix d'homme n'a pas été installée (`studio.py voix`), une voix de femme la remplace.
 Quand cela arrive avec une version à jour, le bot le dit dans un message Telegram « à corriger avant de publier », juste après la vidéo.
 
 Remettre le serveur d'aplomb et refaire l'épisode, sans en sauter un :
 
 ```
-cd ~/agent-ia && git pull && python3 revenus/tiktok/studio.py voix && python3 revenus/tiktok/studio.py test && python3 revenus/tiktok/studio.py refaire
+cd ~/agent-ia && curl -sL https://github.com/2v5smkg85n-debug/agent-ia/archive/refs/heads/main.tar.gz | tar xz --strip-components=1 agent-ia-main/revenus/tiktok agent-ia-main/tests/test_revenus.py && python3 revenus/tiktok/studio.py voix && python3 revenus/tiktok/studio.py test && python3 revenus/tiktok/studio.py refaire
 ```
+
+Sur le serveur, le studio se met à jour par cette archive et non par `git pull` : le dossier `~/agent-ia` contient le bot de trading avec des fichiers
+modifiés sur place, que git refuserait de fusionner. La ligne ci-dessus ne remplace que `revenus/tiktok` et `tests/test_revenus.py` ; elle ne touche
+ni au bot, ni à `revenus/donnees` (état des séries, voix installées, vidéos).
 
 `test` doit afficher `OK voix du narrateur (Supertonic)` et `OK plans photographiques de « Le Veilleur de la ligne 13 » : 11 images`.
 
