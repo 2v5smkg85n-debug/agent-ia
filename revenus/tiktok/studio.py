@@ -10,6 +10,7 @@ Tout tourne en local sur le VPS, sans clé ni API payante :
 
 Commandes :
   python3 revenus/tiktok/studio.py episode [id_serie]   → épisode suivant (ou de la série donnée)
+  python3 revenus/tiktok/studio.py refaire [id_serie]   → refait le dernier épisode envoyé (même texte), sans avancer la série
   python3 revenus/tiktok/studio.py apercu              → 25 s de rendu pour vérifier voix + image
   python3 revenus/tiktok/studio.py voix                → installe les deux voix (une fois) + la voix Piper de secours
   python3 revenus/tiktok/studio.py etat                → où en est chaque série
@@ -513,6 +514,50 @@ def _lignes(mots, largeur_de, maxi):
     return lignes + [cour]
 
 
+def mise_en_page(g, maxi, y_sous):
+    """Place un groupe de mots de sous-titre : [(mot, t0, t1, x, y, corps, fort)], calculé une fois par groupe.
+    Tout tient dans la largeur utile, sur trois lignes au plus ; sinon le corps diminue."""
+    import scenes
+    base = 84
+    while True:
+        def lg(m):
+            return scenes.police(int(base * (1.16 if mot_fort(m) else 1.0))).getlength(m)
+        esp = base * 0.44
+
+        def large(li):
+            return sum(lg(m[0]) for m in li) + esp * (len(li) - 1)
+        if large(g) <= maxi or len(g) == 1:
+            lignes = [g]
+        else:
+            i = min((max(large(g[:k]), large(g[k:])), k) for k in range(1, len(g)))[1]
+            lignes = [g[:i], g[i:]]
+            if max(large(li) for li in lignes) > maxi:  # deux lignes ne suffisent pas : on remplit ligne par ligne
+                lignes, cour = [], []
+                for m in g:
+                    if cour and large(cour + [m]) > maxi:
+                        lignes.append(cour)
+                        cour = []
+                    cour.append(m)
+                lignes.append(cour)
+        # tout doit tenir dans la largeur utile, sur trois lignes au plus : sinon on réduit le corps
+        if (len(lignes) <= 3 and max(large(li) for li in lignes) <= maxi) or base <= 44:
+            break
+        base -= 6
+    pas = base * 1.32
+    places, y = [], y_sous - pas * (len(lignes) - 1) / 2
+    for li in lignes:
+        ws = [lg(m[0]) for m in li]
+        x = (LARGEUR - sum(ws) - esp * (len(li) - 1)) / 2
+        for (m, t0, t1), w_ in zip(li, ws):
+            places.append((m, t0, t1, x + w_ / 2, y, int(base * (1.16 if mot_fort(m) else 1.0)), mot_fort(m)))
+            x += w_ + esp
+        y += pas
+    return places
+
+
+BILAN = {}  # ce que le dernier rendu a réellement utilisé : {"plans": n, "photos": n, "panne": bool}
+
+
 def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero, sortie, suivant=True, voix_wav=None):
     """Anime l'épisode : plans photographiques (photos.py) ou décors dessinés image par image (scenes.py), caméra,
     coupes calées sur les phrases, sous-titres mot à mot, titre d'ouverture et carte de fin.
@@ -542,6 +587,8 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
     grp = groupes(mots)
     fin_voix = mots[-1][2] if mots else debut_voix + duree_voix
     plans = scenes.decouper_plans(mots, serie, numero, duree_totale)
+    BILAN.clear()
+    BILAN.update({"plans": len(plans), "photos": sum(1 for p in plans if str(p["scene"]).startswith("photo:")), "panne": False})
     t_suspens = next((p["t0"] for p in plans if p.get("suspens")), fin_voix)
     chocs = []
     for m, t0, _ in mots:  # petites secousses de caméra sur les mots forts
@@ -596,40 +643,6 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
         f_bas = scenes.police(int(44 * MAXI / f_bas.getlength(bas)))
     f_rond, f_rond2 = scenes.police(92), scenes.police(26)
 
-    # mise en page des sous-titres, calculée une fois par groupe
-    def mise_en_page(g):
-        base = 84
-        while True:
-            def lg(m):
-                return scenes.police(int(base * (1.16 if mot_fort(m) else 1.0))).getlength(m)
-            esp = base * 0.44
-            if max(lg(m[0]) for m in g) <= MAXI or base <= 44:
-                break
-            base -= 6
-        total = sum(lg(m[0]) for m in g) + esp * (len(g) - 1)
-        if total > MAXI and len(g) > 1:
-            coupes = []
-            for i in range(1, len(g)):
-                wa = sum(lg(m[0]) for m in g[:i]) + esp * (i - 1)
-                wb = sum(lg(m[0]) for m in g[i:]) + esp * (len(g) - i - 1)
-                coupes.append((max(wa, wb), i))
-            i = min(coupes)[1]
-            lignes = [g[:i], g[i:]]
-        else:
-            lignes = [g]
-        if any(sum(lg(m[0]) for m in li) + esp * (len(li) - 1) > MAXI + 60 for li in lignes) and len(g) > 2:
-            lignes = [[m] for m in g][:3] if len(g) == 3 else [g[:1], g[1:-1], g[-1:]]
-        pas = base * 1.32
-        places, y = [], y_sous - pas * (len(lignes) - 1) / 2
-        for li in lignes:
-            ws = [lg(m[0]) for m in li]
-            x = (LARGEUR - sum(ws) - esp * (len(li) - 1)) / 2
-            for (m, t0, t1), w_ in zip(li, ws):
-                places.append((m, t0, t1, x + w_ / 2, y, int(base * (1.16 if mot_fort(m) else 1.0)), mot_fort(m)))
-                x += w_ + esp
-            y += pas
-        return places
-
     pages = {}
     # débit plafonné pour rester sous la limite Telegram (49 Mo), même pour un épisode long
     debit = env("STUDIO_DEBIT", "") or f"{int(max(900, min(3200, 40 * 8000 / max(1.0, duree_totale) - 140)))}k"
@@ -651,7 +664,10 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
                 dessine = scenes.fabriquer(plans[k_plan], palette)
             except Exception as ex:
                 dessine = None
+                BILAN["panne"] = True
                 _log(f"Scène {plans[k_plan]['scene']} indisponible : {ex}")
+            if str(plans[k_plan]["scene"]).startswith("photo:") and not getattr(dessine, "photo", False):
+                BILAN["panne"] = True  # l'image réaliste n'a pas pu être chargée : un décor dessiné la remplace
         plan = plans[k_plan]
         tl = t - plan["t0"]
         p = min(1.0, tl / max(0.5, plan["t1"] - plan["t0"]))
@@ -664,7 +680,7 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
             except Exception as ex:
                 if not panne:
                     _log(f"Scène {plan['scene']} en erreur : {ex}")
-                panne, dessine = True, None
+                panne, dessine, BILAN["panne"] = True, None, True
         if im is None and not photo:
             im = secours.copy()
         fx, fy = getattr(dessine, "foyer", (L2 / 2, H2 * 0.38))
@@ -735,7 +751,7 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
                 except Exception as ex:
                     if not panne:
                         _log(f"Plan {plan['scene']} en erreur : {ex}")
-                    panne, dessine, plein = True, None, None
+                    panne, dessine, plein, BILAN["panne"] = True, None, None, True
                     im = finir(secours.copy(), i, noirceur)
             if plein is None:
                 plein = scenes.cadrer(im, zoom, fx + 26 * glisse + tx, fy + ty, taille)
@@ -784,7 +800,7 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
             if g and g[0][1] - 0.05 <= t < g[-1][2] + 0.8:
                 if i_grp not in pages:
                     pages.clear()
-                    pages[i_grp] = mise_en_page(g)
+                    pages[i_grp] = mise_en_page(g, MAXI, y_sous)
                 plein.paste(noir_bande, (0, y_bande), bande)
                 d = ImageDraw.Draw(plein, "RGBA")
                 for m, t0, t1, x, y, corps, fort in pages[i_grp]:
@@ -899,6 +915,71 @@ def menage(garder=7):
 
 
 # ----------------------------------------------------------------------------- commandes
+def alertes_voix(serie):
+    """Ce qui manque pour que l'épisode soit dit par la bonne voix (liste de phrases, vide si tout est là)."""
+    import voix as voix_k
+    prets = voix_k.moteurs()
+    res = []
+    voulue = serie.get("voix", "femme")
+    if voix_k.profil(voulue)[0] not in prets:
+        nom, autre = ("d'homme", "une voix de femme") if voulue == "homme" else ("de femme", "une voix d'homme")
+        res.append("la voix " + nom + " n'est pas installée sur le serveur : "
+                   + (autre + " l'a remplacée" if prets else "la voix de secours Piper l'a remplacée")
+                   + ". À lancer une fois : python3 revenus/tiktok/studio.py voix")
+    return res
+
+
+def alertes_images(serie):
+    """Ce qui a manqué au dernier rendu côté image (liste de phrases)."""
+    res = []
+    try:
+        import photos
+        attendues = os.path.exists(os.path.join(photos.MEDIAS, str(serie.get("id")), "plans.json"))
+    except Exception:
+        attendues = False
+    if attendues and env("STUDIO_PHOTOS", "1") != "0" and not BILAN.get("photos"):
+        res.append("les images réalistes de la série n'ont pas pu être utilisées : décors dessinés à la place. "
+                   "Vérifier : python3 revenus/tiktok/studio.py test")
+    elif BILAN.get("panne"):
+        res.append(f"au moins un plan a échoué pendant le rendu, un décor de remplacement a été utilisé. Détail dans {JOURNAL}")
+    return res
+
+
+def fabriquer_episode(b, s, n, texte, secours):
+    """Voix, mixage, montage, fichier texte. → (mp4, durée, taille en Mo, alertes) ou None si la voix ou ffmpeg a échoué."""
+    base = os.path.join(VIDEOS, f"{s['id']}_ep{n:02d}_{time.strftime('%Y%m%d')}")
+    voix_wav, mix_wav, mp4 = base + "_voix.wav", base + "_mix.wav", base + ".mp4"
+    alertes = alertes_voix(s)
+    duree_voix = dire(texte, voix_wav, s)
+    if duree_voix <= 0:
+        telegram(f"Studio TikTok : la voix a échoué pour {s['titre']} ép. {n}. Voir {JOURNAL}.")
+        return None
+    total, duree_voix = mixer(voix_wav, mix_wav, graine=n)
+    ok = rendre(texte, mix_wav, total, 0.4, duree_voix, s, n, mp4, suivant=n < len(s["episodes"]), voix_wav=voix_wav)
+    for x in (voix_wav, voix_wav + ".json", mix_wav):
+        if os.path.exists(x):
+            os.remove(x)
+    if not ok:
+        telegram(f"Studio TikTok : le montage ffmpeg a échoué pour {s['titre']} ép. {n}. Voir {JOURNAL}.")
+        return None
+    alertes += alertes_images(s)
+    with open(base + ".txt", "w", encoding="utf-8") as f:
+        f.write(legende_tiktok(s, n, s["episodes"][n - 1], secours) + "\n\n---\n" + texte + "\n")
+    return mp4, total, os.path.getsize(mp4) / 1e6, alertes
+
+
+def livrer(s, n, mp4, taille, secours, alertes, mention=""):
+    """Envoie la vidéo, la légende à coller et, s'il y en a, ce qui n'a pas tourné comme prévu."""
+    legende = legende_tiktok(s, n, s["episodes"][n - 1], secours)
+    if not telegram_video(mp4, legende):
+        telegram(f"Studio TikTok : vidéo prête mais non envoyée ({taille:.0f} Mo) : {mp4}\n\n{legende}")
+    telegram("Légende à coller dans TikTok (appui long → copier) :\n\n" + legende, silencieux=True)
+    if alertes:
+        telegram(f"Studio TikTok, à corriger avant de publier ({s['titre']} ép. {n}{mention}) :\n- " + "\n- ".join(alertes))
+    for a in alertes:
+        _log(f"ALERTE {s['id']} ép.{n} : {a}")
+
+
 def cmd_episode(force=None):
     os.makedirs(VIDEOS, exist_ok=True)
     b, e = bible(), etat()
@@ -913,41 +994,74 @@ def cmd_episode(force=None):
             telegram("Studio TikTok : toutes les séries sont terminées et Ollama n'a pas pu écrire de nouvelle saison. "
                      "Ajoute des épisodes dans revenus/tiktok/bible.json.")
             return 1
-    ep = s["episodes"][n - 1]
     debut = time.time()
     texte, secours = ecrire_episode(b, s, n)
-    base = os.path.join(VIDEOS, f"{s['id']}_ep{n:02d}_{time.strftime('%Y%m%d')}")
-    voix_wav, mix_wav, mp4 = base + "_voix.wav", base + "_mix.wav", base + ".mp4"
-    duree_voix = dire(texte, voix_wav, s)
-    if duree_voix <= 0:
-        telegram(f"Studio TikTok : la voix a échoué pour {s['titre']} ép. {n}. Voir {JOURNAL}.")
+    res = fabriquer_episode(b, s, n, texte, secours)
+    if res is None:
         return 1
-    total, duree_voix = mixer(voix_wav, mix_wav, graine=n)
-    ok = rendre(texte, mix_wav, total, 0.4, duree_voix, s, n, mp4, suivant=n < len(s["episodes"]), voix_wav=voix_wav)
-    for x in (voix_wav, voix_wav + ".json", mix_wav):
-        if os.path.exists(x):
-            os.remove(x)
-    if not ok:
-        telegram(f"Studio TikTok : le montage ffmpeg a échoué pour {s['titre']} ép. {n}. Voir {JOURNAL}.")
-        return 1
-    with open(base + ".txt", "w", encoding="utf-8") as f:
-        f.write(legende_tiktok(s, n, ep, secours) + "\n\n---\n" + texte + "\n")
-    taille = os.path.getsize(mp4) / 1e6
+    mp4, total, taille, alertes = res
     e["episodes"][s["id"]] = n
     e["historique"].append({"date": horodatage(), "serie": s["id"], "episode": n, "mots": len(texte.split()),
                             "duree": round(total, 1), "mo": round(taille, 1), "secours": secours, "fichier": mp4})
     e["historique"] = e["historique"][-100:]
     ecrire_json(ETAT, e)
-    legende = legende_tiktok(s, n, ep, secours)
-    envoye = telegram_video(mp4, legende)
-    if not envoye:
-        telegram(f"Studio TikTok : vidéo prête mais non envoyée ({taille:.0f} Mo) : {mp4}\n\n{legende}")
-    telegram("Légende à coller dans TikTok (appui long → copier) :\n\n" + legende, silencieux=True)
+    livrer(s, n, mp4, taille, secours, alertes)
     if n == len(s["episodes"]) - 2:  # anticipe : écrit la saison suivante pendant qu'il reste 2 épisodes
         nouvelle_saison(b, s)
     menage(int(env("STUDIO_GARDER", "7")))
-    _log(f"{s['id']} ép.{n} : {len(texte.split())} mots, {total:.0f} s, {taille:.1f} Mo, {time.time() - debut:.0f} s de calcul, secours={secours}")
+    _log(f"{s['id']} ép.{n} : {len(texte.split())} mots, {total:.0f} s, {taille:.1f} Mo, {time.time() - debut:.0f} s de calcul, "
+         f"secours={secours}, plans photo {BILAN.get('photos', 0)}/{BILAN.get('plans', 0)}, alertes={len(alertes)}")
     print(f"OK {mp4} ({total:.0f} s, {taille:.1f} Mo)")
+    for a in alertes:
+        print("ATTENTION : " + a)
+    return 0
+
+
+def texte_enregistre(fichier_mp4):
+    """Le texte d'un épisode déjà fabriqué (gardé à côté de la vidéo), ou None."""
+    try:
+        with open(str(fichier_mp4).replace(".mp4", ".txt"), encoding="utf-8") as f:
+            contenu = f.read()
+    except OSError:
+        return None
+    if "\n---\n" not in contenu:
+        return None
+    texte = nettoyer_texte(contenu.split("\n---\n", 1)[1])
+    return texte if len(texte.split()) >= 20 else None
+
+
+def cmd_refaire(force=None):
+    """Refait le dernier épisode envoyé (ou le dernier de la série donnée) avec le même texte, sans avancer la série :
+    utile quand il est sorti avec la mauvaise voix ou sans les images (serveur pas à jour)."""
+    os.makedirs(VIDEOS, exist_ok=True)
+    b, e = bible(), etat()
+    faits = [h for h in e["historique"] if not force or h["serie"] == force]
+    if not faits:
+        print("Aucun épisode à refaire" + (f" pour la série {force}." if force else "."))
+        return 1
+    h = faits[-1]
+    s = next((x for x in b["series"] if x["id"] == h["serie"]), None)
+    n = int(h["episode"])
+    if s is None or not 1 <= n <= len(s["episodes"]):
+        print(f"Épisode introuvable dans la bible : {h['serie']} ép. {n}")
+        return 1
+    debut = time.time()
+    texte, secours = texte_enregistre(h.get("fichier", "")), bool(h.get("secours"))
+    if texte is None:  # le texte d'origine n'est plus sur le disque : on le réécrit
+        texte, secours = ecrire_episode(b, s, n)
+    res = fabriquer_episode(b, s, n, texte, secours)
+    if res is None:
+        return 1
+    mp4, total, taille, alertes = res
+    h.update({"date": horodatage(), "mots": len(texte.split()), "duree": round(total, 1), "mo": round(taille, 1),
+              "secours": secours, "fichier": mp4, "refait": True})
+    ecrire_json(ETAT, e)
+    livrer(s, n, mp4, taille, secours, alertes, mention=", refait")
+    _log(f"{s['id']} ép.{n} refait : {len(texte.split())} mots, {total:.0f} s, {taille:.1f} Mo, {time.time() - debut:.0f} s de calcul, "
+         f"plans photo {BILAN.get('photos', 0)}/{BILAN.get('plans', 0)}, alertes={len(alertes)}")
+    print(f"OK {mp4} ({total:.0f} s, {taille:.1f} Mo), épisode {n} refait")
+    for a in alertes:
+        print("ATTENTION : " + a)
     return 0
 
 
@@ -1039,6 +1153,8 @@ if __name__ == "__main__":
     cmd = (args[0] if args else "episode").lower()
     if cmd == "episode":
         sys.exit(cmd_episode(args[1] if len(args) > 1 else None))
+    if cmd == "refaire":
+        sys.exit(cmd_refaire(args[1] if len(args) > 1 else None))
     if cmd == "apercu":
         sys.exit(cmd_apercu())
     if cmd == "voix":

@@ -502,3 +502,67 @@ def test_studio_tiktok_plans_photographiques(monkeypatch, tmp_path):
     secours = scenes.fabriquer(scenes.decouper_plans(mots, s, 1, 32.0)[0], palette)
     assert not getattr(secours, "photo", False) and secours(1.0, 0.3, 0.5).size == (scenes.L, scenes.H)
 
+
+
+def test_studio_tiktok_sous_titres_dans_la_largeur_utile():
+    pytest.importorskip("PIL.Image")
+    sys.path.insert(0, os.path.join(RACINE, "revenus", "tiktok"))
+    import scenes  # noqa: E402
+    import studio  # noqa: E402
+    textes = ["Malik demande l'enregistrement de la fréquence : trente secondes de silence.",
+              "Anticonstitutionnellement, l'administration désapprouverait immédiatement.",
+              "Je note tout.", "Prochain arrêt, Sainte-Blaise."]
+    for texte in textes:
+        for g in studio.groupes(studio.minutage_mots(texte, 0.4, 8.0)):
+            places = studio.mise_en_page(g, 840, 1152)
+            assert [p[0] for p in places] == [m[0] for m in g]
+            for m, _, _, x, y, corps, _ in places:  # aucun mot ne sort de la largeur utile (bug : « emande l'enregistreme »)
+                w = scenes.police(corps).getlength(m)
+                assert x - w / 2 >= (1080 - 840) / 2 - 1 and x + w / 2 <= (1080 + 840) / 2 + 1, (texte, m)
+            assert len({round(p[4]) for p in places}) <= 3
+
+
+def test_studio_tiktok_refaire_et_alertes(monkeypatch, tmp_path):
+    sys.path.insert(0, os.path.join(RACINE, "revenus", "tiktok"))
+    import studio  # noqa: E402
+    import voix  # noqa: E402
+    videos = tmp_path / "videos"
+    monkeypatch.setattr(studio, "ETAT", str(tmp_path / "etat.json"))
+    monkeypatch.setattr(studio, "SAISONS", str(tmp_path / "saisons.json"))
+    monkeypatch.setattr(studio, "VIDEOS", str(videos))
+    monkeypatch.setattr(studio, "JOURNAL", str(tmp_path / "studio.log"))
+    monkeypatch.setenv("REVENUS_OLLAMA", "0")
+    messages, dits = [], []
+    monkeypatch.setattr(studio, "telegram", lambda texte, **k: messages.append(texte) or True)
+    monkeypatch.setattr(studio, "telegram_video", lambda chemin, legende: messages.append("VIDEO " + chemin) or True)
+    monkeypatch.setattr(studio, "dire", lambda texte, sortie, serie=None: dits.append(texte) or 30.0)
+    monkeypatch.setattr(studio, "mixer", lambda voix_wav, sortie, **k: (34.0, 30.0))
+    photos_vues = {"n": 0}
+
+    def faux_rendu(texte, audio, total, debut, duree, serie, numero, sortie, **k):
+        studio.BILAN.clear()
+        studio.BILAN.update({"plans": 12, "photos": photos_vues["n"], "panne": False})
+        with open(sortie, "wb") as f:
+            f.write(b"mp4")
+        return True
+    monkeypatch.setattr(studio, "rendre", faux_rendu)
+    # serveur à moitié à jour : la voix d'homme n'est pas installée, les images n'ont pas servi → c'est dit sur Telegram
+    monkeypatch.setattr(voix, "moteurs", lambda: {"kokoro": "python"})
+    assert studio.cmd_episode("ligne13") == 0
+    alerte = next(m for m in messages if "à corriger avant de publier" in m)
+    assert "voix d'homme n'est pas installée" in alerte and "studio.py voix" in alerte and "images réalistes" in alerte
+    e = studio.etat()
+    assert e["episodes"]["ligne13"] == 1 and len(e["historique"]) == 1
+    # une fois le serveur réparé : « refaire » redonne le même épisode, avec le même texte, sans avancer la série
+    monkeypatch.setattr(voix, "moteurs", lambda: {"kokoro": "python", "supertonic": "python"})
+    photos_vues["n"] = 12
+    del messages[:]
+    assert studio.cmd_refaire() == 0
+    e = studio.etat()
+    assert e["episodes"]["ligne13"] == 1 and len(e["historique"]) == 1 and e["historique"][0]["refait"]
+    assert dits[0] == dits[1] and not any("à corriger" in m for m in messages) and any(m.startswith("VIDEO ") for m in messages)
+    assert studio.cmd_refaire("sept_b") == 1  # rien à refaire pour une série pas encore commencée
+    # une série à voix de femme ne réclame pas la voix d'homme
+    monkeypatch.setattr(voix, "moteurs", lambda: {"kokoro": "python"})
+    b = studio.bible()
+    assert not studio.alertes_voix(next(x for x in b["series"] if x["id"] == "lettres2043"))

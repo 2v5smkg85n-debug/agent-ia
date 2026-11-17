@@ -24,6 +24,7 @@ python3 revenus/tiktok/studio.py voix        # installe les deux voix (une fois,
 python3 revenus/tiktok/studio.py apercu      # 25 s de rendu envoyées sur Telegram (les deux voix : Malik, puis l'annonce de la radio)
 python3 revenus/tiktok/studio.py episode     # l'épisode suivant, tout de suite
 python3 revenus/tiktok/studio.py episode sept_b   # force une série (ligne13 | lettres2043 | sept_b)
+python3 revenus/tiktok/studio.py refaire     # refait le dernier épisode envoyé, même texte, sans avancer la série (refaire ligne13 : le dernier de cette série)
 python3 revenus/tiktok/studio.py etat        # avancement des séries
 ```
 
@@ -155,4 +156,18 @@ Possible plus tard si tu le veux ; d'ici là, le bouton « Publier », c'est toi
 
 `bible.json` : chaque série a `titre`, `palette` (3 couleurs), `ambiance`, `narrateur`, `univers`, `hashtags`, `episodes` (liste de `accroche`, `beats`, `suspens`).
 Quand les 12 épisodes d'une série sont épuisés, Ollama écrit une saison suivante dans `revenus/donnees/tiktok/saisons.json` (2 épisodes avant la fin, puis à la demande).
+## Si un épisode sort avec la mauvaise voix ou sans les images
+
+Le timer fabrique l'épisode avec le code présent sur le serveur à 17:30 UTC. Si le serveur n'a pas reçu la dernière version (`git pull`),
+l'épisode sort avec les anciens décors dessinés ; si la voix d'homme n'a pas été installée (`studio.py voix`), une voix de femme la remplace.
+Quand cela arrive avec une version à jour, le bot le dit dans un message Telegram « à corriger avant de publier », juste après la vidéo.
+
+Remettre le serveur d'aplomb et refaire l'épisode, sans en sauter un :
+
+```
+cd ~/agent-ia && git pull && python3 revenus/tiktok/studio.py voix && python3 revenus/tiktok/studio.py test && python3 revenus/tiktok/studio.py refaire
+```
+
+`test` doit afficher `OK voix du narrateur (Supertonic)` et `OK plans photographiques de « Le Veilleur de la ligne 13 » : 11 images`.
+
 Si Ollama est indisponible, l'épisode du jour est un « texte de secours » court (accroche + étapes + suspens), signalé dans la légende : à republier plus tard si tu veux la version longue.
