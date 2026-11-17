@@ -6,7 +6,8 @@ plus deux scènes communes (horloge, compteur) déclenchées par le texte (« 2 
 Le découpage suit les phrases : un plan par phrase (2 à 6,5 s), la scène est choisie par les mots
 de la phrase, la caméra avance, recule ou glisse, et chaque coupe a sa transition.
 
-Aucune image externe, aucune clé : tout est calculé sur le VPS (pillow + numpy).
+Aucune clé, rien de téléchargé au rendu : tout est calculé sur le VPS (pillow + numpy). Les séries qui ont
+leurs propres photographies (medias/<serie>/) sont montées avec elles : voir photos.py.
 """
 import math
 import os
@@ -1229,10 +1230,22 @@ def decouper_plans(mots, serie, numero, duree_totale, mini=1.9, maxi=5.8):
     regl = reglages_serie(serie)
     dispo = DECORS[regl["decor"]]
     mots_cles = {n: SCENES[n][1].split() for n in dispo}
+    banque = None
+    try:  # la série a ses propres images (medias/<serie>/) : le montage se fait avec elles
+        import photos
+        banque = photos.banque(serie.get("id"))
+    except Exception:
+        banque = None
+    if banque:
+        dispo = banque.scenes()
+        mots_cles = {n: banque.mots(n) for n in dispo}
 
     def scores(net, exclues=()):
         """Nombre de mots de la phrase qui évoquent chaque scène (« lettres » compte pour « lettre »)."""
-        mots_p = set(re.findall(r"[a-z0-9]+", net))
+        suite = re.findall(r"[a-z0-9]+", net)
+        nies = {suite[k + 2] for k in range(len(suite) - 2) if suite[k] == "pas" and suite[k + 1] in ("de", "d")}
+        nies |= {suite[k + 1] for k in range(len(suite) - 1) if suite[k] in ("aucun", "aucune", "ni")}
+        mots_p = set(suite) - nies  # « Pas de quai » ne doit pas montrer le quai
         return {n: sum(1 for w in mots_p if any(w == c or (len(c) >= 5 and w.startswith(c)) for c in mots_cles[n]))
                 for n in dispo if n not in exclues}
 
@@ -1247,14 +1260,19 @@ def decouper_plans(mots, serie, numero, duree_totale, mini=1.9, maxi=5.8):
     base = sum(ord(c) for c in serie.get("id", "x")) * 31 + numero * 7
     cameras = ["avant", "arriere", "droite", "avant", "gauche"]
     transitions = ["flash", "zoom", "glitch", "zoom"]
-    plans, precedente, dernier_nombre = [], None, -5
+    plans, precedente, dernier_nombre, vues = [], None, -5, {}
     for i, b in enumerate(coupes):
         texte = " ".join(m[0] for m in b)
         net = sans_accent(texte)
         info = dict(regl)
         info["suspens"] = b[0][1] >= debut_suspens - 1e-6
         scene = None
-        if i > 0:
+        if i > 0 and banque:  # avec des photos : l'heure dite appelle le plan qui la montre, pas d'écran dessiné
+            mh = RE_HEURE.search(net)
+            montre = banque.pour_heure(int(mh.group(1)), int(mh.group(2))) if mh else None
+            if montre and montre != precedente:
+                scene = montre
+        elif i > 0:
             mh = RE_HEURE.search(net)
             if mh and precedente != "horloge" and int(mh.group(1)) < 24 and int(mh.group(2)) < 60:
                 scene, info["heure"] = "horloge", (int(mh.group(1)), int(mh.group(2)))
@@ -1284,13 +1302,18 @@ def decouper_plans(mots, serie, numero, duree_totale, mini=1.9, maxi=5.8):
             sc = scores(net, exclues)
             meilleur = max(sc.values()) if sc else 0
             cand = [n for n, v_ in sc.items() if v_ == meilleur] if meilleur > 0 else list(sc)
+            if banque and meilleur == 0:  # phrase sans mot-clé : un plan passe-partout plutôt qu'un plan précis
+                cand = [n for n in banque.replis() if n in sc] or cand
             scene = min(cand or dispo, key=lambda n: dernier[n])
         if scene == "horloges" and not scores(net).get("horloges"):
             info.pop("annees", None)  # les années ne défilent que si la phrase parle du temps
         if scene in dernier:
             dernier[scene] = i
         precedente = scene
+        vues[scene] = vues.get(scene, 0) + 1
         plans.append({"t0": b[0][1], "t1": b[-1][2], "scene": scene, "info": info, "graine": base + i * 13,
+                      "serie": serie.get("id"),
+                      "cadrage": banque.cadrage(scene, re.findall(r"[a-z0-9]+", net), vues[scene] - 1) if banque else 0,
                       "camera": cameras[(i + numero) % len(cameras)],
                       "transition": "aucune" if i == 0 else transitions[(i + numero) % len(transitions)],
                       "suspens": info["suspens"], "texte": texte})
@@ -1304,6 +1327,17 @@ def decouper_plans(mots, serie, numero, duree_totale, mini=1.9, maxi=5.8):
 def fabriquer(plan, palette):
     """Construit la fonction de dessin d'un plan : dessine(t, p, v) → Image 540×960."""
     rng = np.random.default_rng(int(plan["graine"]))
+    if str(plan["scene"]).startswith("photo:"):
+        import photos
+        try:
+            return photos.fabriquer(plan)
+        except Exception:  # image absente ou illisible : le décor dessiné qui lui correspond
+            b = photos.banque(plan.get("serie"))
+            fiche = b.fiches.get(plan["scene"][len("photo:"):], {}) if b else {}
+            dessin = fiche.get("dessin")
+            if dessin not in SCENES:
+                dessin = DECORS[plan["info"].get("decor", "mystere")][0]
+            return SCENES[dessin][0](palette, rng, plan["info"])
     return SCENES[plan["scene"]][0](palette, rng, plan["info"])
 
 
@@ -1338,12 +1372,13 @@ def parasite(im, graine):
     a = np.asarray(im)
     out = a.copy()
     rng = np.random.default_rng(graine)
+    k = max(1, round(im.height / H))  # même effet sur une image pleine résolution (plans photographiques)
     for _ in range(7):
-        y0 = int(rng.integers(0, H - 60))
-        h = int(rng.integers(12, 90))
-        out[y0:y0 + h] = np.roll(a[y0:y0 + h], int(rng.integers(-70, 70)), axis=1)
-    out[..., 0] = np.roll(out[..., 0], 9, axis=1)
-    out[..., 2] = np.roll(out[..., 2], -9, axis=1)
+        y0 = int(rng.integers(0, H - 60)) * k
+        h = int(rng.integers(12, 90)) * k
+        out[y0:y0 + h] = np.roll(a[y0:y0 + h], int(rng.integers(-70, 70)) * k, axis=1)
+    out[..., 0] = np.roll(out[..., 0], 9 * k, axis=1)
+    out[..., 2] = np.roll(out[..., 2], -9 * k, axis=1)
     return Image.fromarray(out)
 
 

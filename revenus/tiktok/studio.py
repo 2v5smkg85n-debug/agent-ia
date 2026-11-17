@@ -514,8 +514,9 @@ def _lignes(mots, largeur_de, maxi):
 
 
 def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero, sortie, suivant=True, voix_wav=None):
-    """Anime l'épisode : décors dessinés image par image (scenes.py), caméra, coupes calées sur les phrases,
-    sous-titres mot à mot, titre d'ouverture et carte de fin. Les images partent en flux brut vers ffmpeg."""
+    """Anime l'épisode : plans photographiques (photos.py) ou décors dessinés image par image (scenes.py), caméra,
+    coupes calées sur les phrases, sous-titres mot à mot, titre d'ouverture et carte de fin.
+    Les images partent en flux brut vers ffmpeg."""
     from PIL import Image, ImageDraw
     import numpy as np
     import scenes
@@ -552,6 +553,7 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
     # --- éléments préparés une fois
     finir = scenes.finitions()
     voile = Image.new("RGB", (L2, H2), scenes.melange(accent, (255, 255, 255), 0.35))
+    voile_plein = Image.new("RGB", taille, scenes.melange(accent, (255, 255, 255), 0.35))
     noir = Image.new("RGB", taille, (0, 0, 0))
     assombri = [int(v * 0.34) for v in range(256)] * 3
     retenu = [[int(v * (0.66 + 0.34 * k / 8)) for v in range(256)] * 3 for k in range(9)]
@@ -655,24 +657,30 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
         p = min(1.0, tl / max(0.5, plan["t1"] - plan["t0"]))
         v = float(volume[i])
         im = None
-        if dessine is not None:
+        photo = bool(getattr(dessine, "photo", False))  # plan photographique : rendu en pleine résolution plus bas
+        if dessine is not None and not photo:
             try:
                 im = dessine(tl, p, v)
             except Exception as ex:
                 if not panne:
                     _log(f"Scène {plan['scene']} en erreur : {ex}")
                 panne, dessine = True, None
-        if im is None:
+        if im is None and not photo:
             im = secours.copy()
         fx, fy = getattr(dessine, "foyer", (L2 / 2, H2 * 0.38))
         # --- la coupe : flash doux, à-coup de zoom ou parasites
         zoom = 0.0
+        parasites, eclat = False, 0.0
         if k_plan > 0 and tl < 0.42:
             genre = plan["transition"]
-            if eclats and genre == "glitch" and tl < 2.5 / fps:
-                im = scenes.parasite(im, i)
+            parasites = eclats and genre == "glitch" and tl < 2.5 / fps
             if eclats and genre == "flash" and tl < 0.28:
-                im = Image.blend(im, voile, 0.36 * (1 - tl / 0.28) ** 2)
+                eclat = 0.36 * (1 - tl / 0.28) ** 2
+            if not photo:
+                if parasites:
+                    im = scenes.parasite(im, i)
+                if eclat:
+                    im = Image.blend(im, voile, eclat)
             zoom += {"zoom": 0.15, "glitch": 0.08, "flash": 0.05}.get(genre, 0.0) * (1 - scenes.doux(tl / 0.42))
         # --- le suspens : l'image se resserre et s'assombrit, le cœur bat
         noirceur, serre = 0.0, 0.0
@@ -681,36 +689,56 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
             noirceur = 0.55 * serre
             zoom += 0.10 * serre + 0.014 * max(0.0, math.sin(2 * math.pi * 1.15 * (t - t_suspens))) ** 6
         carte = t - t_carte
+        teinte = None  # image assombrie derrière la carte de fin, un peu retenue derrière le titre
         if carte >= 0:
-            im = im.point(assombri)
+            teinte = assombri
             noirceur = 0.2
-        elif t < t_titre + 0.3:  # décor un peu retenu derrière le titre
-            im = im.point(retenu[min(len(retenu) - 1, int(len(retenu) * max(0.0, (t - t_titre + 0.15) / 0.45)))])
-        im = finir(im, i, noirceur)
+        elif t < t_titre + 0.3:
+            teinte = retenu[min(len(retenu) - 1, int(len(retenu) * max(0.0, (t - t_titre + 0.15) / 0.45)))]
+        if not photo:
+            if teinte is not None:
+                im = im.point(teinte)
+            im = finir(im, i, noirceur)
         # --- la caméra
         e = scenes.doux(p)
-        cx, cy = fx, fy
+        glisse = 0.0
         if plan["camera"] == "avant":
             zoom += 1.05 + 0.11 * e
         elif plan["camera"] == "arriere":
             zoom += 1.16 - 0.10 * e
         else:
             zoom += 1.12
-            cx += (52 * e - 26) * (1 if plan["camera"] == "droite" else -1)
-        cx += 5 * math.sin(t * 0.7)
-        cy += 4 * math.sin(t * 0.53 + 1.0)
+            glisse = (2 * e - 1) * (1 if plan["camera"] == "droite" else -1)
+        tx = 5 * math.sin(t * 0.7)
+        ty = 4 * math.sin(t * 0.53 + 1.0)
         while i_choc < len(chocs) - 1 and t >= chocs[i_choc + 1]:
             i_choc += 1
         dc = t - chocs[i_choc] if chocs else -1
         if 0 <= dc < 0.30:
             force = (1 - dc / 0.30) ** 2
-            cx += 7 * force * math.sin(dc * 95)
-            cy += 6 * force * math.cos(dc * 71)
+            tx += 7 * force * math.sin(dc * 95)
+            ty += 6 * force * math.cos(dc * 71)
             zoom += 0.03 * force
         if t_noir <= t < t_carte:
             plein = noir.copy()
         else:
-            plein = scenes.cadrer(im, zoom, cx, cy, taille)
+            plein = None
+            if photo:
+                try:  # la photo gère elle-même caméra, relief, lumières et grain, en pleine résolution
+                    plein = dessine.plein(tl, p, v, i, zoom, glisse, (tx, ty), noirceur)
+                    if parasites:
+                        plein = scenes.parasite(plein, i)
+                    if eclat:
+                        plein = Image.blend(plein, voile_plein, eclat)
+                    if teinte is not None:
+                        plein = plein.point(teinte)
+                except Exception as ex:
+                    if not panne:
+                        _log(f"Plan {plan['scene']} en erreur : {ex}")
+                    panne, dessine, plein = True, None, None
+                    im = finir(secours.copy(), i, noirceur)
+            if plein is None:
+                plein = scenes.cadrer(im, zoom, fx + 26 * glisse + tx, fy + ty, taille)
             plein.paste(noir_haut, (0, 0), ombre_haut)  # haut assombri : le bandeau reste lisible
         d = ImageDraw.Draw(plein, "RGBA")
 
@@ -977,6 +1005,14 @@ def cmd_test():
     rapport.append(("police", any(os.path.exists(p) for p in POLICES)))
     b = bible()
     rapport.append((f"bible : {len(b['series'])} séries, {sum(len(s['episodes']) for s in b['series'])} épisodes", True))
+    try:  # les séries qui ont leurs photographies (les autres gardent les décors dessinés)
+        import photos
+        for s in b["series"]:
+            bq = photos.banque(s["id"])
+            if bq:
+                rapport.append((f"plans photographiques de « {s['titre']} » : {len(bq.noms)} images", True))
+    except Exception as ex:
+        print(f"INFO plans photographiques indisponibles ({ex}) : décors dessinés pour toutes les séries")
     for nom, ok in rapport:
         print(("OK   " if ok else "MANQUE ") + nom)
     manque = [n for n, ok in rapport if not ok]

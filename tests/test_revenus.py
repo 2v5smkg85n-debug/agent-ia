@@ -386,9 +386,10 @@ def test_studio_tiktok_voix_du_narrateur(tmp_path, monkeypatch):
     assert [(t["moteur"], t["voix"]) for t in travail["prises"]] == [("kokoro", "ff_siwis")]
 
 
-def test_studio_tiktok_scenes_animees():
+def test_studio_tiktok_scenes_animees(monkeypatch):
     pytest.importorskip("numpy")
     pytest.importorskip("PIL")
+    monkeypatch.setenv("STUDIO_PHOTOS", "0")  # ici, les décors dessinés ; les plans photographiques ont leur test
     sys.path.insert(0, os.path.join(RACINE, "revenus", "tiktok"))
     import scenes  # noqa: E402
     import studio  # noqa: E402
@@ -418,3 +419,63 @@ def test_studio_tiktok_scenes_animees():
     assert scenes.reglages_serie({"id": "x", "animation": {"decor": "metro"}})["decor"] == "metro"
     im = scenes.finitions()(scenes.fabriquer(plans[0], palette)(1.0, 0.3, 0.5), 0, 0.4)
     assert scenes.cadrer(scenes.parasite(im, 1), 1.15, 270, 300, (1080, 1920)).size == (1080, 1920)
+
+
+def test_studio_tiktok_plans_photographiques(monkeypatch, tmp_path):
+    pytest.importorskip("numpy")
+    Image = pytest.importorskip("PIL.Image")
+    sys.path.insert(0, os.path.join(RACINE, "revenus", "tiktok"))
+    import photos  # noqa: E402
+    import scenes  # noqa: E402
+    import studio  # noqa: E402
+    monkeypatch.delenv("STUDIO_PHOTOS", raising=False)
+    monkeypatch.delenv("STUDIO_MEDIAS", raising=False)
+    b = studio.bible()
+    s = next(x for x in b["series"] if x["id"] == "ligne13")
+    palette = tuple(studio.hexa(c) for c in s["palette"])
+    # la série a ses images : chacune en 9:16, avec sa carte de relief et des mots pour l'appeler
+    bq = photos.banque("ligne13")
+    assert bq and len(bq.noms) >= 10 and {"cabine", "visage", "tunnel"} <= set(n[len("photo:"):] for n in bq.replis())
+    for nom in bq.noms:
+        with Image.open(bq.chemin(nom)) as im:
+            assert abs(im.width / im.height - 9 / 16) < 0.01 and im.width >= 1080, nom
+        assert os.path.exists(os.path.splitext(bq.chemin(nom))[0] + "_prof.png"), nom
+        assert bq.mots("photo:" + nom) and bq.fiches[nom].get("dessin") in scenes.SCENES, nom
+    assert photos.banque("lettres2043") is None  # pas d'images : la série garde ses décors dessinés
+    # le montage se fait avec les photos : jamais deux fois de suite la même, l'heure dite montre l'horloge
+    texte, _ = studio.ecrire_episode(b, s, 1)
+    mots = studio.minuter(texte, 0.4, 28.0)
+    plans = scenes.decouper_plans(mots, s, 1, 32.0)
+    assert plans[0]["t0"] == 0.0 and plans[-1]["t1"] == 32.0 and plans[-1]["suspens"]
+    assert all(p["scene"].startswith("photo:") and p["serie"] == "ligne13" for p in plans)
+    assert all(x["scene"] != y["scene"] for x, y in zip(plans, plans[1:]))
+    phrase = "Je conduis la nuit. À 2 h 14 précises, tout change. Pas de quai. Mes mains serrent le manipulateur. La radio grésille."
+    pl = scenes.decouper_plans(studio.minuter(phrase, 0.4, 16.0), s, 1, 18.0, mini=0.5)
+    par_texte = {p["texte"]: p for p in pl}
+    assert par_texte["À 2 h 14 précises, tout change."]["scene"] == "photo:horloge"
+    assert par_texte["Pas de quai."]["scene"] != "photo:quai"  # un mot nié n'appelle pas son image
+    main = par_texte["Mes mains serrent le manipulateur."]
+    assert main["scene"] == "photo:cabine" and main["cadrage"] == 1  # le cadrage que la phrase appelle
+    # une photo se rend en pleine résolution et bouge d'une image à l'autre
+    dessine = scenes.fabriquer(dict(main, camera="avant"), palette)
+    assert dessine.photo and len(dessine.foyer) == 2
+    a = dessine.plein(0.5, 0.1, 0.2, 0, 1.06, 0.0, (2.0, -1.0), 0.0)
+    c = dessine.plein(2.5, 0.7, 0.8, 1, 1.14, 0.0, (0.0, 0.0), 0.3)
+    assert a.size == c.size == (1080, 1920) and a.mode == "RGB" and a.tobytes() != c.tobytes()
+    assert scenes.parasite(a, 3).size == (1080, 1920) and dessine(1.0, 0.3, 0.5).size == (scenes.L, scenes.H)
+    # STUDIO_PHOTOS=0, dossier absent ou image illisible : retour aux décors dessinés, sans erreur
+    monkeypatch.setenv("STUDIO_PHOTOS", "0")
+    assert all(p["scene"] in scenes.SCENES for p in scenes.decouper_plans(mots, s, 1, 32.0))
+    monkeypatch.delenv("STUDIO_PHOTOS")
+    monkeypatch.setenv("STUDIO_MEDIAS", str(tmp_path / "rien"))
+    assert all(p["scene"] in scenes.SCENES for p in scenes.decouper_plans(mots, s, 1, 32.0))
+    faux = tmp_path / "medias" / "ligne13"
+    faux.mkdir(parents=True)
+    with open(os.path.join(bq.dossier, "plans.json"), encoding="utf-8") as f:
+        (faux / "plans.json").write_text(f.read(), encoding="utf-8")
+    for nom in bq.noms:
+        (faux / bq.fiches[nom]["fichier"]).write_bytes(b"pas une image")
+    monkeypatch.setenv("STUDIO_MEDIAS", str(tmp_path / "medias"))
+    secours = scenes.fabriquer(scenes.decouper_plans(mots, s, 1, 32.0)[0], palette)
+    assert not getattr(secours, "photo", False) and secours(1.0, 0.3, 0.5).size == (scenes.L, scenes.H)
+

@@ -9,7 +9,7 @@ Toi, tu publies depuis l'iPhone en deux minutes. Rien ne sort du serveur à part
 |---|---|---|
 | Scénario (180-230 mots) | Ollama local, à partir de `bible.json` (3 séries, 12 épisodes chacune, personnages, suspens) | déjà installé |
 | Voix | une narratrice (Kokoro `ff_siwis`) et un narrateur (Supertonic 3 `M2`), choisis selon la série, dans leur environnement isolé ; Piper `fr_FR-siwis-medium` en dernier secours | `python3 revenus/tiktok/studio.py voix` (une fois) |
-| Image | décors animés dessinés image par image (`scenes.py`), un plan par phrase, caméra qui bouge, sous-titres mot à mot calés sur la voix, titre d'ouverture, carte « La suite demain à 20 h » | `pillow numpy` |
+| Image | plans photographiques réalistes mis en mouvement (`photos.py`, images dans `medias/<serie>/`) quand la série en a, sinon décors animés dessinés image par image (`scenes.py`) ; un plan par phrase, caméra qui bouge, sous-titres mot à mot calés sur la voix, titre d'ouverture, carte « La suite demain à 20 h » | `pillow numpy` |
 | Nappe sonore | générée (bourdons + souffle), libre de droits | — |
 | Montage | ffmpeg H.264 + AAC, 70-90 s, 20-40 Mo (débit plafonné pour rester sous la limite Telegram) | `sudo apt-get install -y ffmpeg` |
 | Livraison | Telegram `sendVideo` + légende (titre, accroche, hashtags) à coller | déjà configuré |
@@ -33,11 +33,13 @@ Réglages `.env` (facultatifs) : `STUDIO_MODELE` (défaut `OLLAMA_MODEL`), `STUD
 `STUDIO_VITESSE` 1.06 règle alors son débit, plus grand = plus lent),
 `STUDIO_NAPPE` (0.10 = volume de la nappe), `STUDIO_ROTATION=alternance` (une série différente chaque jour au lieu d'une série jusqu'au bout),
 `STUDIO_GARDER` (7 vidéos conservées dans `revenus/donnees/tiktok/videos/`), `STUDIO_CRF` / `STUDIO_PRESET` / `STUDIO_DEBIT` (qualité ffmpeg),
-`STUDIO_FPS` (24 images par seconde ; 20 allège le calcul sur un petit VPS), `STUDIO_FLASH=0` (coupes sans flash ni parasites).
+`STUDIO_FPS` (24 images par seconde ; 20 allège le calcul sur un petit VPS), `STUDIO_FLASH=0` (coupes sans flash ni parasites),
+`STUDIO_PHOTOS=0` (revenir aux décors dessinés pour toutes les séries).
 
 ## L'animation (ce qui retient le regard)
 
-Tout est calculé sur le VPS, sans image externe ni clé : `scenes.py` dessine chaque image en 540×960, `studio.py` la cadre en 1080×1920.
+Tout est calculé sur le VPS, sans clé ni téléchargement au rendu : `scenes.py` dessine chaque image en 540×960, `studio.py` la cadre en 1080×1920.
+Les séries qui ont des photographies passent par `photos.py` (voir plus bas), directement en 1080×1920.
 
 - **Un décor par série** : métro (tunnel qui défile, radio de cabine, quai fantôme, rame qui passe, plan de la ligne), lettres (lettre qui s'écrit,
   fenêtre sous la pluie avec le chat, enveloppes qui tombent, horloges, cachet de la poste, tache d'encre), immeuble (façade, cage d'escalier,
@@ -54,6 +56,32 @@ Tout est calculé sur le VPS, sans image externe ni clé : `scenes.py` dessine c
 
 Pour une nouvelle série dans `bible.json`, ajoute si tu veux `"animation": {"decor": "metro"}` (`metro`, `lettres`, `immeuble` ; sinon un décor
 « mystère » mélange les scènes) et, au choix, `panneau`, `fantome`, `stations`, `date`, `cachet`, `annees`, `porte`, `etage`, `etages`.
+
+### Plans photographiques (personnages réalistes)
+
+Quand `medias/<serie>/plans.json` existe, la série est montée avec de vraies images au lieu des décors dessinés. « Le Veilleur de la ligne 13 »
+en a onze : Malik en cabine, son visage, le tunnel, la radio, le plan de ligne, le carnet, l'horloge à 02:14, la femme du quai, le poste de
+commande, les archives, le quai Sainte-Blaise. Les deux autres séries gardent leurs décors dessinés tant qu'elles n'ont pas d'images.
+
+- **Relief** : chaque image a une carte de profondeur (`<nom>_prof.png`, blanc = proche). Quand la caméra avance ou glisse, le premier plan
+  bouge plus que le fond, comme dans une vraie prise de vue, au lieu d'un simple zoom sur une photo.
+- **Lumière vivante** : les néons vacillent, les voyants respirent, le voyant de la radio suit la voix, les lumières du tunnel passent sur la
+  cabine, la poussière flotte sur le quai et aux archives. Vignettage et grain de pellicule sont refaits à chaque image.
+- **Choix du plan** : par les mots de la phrase, comme pour les décors (`mots` dans `plans.json`). Une phrase sans mot-clé prend un plan
+  passe-partout (`repli`), jamais un plan précis ; « Pas de quai » ne montre pas le quai ; « 2 h 14 » montre l'horloge.
+- **Reprises** : une image déjà vue revient cadrée autrement (`cadrages` : visage serré, main sur le levier, voyant de la radio…), et un
+  cadrage qui a ses propres mots est pris dès que la phrase les contient (« mes mains » → la main sur le manipulateur).
+- **Sécurité** : image absente ou illisible → le décor dessiné indiqué par `dessin` prend sa place, l'épisode sort quand même.
+- **Coût en calcul** : environ 0,12 s par image de vidéo, soit 4 à 5 minutes pour un épisode de 85 s ; fichier de 15 à 20 Mo.
+
+Ajouter une image : un JPEG 9:16 d'au moins 1080 px de large dans `medias/<serie>/`, une fiche dans `plans.json` (`nom`, `fichier`, `mots`,
+`cadrages`, `effets` parmi `neons`, `voyants`, `voix`, `passage`, `poussiere`, et `dessin`). La carte de profondeur est facultative : sans
+elle l'image reste plane mais garde caméra, lumières et grain. Celles de la ligne 13 ont été calculées une fois, hors VPS, avec le modèle
+Depth Anything V2 Small (https://huggingface.co/onnx-community/depth-anything-v2-small).
+
+Limite à connaître : ces plans restent des photographies animées, pas des vidéos tournées. Les personnages ne clignent pas des yeux et ne
+bougent pas les lèvres. L'étape suivante, si tu la veux, est de remplacer certains plans par de courts clips vidéo générés à partir des
+mêmes images.
 
 ## La voix (ce qui fait rester)
 
@@ -96,13 +124,14 @@ passer pour une personne réelle.
 1. Telegram → la vidéo du jour → partager → Enregistrer la vidéo.
 2. TikTok → + → importer la vidéo → Suivant.
 3. Coller la légende (le bot l'envoie en message séparé : appui long → Copier).
-4. Activer « Contenu généré par IA » (la voix est synthétique) → Publier.
+4. Activer « Contenu généré par IA » (la voix est synthétique, les images de la ligne 13 aussi) → Publier.
 5. Répondre aux premiers commentaires dans l'heure : ça pèse dans la distribution.
 
 ## Ce que TikTok exige pour payer (France)
 
 - Programme Récompenses Créateurs : 18 ans, compte personnel, 10 000 abonnés, 100 000 vues sur 30 jours, vidéos de plus d'une minute, contenu original.
 - TikTok exclut explicitement des récompenses les vidéos « uniquement des superpositions de texte » et « une ou plusieurs photos » : d'où les décors animés, la voix et les sous-titres synchronisés, jamais un diaporama.
+  Les plans photographiques sont en mouvement permanent (relief, caméra, lumières), mais ils partent d'images fixes : c'est le point à surveiller, et la raison pour laquelle de vrais clips vidéo restent l'étape suivante.
 - Une vue compte à partir de 5 secondes ; une vidéo doit atteindre 1 000 vues « Pour toi » pour être prise en compte.
 - Sources : https://support.tiktok.com/pl/business-and-creator/creator-rewards-program/creator-rewards-program ,
   https://newsroom.tiktok.com/introducing-the-new-creator-rewards-program/?lang=en
