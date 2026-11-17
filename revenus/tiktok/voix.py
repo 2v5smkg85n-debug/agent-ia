@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
-"""Voix du studio : Kokoro (voix française naturelle, 24 kHz), calculée sur le VPS, sans clé.
+"""Voix du studio : deux voix françaises naturelles, calculées sur le VPS, sans clé.
+  - la narratrice : Kokoro, voix « ff_siwis » (24 kHz) ;
+  - le narrateur  : Supertonic 3, voix « M2 » (44,1 kHz), pour les séries racontées par un homme.
 
-Pourquoi un fichier à part : Kokoro a besoin d'un numpy récent, alors que le reste du serveur garde
-celui d'Ubuntu. Il vit donc dans un petit environnement isolé (revenus/donnees/tiktok/venv_voix),
+Pourquoi un fichier à part : ces moteurs ont besoin d'un numpy récent, alors que le reste du serveur garde
+celui d'Ubuntu. Ils vivent donc dans un petit environnement isolé (revenus/donnees/tiktok/venv_voix),
 et ce fichier est lancé deux fois :
   - par studio.py (python du système) : découpe le texte, assemble, pose les silences, soigne le son ;
-  - par le python de l'environnement (« --kokoro travail.json ») : ne fait que synthétiser les phrases.
+  - par le python de l'environnement (« --ouvrier travail.json ») : ne fait que synthétiser les phrases.
 
 Ce que la voix gagne par rapport à Piper :
   - une phrase = une prise : le minutage de chaque phrase est exact (sous-titres calés sans deviner) ;
-  - un rythme de conteuse : accroche franche, silences selon la ponctuation, phrase de suspens ralentie ;
+  - un rythme de conteur : accroche franche, silences selon la ponctuation, phrase de suspens ralentie ;
+  - chaque série a la voix de son narrateur (« voix » dans bible.json : « homme » ou « femme ») ;
+  - une parole rapportée change de voix quand le texte dit qui parle (« une voix de femme annonce : … ») ;
   - les paroles entendues à la radio ou au téléphone sortent d'un vrai haut-parleur (bande étroite, souffle) ;
   - un son fini : coupe-bas, chaleur, air, compression légère, niveau constant d'un épisode à l'autre.
 
-Si Kokoro n'est pas installé, studio.py retombe tout seul sur Piper.
+Si aucun moteur n'est installé, studio.py retombe tout seul sur Piper.
 """
+import glob
 import hashlib
 import json
 import math
@@ -32,16 +37,44 @@ ICI = os.path.dirname(os.path.abspath(__file__))
 DOSSIER = os.path.join(os.environ.get("REVENUS_DONNEES") or os.path.join(os.path.dirname(ICI), "donnees"), "tiktok")
 VOIX_DIR = os.path.join(DOSSIER, "voix")
 VENV = os.path.join(DOSSIER, "venv_voix")
-PAQUET = "kokoro-onnx==0.6.1"
-VOIX_KOKORO = "ff_siwis"  # la même comédienne que la voix Piper « siwis », avec un moteur plus naturel
+PAQUETS = {"kokoro_onnx": "kokoro-onnx==0.6.1", "supertonic": "supertonic==1.3.1"}  # module → paquet pip
+VOIX_KOKORO = "ff_siwis"  # la narratrice : la même comédienne que la voix Piper « siwis », avec un moteur plus naturel
+VOIX_HOMME = "M2"  # le narrateur : la voix d'homme la mieux comprise au banc d'essai (M5, M3 aussi graves ; M4, M1 plus aiguës)
 DEPOT = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/"
 FICHIERS = {  # nom → (taille en octets, sha256)
     "kokoro-v1.0.onnx": (325532387, "7d5df8ecf7d4b1878015a32686053fd0eebe2bc377234608764cc0ef3636a6c5"),
     "voices-v1.0.bin": (28214398, "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d"),
 }
+SUPERTONIC = os.path.join(VOIX_DIR, "supertonic3")
+# version figée du dépôt (celle que le paquet supertonic 1.3.1 attend) : le modèle ne change pas dans notre dos
+DEPOT_ST = "https://huggingface.co/Supertone/supertonic-3/resolve/724fb5abbf5502583fb520898d45929e62f02c0b/"
+FICHIERS_ST = {
+    "onnx/tts.json": (8253, "42078d3aef1cd43ab43021f3c54f47d2d75ceb4e75f627f118890128b06a0d09"),
+    "onnx/unicode_indexer.json": (277676, "9bf7346e43883a81f8645c81224f786d43c5b57f3641f6e7671a7d6c493cb24f"),
+    "onnx/duration_predictor.onnx": (3700147, "c3eb91414d5ff8a7a239b7fe9e34e7e2bf8a8140d8375ffb14718b1c639325db"),
+    "onnx/text_encoder.onnx": (36416150, "c7befd5ea8c3119769e8a6c1486c4edc6a3bc8365c67621c881bbb774b9902ff"),
+    "onnx/vector_estimator.onnx": (256534781, "883ac868ea0275ef0e991524dc64f16b3c0376efd7c320af6b53f5b780d7c61c"),
+    "onnx/vocoder.onnx": (101424195, "085de76dd8e8d5836d6ca66826601f615939218f90e519f70ee8a36ed2a4c4ba"),
+    "voice_styles/M1.json": (291748, "e35604687f5d23694b8e91593a93eec0e4eca6c0b02bb8ed69139ab2ea6b0a5b"),
+    "voice_styles/M2.json": (292055, "b76cbf62bac707c710cf0ae5aba5e31eea1a6339a9734bfae33ab98499534a50"),
+    "voice_styles/M3.json": (290198, "ea1ac35ccb91b0d7ecad533a2fbd0eec10c91513d8951e3b25fbba99954e159b"),
+    "voice_styles/M4.json": (291522, "ca8eefad4fcd989c9379032ff3e50738adc547eeb5e221b82593a6d7b3bac303"),
+    "voice_styles/M5.json": (291469, "dd22b92740314321f8ae11c5e87f8dd60d060f15dd3a632b5adf77f471f77af2"),
+    "LICENSE": (15007, "0d944a9110fed9a9602d60e0423a272903e7bd21ab060490774efc77c2275e9f"),
+}
 FINS = (".", "!", "?", "…")
 MOTS_RADIO = ("radio", "annonce", "haut-parleur", "hautparleur", "interphone", "gresill", "frequence", "repondeur",
               "telephone", "combine", "enregistrement", "micro", "messagerie", "talkie")
+# qui parle ? Seulement des mots sans ambiguïté : dans le doute, c'est le narrateur qui lit la phrase.
+MOTS_FEMME = {"femme", "feminine", "dame", "fille", "fillette", "mere", "maman", "soeur", "voisine", "madame",
+              "mademoiselle", "mme", "gardienne", "conductrice", "infirmiere", "inconnue"}
+MOTS_HOMME = {"homme", "masculine", "monsieur", "garcon", "pere", "papa", "frere", "voisin", "gardien", "conducteur",
+              "regulateur", "syndic", "facteur", "inconnu"}
+# « je dis : … », « je demande à Josiane : … » : c'est le narrateur qui parle, sa voix ne change pas
+VERBES_DIRE = {"dis", "demande", "reponds", "murmure", "lance", "crie", "souffle", "repete", "ajoute", "chuchote", "appelle",
+               "articule", "insiste", "hurle", "bredouille", "annonce", "ordonne", "supplie", "interroge", "previens", "lis", "ecris"}
+CLITIQUES = {"me", "m", "te", "t", "lui", "leur", "le", "la", "l", "les", "ne", "n", "y", "en", "nous", "vous"}
+ONDES = ("radio", "annonce", "haut-parleur", "hautparleur", "gresill", "frequence")  # là où parle la « voix_radio » de la série
 
 
 def env(nom, defaut):
@@ -94,9 +127,103 @@ def prononcer(texte):
     return re.sub(r"\s+", " ", t).strip()
 
 
-def decouper(texte):
+_UNITES = ["zéro", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix", "onze", "douze", "treize",
+           "quatorze", "quinze", "seize", "dix-sept", "dix-huit", "dix-neuf"]
+_DIZAINES = {2: "vingt", 3: "trente", 4: "quarante", 5: "cinquante", 6: "soixante", 8: "quatre-vingt"}
+
+
+def _sous_cent(n):
+    if n < 20:
+        return _UNITES[n]
+    d, u = divmod(n, 10)
+    if d in (7, 9):  # soixante-dix, quatre-vingt-onze
+        return _DIZAINES[d - 1] + (" et onze" if (d, u) == (7, 1) else "-" + _UNITES[10 + u])
+    if u == 0:
+        return _DIZAINES[d] + ("s" if d == 8 else "")
+    return _DIZAINES[d] + (" et un" if u == 1 and d != 8 else "-" + _UNITES[u])
+
+
+def _sous_mille(n, final=True):
+    c, r = divmod(n, 100)
+    if c == 0:
+        t = _sous_cent(r)
+        return t if final or not t.endswith("vingts") else t[:-1]  # quatre-vingt mille
+    t = "cent" if c == 1 else _UNITES[c] + " cent"
+    if r == 0:
+        return t + ("s" if c > 1 and final else "")
+    return t + " " + _sous_cent(r)
+
+
+def nombre_en_lettres(n):
+    """640 → « six cent quarante », 2043 → « deux mille quarante-trois »."""
+    n = int(n)
+    if n >= 10 ** 9:
+        return " ".join(_UNITES[int(c)] for c in str(n))
+    if n < 1000:
+        return _sous_mille(n)
+    m, r = divmod(n, 10 ** 6)
+    k, r = divmod(r, 1000)
+    p = []
+    if m:
+        p.append("un million" if m == 1 else _sous_mille(m) + " millions")
+    if k:
+        p.append("mille" if k == 1 else _sous_mille(k, final=False) + " mille")
+    if r:
+        p.append(_sous_mille(r))
+    return " ".join(p)
+
+
+def en_lettres(texte):
+    """Écrit les nombres en toutes lettres : Supertonic lit le texte tel quel et bute parfois sur les chiffres."""
+    def ordinal(m):
+        t = nombre_en_lettres(m.group(1))
+        if t.endswith("f"):
+            t = t[:-1] + "v"
+        elif t.endswith("q"):
+            t += "u"
+        elif t.endswith("e") or (t.endswith("s") and not t.endswith("trois")):
+            t = t[:-1]
+        return t + "ième"
+
+    t = re.sub(r"\b1(er|re|ère)\b", lambda m: "premier" if m.group(1) == "er" else "première", texte)
+    t = re.sub(r"\b(\d+)(?:e|è|ème|ième)\b", ordinal, t)
+    t = re.sub(r"\b(\d+),(\d+)\b", lambda m: nombre_en_lettres(m.group(1)) + " virgule " + nombre_en_lettres(m.group(2)), t)
+    return re.sub(r"\d+", lambda m: nombre_en_lettres(m.group(0)), t)
+
+
+def narrateur_parle(contexte):
+    """Vrai si la phrase qui annonce la parole dit que c'est le narrateur lui-même qui parle (« je lui demande : … »)."""
+    mots = re.findall(r"[a-z]+", sans_accent(contexte or ""))
+    for i, m in enumerate(mots):
+        if m in ("je", "j"):  # « je dis », « je lui demande », « je ne réponds » — pas « je monte le son, la radio annonce »
+            j = i + 1
+            while j < len(mots) and j < i + 4 and mots[j] in CLITIQUES:
+                j += 1
+            if j < len(mots) and mots[j] in VERBES_DIRE:
+                return True
+    return False
+
+
+def genre_cite(contexte, noms=None):
+    """« homme », « femme » ou None : la voix d'une parole rapportée, quand la phrase qui l'annonce le dit clairement.
+    noms = {"homme": [prénoms], "femme": [prénoms]} : les personnages de la série (bible.json).
+    Dans le doute (personne de nommé, deux personnes nommées, le narrateur qui parle) : None, le narrateur lit la phrase."""
+    if narrateur_parle(contexte):
+        return None
+    mots = set(re.findall(r"[a-z]+", sans_accent(contexte or "")))
+    noms = noms or {}
+    f = mots & (MOTS_FEMME | {sans_accent(x) for x in noms.get("femme", [])})
+    h = mots & (MOTS_HOMME | {sans_accent(x) for x in noms.get("homme", [])})
+    if bool(f) == bool(h):
+        return None
+    return "femme" if f else "homme"
+
+
+def decouper(texte, noms=None):
     """Découpe le texte en prises : une par phrase, les paroles rapportées à part.
-    → [{"mots": [...], "texte": à dire, "radio": bool, "cite": bool, "fin": bool (fin de phrase), "rang": n° de phrase}]"""
+    → [{"mots": [...], "texte": à dire, "radio": bool (sort d'un haut-parleur), "ondes": bool (annonce radio),
+        "cite": bool, "genre": qui parle (paroles rapportées),
+        "fin": bool (fin de phrase), "rang": n° de phrase}]"""
     mots, cites = jetons_cites(texte)
     phrases, debut = [], 0
     for i, m in enumerate(mots):
@@ -114,7 +241,10 @@ def decouper(texte):
                     break
         hors = sans_accent(" ".join(m for m, c in zip(mots[a:b], marques) if not c))
         contexte = hors if hors.strip() else avant
-        radio = any(cle in contexte for cle in MOTS_RADIO)
+        moi = narrateur_parle(contexte)  # ses propres mots : ni changement de voix, ni haut-parleur
+        radio = not moi and any(cle in contexte for cle in MOTS_RADIO)
+        ondes = radio and any(cle in contexte for cle in ONDES)
+        genre = genre_cite(contexte, noms)
         i = a
         while i < b:
             j = i
@@ -122,14 +252,31 @@ def decouper(texte):
                 j += 1
             cite = marques[i - a]
             prises.append({"mots": mots[i:j], "texte": prononcer(" ".join(mots[i:j])), "cite": cite,
-                           "radio": bool(cite and radio), "fin": j == b, "rang": rang})
+                           "radio": bool(cite and radio), "ondes": bool(cite and ondes), "genre": genre if cite else None,
+                           "fin": j == b, "rang": rang})
             i = j
         avant = hors if hors.strip() else avant
     return prises
 
 
+def attribuer(prises, narrateur="femme", radio=None):
+    """Qui dit quoi. Le narrateur porte le récit ; une parole rapportée ne change de voix que si le texte dit qui parle
+    (« une voix de femme annonce : … ») ou, à la radio, si la série a prévu une voix (« voix_radio » dans bible.json)."""
+    narrateur = "homme" if narrateur == "homme" else "femme"
+    dialogues = env("STUDIO_DIALOGUES", "1") != "0"
+    for p in prises:
+        v = narrateur
+        if dialogues and p.get("cite"):
+            if p.get("genre") in ("homme", "femme"):
+                v = p["genre"]
+            elif p.get("ondes") and radio in ("homme", "femme"):
+                v = radio
+        p["voix"] = v
+    return prises
+
+
 def allures(prises, base=None):
-    """Vitesse de diction et silence après chaque prise : le rythme d'une conteuse, pas d'un lecteur."""
+    """Vitesse de diction et silence après chaque prise : le rythme d'un conteur, pas d'un lecteur."""
     base = float(base if base is not None else env("STUDIO_ALLURE", "0.90"))
     dernier = prises[-1]["rang"] if prises else 0
     longueur = {}
@@ -163,6 +310,7 @@ def allures(prises, base=None):
         if k == len(prises) - 1:
             pause = 0.0
         p["vitesse"], p["pause"] = round(max(0.6, min(1.3, v)), 3), round(max(0.0, pause), 3)
+        p["rel"] = round(v / base, 3)  # l'allure relative, la même quel que soit le moteur
     return prises
 
 
@@ -184,6 +332,20 @@ def ecrire_wav(chemin, a, sr):
         w.setsampwidth(2)
         w.setframerate(sr)
         w.writeframes((np.clip(a, -1, 1) * 32767).astype("<i2").tobytes())
+
+
+def reechantillonner(a, sr, sr2):
+    """Change la fréquence d'échantillonnage d'une prise (par le spectre : propre, sans dépendance)."""
+    import numpy as np
+    if sr == sr2 or len(a) < 16:
+        return a
+    n = len(a)
+    m = int(round(n * float(sr2) / sr))
+    spectre = np.fft.rfft(a)
+    neuf = np.zeros(m // 2 + 1, dtype=spectre.dtype)
+    k = min(len(spectre), len(neuf))
+    neuf[:k] = spectre[:k]
+    return (np.fft.irfft(neuf, n=m) * (m / float(n))).astype("float32")
 
 
 def rogner(a, sr, seuil=0.006, marge=0.025):
@@ -260,15 +422,16 @@ def limiter(a, sr, plafond=0.93):
     return np.clip(a * g, -0.985, 0.985).astype("float32")
 
 
-def soigner(a, sr, cible=0.175):
-    """Finition de la narration : coupe-bas, un peu de chaleur et d'air, compression douce, niveau constant."""
+def soigner(a, sr, cible=0.175, grave=False):
+    """Finition de la narration : coupe-bas, un peu de chaleur et d'air, compression douce, niveau constant.
+    grave=True : voix d'homme (le coupe-bas et la chaleur descendent d'autant que le timbre)."""
     import numpy as np
     if not len(a) or float(np.abs(a).max()) < 1e-4:
         return a
 
     def courbe(f):
-        g = 1.0 / np.sqrt(1.0 + (70.0 / f) ** 8)  # coupe-bas : ronflements et « pop »
-        g = g * _cloche(f, 190.0, 0.9, 1.4)  # chaleur
+        g = 1.0 / np.sqrt(1.0 + ((52.0 if grave else 70.0) / f) ** 8)  # coupe-bas : ronflements et « pop »
+        g = g * _cloche(f, 130.0 if grave else 190.0, 0.9, 1.4)  # chaleur
         g = g * _cloche(f, 3400.0, 0.5, -1.0)  # un peu moins de dureté
         return g * 10 ** (1.6 / (1.0 + (6500.0 / f) ** 4) / 20)  # air
 
@@ -369,7 +532,7 @@ def assembler(prises, sons, sr, graine=0):
     repères = [(mots, début, fin, poids)] en secondes depuis le début de la voix : le minutage exact des sous-titres."""
     import numpy as np
     morceaux, reperes, t = [], [], 0
-    narration = []
+    narrations = {}  # voix → rangs des morceaux
     for k, (p, a) in enumerate(zip(prises, sons)):
         a = rogner(a, sr) if a is not None else np.zeros(0, dtype="float32")
         if not len(a):  # prise muette (ponctuation seule) : un court silence garde le compte des mots
@@ -377,7 +540,7 @@ def assembler(prises, sons, sr, graine=0):
         if p["radio"]:
             a = effet_radio(a, sr, graine + k)
         else:
-            narration.append(len(morceaux))
+            narrations.setdefault(p.get("voix", "femme"), []).append(len(morceaux))
         morceaux.append(a)
         if p["radio"]:  # 0,09 s de garde de chaque côté (ouverture et relâchement de la fréquence)
             reperes.append((list(p["mots"]), t / sr + 0.09, (t + len(a)) / sr - 0.09, poids_mots(p["mots"], p.get("phonemes"))))
@@ -389,14 +552,15 @@ def assembler(prises, sons, sr, graine=0):
         blanc = np.zeros(int(p.get("pause", 0.4) * sr), dtype="float32")
         morceaux.append(blanc)
         t += len(blanc)
-    # la narration est soignée d'un seul tenant (même niveau partout), les passages radio restent tels quels
-    if narration:
+    # chaque voix est soignée d'un seul tenant (même niveau partout), les passages radio restent tels quels
+    for genre, narration in narrations.items():
         pos, tout = [], []
         for i in narration:
             pos.append((i, len(morceaux[i])))
             tout.append(morceaux[i])
             tout.append(np.zeros(int(0.12 * sr), dtype="float32"))
-        fini = soigner(np.concatenate(tout), sr)
+        homme = genre == "homme"  # une voix grave sonne moins fort à niveau égal : un décibel de plus
+        fini = soigner(np.concatenate(tout), sr, cible=0.195 if homme else 0.175, grave=homme)
         x = 0
         for i, n in pos:
             morceaux[i] = fini[x:x + n]
@@ -405,38 +569,83 @@ def assembler(prises, sons, sr, graine=0):
     return piste, reperes
 
 
-# ----------------------------------------------------------------------------- Kokoro
-def python_kokoro():
-    """Le python qui sait faire tourner Kokoro : celui de l'environnement isolé, sinon le python courant."""
-    if not all(os.path.exists(os.path.join(VOIX_DIR, f)) for f in FICHIERS):
-        return None
+# ----------------------------------------------------------------------------- moteurs
+def python_voix():
+    """Le python qui fait tourner les voix : celui de l'environnement isolé, sinon le python courant."""
     for cand in (env("STUDIO_PYTHON_VOIX", ""), os.path.join(VENV, "bin", "python")):
         if cand and os.path.exists(cand):
             return cand
-    try:
-        import importlib.util
-        if importlib.util.find_spec("kokoro_onnx"):
-            return sys.executable
-    except Exception:
-        pass
-    return None
+    return sys.executable
 
 
-def synthetiser(prises, dossier, journal=None):
-    """Lance Kokoro sur toutes les prises (un seul chargement du modèle). → liste de sons (ou None si échec)."""
-    py = python_kokoro()
-    if not py:
+def _module_dispo(py, module):
+    if os.path.abspath(py) == os.path.abspath(sys.executable):
+        try:
+            import importlib.util
+            return importlib.util.find_spec(module) is not None
+        except Exception:
+            return False
+    racine = os.path.dirname(os.path.dirname(os.path.abspath(py)))
+    return bool(glob.glob(os.path.join(racine, "lib", "python*", "site-packages", module)))
+
+
+def moteurs():
+    """Les moteurs prêts à servir (paquet installé et modèle téléchargé) : {"kokoro": python, "supertonic": python}."""
+    py, res = python_voix(), {}
+    if all(os.path.exists(os.path.join(VOIX_DIR, f)) for f in FICHIERS) and _module_dispo(py, "kokoro_onnx"):
+        res["kokoro"] = py
+    if all(os.path.exists(os.path.join(SUPERTONIC, f)) for f in FICHIERS_ST) and _module_dispo(py, "supertonic"):
+        res["supertonic"] = py
+    return res
+
+
+def python_kokoro():
+    return moteurs().get("kokoro")
+
+
+def profil(genre):
+    """« homme » / « femme » → (moteur, nom de la voix)."""
+    if genre == "homme":
+        return "supertonic", env("STUDIO_VOIX_HOMME", VOIX_HOMME)
+    return "kokoro", env("STUDIO_VOIX_KOKORO", VOIX_KOKORO)
+
+
+def synthetiser(prises, dossier, journal=None, graine=0):
+    """Synthétise toutes les prises (un seul chargement de chaque modèle).
+    → (sons, fréquences d'échantillonnage) prise par prise, ou (None, 0) si aucun moteur n'a répondu."""
+    dispo = moteurs()
+    if not dispo:
         return None, 0
+    base_h = float(env("STUDIO_ALLURE_HOMME", "0.86"))
+    taches, manque = [], set()
+    for k, p in enumerate(prises):
+        genre = p.get("voix", "femme")
+        moteur, nom = profil(genre)
+        if moteur not in dispo:  # voix pas installée : l'autre la remplace plutôt que de perdre l'épisode
+            manque.add(genre)
+            genre = "femme" if genre == "homme" else "homme"
+            moteur, nom = profil(genre)
+            p["voix"] = genre
+        if moteur == "kokoro":
+            texte, vitesse = p["texte"], p.get("vitesse", 0.9)
+        else:
+            texte, vitesse = en_lettres(p["texte"]), max(0.75, min(1.4, base_h * p.get("rel", 1.0)))
+        taches.append({"texte": texte, "phon": p["texte"], "moteur": moteur, "voix": nom, "vitesse": round(vitesse, 3),
+                       "graine": graine * 1000 + k})
+    if manque and journal:
+        journal("Voix « " + " / ".join(sorted(manque)) + " » pas encore installée (python3 revenus/tiktok/studio.py voix) : "
+                "l'autre voix la remplace.")
     travail = os.path.join(dossier, "travail.json")
     with open(travail, "w", encoding="utf-8") as f:
-        json.dump({"modele": os.path.join(VOIX_DIR, "kokoro-v1.0.onnx"), "voix_bin": os.path.join(VOIX_DIR, "voices-v1.0.bin"),
-                   "voix": env("STUDIO_VOIX_KOKORO", VOIX_KOKORO), "dossier": dossier,
-                   "prises": [{"texte": p["texte"], "vitesse": p.get("vitesse", 0.9)} for p in prises]}, f, ensure_ascii=False)
+        json.dump({"kokoro": {"modele": os.path.join(VOIX_DIR, "kokoro-v1.0.onnx"), "voix_bin": os.path.join(VOIX_DIR, "voices-v1.0.bin")},
+                   "supertonic": SUPERTONIC, "pas": int(env("STUDIO_PAS_HOMME", "8")), "dossier": dossier, "prises": taches},
+                  f, ensure_ascii=False)
+    py = list(dispo.values())[0]
     try:
-        r = subprocess.run([py, os.path.abspath(__file__), "--kokoro", travail], capture_output=True, text=True, timeout=1500)
+        r = subprocess.run([py, os.path.abspath(__file__), "--ouvrier", travail], capture_output=True, text=True, timeout=1500)
     except Exception as ex:
         if journal:
-            journal(f"Kokoro n'a pas pu démarrer : {ex}")
+            journal(f"La voix n'a pas pu démarrer : {ex}")
         return None, 0
     try:
         res = json.loads([x for x in r.stdout.splitlines() if x.startswith("{")][-1])
@@ -444,37 +653,46 @@ def synthetiser(prises, dossier, journal=None):
         res = None
     if r.returncode != 0 or not res:
         if journal:
-            journal("Kokoro a échoué : " + (r.stderr or r.stdout or "")[-400:])
+            journal("La voix a échoué : " + (r.stderr or r.stdout or "")[-400:])
         return None, 0
-    sons = []
+    sons, frequences = [], []
     for k, p in enumerate(prises):
         chemin = os.path.join(dossier, f"prise_{k:03d}.wav")
-        sons.append(lire_wav(chemin)[0] if os.path.exists(chemin) else None)
+        a, sr = lire_wav(chemin) if os.path.exists(chemin) else (None, 0)
+        sons.append(a)
+        frequences.append(sr)
         if k < len(res.get("phonemes", [])):
             p["phonemes"] = res["phonemes"][k]
-    if all(s is None or not len(s) for s in sons):
+    if all(a is None or not len(a) for a in sons):
         return None, 0
-    return sons, int(res.get("sr", 24000))
+    return sons, frequences
 
 
-def dire(texte, sortie, journal=None, graine=0):
-    """Texte → WAV (Kokoro) + fichier de repères « sortie.json ». → durée en secondes, 0 si Kokoro est absent ou en panne."""
-    prises = allures(decouper(texte))
+def dire(texte, sortie, journal=None, graine=0, narrateur="femme", radio=None, noms=None):
+    """Texte → WAV + fichier de repères « sortie.json ». → durée en secondes, 0 si aucune voix n'est installée ou en panne.
+    narrateur : « homme » ou « femme » (la voix de la série) ; radio : la voix des annonces radio, si elle diffère ;
+    noms : {"homme": [...], "femme": [...]}, les personnages dont on rapporte les paroles."""
+    prises = allures(attribuer(decouper(texte, noms), narrateur, radio))
     if not prises:
         return 0.0
     dossier = tempfile.mkdtemp(prefix="voix_")
     try:
-        sons, sr = synthetiser(prises, dossier, journal)
+        sons, frequences = synthetiser(prises, dossier, journal, graine)
         if sons is None:
             return 0.0
+        if isinstance(frequences, int):  # un seul moteur, une seule fréquence
+            frequences = [frequences] * len(sons)
+        sr = max([f for a, f in zip(sons, frequences) if a is not None and f] or [24000])
+        sons = [a if a is None or not f or f == sr else reechantillonner(a, f, sr) for a, f in zip(sons, frequences)]
         piste, reperes = assembler(prises, sons, sr, graine)
         ecrire_wav(sortie, piste, sr)
         with open(sortie + ".json", "w", encoding="utf-8") as f:
-            json.dump({"moteur": "kokoro", "reperes": reperes}, f, ensure_ascii=False)
+            json.dump({"moteur": "+".join(sorted({profil(p["voix"])[0] for p in prises})), "narrateur": narrateur,
+                       "voix": [p["voix"] for p in prises], "reperes": reperes}, f, ensure_ascii=False)
         return len(piste) / float(sr)
     except Exception as ex:
         if journal:
-            journal(f"Voix Kokoro abandonnée : {ex}")
+            journal(f"Voix abandonnée : {ex}")
         return 0.0
     finally:
         shutil.rmtree(dossier, ignore_errors=True)
@@ -498,16 +716,18 @@ def _sha256(chemin):
     return h.hexdigest()
 
 
-def telecharger_modele(affiche=print):
-    os.makedirs(VOIX_DIR, exist_ok=True)
-    for nom, (taille, empreinte) in FICHIERS.items():
-        but = os.path.join(VOIX_DIR, nom)
+def _telecharger(depot, fichiers, dossier, affiche=print):
+    """Télécharge les fichiers manquants d'un modèle ; chaque fichier est refusé si sa taille ou son empreinte diffère."""
+    for nom, (taille, empreinte) in fichiers.items():
+        but = os.path.join(dossier, nom)
         if os.path.exists(but) and os.path.getsize(but) == taille:
             continue
-        affiche(f"Téléchargement de {nom} ({taille / 1e6:.0f} Mo)…")
+        os.makedirs(os.path.dirname(but), exist_ok=True)
+        if taille > 5e6:
+            affiche(f"Téléchargement de {os.path.basename(nom)} ({taille / 1e6:.0f} Mo)…")
         tmp = but + ".part"
         try:
-            with urllib.request.urlopen(urllib.request.Request(DEPOT + nom, headers={"User-Agent": "studio-tiktok"}), timeout=120) as r, \
+            with urllib.request.urlopen(urllib.request.Request(depot + nom, headers={"User-Agent": "studio-tiktok"}), timeout=120) as r, \
                     open(tmp, "wb") as f:
                 shutil.copyfileobj(r, f, 1 << 20)
         except Exception as ex:
@@ -521,62 +741,111 @@ def telecharger_modele(affiche=print):
     return True
 
 
+def telecharger_modele(affiche=print):
+    """Le modèle de la narratrice (Kokoro, 354 Mo)."""
+    return _telecharger(DEPOT, FICHIERS, VOIX_DIR, affiche)
+
+
+def telecharger_modele_homme(affiche=print):
+    """Le modèle du narrateur (Supertonic 3, 400 Mo)."""
+    return _telecharger(DEPOT_ST, FICHIERS_ST, SUPERTONIC, affiche)
+
+
 def installer(affiche=print):
-    """Installe Kokoro dans son environnement isolé + télécharge le modèle (354 Mo, une seule fois)."""
+    """Installe les deux voix dans leur environnement isolé + télécharge les modèles (750 Mo, une seule fois).
+    → {"femme": bool, "homme": bool}. Relancer la commande complète ce qui manque sans rien refaire."""
+    etat = {"femme": False, "homme": False}
     py = os.path.join(VENV, "bin", "python")
     if not os.path.exists(py):
         os.makedirs(DOSSIER, exist_ok=True)
-        affiche("Création de l'environnement de la voix…")
+        affiche("Création de l'environnement des voix…")
         r = subprocess.run([sys.executable, "-m", "venv", VENV], capture_output=True, text=True)
         if r.returncode != 0 or not os.path.exists(py):
             shutil.rmtree(VENV, ignore_errors=True)
             affiche("Impossible de créer l'environnement. Lance d'abord :  sudo apt-get install -y python3-venv")
-            return False
-    r = subprocess.run([py, "-c", "import kokoro_onnx"], capture_output=True, text=True)
-    if r.returncode != 0:
-        affiche("Installation de Kokoro (2 à 3 minutes)…")
+            return etat
+    manquants = [paquet for module, paquet in PAQUETS.items()
+                 if subprocess.run([py, "-c", "import " + module], capture_output=True, text=True).returncode != 0]
+    if manquants:
+        affiche("Installation de " + ", ".join(m.split("==")[0] for m in manquants) + " (2 à 3 minutes)…")
         subprocess.run([py, "-m", "pip", "install", "--quiet", "--upgrade", "pip"], capture_output=True, text=True)
-        r = subprocess.run([py, "-m", "pip", "install", "--quiet", PAQUET], capture_output=True, text=True)
-        if r.returncode != 0:
-            affiche("pip a échoué : " + (r.stderr or "")[-600:])
-            return False
-    if not telecharger_modele(affiche):
-        return False
-    with tempfile.TemporaryDirectory() as d:
-        ok = dire("Bonsoir. La voix du studio est prête.", os.path.join(d, "essai.wav"), journal=affiche) > 0.5
-    affiche("Voix Kokoro prête." if ok else "Kokoro est installé mais l'essai a échoué.")
-    return ok
+        for paquet in manquants:  # un par un : si l'un échoue, l'autre voix reste utilisable
+            r = subprocess.run([py, "-m", "pip", "install", "--quiet", paquet], capture_output=True, text=True)
+            if r.returncode != 0:
+                affiche(f"pip a échoué pour {paquet} : " + (r.stderr or "")[-500:])
+    telecharger_modele(affiche)
+    telecharger_modele_homme(affiche)
+    prets = moteurs()
+    essais = (("femme", "kokoro", "Bonsoir. La voix du studio est prête."), ("homme", "supertonic", "Bonsoir. Le narrateur est prêt, lui aussi."))
+    for genre, moteur, phrase in essais:
+        if moteur not in prets:
+            affiche(f"Voix « {genre} » : pas installée.")
+            continue
+        with tempfile.TemporaryDirectory() as d:
+            wav = os.path.join(d, "essai.wav")
+            ok = dire(phrase, wav, journal=affiche, narrateur=genre) > 0.5
+            try:
+                with open(wav + ".json", encoding="utf-8") as f:
+                    ok = ok and set(json.load(f).get("voix") or []) == {genre}  # dite par la bonne voix, pas par l'autre
+            except Exception:
+                ok = False
+        etat[genre] = bool(ok)
+        affiche(f"Voix « {genre} » ({moteur}) : " + ("prête." if ok else "installée, mais l'essai a échoué."))
+    return etat
 
 
 # ----------------------------------------------------------------------------- ouvrier (python de l'environnement)
 def _ouvrier(travail):
     import numpy as np
-    from kokoro_onnx import Kokoro
     with open(travail, encoding="utf-8") as f:
         w = json.load(f)
-    k = Kokoro(w["modele"], w["voix_bin"])
+    besoin = {p.get("moteur", "kokoro") for p in w["prises"]}
+    kokoro = supertonic = jeton = None
+    styles = {}
+    if "kokoro" in besoin:
+        from kokoro_onnx import Kokoro
+        kokoro = Kokoro(w["kokoro"]["modele"], w["kokoro"]["voix_bin"])
+        jeton = kokoro.tokenizer
+    else:  # les phonèmes servent aussi à caler les sous-titres de l'autre voix
+        try:
+            from kokoro_onnx.tokenizer import Tokenizer
+            jeton = Tokenizer()
+        except Exception:
+            jeton = None
+    if "supertonic" in besoin:
+        from supertonic import TTS
+        supertonic = TTS(model="supertonic-3", model_dir=w["supertonic"], auto_download=False)
     phonemes = []
     for i, p in enumerate(w["prises"]):
         ph = ""
         try:
-            ph = k.tokenizer.phonemize(p["texte"], "fr-fr")
-            a, sr = k.create(ph, voice=w["voix"], speed=float(p["vitesse"]), lang="fr-fr", is_phonemes=True, trim=True)
-            a = np.asarray(a, dtype="float32")
+            if jeton is not None:
+                ph = jeton.phonemize(p.get("phon") or p["texte"], "fr-fr")
+            if p.get("moteur") == "supertonic":
+                if p["voix"] not in styles:
+                    styles[p["voix"]] = supertonic.get_voice_style(voice_name=p["voix"])
+                np.random.seed(int(p.get("graine", i)) % (2 ** 31))  # même texte → même prise, d'un jour à l'autre
+                a, _ = supertonic.synthesize(p["texte"], voice_style=styles[p["voix"]], lang="fr", speed=float(p["vitesse"]),
+                                             total_steps=int(w.get("pas", 8)))
+                sr = int(getattr(supertonic, "sample_rate", 44100))
+            else:
+                a, sr = kokoro.create(ph, voice=p["voix"], speed=float(p["vitesse"]), lang="fr-fr", is_phonemes=True, trim=True)
+            a = np.asarray(a, dtype="float32").reshape(-1)
             with wave.open(os.path.join(w["dossier"], f"prise_{i:03d}.wav"), "w") as f:
                 f.setnchannels(1)
                 f.setsampwidth(2)
-                f.setframerate(sr)
+                f.setframerate(int(sr))
                 f.writeframes((np.clip(a, -1, 1) * 32767).astype("<i2").tobytes())
         except Exception as ex:  # une prise ratée ne bloque pas l'épisode
             print(f"prise {i} ignorée : {ex}", file=sys.stderr)
         phonemes.append(ph)
-    print(json.dumps({"sr": 24000, "phonemes": phonemes}, ensure_ascii=False))
+    print(json.dumps({"phonemes": phonemes}, ensure_ascii=False))
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 3 and sys.argv[1] == "--kokoro":
+    if len(sys.argv) == 3 and sys.argv[1] in ("--ouvrier", "--kokoro"):
         _ouvrier(sys.argv[2])
     elif len(sys.argv) == 2 and sys.argv[1] == "installer":
-        sys.exit(0 if installer() else 1)
+        sys.exit(0 if any(installer().values()) else 1)
     else:
         print(__doc__)

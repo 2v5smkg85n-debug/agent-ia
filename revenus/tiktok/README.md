@@ -8,7 +8,7 @@ Toi, tu publies depuis l'iPhone en deux minutes. Rien ne sort du serveur à part
 | Étape | Outil | Sur le VPS |
 |---|---|---|
 | Scénario (180-230 mots) | Ollama local, à partir de `bible.json` (3 séries, 12 épisodes chacune, personnages, suspens) | déjà installé |
-| Voix | Kokoro, voix française `ff_siwis` (naturelle, 24 kHz), dans son environnement isolé ; Piper `fr_FR-siwis-medium` en secours | `python3 revenus/tiktok/studio.py voix` (une fois) |
+| Voix | une narratrice (Kokoro `ff_siwis`) et un narrateur (Supertonic 3 `M2`), choisis selon la série, dans leur environnement isolé ; Piper `fr_FR-siwis-medium` en dernier secours | `python3 revenus/tiktok/studio.py voix` (une fois) |
 | Image | décors animés dessinés image par image (`scenes.py`), un plan par phrase, caméra qui bouge, sous-titres mot à mot calés sur la voix, titre d'ouverture, carte « La suite demain à 20 h » | `pillow numpy` |
 | Nappe sonore | générée (bourdons + souffle), libre de droits | — |
 | Montage | ffmpeg H.264 + AAC, 70-90 s, 20-40 Mo (débit plafonné pour rester sous la limite Telegram) | `sudo apt-get install -y ffmpeg` |
@@ -20,14 +20,16 @@ Timer : `revenus-tiktok.timer` à 17:30 UTC (18:30 Paris l'hiver) ; la vidéo es
 
 ```
 python3 revenus/tiktok/studio.py test        # vérifie ffmpeg / pillow / numpy / voix
-python3 revenus/tiktok/studio.py voix        # installe la voix Kokoro (une fois, 3 à 5 minutes, 600 Mo de disque)
-python3 revenus/tiktok/studio.py apercu      # 20 s de rendu envoyées sur Telegram
+python3 revenus/tiktok/studio.py voix        # installe les deux voix (une fois, 5 à 8 minutes, 1 Go de disque)
+python3 revenus/tiktok/studio.py apercu      # 25 s de rendu envoyées sur Telegram (les deux voix : Malik, puis l'annonce de la radio)
 python3 revenus/tiktok/studio.py episode     # l'épisode suivant, tout de suite
 python3 revenus/tiktok/studio.py episode sept_b   # force une série (ligne13 | lettres2043 | sept_b)
 python3 revenus/tiktok/studio.py etat        # avancement des séries
 ```
 
-Réglages `.env` (facultatifs) : `STUDIO_MODELE` (défaut `OLLAMA_MODEL`), `STUDIO_ALLURE` (0.90 = débit de la voix Kokoro, plus grand = plus rapide), `STUDIO_MOTEUR_VOIX=piper` (revenir à l'ancienne voix ;
+Réglages `.env` (facultatifs) : `STUDIO_MODELE` (défaut `OLLAMA_MODEL`), `STUDIO_ALLURE` (0.90 = débit de la narratrice, plus grand = plus rapide), `STUDIO_ALLURE_HOMME` (0.86 = débit du narrateur),
+`STUDIO_VOIX_HOMME` (`M2` par défaut ; `M5` et `M3` sont aussi graves, `M4` et `M1` plus aiguës), `STUDIO_DIALOGUES=0` (une seule voix par épisode),
+`STUDIO_MOTEUR_VOIX=piper` (revenir à l'ancienne voix ;
 `STUDIO_VITESSE` 1.06 règle alors son débit, plus grand = plus lent),
 `STUDIO_NAPPE` (0.10 = volume de la nappe), `STUDIO_ROTATION=alternance` (une série différente chaque jour au lieu d'une série jusqu'au bout),
 `STUDIO_GARDER` (7 vidéos conservées dans `revenus/donnees/tiktok/videos/`), `STUDIO_CRF` / `STUDIO_PRESET` / `STUDIO_DEBIT` (qualité ffmpeg),
@@ -55,22 +57,39 @@ Pour une nouvelle série dans `bible.json`, ajoute si tu veux `"animation": {"de
 
 ## La voix (ce qui fait rester)
 
-`voix.py` remplace Piper par Kokoro, un moteur plus naturel qui tourne lui aussi sur le VPS, sans clé (modèle Apache 2.0, 354 Mo téléchargés
-une fois, empreinte vérifiée). C'est la même comédienne que la voix d'avant (corpus SIWIS), en plus vivante.
+`voix.py` fait parler deux voix naturelles, calculées sur le VPS, sans clé :
 
+| Qui | Moteur | Séries |
+|---|---|---|
+| la narratrice | Kokoro, voix `ff_siwis` (modèle Apache 2.0, 354 Mo) | Lettres de 2043 (Claire), 7B (Nour) |
+| le narrateur | Supertonic 3, voix `M2` (code MIT, modèle OpenRAIL-M, 400 Mo) | Le Veilleur de la ligne 13 (Malik) |
+
+Le choix se fait dans `bible.json`, série par série : `"voix": "homme"` ou `"femme"`. Une nouvelle série sans cette ligne est dite par la narratrice.
+
+- **Chacun sa voix** : quand le texte dit clairement qui parle, la parole rapportée change de voix. « Une voix de femme annonce : Prochain arrêt,
+  Sainte-Blaise » : Malik dit le début, une femme dit l'annonce. Les prénoms listés dans `voix_personnages` comptent aussi (« Josiane sourit : … »).
+  `voix_radio` fixe la voix des annonces radio de la série. Dans le doute, et chaque fois que le narrateur rapporte ses propres mots
+  (« je lui demande : … »), la voix ne change pas.
 - **Une phrase = une prise** : la voix est synthétisée phrase par phrase, puis montée. Le début et la fin de chaque phrase sont donc connus
   exactement, et les sous-titres n'ont plus rien à deviner.
-- **Un rythme de conteuse** : accroche plus franche, silence après l'accroche, phrases courtes posées, long silence puis diction ralentie sur la
+- **Un rythme de conteur** : accroche plus franche, silence après l'accroche, phrases courtes posées, long silence puis diction ralentie sur la
   phrase de suspens. Les silences suivent la ponctuation (point, point d'interrogation, points de suspension) et ne sont jamais identiques.
 - **Les paroles de la radio** (« Prochain arrêt, Sainte-Blaise ») sortent d'un haut-parleur de cabine : bande étroite, légère saturation, souffle,
   ouverture et relâchement de la fréquence. Vaut pour toute parole annoncée par radio, téléphone, interphone ou répondeur.
 - **Ce qui est dit n'est pas ce qui est écrit** : « 2 h 14 » est prononcé « deux heures quatorze », « 20 km/h » « vingt kilomètres heure »,
-  « 7B » « sept B » ; les sous-titres gardent l'écriture d'origine.
-- **Un son fini** : coupe-bas, un peu de chaleur et d'air, compression douce, limiteur sans écrêtage, niveau constant (environ −16,5 LUFS).
+  « 7B » « sept B » ; les sous-titres gardent l'écriture d'origine. Le narrateur reçoit en plus ses nombres en toutes lettres (« treize »,
+  « mille neuf cent soixante-douze »), parce que son moteur lit mal les chiffres.
+- **Un son fini** : coupe-bas, un peu de chaleur et d'air (réglés plus bas pour la voix d'homme), compression douce, limiteur sans écrêtage,
+  niveau constant (environ −16,5 LUFS). Les deux voix sont ramenées à la même qualité (44,1 kHz) avant le montage.
 
-Kokoro a besoin d'un numpy récent : il est installé à part dans `revenus/donnees/tiktok/venv_voix`, sans toucher aux paquets Python du serveur
-(le bot de trading n'est pas concerné). Si l'environnement est absent ou en panne, le studio retombe tout seul sur Piper et le signale dans
-`studio.log`. Calcul : environ 40 s pour un épisode de 85 s.
+Les deux moteurs ont besoin d'un numpy récent : ils sont installés à part dans `revenus/donnees/tiktok/venv_voix`, sans toucher aux paquets
+Python du serveur (le bot de trading n'est pas concerné). Les modèles sont téléchargés une fois, à une version figée, et refusés si leur
+empreinte diffère. Si une voix manque, l'autre la remplace ; si aucune ne répond, le studio retombe tout seul sur Piper. Dans les deux cas,
+c'est écrit dans `studio.log`. Calcul : environ 40 s pour un épisode de 85 s.
+
+Licence de la voix d'homme (OpenRAIL-M) : usage commercial permis, à deux conditions qui rejoignent la règle de TikTok. Le contenu doit être
+signalé comme généré par une machine (case « Contenu généré par IA », voir la routine ci-dessous) et la voix ne doit pas servir à se faire
+passer pour une personne réelle.
 
 ## Routine iPhone (2 minutes, à 20 h)
 

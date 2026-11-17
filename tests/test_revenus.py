@@ -256,7 +256,7 @@ def test_studio_tiktok_voix_montage_et_reperes(tmp_path, monkeypatch):
     faux = [np.concatenate([blanc, parle(1.4), np.zeros(int(0.12 * sr), dtype="float32"), parle(1.1), blanc]),
             parle(1.2), parle(0.9), parle(1.1)]
 
-    def fausse_synthese(prises, dossier, journal=None):
+    def fausse_synthese(prises, dossier, journal=None, graine=0):
         assert [p["texte"] for p in prises] == ["La radio grésille, puis se tait.", "Une voix annonce :", "Prochain arrêt.", "Je note tout."]
         return [x.copy() for x in faux], sr
 
@@ -290,11 +290,100 @@ def test_studio_tiktok_voix_montage_et_reperes(tmp_path, monkeypatch):
     j0, j1 = int((reperes[4][1] + 0.1) * sr), int((reperes[4][2] - 0.1) * sr)
     assert aigus(a[i0:i1]) < 0.02 < aigus(a[j0:j1])  # la radio : bande étroite ; la narration : pleine bande
     assert abs(voix._niveau(a[j0:j1], sr) - 0.175) < 0.04  # niveau constant de la narration
-    # sans Kokoro, le studio retombe sur Piper sans rien casser
+    # sans voix naturelle, le studio retombe sur Piper sans rien casser
     monkeypatch.setattr(voix, "synthetiser", lambda *a_, **k_: (None, 0))
     monkeypatch.setattr(studio, "telecharger_voix", lambda: False)
     monkeypatch.setattr(studio, "VOIX_DIR", str(tmp_path / "absent"))
     assert studio.dire(texte, wav) == 0.0 and voix.lire_reperes(wav) is None
+
+
+def test_studio_tiktok_voix_du_narrateur(tmp_path, monkeypatch):
+    np = pytest.importorskip("numpy")
+    import json
+    sys.path.insert(0, os.path.join(RACINE, "revenus", "tiktok"))
+    import studio  # noqa: E402
+    import voix  # noqa: E402
+    b = studio.bible()
+    serie = {s["id"]: s for s in b["series"]}
+    # chaque série a la voix de son narrateur : Malik est un homme, Claire et Nour des femmes
+    assert [serie[i]["voix"] for i in ("ligne13", "lettres2043", "sept_b")] == ["homme", "femme", "femme"]
+    assert voix.profil("homme")[0] == "supertonic" and voix.profil("femme")[0] == "kokoro"
+    monkeypatch.setenv("STUDIO_VOIX_HOMME", "M5")
+    assert voix.profil("homme") == ("supertonic", "M5")
+    # le narrateur dit ses nombres en toutes lettres (son moteur lit mal les chiffres)
+    assert voix.en_lettres("À 2 heures 14, ligne 13, depuis 1972.") == "À deux heures quatorze, ligne treize, depuis mille neuf cent soixante-douze."
+    assert [voix.nombre_en_lettres(n) for n in (0, 21, 71, 80, 81, 99, 200, 201, 1000, 2043)] == [
+        "zéro", "vingt et un", "soixante et onze", "quatre-vingts", "quatre-vingt-un", "quatre-vingt-dix-neuf", "deux cents",
+        "deux cent un", "mille", "deux mille quarante-trois"]
+    # qui parle ? seulement quand le texte le dit sans ambiguïté
+    noms = serie["ligne13"]["voix_personnages"]
+    assert voix.genre_cite("Une voix de femme, très calme, annonce :") == "femme"
+    assert voix.genre_cite("Josiane sourit :", noms) == "femme" and voix.genre_cite("Roland répond :", noms) == "homme"
+    assert voix.genre_cite("Une voix annonce :") is None and voix.genre_cite("Josiane regarde Roland :", noms) is None
+    assert voix.genre_cite("Je demande à Josiane :", noms) is None  # c'est le narrateur qui parle
+    assert voix.genre_cite("J'entends la voix de Josiane :", noms) == "femme"
+
+    def voix_de(texte, s):
+        return [(p["texte"], p["voix"], p["radio"]) for p in
+                voix.attribuer(voix.decouper(texte, s.get("voix_personnages")), s.get("voix", "femme"), s.get("voix_radio"))]
+
+    malik = serie["ligne13"]
+    assert voix_de("Je m'appelle Malik. Une voix de femme annonce : Prochain arrêt. Je freine.", malik) == [
+        ("Je m'appelle Malik.", "homme", False), ("Une voix de femme annonce :", "homme", False),
+        ("Prochain arrêt.", "femme", True), ("Je freine.", "homme", False)]
+    # l'annonce de la radio garde sa voix de femme même quand la phrase ne le répète pas
+    assert voix_de("La troisième nuit, l'annonce ajoute : Malik, descendez ici.", malik)[-1] == ("Malik, descendez ici.", "femme", True)
+    # ce que Malik dit lui-même, même dans la radio, reste dit par Malik, sans effet haut-parleur
+    assert voix_de("Je prends la radio et je dis : Ici Malik.", malik)[-1] == ("Ici Malik.", "homme", False)
+    assert voix_de("Je lui réponds : Pas ce soir.", malik)[-1] == ("Pas ce soir.", "homme", False)
+    assert voix_de("Je monte le son et la radio annonce : Terminus.", malik)[-1] == ("Terminus.", "femme", True)
+    assert voix_de("Roland murmure : Tu es venu.", malik)[-1] == ("Tu es venu.", "homme", False)
+    assert voix_de("Josiane sourit : Roland avait ton âge.", malik)[-1] == ("Roland avait ton âge.", "femme", False)
+    # au téléphone, personne n'a dit qui parle : le narrateur lit la phrase (la voix de la radio n'est que pour la radio)
+    assert voix_de("Le téléphone sonne, on me dit : Ne descends pas.", malik)[-1] == ("Ne descends pas.", "homme", True)
+    # une série racontée par une femme ne change pas : sa voix partout, sauf si un homme est nommé
+    assert {v for _, v, _ in voix_de("Je m'appelle Claire. La lettre dit : Ne prends pas le train.", serie["lettres2043"])} == {"femme"}
+    assert voix_de("Samuel répond : Moi aussi.", serie["lettres2043"])[-1][1] == "homme"
+    monkeypatch.setenv("STUDIO_DIALOGUES", "0")
+    assert {v for _, v, _ in voix_de("Une voix de femme annonce : Prochain arrêt.", malik)} == {"homme"}
+    monkeypatch.delenv("STUDIO_DIALOGUES")
+
+    # montage : les deux voix n'ont pas la même fréquence d'échantillonnage, la piste finale n'en a qu'une
+    rng = np.random.default_rng(5)
+    texte = "Je conduis la nuit. Une voix de femme annonce : Prochain arrêt. Je note tout."
+    recu = {}
+
+    def fausse_synthese(prises, dossier, journal=None, graine=0):
+        recu["voix"] = [p["voix"] for p in prises]
+        sons, frequences = [], []
+        for p in prises:
+            sr = 44100 if p["voix"] == "homme" else 24000
+            sons.append((rng.standard_normal(int(1.0 * sr)) * 0.2).astype("float32"))
+            frequences.append(sr)
+        return sons, frequences
+
+    monkeypatch.setattr(voix, "synthetiser", fausse_synthese)
+    wav = str(tmp_path / "h.wav")
+    duree = studio.dire(texte, wav, malik)
+    a, sr = studio.lire_wav(wav)
+    reperes = voix.lire_reperes(wav)
+    assert recu["voix"] == ["homme", "homme", "femme", "homme"] and sr == 44100
+    assert abs(duree - len(a) / sr) < 1e-6 and 4.0 + 0.9 < duree < 4.0 + 2.5  # 4 prises d'une seconde + les silences
+    assert [r[0] for r in reperes] == [["Je", "conduis", "la", "nuit."], ["Une", "voix", "de", "femme", "annonce :"],
+                                       ["Prochain", "arrêt."], ["Je", "note", "tout."]]
+    assert all(0.8 < r[2] - r[1] < 1.05 for r in reperes)  # la prise à 24 kHz garde sa durée une fois rééchantillonnée
+    x = voix.reechantillonner(np.sin(2 * np.pi * 440 * np.arange(24000) / 24000).astype("float32"), 24000, 44100)
+    assert len(x) == 44100 and abs(float(np.abs(np.fft.rfft(x)).argmax()) - 440) <= 1  # même note, même durée
+    # une voix pas encore installée est remplacée par l'autre, l'épisode sort quand même
+    monkeypatch.undo()
+    monkeypatch.setattr(voix, "moteurs", lambda: {"kokoro": sys.executable})
+    monkeypatch.setattr(voix.subprocess, "run", lambda *a_, **k_: (_ for _ in ()).throw(OSError("pas de moteur ici")))
+    prises = voix.allures(voix.attribuer(voix.decouper("Je note tout."), "homme"))
+    messages = []
+    assert voix.synthetiser(prises, str(tmp_path), messages.append) == (None, 0)
+    assert prises[0]["voix"] == "femme" and "pas encore installée" in messages[0]
+    travail = json.load(open(tmp_path / "travail.json", encoding="utf-8"))
+    assert [(t["moteur"], t["voix"]) for t in travail["prises"]] == [("kokoro", "ff_siwis")]
 
 
 def test_studio_tiktok_scenes_animees():

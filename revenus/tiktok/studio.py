@@ -3,15 +3,15 @@
 
 Tout tourne en local sur le VPS, sans clé ni API payante :
   - texte     : Ollama local (bible.json = séries, personnages, 12 épisodes chacune)
-  - voix      : Kokoro (voix française naturelle, voix.py) ; Piper en secours si Kokoro n'est pas installé
+  - voix      : une narratrice (Kokoro) et un narrateur (Supertonic), selon la série (voix.py) ; Piper en dernier secours
   - image     : décors animés 1080×1920 (scenes.py, PIL + numpy), un plan par phrase, sous-titres mot à mot
   - montage   : ffmpeg (H.264 + AAC), 70-90 s, < 45 Mo
   - livraison : Telegram sendVideo + légende prête à coller dans TikTok
 
 Commandes :
   python3 revenus/tiktok/studio.py episode [id_serie]   → épisode suivant (ou de la série donnée)
-  python3 revenus/tiktok/studio.py apercu              → 20 s de rendu pour vérifier voix + image
-  python3 revenus/tiktok/studio.py voix                → installe la voix Kokoro (une fois) + la voix Piper de secours
+  python3 revenus/tiktok/studio.py apercu              → 25 s de rendu pour vérifier voix + image
+  python3 revenus/tiktok/studio.py voix                → installe les deux voix (une fois) + la voix Piper de secours
   python3 revenus/tiktok/studio.py etat                → où en est chaque série
   python3 revenus/tiktok/studio.py test                → vérifie ffmpeg / PIL / numpy / piper (sans réseau)
 
@@ -189,7 +189,7 @@ Réponds UNIQUEMENT avec un tableau JSON de 12 objets ayant exactement les clés
     return True
 
 
-# ----------------------------------------------------------------------------- voix (Kokoro, sinon Piper)
+# ----------------------------------------------------------------------------- voix (voix.py, sinon Piper)
 def piper_dispo():
     try:
         r = subprocess.run([sys.executable, "-m", "piper", "--help"], capture_output=True, timeout=60)
@@ -209,18 +209,20 @@ def telecharger_voix():
     return os.path.exists(os.path.join(VOIX_DIR, VOIX + ".onnx"))
 
 
-def dire(texte, sortie):
-    """Texte → WAV mono. Kokoro d'abord (voix naturelle + repères exacts dans « sortie.json »), sinon Piper.
-    Retourne la durée (s) ou 0."""
+def dire(texte, sortie, serie=None):
+    """Texte → WAV mono, avec la voix du narrateur de la série (« voix » : homme ou femme, dans bible.json).
+    Les voix naturelles d'abord (repères exacts dans « sortie.json »), sinon Piper. Retourne la durée (s) ou 0."""
     import voix as voix_k
+    serie = serie or {}
     if os.path.exists(sortie + ".json"):
         os.remove(sortie + ".json")
-    if env("STUDIO_MOTEUR_VOIX", "kokoro").lower() != "piper":
-        d = voix_k.dire(texte, sortie, journal=_log)
+    if env("STUDIO_MOTEUR_VOIX", "naturel").lower() != "piper":
+        d = voix_k.dire(texte, sortie, journal=_log, narrateur=serie.get("voix", "femme"), radio=serie.get("voix_radio"),
+                        noms=serie.get("voix_personnages"))
         if d > 0:
             return d
-        if voix_k.python_kokoro():
-            _log("Kokoro n'a rien rendu : repli sur Piper.")
+        if voix_k.moteurs():
+            _log("Les voix naturelles n'ont rien rendu : repli sur Piper.")
     modele = os.path.join(VOIX_DIR, VOIX + ".onnx")
     if not os.path.exists(modele) and not telecharger_voix():
         return 0.0
@@ -345,7 +347,7 @@ def blancs(voix, sr, mini=0.40):
 
 
 def minuter(texte, debut, duree, voix=None, sr=0, reperes=None):
-    """Minutage des sous-titres. Avec les repères de Kokoro, chaque prise a son début et sa fin exacts ; avec la
+    """Minutage des sous-titres. Avec les repères de voix.py, chaque prise a son début et sa fin exacts ; avec la
     voix Piper, chaque phrase est recalée sur ses silences réels ; sinon, simple répartition sur la durée."""
     mots = jetons(texte)
     if reperes and [m for r in reperes for m in r[0]] == mots:
@@ -888,7 +890,7 @@ def cmd_episode(force=None):
     texte, secours = ecrire_episode(b, s, n)
     base = os.path.join(VIDEOS, f"{s['id']}_ep{n:02d}_{time.strftime('%Y%m%d')}")
     voix_wav, mix_wav, mp4 = base + "_voix.wav", base + "_mix.wav", base + ".mp4"
-    duree_voix = dire(texte, voix_wav)
+    duree_voix = dire(texte, voix_wav, s)
     if duree_voix <= 0:
         telegram(f"Studio TikTok : la voix a échoué pour {s['titre']} ép. {n}. Voir {JOURNAL}.")
         return 1
@@ -925,9 +927,10 @@ def cmd_apercu():
     os.makedirs(VIDEOS, exist_ok=True)
     b = bible()
     s = b["series"][0]
-    texte = s["episodes"][0]["accroche"] + " À 2 h 14, la radio grésille. Ceci est un aperçu du studio : la voix, les décors animés et les sous-titres sont fabriqués sur le serveur, sans aucune clé."
+    texte = s["episodes"][0]["accroche"] + (" À 2 h 14, la radio grésille. Une voix de femme annonce : Prochain arrêt, Sainte-Blaise. Ceci est un aperçu du studio : "
+                                              "les voix, les décors animés et les sous-titres sont fabriqués sur le serveur, sans aucune clé.")
     base = os.path.join(VIDEOS, "apercu")
-    d = dire(texte, base + "_voix.wav")
+    d = dire(texte, base + "_voix.wav", s)
     if d <= 0:
         print("Voix indisponible : lance d'abord  python3 revenus/tiktok/studio.py voix")
         return 1
@@ -940,13 +943,17 @@ def cmd_apercu():
 
 
 def cmd_voix():
-    """Installe Kokoro (voix naturelle) ; garde ou télécharge Piper comme secours."""
+    """Installe la narratrice et le narrateur (voix naturelles) ; garde ou télécharge Piper comme secours."""
     import voix as voix_k
-    ok = voix_k.installer()
+    pretes = voix_k.installer()
+    ok = any(pretes.values())
     if not ok:
-        print("Kokoro non installé : le studio continue avec la voix Piper.")
+        print("Aucune voix naturelle installée : le studio continue avec la voix Piper.")
+    elif not all(pretes.values()):
+        absente = "homme" if not pretes.get("homme") else "femme"
+        print(f"La voix « {absente} » manque : en attendant, l'autre voix dira aussi ses séries. Relance cette commande pour réessayer.")
     secours = piper_dispo() and telecharger_voix()
-    print("Voix de secours Piper : " + ("prête." if secours else "absente (facultatif si Kokoro est prêt)."))
+    print("Voix de secours Piper : " + ("prête." if secours else "absente (facultatif si une voix naturelle est prête)."))
     return 0 if (ok or secours) else 1
 
 
@@ -961,9 +968,10 @@ def cmd_test():
         except Exception:
             rapport.append((mod, False))
     import voix as voix_k
-    kokoro = bool(voix_k.python_kokoro())
-    print(("OK   " if kokoro else "ABSENT ") + "voix Kokoro (naturelle)" + ("" if kokoro else " → python3 revenus/tiktok/studio.py voix"))
-    if not kokoro:  # Piper n'est indispensable que si Kokoro manque
+    prets = voix_k.moteurs()
+    for nom, moteur in (("voix de la narratrice (Kokoro)", "kokoro"), ("voix du narrateur (Supertonic)", "supertonic")):
+        print(("OK   " if moteur in prets else "ABSENT ") + nom + ("" if moteur in prets else " → python3 revenus/tiktok/studio.py voix"))
+    if not prets:  # Piper n'est indispensable que si aucune voix naturelle n'est là
         rapport.append(("piper", piper_dispo()))
         rapport.append(("voix " + VOIX, os.path.exists(os.path.join(VOIX_DIR, VOIX + ".onnx"))))
     rapport.append(("police", any(os.path.exists(p) for p in POLICES)))
