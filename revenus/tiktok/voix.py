@@ -192,6 +192,10 @@ _SANS_LIAISON = {"et", "ou", "à", "au", "aux", "en", "il", "ils", "elle", "elle
 _LETTRES = {"B": "bé", "C": "cé", "D": "dé", "F": "èf", "G": "gé", "H": "ache", "J": "ji", "K": "ka", "L": "èl", "M": "èm", "N": "èn", "P": "pé",
             "Q": "ku", "R": "èr", "S": "ès", "T": "té", "V": "vé", "X": "ix", "Z": "zèd"}
 _ECRITS = None
+# les mots que Supertonic dit de travers quand ils sont écrits comme dans le dictionnaire → l'écriture qu'il dit juste
+# (vérifié par transcription automatique : « terminu », « parpaigne », « tende » avant, le bon mot après)
+_MOTS_OREILLE = {"terminus": "terminusse", "parpaing": "parpain", "parpaings": "parpains"}
+_MOTS_OREILLE_FIN = {"tend": "tan"}  # seulement devant une ponctuation : « ce qu'elle te tend, dit Roland » sortait « tende »
 
 
 def _ecrits():
@@ -210,7 +214,8 @@ def _ecrits():
 
 
 def a_l_oreille(texte):
-    """Réécrit pour Supertonic les nombres déjà en lettres, et marque la liaison de « six » et « dix » devant un nom."""
+    """Réécrit pour Supertonic les nombres déjà en lettres, marque la liaison de « six » et « dix » devant un nom,
+    et corrige les quelques mots qu'il dit de travers (_MOTS_OREILLE)."""
     t = texte
     for ecrit, dit in _ecrits():
         t = re.sub(r"(?<![\w-])" + re.escape(ecrit) + r"(?![\w-])",
@@ -222,7 +227,15 @@ def a_l_oreille(texte):
             return m.group(0)
         return m.group(1)[:2] + ("z" if m.group(1).lower().endswith("x") else "se") + m.group(2) + m.group(3)
 
-    return re.sub(r"\b((?:si|di)x|disse)\b( )(h?[aeiouyéèêàâîôûœ]\w*)", liaison, t, flags=re.I)
+    t = re.sub(r"\b((?:si|di)x|disse)\b( )(h?[aeiouyéèêàâîôûœ]\w*)", liaison, t, flags=re.I)
+
+    def mot(m):
+        dit = _MOTS_OREILLE.get(m.group(1).lower()) or (m.group(2) and _MOTS_OREILLE_FIN.get(m.group(1).lower()))
+        if not dit:
+            return m.group(0)
+        return (dit.capitalize() if m.group(1)[0].isupper() else dit) + m.group(2)
+
+    return re.sub(r"(?<![\w'’-])([A-Za-zÀ-ÿ]+)(?![\w'’-])([,.;:!?…]?)", mot, t)
 
 
 def en_lettres(texte, oreille=False):
@@ -480,12 +493,22 @@ def limiter(a, sr, plafond=0.93):
 
 def soigner(a, sr, cible=0.175, grave=False):
     """Finition de la narration : coupe-bas, un peu de chaleur et d'air, compression douce, niveau constant.
-    grave=True : voix d'homme (le coupe-bas et la chaleur descendent d'autant que le timbre)."""
+    grave=True : voix d'homme. Son timbre grave se perd sur le haut-parleur d'un téléphone (rien sous 300 à 400 Hz) et
+    ses consonnes s'y noient : moins de coffre, un creux dans le bas-médium, de la présence autour de 3 kHz, là où
+    s'entendent les consonnes. Au banc d'essai (haut-parleur de téléphone + bruit de fond, transcription automatique),
+    un quart à un tiers de mots mal compris en moins. STUDIO_NETTETE=0 revient à l'ancienne finition, plus ronde."""
     import numpy as np
     if not len(a) or float(np.abs(a).max()) < 1e-4:
         return a
+    net = grave and env("STUDIO_NETTETE", "1") != "0"
 
     def courbe(f):
+        if net:
+            g = 1.0 / np.sqrt(1.0 + (60.0 / f) ** 8)  # coupe-bas
+            g = g * _cloche(f, 130.0, 0.9, 0.5)  # un reste de chaleur
+            g = g * _cloche(f, 270.0, 0.9, -2.0)  # le bas-médium, qui empâte la diction
+            g = g * _cloche(f, 3100.0, 1.0, 3.3)  # la présence : les consonnes
+            return g * 10 ** (2.0 / (1.0 + (6500.0 / f) ** 4) / 20)  # air
         g = 1.0 / np.sqrt(1.0 + ((52.0 if grave else 70.0) / f) ** 8)  # coupe-bas : ronflements et « pop »
         g = g * _cloche(f, 130.0 if grave else 190.0, 0.9, 1.4)  # chaleur
         g = g * _cloche(f, 3400.0, 0.5, -1.0)  # un peu moins de dureté

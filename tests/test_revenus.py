@@ -238,6 +238,11 @@ def test_studio_tiktok_voix_decoupe_et_prononciation():
     assert [x["cite"] for x in p] == [False, True, False] and not any(x["radio"] for x in p)
     p = voix.allures(voix.decouper("Une accroche qui claque fort. Une phrase du milieu, tranquille et longue. La dernière phrase du suspens."))
     assert p[0]["vitesse"] > p[1]["vitesse"] > p[2]["vitesse"] and p[1]["pause"] > p[0]["pause"]
+    # les mots que le narrateur disait de travers lui sont écrits comme ils se disent ; la narratrice et les sous-titres n'en savent rien
+    dit = voix.en_lettres("Au terminus, il tend à Malik un morceau de parpaing. Terminus ! Prends ce qu'elle te tend, dit Roland. Elle attend.",
+                          oreille=True)
+    assert dit == "Au terminusse, il tend à Malik un morceau de parpain. Terminusse ! Prends ce qu'elle te tan, dit Roland. Elle attend."
+    assert voix.en_lettres("Au terminus, des parpaings.") == "Au terminus, des parpaings."
 
 
 def test_studio_tiktok_voix_montage_et_reperes(tmp_path, monkeypatch):
@@ -406,6 +411,24 @@ def test_studio_tiktok_voix_du_narrateur(tmp_path, monkeypatch):
     assert prises[0]["voix"] == "femme" and "pas encore installée" in messages[0]
     travail = json.load(open(tmp_path / "travail.json", encoding="utf-8"))
     assert [(t["moteur"], t["voix"]) for t in travail["prises"]] == [("kokoro", "ff_siwis")]
+    # la finition du narrateur met ses consonnes en avant (haut-parleur de téléphone) ; celle de la narratrice ne change pas
+    sr2 = 44100
+    bruit = (np.random.default_rng(5).standard_normal(sr2 * 2) * 0.1).astype("float32")
+
+    def bande(x, f0, f1):
+        f = np.fft.rfftfreq(len(x), 1.0 / sr2)
+        return float(np.sqrt(np.mean(np.abs(np.fft.rfft(x))[(f >= f0) & (f < f1)] ** 2)))
+
+    def relief(x):  # les consonnes (2 à 4,5 kHz) par rapport au bas-médium (200 à 350 Hz), en décibels
+        return 20 * float(np.log10(bande(x, 2000, 4500) / bande(x, 200, 350)))
+
+    net = voix.soigner(bruit.copy(), sr2, cible=0.195, grave=True)
+    elle = voix.soigner(bruit.copy(), sr2)
+    monkeypatch.setenv("STUDIO_NETTETE", "0")
+    rond = voix.soigner(bruit.copy(), sr2, cible=0.195, grave=True)
+    assert 3.5 < relief(net) - relief(rond) < 7.0  # plus net, sans devenir criard
+    assert abs(voix._niveau(net, sr2) - voix._niveau(rond, sr2)) < 0.02 and float(np.abs(net).max()) <= 0.94  # même niveau
+    assert np.allclose(elle, voix.soigner(bruit.copy(), sr2))
 
 
 def test_studio_tiktok_scenes_animees(monkeypatch):

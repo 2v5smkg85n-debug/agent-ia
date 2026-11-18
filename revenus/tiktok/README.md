@@ -29,7 +29,7 @@ python3 revenus/tiktok/studio.py etat        # avancement des séries
 ```
 
 Réglages `.env` (facultatifs) : `STUDIO_MODELE` (défaut `OLLAMA_MODEL`), `STUDIO_ALLURE` (0.90 = débit de la narratrice, plus grand = plus rapide), `STUDIO_ALLURE_HOMME` (0.86 = débit du narrateur),
-`STUDIO_VOIX_HOMME` (`M2` par défaut ; `M5` et `M3` sont aussi graves, `M4` et `M1` plus aiguës), `STUDIO_DIALOGUES=0` (une seule voix par épisode),
+`STUDIO_VOIX_HOMME` (`M2` par défaut ; `M5` et `M3` sont aussi graves, `M4` et `M1` plus aiguës), `STUDIO_DIALOGUES=0` (une seule voix par épisode), `STUDIO_NETTETE=0` (finition plus ronde du narrateur, comme avant),
 `STUDIO_MOTEUR_VOIX=piper` (revenir à l'ancienne voix ;
 `STUDIO_VITESSE` 1.06 règle alors son débit, plus grand = plus lent),
 `STUDIO_NAPPE` (0.10 = volume de la nappe), `STUDIO_ROTATION=alternance` (une série différente chaque jour au lieu d'une série jusqu'au bout),
@@ -120,8 +120,15 @@ Le choix se fait dans `bible.json`, série par série : `"voix": "homme"` ou `"f
   « quatre-vingt… dix-huit »). Il reçoit donc « soissantéonze », « soissante-dizuit », « quatre-vingt-dizuit », « siz ans », « sept bé ».
   Une hésitation au milieu d'un nombre long est retirée du son (`STUDIO_RESSERRER=0` pour l'entendre telle quelle) ; les pauses des virgules restent.
   Le sous-titre d'un nombre reste affiché le temps qu'il soit dit en entier.
-- **Un son fini** : coupe-bas, un peu de chaleur et d'air (réglés plus bas pour la voix d'homme), compression douce, limiteur sans écrêtage,
+- **Un son fini** : coupe-bas, un peu de chaleur et d'air, compression douce, limiteur sans écrêtage,
   niveau constant (environ −16,5 LUFS). Les deux voix sont ramenées à la même qualité (44,1 kHz) avant le montage.
+- **Une diction nette sur téléphone** : la voix grave du narrateur perd son coffre sur un haut-parleur de téléphone (rien ne sort sous 300 à 400 Hz)
+  et ses consonnes s'y noient. Sa finition lui laisse donc moins de chaleur, creuse le bas-médium (270 Hz) et ajoute de la présence autour de 3 kHz,
+  là où s'entendent les consonnes. Mesuré par transcription automatique sur tous les textes de la ligne 13, haut-parleur de téléphone et bruit de fond
+  simulés : 23 % de mots mal compris avant, 15,5 % après dans un bruit fort ; 8,8 % puis 6,3 % dans un bruit modéré. `STUDIO_NETTETE=0` revient à l'ancienne finition, plus ronde. Essayés et écartés, parce qu'ils ne font rien gagner ou font perdre :
+  un débit plus lent ou plus rapide que 0.86, davantage de passes de synthèse (`STUDIO_PAS_HOMME`), des prises coupées aux virgules.
+  Quelques mots que le narrateur disait de travers lui sont écrits comme ils se disent (`_MOTS_OREILLE` dans `voix.py` : « terminus » sortait
+  « terminu », « parpaing » « parpaigne ») ; quand un mot revient mal dit dans une série, c'est là qu'on l'ajoute. Les sous-titres ne changent pas.
 
 Les deux moteurs ont besoin d'un numpy récent : ils sont installés à part dans `revenus/donnees/tiktok/venv_voix`, sans toucher aux paquets
 Python du serveur (le bot de trading n'est pas concerné). Les modèles sont téléchargés une fois, à une version figée, et refusés si leur
