@@ -115,8 +115,11 @@ Le choix se fait dans `bible.json`, série par série : `"voix": "homme"` ou `"f
 - **Les paroles de la radio** (« Prochain arrêt, Sainte-Blaise ») sortent d'un haut-parleur de cabine : bande étroite, légère saturation, souffle,
   ouverture et relâchement de la fréquence. Vaut pour toute parole annoncée par radio, téléphone, interphone ou répondeur.
 - **Ce qui est dit n'est pas ce qui est écrit** : « 2 h 14 » est prononcé « deux heures quatorze », « 20 km/h » « vingt kilomètres heure »,
-  « 7B » « sept B » ; les sous-titres gardent l'écriture d'origine. Le narrateur reçoit en plus ses nombres en toutes lettres (« treize »,
-  « mille neuf cent soixante-douze »), parce que son moteur lit mal les chiffres.
+  « 7B » « sept B » ; les sous-titres gardent l'écriture d'origine. Le narrateur reçoit en plus ses nombres en toutes lettres, parce que son moteur lit mal les chiffres,
+  et dans une écriture « à l'oreille » : écrits comme dans le dictionnaire, 71, 78 ou 98 sortaient en deux nombres (« soixante… et onze »,
+  « quatre-vingt… dix-huit »). Il reçoit donc « soissantéonze », « soissante-dizuit », « quatre-vingt-dizuit », « siz ans », « sept bé ».
+  Une hésitation au milieu d'un nombre long est retirée du son (`STUDIO_RESSERRER=0` pour l'entendre telle quelle) ; les pauses des virgules restent.
+  Le sous-titre d'un nombre reste affiché le temps qu'il soit dit en entier.
 - **Un son fini** : coupe-bas, un peu de chaleur et d'air (réglés plus bas pour la voix d'homme), compression douce, limiteur sans écrêtage,
   niveau constant (environ −16,5 LUFS). Les deux voix sont ramenées à la même qualité (44,1 kHz) avant le montage.
 

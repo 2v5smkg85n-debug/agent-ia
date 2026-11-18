@@ -130,51 +130,104 @@ def prononcer(texte):
 _UNITES = ["zéro", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix", "onze", "douze", "treize",
            "quatorze", "quinze", "seize", "dix-sept", "dix-huit", "dix-neuf"]
 _DIZAINES = {2: "vingt", 3: "trente", 4: "quarante", 5: "cinquante", 6: "soixante", 8: "quatre-vingt"}
+# Écriture « à l'oreille » pour Supertonic, qui lit les lettres : écrits comme dans le dictionnaire, les composés sortent
+# en deux nombres (« soixante… dix-sept », « soixante… et onze ») et le « x » de dix ou de soixante s'entend parfois.
+_UNITES_O = _UNITES[:17] + ["dissète", "dizuit", "dizneuf"]
+_DIZAINES_O = dict(_DIZAINES)
+_DIZAINES_O[6] = "soissante"
 
 
-def _sous_cent(n):
+def _sous_cent(n, o=False):
+    unites, dizaines = (_UNITES_O, _DIZAINES_O) if o else (_UNITES, _DIZAINES)
     if n < 20:
-        return _UNITES[n]
+        return unites[n]
     d, u = divmod(n, 10)
     if d in (7, 9):  # soixante-dix, quatre-vingt-onze
-        return _DIZAINES[d - 1] + (" et onze" if (d, u) == (7, 1) else "-" + _UNITES[10 + u])
+        if (d, u) == (7, 1):
+            return "soissantéonze" if o else "soixante et onze"
+        if o and u == 0:
+            return dizaines[d - 1] + "-disse"
+        return dizaines[d - 1] + "-" + unites[10 + u]
     if u == 0:
-        return _DIZAINES[d] + ("s" if d == 8 else "")
-    return _DIZAINES[d] + (" et un" if u == 1 and d != 8 else "-" + _UNITES[u])
+        return dizaines[d] + ("s" if d == 8 else "")
+    if u == 1 and d != 8:
+        return (dizaines[d].rstrip("e") + "éun") if o else dizaines[d] + " et un"
+    return dizaines[d] + "-" + unites[u]
 
 
-def _sous_mille(n, final=True):
+def _sous_mille(n, final=True, o=False):
     c, r = divmod(n, 100)
     if c == 0:
-        t = _sous_cent(r)
+        t = _sous_cent(r, o)
         return t if final or not t.endswith("vingts") else t[:-1]  # quatre-vingt mille
     t = "cent" if c == 1 else _UNITES[c] + " cent"
     if r == 0:
         return t + ("s" if c > 1 and final else "")
-    return t + " " + _sous_cent(r)
+    return t + " " + _sous_cent(r, o)
 
 
-def nombre_en_lettres(n):
-    """640 → « six cent quarante », 2043 → « deux mille quarante-trois »."""
+def nombre_en_lettres(n, oreille=False):
+    """640 → « six cent quarante », 2043 → « deux mille quarante-trois ».
+    oreille : l'écriture que Supertonic dit d'une traite (77 → « soissante-dissète », 1971 → « mille neuf cent soissantéonze »)."""
     n = int(n)
     if n >= 10 ** 9:
         return " ".join(_UNITES[int(c)] for c in str(n))
     if n < 1000:
-        return _sous_mille(n)
+        return _sous_mille(n, o=oreille)
     m, r = divmod(n, 10 ** 6)
     k, r = divmod(r, 1000)
     p = []
     if m:
-        p.append("un million" if m == 1 else _sous_mille(m) + " millions")
+        p.append("un million" if m == 1 else _sous_mille(m, o=oreille) + " millions")
     if k:
-        p.append("mille" if k == 1 else _sous_mille(k, final=False) + " mille")
+        p.append("mille" if k == 1 else _sous_mille(k, final=False, o=oreille) + " mille")
     if r:
-        p.append(_sous_mille(r))
+        p.append(_sous_mille(r, o=oreille))
     return " ".join(p)
 
 
-def en_lettres(texte):
-    """Écrit les nombres en toutes lettres : Supertonic lit le texte tel quel et bute parfois sur les chiffres."""
+# « six ans », « dix heures » : la liaison en « z » ne se fait que devant le nom compté
+_SANS_LIAISON = {"et", "ou", "à", "au", "aux", "en", "il", "ils", "elle", "elles", "on", "un", "une", "avec", "est", "était", "étaient", "ont", "a",
+                 "y", "alors", "encore", "aussi", "après", "avant", "ici", "entre", "environ", "avait", "avaient", "ou", "où", "enfin", "ensuite"}
+_LETTRES = {"B": "bé", "C": "cé", "D": "dé", "F": "èf", "G": "gé", "H": "ache", "J": "ji", "K": "ka", "L": "èl", "M": "èm", "N": "èn", "P": "pé",
+            "Q": "ku", "R": "èr", "S": "ès", "T": "té", "V": "vé", "X": "ix", "Z": "zèd"}
+_ECRITS = None
+
+
+def _ecrits():
+    """Les nombres écrits en lettres par l'auteur, de la forme du dictionnaire à la forme dite (les plus longs d'abord)."""
+    global _ECRITS
+    if _ECRITS is None:
+        paires = {}
+        for n in range(17, 100):
+            a, b = _sous_cent(n), _sous_cent(n, o=True)
+            if a != b:
+                paires[a] = b
+                if a.endswith(" et un"):
+                    paires[a + "e"] = b + "e"  # vingt et une
+        _ECRITS = sorted(paires.items(), key=lambda x: -len(x[0]))
+    return _ECRITS
+
+
+def a_l_oreille(texte):
+    """Réécrit pour Supertonic les nombres déjà en lettres, et marque la liaison de « six » et « dix » devant un nom."""
+    t = texte
+    for ecrit, dit in _ecrits():
+        t = re.sub(r"(?<![\w-])" + re.escape(ecrit) + r"(?![\w-])",
+                   lambda m, dit=dit: dit.capitalize() if m.group(0)[0].isupper() else dit, t, flags=re.I)
+
+    def liaison(m):
+        suivant = m.group(3).lower()
+        if suivant in _SANS_LIAISON or (len(suivant) < 3 and suivant not in ("an",)):
+            return m.group(0)
+        return m.group(1)[:2] + ("z" if m.group(1).lower().endswith("x") else "se") + m.group(2) + m.group(3)
+
+    return re.sub(r"\b((?:si|di)x|disse)\b( )(h?[aeiouyéèêàâîôûœ]\w*)", liaison, t, flags=re.I)
+
+
+def en_lettres(texte, oreille=False):
+    """Écrit les nombres en toutes lettres : Supertonic lit le texte tel quel et bute sur les chiffres.
+    oreille : la forme dite d'une traite (voir nombre_en_lettres), y compris pour les nombres que l'auteur a écrits en lettres."""
     def ordinal(m):
         t = nombre_en_lettres(m.group(1))
         if t.endswith("f"):
@@ -187,8 +240,11 @@ def en_lettres(texte):
 
     t = re.sub(r"\b1(er|re|ère)\b", lambda m: "premier" if m.group(1) == "er" else "première", texte)
     t = re.sub(r"\b(\d+)(?:e|è|ème|ième)\b", ordinal, t)
-    t = re.sub(r"\b(\d+),(\d+)\b", lambda m: nombre_en_lettres(m.group(1)) + " virgule " + nombre_en_lettres(m.group(2)), t)
-    return re.sub(r"\d+", lambda m: nombre_en_lettres(m.group(0)), t)
+    t = re.sub(r"\b(\d+),(\d+)\b", lambda m: nombre_en_lettres(m.group(1), oreille) + " virgule " + nombre_en_lettres(m.group(2), oreille), t)
+    if oreille:  # « 7 B » : la lettre dite par son nom, sinon elle se colle au mot suivant
+        t = re.sub(r"\b(\d+) ([A-Z])\b", lambda m: m.group(1) + " " + _LETTRES.get(m.group(2), m.group(2)), t)
+    t = re.sub(r"\d+", lambda m: nombre_en_lettres(m.group(0), oreille), t)
+    return a_l_oreille(t) if oreille else t
 
 
 def narrateur_parle(contexte):
@@ -476,7 +532,88 @@ def effet_radio(a, sr, graine=0, cible=0.155):
     return limiter(v, sr)
 
 
-def poids_mots(mots, phonemes=None):
+def _dit(mot):
+    """Le mot tel qu'il est prononcé : les chiffres en lettres, « h » pour « heures »."""
+    if re.fullmatch(r"\W*h\W*", mot):
+        return "heures"
+    return en_lettres(prononcer(mot)) if re.search(r"\d", mot) else mot
+
+
+_MOTS_NOMBRES = set(_UNITES[2:]) | set(_DIZAINES.values()) | {"cent", "cents", "mille", "vingts", "quatre-vingt", "quatre-vingts"}
+
+
+def est_nombre(mot):
+    """Vrai pour « 1972 », « 7B », « soixante-dix-sept », « onze »."""
+    m = re.sub(r"[^\w-]", "", mot.lower())
+    return bool(re.search(r"\d", m)) or (bool(m) and all(x in _MOTS_NOMBRES for x in m.split("-")))
+
+
+def resserrer(a, sr, mots, poids, garde=0.045, mini=0.11):
+    """Retire les hésitations que Supertonic glisse au milieu d'un nombre long (« mille neuf cent… quatre-vingt-cinq ») :
+    un silence qui tombe pendant un nombre est ramené à 45 ms. Les pauses des virgules et des fins de groupe ne bougent pas."""
+    import numpy as np
+    total = float(sum(poids)) or 1.0
+    if not len(a) or len(poids) != len(mots):
+        return a
+    # où tombent les nombres : deux estimations (le poids des sous-titres, et le compte brut des lettres, plus large :
+    # un nombre dit avec une hésitation dure plus longtemps), on garde l'enveloppe des deux. On n'élargit que vers l'avant.
+    def reperer(pds):
+        tout, res, x, k = float(sum(pds)) or 1.0, [], 0.0, 0
+        while k < len(mots):
+            if not est_nombre(mots[k]):
+                x += pds[k]
+                k += 1
+                continue
+            x0 = x
+            while k < len(mots) and (est_nombre(mots[k]) or (mots[k] in ("et", "h") and k + 1 < len(mots) and est_nombre(mots[k + 1]))):
+                x += pds[k]
+                k += 1
+                if mots[k - 1].endswith((",", ";", ":", ".", "!", "?", "…")):
+                    break
+            fin = mots[k - 1].endswith((",", ";", ":", ".", "!", "?", "…"))
+            res.append((x0 / tout * len(a), x / tout * len(a), x - x0, fin))
+        return res
+
+    zones = []
+    for (d1, f1, w, fin), (d2, f2, _, _) in zip(reperer(poids), reperer(poids_mots(mots, large=True))):
+        if w >= 0.09 * total or w >= 9:  # « six » ou « onze » se disent d'une traite : rien à resserrer
+            zones.append((min(d1, d2) - 0.15 * sr, max(f1, f2) - (0.30 if fin else 0.12) * sr))
+    if not zones:
+        return a
+    pas = int(0.005 * sr)
+    n = len(a) // pas
+    if n < 40:
+        return a
+    e = np.sqrt(np.mean(a[:n * pas].reshape(n, pas) ** 2, axis=1))
+    calme = (e < max(0.004, float(e.max()) * 0.035)).astype("int8")
+    bords = np.flatnonzero(np.diff(np.concatenate([[0], calme, [0]])))
+    # les silences des virgules (ceux que les sous-titres suivent) sont gardés, même au ras d'un nombre : « 1972, et… »
+    morceaux = respirations(mots, a, sr, poids)
+    gardes = [(x[3], y[2]) for x, y in zip(morceaux, morceaux[1:])]
+    coupes = []
+    for d, f in zip(bords[::2], bords[1::2]):
+        d, f = d * pas, f * pas
+        if (f - d) / sr < mini or d < 0.08 * sr or f > len(a) - 0.08 * sr:
+            continue
+        if any(d < g1 and f > g0 for g0, g1 in gardes):
+            continue
+        if any(z0 < (d + f) / 2 < z1 for z0, z1 in zones):
+            coupes.append((d + int(garde / 2 * sr), f - int(garde / 2 * sr)))
+    if not coupes:
+        return a
+    morceaux, x, fondu = [], 0, max(2, int(0.004 * sr))
+    for d, f in coupes:
+        m = a[x:d].copy()
+        m[-fondu:] *= np.linspace(1, 0, fondu, dtype="float32")
+        morceaux.append(m)
+        x = f
+    morceaux.append(a[x:].copy())
+    for m in morceaux[1:]:
+        m[:fondu] *= np.linspace(0, 1, fondu, dtype="float32")
+    return np.concatenate(morceaux)
+
+
+def poids_mots(mots, phonemes=None, large=False):
     """Part de chaque mot dans la durée d'une prise. Avec les phonèmes de Kokoro (un groupe par mot), le poids suit
     ce qui est réellement prononcé (« aux horaires » ne compte pas ses lettres muettes)."""
     sons = phonemes.split() if phonemes else []
@@ -485,8 +622,11 @@ def poids_mots(mots, phonemes=None):
     for k, m in enumerate(mots):
         if len(sons) == len(mots):
             p = len(re.sub(r"[ˈˌː\W_]", "", sons[k])) + 0.6
-        else:
-            p = (len(re.sub(r"[^\w]", "", m)) + 1.2) * 0.8
+        else:  # « 1972 » dure le temps de « mille neuf cent soixante-douze », pas celui de quatre lettres
+            n = len(re.sub(r"[^\w]", "", _dit(m)))
+            if n > 8 and re.search(r"\d", m) and not large:
+                n = 8 + 0.5 * (n - 8)  # beaucoup de lettres muettes dans les grands nombres (mesuré sur la voix d'homme)
+            p = (n + 1.2) * 0.8
         if m.endswith((",", ";", ":", ".", "!", "?", "…")):
             p += 1.8  # la dernière syllabe avant une pause s'allonge
         res.append(p)
@@ -546,6 +686,9 @@ def assembler(prises, sons, sr, graine=0):
             reperes.append((list(p["mots"]), t / sr + 0.09, (t + len(a)) / sr - 0.09, poids_mots(p["mots"], p.get("phonemes"))))
         else:
             poids = poids_mots(p["mots"], p.get("phonemes"))
+            if profil(p.get("voix", "femme"))[0] == "supertonic" and env("STUDIO_RESSERRER", "1") != "0":
+                a = resserrer(a, sr, p["mots"], poids)
+                morceaux[-1] = a
             for i0, i1, s0, s1 in respirations(p["mots"], a, sr, poids):
                 reperes.append((list(p["mots"][i0:i1]), (t + s0) / sr, (t + s1) / sr, poids[i0:i1]))
         t += len(a)
@@ -629,7 +772,7 @@ def synthetiser(prises, dossier, journal=None, graine=0):
         if moteur == "kokoro":
             texte, vitesse = p["texte"], p.get("vitesse", 0.9)
         else:
-            texte, vitesse = en_lettres(p["texte"]), max(0.75, min(1.4, base_h * p.get("rel", 1.0)))
+            texte, vitesse = en_lettres(p["texte"], oreille=True), max(0.75, min(1.4, base_h * p.get("rel", 1.0)))
         taches.append({"texte": texte, "phon": p["texte"], "moteur": moteur, "voix": nom, "vitesse": round(vitesse, 3),
                        "graine": graine * 1000 + k})
     if manque and journal:

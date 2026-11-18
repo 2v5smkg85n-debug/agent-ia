@@ -315,6 +315,28 @@ def test_studio_tiktok_voix_du_narrateur(tmp_path, monkeypatch):
     assert [voix.nombre_en_lettres(n) for n in (0, 21, 71, 80, 81, 99, 200, 201, 1000, 2043)] == [
         "zéro", "vingt et un", "soixante et onze", "quatre-vingts", "quatre-vingt-un", "quatre-vingt-dix-neuf", "deux cents",
         "deux cent un", "mille", "deux mille quarante-trois"]
+    # ... et dans une écriture qu'il dit d'une traite : écrits comme dans le dictionnaire, 71, 78 ou 98 sortent en deux nombres
+    assert [voix.nombre_en_lettres(n, oreille=True) for n in (16, 17, 18, 19, 21, 61, 70, 71, 78, 80, 90, 98, 1971, 2043)] == [
+        "seize", "dissète", "dizuit", "dizneuf", "vingtéun", "soissantéun", "soissante-disse", "soissantéonze", "soissante-dizuit",
+        "quatre-vingts", "quatre-vingt-disse", "quatre-vingt-dizuit", "mille neuf cent soissantéonze", "deux mille quarante-trois"]
+    dit = voix.en_lettres(voix.prononcer("Roland a 78 ans. À 18 h 05, rame 7B, soixante et onze marches, six ans, dix et demi, 70 euros, le 7e."),
+                          oreille=True)
+    assert dit == ("Roland a soissante-dizuit ans. À dizuit heures cinq, rame sept bé, soissantéonze marches, siz ans, dix et demi, "
+                   "soissante-dise euros, le septième.")
+    # les sous-titres laissent à « 1972 » le temps d'être dit, et « un » n'est pas pris pour un nombre
+    mots = "Un plan de 1972, et je suis né là.".split()
+    poids = voix.poids_mots(mots)
+    assert poids[3] > 3 * poids[1] and voix.est_nombre("1972,") and voix.est_nombre("soixante-dix-sept") and not voix.est_nombre("un")
+    # une hésitation au milieu d'un nombre est retirée ; la pause de la virgule qui le suit reste
+    import numpy as np
+    sr = 24000
+    son = lambda d: (0.3 * np.sin(np.arange(int(d * sr)) * 0.05)).astype("float32")  # noqa: E731
+    blanc = lambda d: np.zeros(int(d * sr), dtype="float32")  # noqa: E731
+    prise = np.concatenate([son(0.9), son(0.5), blanc(0.40), son(0.6), blanc(0.35), son(1.2)])  # … de mille neuf cent | soixante-douze, | et…
+    serre = voix.resserrer(prise, sr, mots, poids)
+    assert 0.30 < (len(prise) - len(serre)) / sr < 0.40
+    assert len(voix.respirations(mots, serre, sr, poids)) == 2  # la virgule a gardé son silence
+    assert len(voix.resserrer(prise, sr, "Je le vois, et il attend là.".split(), voix.poids_mots("Je le vois, et il attend là.".split()))) == len(prise)
     # qui parle ? seulement quand le texte le dit sans ambiguïté
     noms = serie["ligne13"]["voix_personnages"]
     assert voix.genre_cite("Une voix de femme, très calme, annonce :") == "femme"
