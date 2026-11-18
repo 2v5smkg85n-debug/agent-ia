@@ -505,6 +505,28 @@ def test_studio_tiktok_plans_photographiques(monkeypatch, tmp_path):
     assert next(p for p in pl if p["texte"].startswith("À 2 h 14"))["scene"] == "photo:horloge"
     assert all(p["scene"] != "photo:femme" for p in pl)
     assert any(p["scene"] == "photo:femme" for p in scenes.decouper_plans(studio.minuter(phrase, 0.4, 16.0), s, 4, 18.0, mini=0.5))
+    # le second lot d'images : chaque révélation attend son épisode, et la phrase appelle la bonne image
+    assert len(bq.noms) >= 21 and "photo:micro" in bq.replis()
+    attendus = {"josiane": 3, "roland_jeune": 3, "mur": 4, "journal": 5, "roland": 6, "lanterne": 7, "photo": 8}
+    for nom, n in attendus.items():
+        assert "photo:" + nom not in bq.scenes(n - 1) and "photo:" + nom in bq.scenes(n), nom
+    assert {"photo:micro", "photo:rame", "photo:depot"} <= set(bq.scenes(1))
+
+    def montre(texte_, numero):
+        pl_ = scenes.decouper_plans(studio.minuter(texte_, 0.4, 14.0), s, numero, 16.0, mini=0.5)
+        return {p["texte"]: (p["scene"][len("photo:"):], p["cadrage"]) for p in pl_}
+    vu = montre("Je conduis la nuit. Josiane, la doyenne, blêmit. Sa rame est arrivée au terminus. "
+                "Une ouverture murée de parpaings. Je retiens mon souffle.", 4)
+    assert vu["Josiane, la doyenne, blêmit."][0] == "josiane" and vu["Sa rame est arrivée au terminus."][0] == "rame"
+    assert vu["Une ouverture murée de parpaings."] == ("mur", 1)  # le cadrage serré sur les parpaings
+    assert montre("Je conduis la nuit. Une ouverture murée de parpaings.", 3)["Une ouverture murée de parpaings."][0] != "mur"
+    vu = montre("Je conduis la nuit. Roland a 78 ans. Lucienne lui a tendu une lanterne. Josiane sort une photo de 1999. "
+                "Il attend. Le panneau est allumé.", 8)
+    assert vu["Roland a 78 ans."][0] == "roland" and vu["Lucienne lui a tendu une lanterne."][0] == "lanterne"
+    assert vu["Josiane sort une photo de 1999."][0] == "photo"
+    for nom in ("micro", "mur", "roland", "photo"):  # les nouvelles images se rendent comme les autres
+        vue = scenes.fabriquer({"scene": "photo:" + nom, "serie": "ligne13", "cadrage": 1, "graine": 2, "camera": "avant", "t0": 0.0}, palette)
+        assert vue.photo and vue.plein(0.5, 0.2, 0.3, 0, 1.08).size == (1080, 1920), nom
     assert par_texte["Pas de quai."]["scene"] != "photo:quai"  # un mot nié n'appelle pas son image
     main = par_texte["Mes mains serrent le manipulateur."]
     assert main["scene"] == "photo:cabine" and main["cadrage"] == 1  # le cadrage que la phrase appelle
