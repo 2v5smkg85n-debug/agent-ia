@@ -526,6 +526,21 @@ def corps_choc(mots, maxi, lignes_maxi=3):
         corps -= 6
 
 
+def fin_choc(mots, mini=2.4, maxi=7.0):
+    """L'instant où la phrase choc laisse la place aux sous-titres : le premier mot de la deuxième phrase dite par la voix.
+    Si l'accroche est trop longue, la dernière virgule avant « maxi » : les sous-titres ne reprennent jamais au milieu d'un groupe de mots."""
+    coupe = None
+    for k, m in enumerate(mots[:-1]):
+        suite = mots[k + 1][1]
+        if m[0].endswith((".", "!", "?", "…")):
+            if suite <= maxi or coupe is None:
+                coupe = suite
+            break
+        if m[0].endswith((",", ";", ":")) and mini <= suite <= maxi:
+            coupe = suite
+    return min(maxi, max(mini, coupe if coupe is not None else 2.6))
+
+
 def _etiquette_mots(mots, f, contour=7, ombre=14):
     """Une ligne prête à poser (RGBA) dont chaque mot a sa couleur : [(mot, couleur)]. Contour noir + ombre portée."""
     from PIL import Image, ImageDraw, ImageFilter
@@ -700,10 +715,7 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
                                           scenes.police(f_c)))
             k_c += len(ligne)
         pas_choc = f_c * 1.2
-        # elle reste le temps de l'accroche dite par la voix, jusqu'au premier mot de la phrase suivante
-        k_fin = next((k for k, m in enumerate(mots) if m[0].endswith((".", "!", "?", "…"))), None)
-        suite_voix = 2.6 if k_fin is None else (mots[k_fin + 1][1] if k_fin + 1 < len(mots) else mots[k_fin][2])
-        t_choc = min(6.5, max(2.4, suite_voix))
+        t_choc = fin_choc(mots)
         t_titre = 0.0  # pas de grand titre : l'en-tête (série, épisode) est là dès le début
     y_choc = HAUTEUR * 0.64
     f_ep = scenes.police(54)

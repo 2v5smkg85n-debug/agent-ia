@@ -175,7 +175,7 @@ Les épisodes 4 à 12 de la ligne 13 sont écrits d'avance dans `textes/ligne13/
 
 - **une phrase choc dès la première image** (`choc` dans `bible.json`, dix mots au plus, les mots entre astérisques en couleur) : elle
   est entière à l'écran dès la première image, à la place du grand titre, sur l'image la plus intrigante de l'épisode (`ouverture`), en
-  pleine lumière. Elle reste le temps que la voix dise l'accroche, puis les sous-titres reprennent. Les courbes de TikTok montraient que
+  pleine lumière. Elle reste le temps que la voix dise l'accroche (sept secondes au plus), puis les sous-titres reprennent. Les courbes de TikTok montraient que
   la plupart des spectateurs partaient à la première seconde, devant le titre. `STUDIO_CHOC=0` revient à l'ancien titre d'ouverture ;
   un épisode sans `choc` garde aussi le titre ;
 - **l'accroche d'abord**, mot pour mot celle de la légende, puis **un rappel en une phrase** (métro de nuit, ligne 13, station fantôme) :

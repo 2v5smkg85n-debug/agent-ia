@@ -717,6 +717,12 @@ def test_studio_tiktok_textes_ecrits_et_question(monkeypatch):
             assert scenes.decouper_plans(studio.minuter(texte, 0.4, duree), s, n, duree + 4)[0]["scene"] == "photo:" + ep["ouverture"], n
     ligne = studio._etiquette_mots([("quai", (255, 255, 255)), ("muré.", (240, 170, 60))], f)
     assert ligne.mode == "RGBA" and ligne.width > f.getlength("quai muré.") and ligne.getchannel("A").getextrema()[1] == 255
+    # la phrase choc s'efface au premier mot de la deuxième phrase ; accroche trop longue : à la dernière virgule avant 7 s
+    def dits(phrase, pas):
+        return [(m, 0.4 + k * pas, 0.4 + (k + 1) * pas) for k, m in enumerate(phrase.split())]
+    assert studio.fin_choc(dits("Un quai derrière un mur, une femme. Je suis conducteur.", 0.35)) == pytest.approx(0.4 + 7 * 0.35)
+    assert studio.fin_choc(dits("Roland a 95 ans, il ne m'a jamais vu, et il savait pour mon carnet dans la poche. Il dit.", 0.45)) == pytest.approx(0.4 + 9 * 0.45)
+    assert studio.fin_choc(dits("Non. Je", 0.3)) == 2.4 and studio.fin_choc(dits("Une phrase sans virgule " * 6 + "du tout. Puis la suite.", 0.4)) == 7.0
     # STUDIO_CHOC=0 : retour au grand titre et au premier plan choisi par les mots de la phrase
     texte = studio.texte_ecrit(s, 5)
     monkeypatch.setenv("STUDIO_CHOC", "0")
