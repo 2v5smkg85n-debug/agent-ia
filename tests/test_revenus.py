@@ -524,7 +524,27 @@ def test_studio_tiktok_plans_photographiques(monkeypatch, tmp_path):
                 "Il attend. Le panneau est allumé.", 8)
     assert vu["Roland a 78 ans."][0] == "roland" and vu["Lucienne lui a tendu une lanterne."][0] == "lanterne"
     assert vu["Josiane sort une photo de 1999."][0] == "photo"
-    for nom in ("micro", "mur", "roland", "photo"):  # les nouvelles images se rendent comme les autres
+    # le troisième lot : le banc des carnets (10), le contrôleur du terminus (11), Inès (12)
+    assert len(bq.noms) >= 24
+    for nom, n in {"banc": 10, "controleur": 11, "ines": 12}.items():
+        assert "photo:" + nom not in bq.scenes(n - 1) and "photo:" + nom in bq.scenes(n), nom
+    vu = montre("Je conduis la nuit. Sur un banc, des carnets. Des dizaines de carnets, alignés. Je me tais. "
+                "Je prends un carnet vide sur le banc.", 10)
+    assert vu["Sur un banc, des carnets."] == ("banc", 0) and vu["Des dizaines de carnets, alignés."] == ("banc", 1)
+    assert next(v for k, v in vu.items() if "vide" in k) == ("banc", 2)  # le carnet neuf, au premier plan
+    vu = montre("Je conduis la nuit. Au terminus, le contrôleur m'attend. Il regarde sa montre. "
+                "Le contrôleur dit : Treize minutes de retard, Malik.", 11)
+    assert vu["Au terminus, le contrôleur m'attend."] == ("controleur", 0) and vu["Il regarde sa montre."] == ("controleur", 1)
+    assert all(v[0] == "controleur" for k, v in vu.items() if "Treize" in k or "dit" in k)
+    assert montre("Je conduis la nuit. Au terminus, le contrôleur m'attend.", 10)["Au terminus, le contrôleur m'attend."][0] != "controleur"
+    # l'épisode 12 écrit d'avance : la dernière page se lit sur le carnet, Inès n'apparaît qu'à son arrivée au dépôt
+    douze = studio.texte_ecrit(s, 12)
+    pl12 = scenes.decouper_plans(studio.minuter(douze, 0.4, len(douze.split()) / 2.25), s, 12, len(douze.split()) / 2.25 + 4)
+    sc12 = [(p["scene"][len("photo:"):], p["texte"]) for p in pl12]
+    i_ines = next(i for i, (n, _) in enumerate(sc12) if n == "ines")
+    assert "nouvelle conductrice" in sc12[i_ines][1] and all(n == "carnet" for n, x in sc12 if "Prénom" in x or "prochaine" in x)
+    assert any(n == "ines" and "poche" in x for n, x in sc12) and sc12[-1][0] == "radio" and pl12[-1]["suspens"]
+    for nom in ("micro", "mur", "roland", "photo", "banc", "controleur", "ines"):  # les nouvelles images se rendent comme les autres
         vue = scenes.fabriquer({"scene": "photo:" + nom, "serie": "ligne13", "cadrage": 1, "graine": 2, "camera": "avant", "t0": 0.0}, palette)
         assert vue.photo and vue.plein(0.5, 0.2, 0.3, 0, 1.08).size == (1080, 1920), nom
     assert par_texte["Pas de quai."]["scene"] != "photo:quai"  # un mot nié n'appelle pas son image

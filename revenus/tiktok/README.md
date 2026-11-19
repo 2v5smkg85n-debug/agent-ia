@@ -62,11 +62,12 @@ Pour une nouvelle série dans `bible.json`, ajoute si tu veux `"animation": {"de
 ### Plans photographiques (personnages réalistes)
 
 Quand `medias/<serie>/plans.json` existe, la série est montée avec de vraies images au lieu des décors dessinés. « Le Veilleur de la ligne 13 »
-en a vingt et une. Les onze premières : Malik en cabine, son visage, le tunnel, la radio, le plan de ligne, le carnet, l'horloge à 02:14,
+en a vingt-quatre. Les onze premières : Malik en cabine, son visage, le tunnel, la radio, le plan de ligne, le carnet, l'horloge à 02:14,
 la femme du quai, le poste de commande, les archives, le quai Sainte-Blaise. Les dix suivantes font avancer l'histoire d'épisode en
 épisode : Malik au micro de la radio, la rame vide au terminus, Malik au dépôt, Josiane qui blêmit (épisode 3), la photo de Roland en 1972
 (3), l'ouverture murée de parpaings clairs (4), le journal de 1972 avec le portrait de Lucienne (5), Roland et son morceau de parpaing (6),
-Lucienne qui tend la lanterne (7), la photo d'Anselme devant le panneau allumé (8). Les deux autres séries gardent leurs décors dessinés
+Lucienne qui tend la lanterne (7), la photo d'Anselme devant le panneau allumé (8). Les trois dernières servent la fin de la saison : le banc des carnets sur le quai (10),
+le contrôleur du terminus qui regarde sa montre (11), Inès, la nouvelle conductrice, un carnet neuf dans la poche (12). Les deux autres séries gardent leurs décors dessinés
 tant qu'elles n'ont pas d'images.
 
 - **Relief** : chaque image a une carte de profondeur (`<nom>_prof.png`, blanc = proche). Quand la caméra avance ou glisse, le premier plan
@@ -78,7 +79,7 @@ tant qu'elles n'ont pas d'images.
   phrase ou à une virgule, jamais au milieu d'un groupe de mots. Environ 34 plans pour un épisode de 85 s.
 - **Pas de révélation avant l'heure** : `depuis` réserve une image aux épisodes qui ont le droit de la montrer (les archives à partir de
   l'épisode 2, Josiane et la photo de Roland à l'épisode 3, la femme, le quai et le mur à l'épisode 4, le journal au 5, Roland au 6, la
-  lanterne au 7, la photo d'Anselme au 8). Chaque épisode apporte ainsi au moins une image que le spectateur n'a jamais vue.
+  lanterne au 7, la photo d'Anselme au 8, le banc des carnets au 10, le contrôleur au 11, Inès au 12). Chaque épisode apporte ainsi au moins une image que le spectateur n'a jamais vue.
 - **Lumière vivante** : les néons vacillent, les voyants respirent, le voyant de la radio suit la voix, les lumières du tunnel passent sur la
   cabine, la poussière flotte sur le quai, aux archives et sur les vieilles photos, la flamme de la lanterne respire. Vignettage et grain de pellicule sont refaits à chaque image.
 - **Choix du plan** : par les mots de la phrase, comme pour les décors (`mots` dans `plans.json`). Une phrase sans mot-clé prend un plan
@@ -203,6 +204,6 @@ Sur le serveur, le studio se met à jour par cette archive et non par `git pull`
 modifiés sur place, que git refuserait de fusionner. La ligne ci-dessus ne remplace que `revenus/tiktok` et `tests/test_revenus.py` ; elle ne touche
 ni au bot, ni à `revenus/donnees` (état des séries, voix installées, vidéos).
 
-`test` doit afficher `OK voix du narrateur (Supertonic)` et `OK plans photographiques de « Le Veilleur de la ligne 13 » : 21 images`.
+`test` doit afficher `OK voix du narrateur (Supertonic)` et `OK plans photographiques de « Le Veilleur de la ligne 13 » : 24 images`.
 
 Si Ollama est indisponible, l'épisode du jour est un « texte de secours » court (accroche + étapes + suspens), signalé dans la légende : à republier plus tard si tu veux la version longue.
