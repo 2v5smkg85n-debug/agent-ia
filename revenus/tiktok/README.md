@@ -167,9 +167,25 @@ L'API « Content Posting » de TikTok met les vidéos en **privé** tant que l'a
 https://developers.tiktok.com/docs/en/content-sharing-guidelines/ . Il faut créer une app développeur, passer l'audit, puis autoriser le compte.
 Possible plus tard si tu le veux ; d'ici là, le bouton « Publier », c'est toi.
 
+## Des épisodes écrits pour être regardés jusqu'au bout
+
+Les épisodes 4 à 12 de la ligne 13 sont écrits d'avance dans `textes/ligne13/epNN.txt` ; le studio les prend avant Ollama
+(`STUDIO_TEXTES=0` pour revenir à Ollama). Chaque texte suit les mêmes règles, vérifiées par les tests :
+
+- **l'accroche d'abord**, mot pour mot celle de la légende, puis **un rappel en une phrase** (métro de nuit, ligne 13, station fantôme) :
+  celui qui tombe sur l'épisode 7 sans avoir vu les autres comprend en dix secondes, et les mots que les gens cherchent sont dits tôt ;
+- **150 à 170 mots**, soit 65 à 75 secondes : plus d'une minute, mais sans temps mort ; phrases de 19 mots au plus, une information par phrase ;
+- **une image par révélation** : les mots du texte appellent les plans (le mur, le journal, la lanterne, la photo), et rien n'est montré avant
+  que Malik le voie (la femme du quai n'apparaît qu'à la dernière phrase de l'épisode 4) ;
+- **le suspens coupé juste avant la réponse**, et la phrase qui l'annonce nomme celui qui parle pour que la bonne voix la dise ;
+- **une question courte** (`question` dans `bible.json`) posée sur la carte de fin et dans la légende : « Tu la prends, la lanterne ? ».
+
+Pour écrire les tiens : un fichier `textes/<serie>/epNN.txt`, une seule ligne ou plusieurs, sans guillemets ; la première phrase doit être
+l'`accroche` de `bible.json`. `python3 -m pytest tests/test_revenus.py -q` dit ce qui cloche.
+
 ## Ajouter ou corriger des histoires
 
-`bible.json` : chaque série a `titre`, `palette` (3 couleurs), `ambiance`, `narrateur`, `univers`, `hashtags`, `episodes` (liste de `accroche`, `beats`, `suspens`).
+`bible.json` : chaque série a `titre`, `palette` (3 couleurs), `ambiance`, `narrateur`, `univers`, `hashtags`, `episodes` (liste de `accroche`, `beats`, `suspens`, et `question` si tu veux une question sur la carte de fin).
 Quand les 12 épisodes d'une série sont épuisés, Ollama écrit une saison suivante dans `revenus/donnees/tiktok/saisons.json` (2 épisodes avant la fin, puis à la demande).
 ## Si un épisode sort avec la mauvaise voix ou sans les images
 

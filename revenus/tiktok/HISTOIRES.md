@@ -17,14 +17,14 @@ Pourquoi ces formats : TikTok paie les vidéos originales de plus d'une minute, 
 | 2 | La radio connaît mon prénom, et le PC de contrôle me jure que personne n'a parlé sur ma fréquence. | Sur le plan, quelqu'un a écrit récemment, au stylo bleu, son numéro de matricule. |
 | 3 | Mon matricule est écrit sur un plan de 1972, et je suis né en 1985. | Josiane ajoute : « Roland avait ton âge. Et il écrivait tout dans un carnet, comme toi. » |
 | 4 | Cette nuit, j'ai décidé de ralentir à l'endroit exact où la station n'existe pas. | Sur le quai, une femme en uniforme ancien lève la main, comme pour arrêter la rame. |
-| 5 | J'ai vu un quai derrière le mur, et une femme qui me faisait signe d'arrêter. | Au dos de la photocopie, imprimée ce matin, trois mots apparaissent lentement : « Elle attend encore. » |
-| 6 | Une disparue de 1972 attend sur un quai que le métro n'a jamais ouvert, et c'est moi qu'elle attend. | Roland le reconnaît avant qu'il parle : « Tu as le carnet. Alors elle t'a choisi aussi. » |
-| 7 | Roland a 78 ans, il ne m'a jamais vu, et il savait que j'aurais un carnet dans la poche. | « Si tu prends ce qu'elle te tend, dit Roland, tu ne reviens pas conducteur. Tu reviens veilleur. » |
+| 5 | J'ai vu un quai derrière un mur, et une femme qui me faisait signe d'arrêter. | Au dos de la photocopie, imprimée ce matin, trois mots apparaissent lentement : « Elle attend encore. » |
+| 6 | Une femme disparue en 1972 attend sur un quai fantôme, et c'est moi qu'elle attend. | Roland le reconnaît avant qu'il parle : « Tu as le carnet. Alors elle t'a choisi aussi. » |
+| 7 | Roland a 95 ans, il ne m'a jamais vu, et il savait que j'avais un carnet dans la poche. | « Si tu prends ce qu'elle te tend, dit Roland, tu ne reviens pas conducteur. Tu reviens veilleur. » |
 | 8 | On m'a proposé de devenir le veilleur d'une station qui n'existe pas, et je n'ai pas dit non. | Derrière Anselme, sur la photo, le panneau Sainte-Blaise est allumé, et la date de la photo est celle de la nuit prochaine, vingt-sept ans plus tôt. |
 | 9 | Un homme disparu en 1998 pose sur une photo datée de demain. | À 2 h 14, pour la première fois, l'annonce est en avance : « Prochain arrêt, Sainte-Blaise. Portes côté gauche. » |
 | 10 | Cette nuit, j'ai ouvert les portes sur un quai qui n'existe pas. | Lucienne lui tend la lanterne. Derrière lui, les portes de la rame commencent à se refermer. |
 | 11 | J'avais quatre secondes pour choisir entre ma rame et une lanterne. | Il remonte dans la rame. Au terminus, le contrôleur lui demande pourquoi il a treize minutes de retard, alors qu'il en a vécu quatre. |
-| 12 | Je suis le premier veilleur qui rentre chez lui le matin, et ça a un prix que je découvre ce soir. | À 2 h 14, dans la cabine de Malik, la radio reste muette pour la première fois en trois mois. Dans celle d'Inès, une voix calme annonce : « Prochain arrêt, Sainte-Blaise. » |
+| 12 | Je suis le premier veilleur qui rentre chez lui le matin, et ça a un prix. | À 2 h 14, dans la cabine de Malik, la radio reste muette pour la première fois en trois mois. Dans celle d'Inès, une voix calme annonce : « Prochain arrêt, Sainte-Blaise. » |
 
 ## Les Lettres de 2043
 

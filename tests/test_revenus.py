@@ -633,3 +633,49 @@ def test_studio_tiktok_refaire_et_alertes(monkeypatch, tmp_path):
     monkeypatch.setattr(voix, "moteurs", lambda: {"kokoro": "python"})
     b = studio.bible()
     assert not studio.alertes_voix(next(x for x in b["series"] if x["id"] == "lettres2043"))
+
+
+def test_studio_tiktok_textes_ecrits_et_question(monkeypatch):
+    sys.path.insert(0, os.path.join(RACINE, "revenus", "tiktok"))
+    import re
+    import studio  # noqa: E402
+    import voix  # noqa: E402
+    import scenes  # noqa: E402
+    b = studio.bible()
+    s = next(x for x in b["series"] if x["id"] == "ligne13")
+    for n in range(4, 13):
+        ep = s["episodes"][n - 1]
+        texte, secours = studio.ecrire_episode(b, s, n)
+        # le texte écrit d'avance passe avant Ollama : il ouvre sur l'accroche de la légende et tient en un peu plus d'une minute
+        assert not secours and texte == studio.texte_ecrit(s, n) and texte.startswith(ep["accroche"]), n
+        assert 140 <= len(texte.split()) <= 185, n
+        phrases = re.split(r"(?<=[.!?]) ", texte)
+        assert max(len(p.split()) for p in phrases) <= 19, n
+        # celui qui tombe sur l'épisode sans avoir vu les autres comprend en dix secondes : métro, ligne 13, station fantôme
+        debut = " ".join(texte.split()[:45]).lower()
+        assert "ligne 13" in debut and ("fantôme" in debut or "n'existe pas" in debut), n
+        # la question de fin : courte, dans la légende, et la légende reste sous la limite Telegram
+        assert 8 <= len(ep["question"]) <= 36 and ep["question"].endswith("?"), n
+        legende = studio.legende_tiktok(s, n, ep, False)
+        assert ep["question"] in legende and ep["accroche"] in legende and len(legende) < 1000, n
+        # aucune image d'un épisode à venir, et le dernier plan porte le suspens
+        duree = len(texte.split()) / 2.25
+        plans = scenes.decouper_plans(studio.minuter(texte, 0.4, duree), s, n, duree + 4)
+        assert plans[-1]["suspens"] and len({p["scene"] for p in plans}) >= 9, n
+    # la femme du quai n'apparaît qu'à la toute fin de l'épisode 4 (pas avant qu'il la voie)
+    texte = studio.texte_ecrit(s, 4)
+    duree = len(texte.split()) / 2.25
+    plans = scenes.decouper_plans(studio.minuter(texte, 0.4, duree), s, 4, duree + 4)
+    assert [p["scene"] for p in plans].index("photo:femme") >= len(plans) - 2
+    # l'annonce de la radio garde sa voix de femme, Malik garde la sienne quand c'est lui qui parle
+    prises = voix.attribuer(voix.decouper(texte, s["voix_personnages"]), "homme", "femme")
+    assert [" ".join(p["mots"]) for p in prises if p["voix"] == "femme"] == ["Prochain arrêt, Sainte-Blaise."]
+    prises = voix.attribuer(voix.decouper(studio.texte_ecrit(s, 9), s["voix_personnages"]), "homme", "femme")
+    assert [" ".join(p["mots"]) for p in prises if p["voix"] == "femme"] == ["Prochain arrêt, Sainte-Blaise, portes côté gauche."]
+    # sans les textes écrits (STUDIO_TEXTES=0) : retour à Ollama, donc ici au texte de secours
+    monkeypatch.setenv("STUDIO_TEXTES", "0")
+    texte, secours = studio.ecrire_episode(b, s, 4)
+    assert secours and studio.texte_ecrit(s, 4) is None
+    # les séries sans texte écrit ne changent pas
+    monkeypatch.delenv("STUDIO_TEXTES")
+    assert studio.texte_ecrit(b["series"][1], 1) is None and studio.texte_ecrit(s, 1) is None

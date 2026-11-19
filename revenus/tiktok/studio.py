@@ -47,6 +47,7 @@ ETAT = os.path.join(DOSSIER, "etat.json")
 SAISONS = os.path.join(DOSSIER, "saisons.json")
 JOURNAL = os.path.join(DOSSIER, "studio.log")
 BIBLE = os.path.join(ICI, "bible.json")
+TEXTES = os.path.join(ICI, "textes")
 VOIX = "fr_FR-siwis-medium"
 LARGEUR, HAUTEUR, FPS = 1080, 1920, 24
 POLICES = ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
@@ -119,8 +120,24 @@ def nettoyer_texte(t):
     return t
 
 
+def texte_ecrit(s, n):
+    """Le texte d'un épisode écrit d'avance (textes/<série>/epNN.txt), ou None : il passe avant Ollama, pour que les
+    épisodes sortent tous avec la même tenue (accroche, rappel en une phrase, suspens coupé juste avant la réponse)."""
+    if env("STUDIO_TEXTES", "1") == "0":
+        return None
+    try:
+        with open(os.path.join(TEXTES, str(s.get("id")), f"ep{int(n):02d}.txt"), encoding="utf-8") as f:
+            texte = nettoyer_texte(f.read())
+    except OSError:
+        return None
+    return texte if len(texte.split()) >= 100 else None
+
+
 def ecrire_episode(b, s, n):
     ep = s["episodes"][n - 1]
+    ecrit = texte_ecrit(s, n)
+    if ecrit:
+        return ecrit, False
     precedents = s["episodes"][max(0, n - 4):n - 1]
     rappel = "\n".join(f"- Épisode {n - len(precedents) + i} : {p['accroche']} Fin : {p['suspens']}"
                        for i, p in enumerate(precedents)) or "- (c'est le premier épisode)"
@@ -641,6 +658,12 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
     f_bas = scenes.police(44)
     if f_bas.getlength(bas) > MAXI:
         f_bas = scenes.police(int(44 * MAXI / f_bas.getlength(bas)))
+    # la question de l'épisode (bible.json) : posée sur la carte de fin, elle donne envie de répondre en commentaire
+    question = str(serie["episodes"][numero - 1].get("question") or "").strip() if 0 < numero <= len(serie["episodes"]) else ""
+    f_q = scenes.police(58)
+    if question and f_q.getlength(question) > MAXI:
+        f_q = scenes.police(int(58 * MAXI / f_q.getlength(question)))
+    dy_q = 86 if question else 0
     f_rond, f_rond2 = scenes.police(92), scenes.police(26)
 
     pages = {}
@@ -836,12 +859,15 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
                                     fill=accent + (255,))
             c4 = min(1.0, max(0.0, (carte - 0.8) / 0.4))
             if c4 > 0:
-                d.text((LARGEUR / 2, yc + 300 + 14 * (1 - c4)), bas, font=f_bas, fill=(240, 240, 240, int(255 * c4)),
+                if question:
+                    d.text((LARGEUR / 2, yc + 306 + 14 * (1 - c4)), question, font=f_q, fill=accent + (int(255 * c4),),
+                           anchor="mm", stroke_width=5, stroke_fill=(0, 0, 0, int(230 * c4)))
+                d.text((LARGEUR / 2, yc + 300 + dy_q + 14 * (1 - c4)), bas, font=f_bas, fill=(240, 240, 240, int(255 * c4)),
                        anchor="mm", stroke_width=4, stroke_fill=(0, 0, 0, int(220 * c4)))
             c5 = carte - 1.0
             if c5 > 0 and suivant:
                 r = 96 * (0.5 + 0.5 * _rebond(c5 / 0.35)) + 4 * math.sin(t * 6)
-                xr, yr = LARGEUR / 2, yc + 480
+                xr, yr = LARGEUR / 2, yc + 480 + dy_q
                 reste = max(0.0, min(1.0, c5 / max(0.4, duree_totale - t_carte - 1.15)))
                 d.ellipse([xr - r, yr - r, xr + r, yr + r], fill=(0, 0, 0, 150), outline=(255, 255, 255, 70), width=8)
                 d.arc([xr - r, yr - r, xr + r, yr + r], -90, -90 + 360 * reste, fill=accent + (255,), width=8)
@@ -896,7 +922,9 @@ def telegram_video(chemin, legende):
 
 def legende_tiktok(serie, numero, ep, secours):
     accro = ep["accroche"]
-    l = f"{serie['titre']} — Épisode {numero}\n\n{accro}\n\n{serie['hashtags']}\n#voixsynthetique #fiction"
+    question = str(ep.get("question") or "").strip()  # la question posée à la fin : elle appelle les commentaires
+    l = (f"{serie['titre']} — Épisode {numero}\n\n{accro}\n\n" + (question + "\n\n" if question else "")
+         + f"{serie['hashtags']}\n#voixsynthetique #fiction")
     if secours:
         l += "\n\n(Texte de secours : Ollama indisponible, épisode court.)"
     return l
@@ -973,7 +1001,8 @@ def livrer(s, n, mp4, taille, secours, alertes, mention=""):
     legende = legende_tiktok(s, n, s["episodes"][n - 1], secours)
     if not telegram_video(mp4, legende):
         telegram(f"Studio TikTok : vidéo prête mais non envoyée ({taille:.0f} Mo) : {mp4}\n\n{legende}")
-    telegram("Légende à coller dans TikTok (appui long → copier) :\n\n" + legende, silencieux=True)
+    telegram("Légende à coller dans TikTok (appui long → copier). Avant de publier : active « Contenu généré par l'IA » "
+             "dans Plus d'options, et réponds aux premiers commentaires :\n\n" + legende, silencieux=True)
     if alertes:
         telegram(f"Studio TikTok, à corriger avant de publier ({s['titre']} ép. {n}{mention}) :\n- " + "\n- ".join(alertes))
     for a in alertes:
