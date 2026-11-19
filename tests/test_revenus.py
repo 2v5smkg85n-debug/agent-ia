@@ -692,6 +692,36 @@ def test_studio_tiktok_textes_ecrits_et_question(monkeypatch):
     assert [" ".join(p["mots"]) for p in prises if p["voix"] == "femme"] == ["Prochain arrêt, Sainte-Blaise."]
     prises = voix.attribuer(voix.decouper(studio.texte_ecrit(s, 9), s["voix_personnages"]), "homme", "femme")
     assert [" ".join(p["mots"]) for p in prises if p["voix"] == "femme"] == ["Prochain arrêt, Sainte-Blaise, portes côté gauche."]
+    # l'ouverture : une phrase choc courte, lisible en une seconde, sur l'image la plus intrigante de l'épisode
+    pytest.importorskip("PIL.Image")
+    import photos  # noqa: E402
+    monkeypatch.delenv("STUDIO_PHOTOS", raising=False)
+    monkeypatch.delenv("STUDIO_MEDIAS", raising=False)
+    monkeypatch.delenv("STUDIO_CHOC", raising=False)
+    bq = photos.banque("ligne13")
+    assert studio.phrase_choc("Une femme me fait *signe* depuis un quai *muré*.") == [
+        ("Une", False), ("femme", False), ("me", False), ("fait", False), ("signe", True), ("depuis", False), ("un", False),
+        ("quai", False), ("muré.", True)]
+    assert [f for _, f in studio.phrase_choc("Un plan de 1972.")] == [False, False, False, True]  # sans astérisque : les chiffres
+    assert studio.phrase_choc(None) == []
+    f = scenes.police(104)
+    for n, ep in enumerate(s["episodes"], 1):
+        choc = studio.phrase_choc(ep["choc"])
+        assert 4 <= len(choc) <= 10 and any(fort for _, fort in choc) and "*" not in " ".join(m for m, _ in choc), n
+        corps, lignes = studio.corps_choc(choc, 840)
+        assert corps >= 64 and len(lignes) <= 3 and sum(len(x) for x in lignes) == len(choc), n  # trois lignes au plus, en gros
+        assert "photo:" + ep["ouverture"] in bq.scenes(n), n  # l'image d'ouverture existe et a le droit d'être montrée
+        if n >= 4:
+            texte = studio.texte_ecrit(s, n)
+            duree = len(texte.split()) / 2.25
+            assert scenes.decouper_plans(studio.minuter(texte, 0.4, duree), s, n, duree + 4)[0]["scene"] == "photo:" + ep["ouverture"], n
+    ligne = studio._etiquette_mots([("quai", (255, 255, 255)), ("muré.", (240, 170, 60))], f)
+    assert ligne.mode == "RGBA" and ligne.width > f.getlength("quai muré.") and ligne.getchannel("A").getextrema()[1] == 255
+    # STUDIO_CHOC=0 : retour au grand titre et au premier plan choisi par les mots de la phrase
+    texte = studio.texte_ecrit(s, 5)
+    monkeypatch.setenv("STUDIO_CHOC", "0")
+    assert scenes.decouper_plans(studio.minuter(texte, 0.4, 68.0), s, 5, 72.0)[0]["scene"] != "photo:femme"
+    monkeypatch.delenv("STUDIO_CHOC")
     # sans les textes écrits (STUDIO_TEXTES=0) : retour à Ollama, donc ici au texte de secours
     monkeypatch.setenv("STUDIO_TEXTES", "0")
     texte, secours = studio.ecrire_episode(b, s, 4)

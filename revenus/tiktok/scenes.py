@@ -1267,12 +1267,19 @@ def decouper_plans(mots, serie, numero, duree_totale, mini=1.9, maxi=5.8):
     cameras = ["avant", "arriere", "droite", "avant", "gauche"]
     transitions = ["flash", "zoom", "glitch", "zoom"]
     plans, precedente, dernier_nombre, vues = [], None, -5, {}
+    # l'image d'ouverture (bible.json, « ouverture ») : la plus intrigante de l'épisode, montrée dès la première seconde
+    eps = serie.get("episodes") or []
+    ouverture = "photo:" + str((eps[numero - 1] if 0 < numero <= len(eps) else {}).get("ouverture") or "")
+    if os.environ.get("STUDIO_CHOC", "1") == "0":
+        ouverture = ""
     for i, b in enumerate(coupes):
         texte = " ".join(m[0] for m in b)
         net = sans_accent(texte)
         info = dict(regl)
         info["suspens"] = b[0][1] >= debut_suspens - 1e-6
         scene = None
+        if i == 0 and banque and ouverture in dispo:
+            scene = ouverture
         if i > 0 and banque:  # avec des photos : l'heure dite appelle le plan qui la montre, pas d'écran dessiné
             mh = RE_HEURE.search(net)
             montre = banque.pour_heure(int(mh.group(1)), int(mh.group(2))) if mh else None

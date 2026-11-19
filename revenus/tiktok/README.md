@@ -173,6 +173,11 @@ Possible plus tard si tu le veux ; d'ici là, le bouton « Publier », c'est toi
 Les épisodes 4 à 12 de la ligne 13 sont écrits d'avance dans `textes/ligne13/epNN.txt` ; le studio les prend avant Ollama
 (`STUDIO_TEXTES=0` pour revenir à Ollama). Chaque texte suit les mêmes règles, vérifiées par les tests :
 
+- **une phrase choc dès la première image** (`choc` dans `bible.json`, dix mots au plus, les mots entre astérisques en couleur) : elle
+  est entière à l'écran dès la première image, à la place du grand titre, sur l'image la plus intrigante de l'épisode (`ouverture`), en
+  pleine lumière. Elle reste le temps que la voix dise l'accroche, puis les sous-titres reprennent. Les courbes de TikTok montraient que
+  la plupart des spectateurs partaient à la première seconde, devant le titre. `STUDIO_CHOC=0` revient à l'ancien titre d'ouverture ;
+  un épisode sans `choc` garde aussi le titre ;
 - **l'accroche d'abord**, mot pour mot celle de la légende, puis **un rappel en une phrase** (métro de nuit, ligne 13, station fantôme) :
   celui qui tombe sur l'épisode 7 sans avoir vu les autres comprend en dix secondes, et les mots que les gens cherchent sont dits tôt ;
 - **150 à 170 mots**, soit 65 à 75 secondes : plus d'une minute, mais sans temps mort ; phrases de 19 mots au plus, une information par phrase ;
@@ -186,7 +191,7 @@ l'`accroche` de `bible.json`. `python3 -m pytest tests/test_revenus.py -q` dit c
 
 ## Ajouter ou corriger des histoires
 
-`bible.json` : chaque série a `titre`, `palette` (3 couleurs), `ambiance`, `narrateur`, `univers`, `hashtags`, `episodes` (liste de `accroche`, `beats`, `suspens`, et `question` si tu veux une question sur la carte de fin).
+`bible.json` : chaque série a `titre`, `palette` (3 couleurs), `ambiance`, `narrateur`, `univers`, `hashtags`, `episodes` (liste de `accroche`, `beats`, `suspens`, `question` si tu veux une question sur la carte de fin, `choc` et `ouverture` pour la phrase et l'image de la première seconde).
 Quand les 12 épisodes d'une série sont épuisés, Ollama écrit une saison suivante dans `revenus/donnees/tiktok/saisons.json` (2 épisodes avant la fin, puis à la demande).
 ## Si un épisode sort avec la mauvaise voix ou sans les images
 

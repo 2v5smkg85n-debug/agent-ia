@@ -500,6 +500,52 @@ def _etiquette(texte, f, couleur, contour=6, ombre=12):
     return im
 
 
+def phrase_choc(texte):
+    """« Une femme me fait *signe* » → [(mot, fort)]. Les mots entre astérisques sont mis en valeur ; sans astérisque,
+    ce sont les chiffres et les mots qui portent le frisson."""
+    texte = re.sub(r"\*([^*]+)\*([.,;:!?…]+)", r"*\1\2*", str(texte or ""))
+    mots, fort = [], False
+    for bout in re.split(r"(\*)", texte):
+        if bout == "*":
+            fort = not fort
+        else:
+            mots += [(m, fort) for m in bout.split()]
+    if not any(f for _, f in mots):
+        mots = [(m, mot_fort(m)) for m, _ in mots]
+    return mots
+
+
+def corps_choc(mots, maxi, lignes_maxi=3):
+    """Le plus gros corps (104 à 64) qui fait tenir la phrase choc en trois lignes au plus : (corps, lignes de mots)."""
+    import scenes
+    corps = 104
+    while True:
+        lignes = _lignes([m for m, _ in mots], scenes.police(corps).getlength, maxi)
+        if len(lignes) <= lignes_maxi or corps <= 64:
+            return corps, lignes
+        corps -= 6
+
+
+def _etiquette_mots(mots, f, contour=7, ombre=14):
+    """Une ligne prête à poser (RGBA) dont chaque mot a sa couleur : [(mot, couleur)]. Contour noir + ombre portée."""
+    from PIL import Image, ImageDraw, ImageFilter
+    texte = " ".join(m for m, _ in mots)
+    g, h, d_, b = f.getbbox(texte, stroke_width=contour)
+    marge = contour + ombre * 2 + 4
+    w, ht = int(d_ - g) + 2 * marge, int(b - h) + 2 * marge
+    im = Image.new("RGBA", (w, ht), (0, 0, 0, 0))
+    dessin = ImageDraw.Draw(im)
+    x = marge + contour
+    for m, couleur in mots:
+        dessin.text((x, ht / 2), m, font=f, fill=tuple(couleur) + (255,), anchor="lm", stroke_width=contour, stroke_fill=(0, 0, 0, 255))
+        x += f.getlength(m + " ")
+    if ombre:
+        fond = Image.new("RGBA", (w, ht), (0, 0, 0, 255))
+        fond.putalpha(im.getchannel("A").filter(ImageFilter.GaussianBlur(ombre)).point(lambda v: int(v * 0.75)))
+        im = Image.alpha_composite(fond, im)
+    return im
+
+
 def _poser(base, etq, cx, cy, echelle=1.0, alpha=1.0):
     """Pose une étiquette centrée en (cx, cy), agrandie et plus ou moins transparente."""
     from PIL import Image
@@ -641,6 +687,25 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
         f_titre -= 6
     l_titre = _lignes(serie["titre"].upper().split(), largeur(scenes.police(f_titre)), MAXI + 40)
     e_titre = [_etiquette(" ".join(x), scenes.police(f_titre), (255, 255, 255), 7, 14) for x in l_titre]
+    # ouverture « choc » : la phrase courte de l'épisode (bible.json, « choc ») tient l'écran dès la toute première image,
+    # sur une image en pleine lumière, à la place du grand titre ; les sous-titres reprennent à la deuxième phrase
+    ep_bible = serie["episodes"][numero - 1] if 0 < numero <= len(serie["episodes"]) else {}
+    m_choc = phrase_choc(ep_bible.get("choc")) if env("STUDIO_CHOC", "1") != "0" else []
+    e_choc, t_choc, pas_choc = [], 0.0, 0.0
+    if m_choc:
+        f_c, l_choc = corps_choc(m_choc, MAXI)
+        k_c = 0
+        for ligne in l_choc:
+            e_choc.append(_etiquette_mots([(m, accent if m_choc[k_c + j][1] else (255, 255, 255)) for j, m in enumerate(ligne)],
+                                          scenes.police(f_c)))
+            k_c += len(ligne)
+        pas_choc = f_c * 1.2
+        # elle reste le temps de l'accroche dite par la voix, jusqu'au premier mot de la phrase suivante
+        k_fin = next((k for k, m in enumerate(mots) if m[0].endswith((".", "!", "?", "…"))), None)
+        suite_voix = 2.6 if k_fin is None else (mots[k_fin + 1][1] if k_fin + 1 < len(mots) else mots[k_fin][2])
+        t_choc = min(6.5, max(2.4, suite_voix))
+        t_titre = 0.0  # pas de grand titre : l'en-tête (série, épisode) est là dès le début
+    y_choc = HAUTEUR * 0.64
     f_ep = scenes.police(54)
     txt_ep = f"ÉPISODE {numero}"
     w_ep = f_ep.getlength(txt_ep) + 64
@@ -732,7 +797,7 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
         if carte >= 0:
             teinte = assombri
             noirceur = 0.2
-        elif t < t_titre + 0.3:
+        elif t < t_titre + 0.3 and not e_choc:
             teinte = retenu[min(len(retenu) - 1, int(len(retenu) * max(0.0, (t - t_titre + 0.15) / 0.45)))]
         if not photo:
             if teinte is not None:
@@ -782,7 +847,7 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
         d = ImageDraw.Draw(plein, "RGBA")
 
         # --- en-tête : apparaît quand le titre s'en va ; barres qui suivent la voix ; progression
-        a_haut = min(1.0, max(0.0, (t - t_titre + 0.2) / 0.4))
+        a_haut = 1.0 if e_choc else min(1.0, max(0.0, (t - t_titre + 0.2) / 0.4))
         if a_haut > 0 and not (t_noir <= t < t_carte):
             x0, y0 = (LARGEUR - w_haut) / 2, 172
             d.rounded_rectangle([x0, y0, x0 + w_haut, y0 + 60], radius=30, fill=(0, 0, 0, int(135 * a_haut)))
@@ -798,7 +863,15 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
                                 fill=accent + (int(255 * a_haut),))
 
         # --- titre d'ouverture : il claque, tient deux secondes, puis file vers le haut
-        if t < t_titre + 0.3:
+        if e_choc and t < t_choc:
+            # --- phrase choc : entière et lisible dès la première image, elle s'efface quand l'accroche a été dite
+            a_c = 1.0 - scenes.doux((t - t_choc + 0.25) / 0.25)
+            plein.paste(noir_bande, (0, int(y_choc) - 300), bande.point(lambda v_: int(v_ * a_c)) if a_c < 0.99 else bande)
+            ech_c = 1.0 + 0.05 * (1 - scenes.doux(t / 0.2))
+            for n_l, etq in enumerate(e_choc):
+                _poser(plein, etq, LARGEUR / 2, y_choc + (n_l - (len(e_choc) - 1) / 2) * pas_choc, ech_c, a_c)
+            d = ImageDraw.Draw(plein, "RGBA")
+        elif not e_choc and t < t_titre + 0.3:
             sortie_t = scenes.doux((t - t_titre + 0.15) / 0.45)
             alpha = min(1.0, t / 0.12 + 0.35) * (1 - sortie_t)
             yt = HAUTEUR * 0.285 - 150 * sortie_t
@@ -815,7 +888,7 @@ def rendre(texte, audio_wav, duree_totale, debut_voix, duree_voix, serie, numero
                                     fill=accent + (int(255 * ae),))
                 d.text((LARGEUR / 2, ye), txt_ep, font=f_ep, fill=sombre + (int(255 * ae),), anchor="mm")
 
-        if t < t_noir:
+        if t < t_noir and not (e_choc and t < t_choc):
             # --- sous-titres : chaque mot arrive quand il est dit, le mot en cours est surligné
             while i_grp < len(grp) - 1 and t >= grp[i_grp + 1][0][1]:
                 i_grp += 1
