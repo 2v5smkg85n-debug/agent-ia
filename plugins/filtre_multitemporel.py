@@ -8,7 +8,13 @@ Comportement (tendance daily via EMA20 vs EMA50 + prix):
   - hausse        (EMA20>EMA50, prix>EMA20) -> autorise, pleine taille
   - neutre        (EMAs mélangés)            -> autorise, taille x0.85
   - baisse_moyenne (EMA20<EMA50, prix>EMA50) -> autorise, taille x0.60 (contre-tendance modérée)
-  - baisse_forte   (EMA20<EMA50, prix<EMA50) -> VETO (acheter contre un bear fort = risque)
+  - baisse_forte   (EMA20<EMA50, prix<EMA50) -> VETO d'entree (acheter contre un bear fort = risque), taille x0.60
+
+22/11/2026 : en baisse_forte, hook_sizing mettait la taille a ZERO. C'etait un second veto, silencieux : quand
+l'entonnoir a desarme le veto d'entree (couche « plugin », mesuree nuisible), la taille nulle continuait de refuser
+chaque candidat sans rien ecrire (aucune ligne d'arret, rien dans l'entonnoir ni a la porte). Avec tout le marche en
+baisse_forte, plus aucun candidat des strategies techniques n'arrivait a la porte (constat du 22/11). Desormais la decision de bloquer n'appartient
+qu'au veto d'entree, que l'entonnoir mesure, desarme et rearme ; hook_sizing ne fait plus que reduire.
 
 Cache 1h par symbole (évite de refetcher le daily à chaque trade).
 Leçon mémoire marché: BTC 2025 -7%, 2026 -25% -> le daily filtre les achats contre-tendance.
@@ -83,8 +89,9 @@ def hook_sizing(pf, signal, montant, prix_actuel):
         if not sym:
             return base
         tend = _tendance_daily(sym)
+        # baisse_forte : jamais 0 ici (voir l'en-tete) ; le blocage passe par hook_entree, mesure par l'entonnoir
         facteur = {"hausse": 1.0, "neutre": 0.85,
-                   "baisse_moyenne": 0.60, "baisse_forte": 0.0}.get(tend, 1.0)
+                   "baisse_moyenne": 0.60, "baisse_forte": 0.60}.get(tend, 1.0)
         return max(0.0, base * facteur)
     except Exception:
         return float(montant) if montant else 0.0

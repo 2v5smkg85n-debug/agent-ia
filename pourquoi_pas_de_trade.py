@@ -451,7 +451,7 @@ def section_signaux(heures, log):
         part = top[1] / max(1, len(recents))
         if top[0] == "porte" and part >= 0.6:
             raisons = Counter(str(x.get("raison", ""))[:60] for x in recents if x.get("etape") == "porte")
-            cause(1, f"Le cerveau est arrete par la porte dans {part * 100:.0f} % des cas : {raisons.most_common(1)[0][0]}.", "python3 porte_entree.py bilan")
+            cause(1, f"Le cerveau s'arrete a l'etape « porte » (seuil de confiance, checklist ou porte) dans {part * 100:.0f} % des cas : {raisons.most_common(1)[0][0]}.", "python3 porte_entree.py bilan")
         elif top[0] == "preselection" and part >= 0.6:
             cause(2, f"La preselection du cerveau ne trouve aucune crypto avec un score positif ({part * 100:.0f} % des cas) : marche juge defavorable, pas une panne.", "python3 cerveau.py")
         elif top[0] == "analyste" and part >= 0.6:
@@ -479,7 +479,8 @@ _ARRETS = [re.compile(x) for x in (
     r"^\s*\[ACHAT\]", r"^\s*\[COOLDOWN", r"^\s*\[VOLATILITE\]", r"^\s*\[FLASH\] Circuit breaker", r"^\s*\[LIQUIDITE\].*minimum",
     r"^\s*\[CASIER\].*(bloquee|skip)", r"^\s*\[ANTI-CORR\]", r"^\s*\[ANTI-GAP\]", r"^\s*\[CIRCUIT BREAKER\]",
     r"^\s*\[POIDS STRAT\].*bloqu", r"^\s*\[SENTIMENT GATE\].*bloqu", r"^\s*\[PROFESSEURS\]", r"^\s*\[MACRO GATE\].*bloqu",
-    r"^\s*\[SOCIAL GATE\].*bloqu", r"^\s*\[BOUGIES\].*bloqu", r"^\s*\[META-IA\].*(SKIP|bloque|skip \()",
+    r"^\s*\[SOCIAL GATE\].*bloqu", r"^\s*\[BOUGIES\].*bloqu", r"^\s*\[META-IA\] .*: (SKIP \(|bloque \(|skip \(confiance)",
+    r"^\s*\[PLUGIN [^\]]*\] sizing \d+->0EUR",
     r"^\s*\[PLUGIN [^\]]*\] entr.e bloqu", r"^\s*\[CONFLUENCE\].*entree bloquee", r"^\s*\[REVOLUT-X\]", r"^\s*\[S/R\].*SKIP",
     r"^\s*\[SKIP\]", r"^\s*\[CORREL\].*skip", r"^\s*\[REGISTRE\].*(retiree|probation: 1 position)", r"^\s*\[REGLE\]")]
 _FIN_BLOC = re.compile(r"Verification des prix|^\s*\[BLACKLIST\]|^\s*\[STAGGER\]|Aucun signal d'achat")
@@ -544,7 +545,10 @@ def section_trajet():
             print(f"            ex. {exemples[(strat, cle)]}")
         if not ouverts:
             cle, v = c.most_common(1)[0]
-            if "retiree" in cle:
+            if "sizing" in cle and "->NEUR" in cle:
+                cause(1, f"{strat} : un plugin met la taille a ZERO ({v} candidats sur {total}) ; c'est un veto silencieux qui echappe a l'entonnoir : "
+                         + exemples[(strat, cle)][:70], "")
+            elif "retiree" in cle:
                 cause(3, f"{strat} est retiree du registre (perdante a vie) : ses {total} candidats traversent toutes les couches puis sont refuses, c'est voulu.",
                       "python3 registre_strategies.py")
             else:
