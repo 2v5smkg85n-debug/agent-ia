@@ -5,7 +5,7 @@ Tout tourne en local sur le VPS, sans clé ni API payante :
   - texte     : Ollama local (bible.json = séries, personnages, 12 épisodes chacune)
   - voix      : une narratrice (Kokoro) et un narrateur (Supertonic), selon la série (voix.py) ; Piper en dernier secours
   - image     : décors animés 1080×1920 (scenes.py, PIL + numpy), un plan par phrase, sous-titres mot à mot
-  - montage   : ffmpeg (H.264 + AAC), 70-90 s, < 45 Mo
+  - montage   : ffmpeg (H.264 + AAC), 40 s par défaut (STUDIO_DUREE ; 70 = format long, plus d'une minute), < 45 Mo
   - livraison : Telegram sendVideo + légende prête à coller dans TikTok
 
 Commandes :
@@ -120,17 +120,44 @@ def nettoyer_texte(t):
     return t
 
 
+def duree_cible():
+    """Durée visée d'un épisode, en secondes : STUDIO_DUREE (40 par défaut ; 70 = format long, plus d'une minute)."""
+    try:
+        d = float(env("STUDIO_DUREE", "40") or 40)
+    except ValueError:
+        d = 40.0
+    return max(20.0, min(120.0, d))
+
+
+def format_court():
+    return duree_cible() < 55
+
+
+def mots_cibles():
+    """(mini, maxi, plafond) de mots pour la durée visée. Format long : les réglages d'origine. Format court : la voix dit
+    environ 2,45 mots par seconde, et la carte de fin prend 4 secondes."""
+    if not format_court():
+        return 180, 230, 270
+    centre = (duree_cible() - 4.0) * 2.45
+    return int(centre * 0.90), int(centre * 1.04), int(centre * 1.16)
+
+
 def texte_ecrit(s, n):
     """Le texte d'un épisode écrit d'avance (textes/<série>/epNN.txt), ou None : il passe avant Ollama, pour que les
-    épisodes sortent tous avec la même tenue (accroche, rappel en une phrase, suspens coupé juste avant la réponse)."""
+    épisodes sortent tous avec la même tenue (accroche, rappel en une phrase, suspens coupé juste avant la réponse).
+    Format court (STUDIO_DUREE < 55) : la version courte textes/<série>/court/epNN.txt passe d'abord."""
     if env("STUDIO_TEXTES", "1") == "0":
         return None
-    try:
-        with open(os.path.join(TEXTES, str(s.get("id")), f"ep{int(n):02d}.txt"), encoding="utf-8") as f:
-            texte = nettoyer_texte(f.read())
-    except OSError:
-        return None
-    return texte if len(texte.split()) >= 100 else None
+    dossiers = [(os.path.join("court", ""), 50), ("", 100)] if format_court() else [("", 100)]
+    for sous, mini in dossiers:
+        try:
+            with open(os.path.join(TEXTES, str(s.get("id")), sous + f"ep{int(n):02d}.txt"), encoding="utf-8") as f:
+                texte = nettoyer_texte(f.read())
+        except OSError:
+            continue
+        if len(texte.split()) >= mini:
+            return texte
+    return None
 
 
 def ecrire_episode(b, s, n):
@@ -138,11 +165,15 @@ def ecrire_episode(b, s, n):
     ecrit = texte_ecrit(s, n)
     if ecrit:
         return ecrit, False
+    mini, maxi, plafond = mots_cibles()
+    regles = b.get('regles', '')
+    if format_court():
+        regles = re.sub(r"de 60 à 90 secondes", f"d'environ {int(duree_cible())} secondes", regles)
     precedents = s["episodes"][max(0, n - 4):n - 1]
     rappel = "\n".join(f"- Épisode {n - len(precedents) + i} : {p['accroche']} Fin : {p['suspens']}"
                        for i, p in enumerate(precedents)) or "- (c'est le premier épisode)"
     prompt = f"""Tu es un auteur de mini-séries audio en français, format TikTok vertical, public adulte.
-Règles : {b.get('regles', '')}
+Règles : {regles}
 
 SÉRIE : {s['titre']}
 Ambiance : {s['ambiance']}
@@ -157,12 +188,12 @@ Première phrase, à reprendre mot pour mot : {ep['accroche']}
 Étapes à raconter dans l'ordre : {' | '.join(ep['beats'])}
 Dernière phrase, à reprendre mot pour mot : {ep['suspens']}
 
-Contraintes : entre 180 et 230 mots, au présent, phrases courtes (12 mots max), concret, sensoriel,
+Contraintes : entre {mini} et {maxi} mots, au présent, phrases courtes (12 mots max), concret, sensoriel,
 un détail troublant toutes les trois phrases, aucune explication morale, aucun titre, aucune liste,
 pas de guillemets, pas de didascalie. Écris uniquement le texte lu à voix haute."""
     texte = nettoyer_texte(ollama_creatif(prompt))
     secours = False
-    if len(texte.split()) < 120:
+    if len(texte.split()) < (45 if format_court() else 120):
         secours = True
         etapes = [nettoyer_texte(b_).rstrip(" .") for b_ in ep["beats"]]
         etapes = [x[:1].upper() + x[1:] + ("" if x.endswith(("!", "?", "…")) else ".") for x in etapes if x]
@@ -173,8 +204,8 @@ pas de guillemets, pas de didascalie. Écris uniquement le texte lu à voix haut
     if suspens.lower()[-25:].rstrip(". ") not in texte.lower():
         texte = texte.rstrip(" .") + ". " + suspens
     mots = texte.split()
-    if len(mots) > 270:  # coupe à la fin d'une phrase, puis remet le suspens
-        coupe = " ".join(mots[:240])
+    if len(mots) > plafond:  # coupe à la fin d'une phrase, puis remet le suspens
+        coupe = " ".join(mots[:max(20, maxi - len(suspens.split())) if format_court() else 240])
         coupe = coupe[:coupe.rfind(".") + 1] if "." in coupe else coupe
         texte = coupe + " " + suspens
     return texte, secours
@@ -1161,6 +1192,8 @@ def cmd_refaire(force=None):
         return 1
     debut = time.time()
     texte, secours = texte_enregistre(h.get("fichier", "")), bool(h.get("secours"))
+    if texte is not None and format_court() and len(texte.split()) > mots_cibles()[2] * 1.2:
+        texte = None  # fabriqué au format long, refait au format court : on reprend le texte court
     if texte is None:  # le texte d'origine n'est plus sur le disque : on le réécrit
         texte, secours = ecrire_episode(b, s, n)
     res = fabriquer_episode(b, s, n, texte, secours)

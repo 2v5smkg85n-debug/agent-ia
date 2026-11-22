@@ -473,6 +473,7 @@ def test_studio_tiktok_plans_photographiques(monkeypatch, tmp_path):
     import photos  # noqa: E402
     import scenes  # noqa: E402
     import studio  # noqa: E402
+    monkeypatch.setenv("STUDIO_DUREE", "70")  # les plans de l'épisode 12 sont vérifiés ici sur le texte long
     monkeypatch.delenv("STUDIO_PHOTOS", raising=False)
     monkeypatch.delenv("STUDIO_MEDIAS", raising=False)
     b = studio.bible()
@@ -661,6 +662,7 @@ def test_studio_tiktok_textes_ecrits_et_question(monkeypatch):
     import studio  # noqa: E402
     import voix  # noqa: E402
     import scenes  # noqa: E402
+    monkeypatch.setenv("STUDIO_DUREE", "70")  # le format long : plus d'une minute (le format court a son test)
     b = studio.bible()
     s = next(x for x in b["series"] if x["id"] == "ligne13")
     for n in range(4, 13):
@@ -735,3 +737,64 @@ def test_studio_tiktok_textes_ecrits_et_question(monkeypatch):
     # les séries sans texte écrit ne changent pas
     monkeypatch.delenv("STUDIO_TEXTES")
     assert studio.texte_ecrit(b["series"][1], 1) is None and studio.texte_ecrit(s, 1) is None
+
+
+def test_studio_tiktok_format_court(monkeypatch):
+    """STUDIO_DUREE : 40 secondes par défaut (textes courts, cible de mots réduite), 70 = retour au format long."""
+    sys.path.insert(0, os.path.join(RACINE, "revenus", "tiktok"))
+    import re
+    import studio  # noqa: E402
+    import voix  # noqa: E402
+    import scenes  # noqa: E402
+    monkeypatch.delenv("STUDIO_DUREE", raising=False)
+    monkeypatch.delenv("STUDIO_TEXTES", raising=False)
+    monkeypatch.setenv("REVENUS_OLLAMA", "0")
+    assert studio.duree_cible() == 40 and studio.format_court()
+    mini, maxi, plafond = studio.mots_cibles()
+    assert 75 <= mini < maxi < plafond <= 105
+    b = studio.bible()
+    s = next(x for x in b["series"] if x["id"] == "ligne13")
+    for n in range(4, 13):
+        ep = s["episodes"][n - 1]
+        texte, secours = studio.ecrire_episode(b, s, n)
+        # même tenue que le texte long : l'accroche de la légende d'abord, le rappel tôt, des phrases courtes
+        assert not secours and texte == studio.texte_ecrit(s, n) and texte.startswith(ep["accroche"]), n
+        assert 70 <= len(texte.split()) <= 100, n  # mesuré avec la vraie voix : 38 à 41 secondes, carte de fin comprise
+        assert max(len(p.split()) for p in re.split(r"(?<=[.!?]) ", texte)) <= 19, n
+        debut = " ".join(texte.split()[:45]).lower()
+        assert "ligne 13" in debut and ("fantôme" in debut or "n'existe pas" in debut), n
+        # la fin reste celle du texte long : même dernière phrase, donc même suspens et même question
+        monkeypatch.setenv("STUDIO_DUREE", "70")
+        long_ = studio.texte_ecrit(s, n)
+        monkeypatch.delenv("STUDIO_DUREE")
+        assert len(long_.split()) >= 140 and re.split(r"(?<=[.!?]) ", texte)[-1] == re.split(r"(?<=[.!?]) ", long_)[-1], n
+        duree = len(texte.split()) / 2.25
+        plans = scenes.decouper_plans(studio.minuter(texte, 0.4, duree), s, n, duree + 4)
+        assert plans[-1]["suspens"] and len({p["scene"] for p in plans}) >= 7, n
+        if "ouverture" in ep and os.path.isdir(os.path.join(RACINE, "revenus", "tiktok", "medias", "ligne13")):
+            assert plans[0]["scene"] == "photo:" + ep["ouverture"], n
+    if os.path.isdir(os.path.join(RACINE, "revenus", "tiktok", "medias", "ligne13")):
+        # la femme du quai n'apparaît qu'à la toute fin de l'épisode 4 ; la dernière page de l'épisode 12 se lit sur le carnet
+        t4 = studio.texte_ecrit(s, 4)
+        pl = scenes.decouper_plans(studio.minuter(t4, 0.4, len(t4.split()) / 2.25), s, 4, len(t4.split()) / 2.25 + 4)
+        assert [p["scene"] for p in pl].index("photo:femme") >= len(pl) - 2
+        t12 = studio.texte_ecrit(s, 12)
+        pl = scenes.decouper_plans(studio.minuter(t12, 0.4, len(t12.split()) / 2.25), s, 12, len(t12.split()) / 2.25 + 4)
+        sc = [(p["scene"][len("photo:"):], p["texte"]) for p in pl]
+        assert all(nom == "carnet" for nom, x in sc if "Prénom" in x or "prochaine" in x)
+        assert "nouvelle conductrice" in sc[next(i for i, (nom, _) in enumerate(sc) if nom == "ines")][1]
+        assert [nom for nom, _ in sc[-2:]] == ["radio", "radio"]
+    prises = voix.attribuer(voix.decouper(studio.texte_ecrit(s, 4), s["voix_personnages"]), "homme", "femme")
+    assert [" ".join(p["mots"]) for p in prises if p["voix"] == "femme"] == ["Prochain arrêt, Sainte-Blaise."]
+    # pas de texte court pour cet épisode : le texte de secours suit la cible courte (Ollama coupé ici)
+    autre = b["series"][1]
+    texte, secours = studio.ecrire_episode(b, autre, 1)
+    assert secours and texte.startswith(autre["episodes"][0]["accroche"]) and len(texte.split()) <= plafond
+    # STUDIO_DUREE=70 : les textes longs et les réglages d'origine reviennent ; une valeur illisible retombe sur 40
+    monkeypatch.setenv("STUDIO_DUREE", "70")
+    assert not studio.format_court() and studio.mots_cibles() == (180, 230, 270)
+    assert 140 <= len(studio.texte_ecrit(s, 4).split()) <= 185
+    monkeypatch.setenv("STUDIO_DUREE", "abc")
+    assert studio.duree_cible() == 40
+    monkeypatch.setenv("STUDIO_DUREE", "5")
+    assert studio.duree_cible() == 20

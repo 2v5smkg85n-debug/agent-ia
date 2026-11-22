@@ -1,17 +1,17 @@
 # Studio TikTok — un épisode par jour, sans clé ni API payante
 
-Le VPS écrit, dit, anime, monte et livre chaque soir un épisode de mini-série (60-90 s, vertical 1080×1920).
+Le VPS écrit, dit, anime, monte et livre chaque soir un épisode de mini-série (40 s par défaut, 65-75 s avec `STUDIO_DUREE=70` ; vertical 1080×1920).
 Toi, tu publies depuis l'iPhone en deux minutes. Rien ne sort du serveur à part la vidéo envoyée sur Telegram.
 
 ## Chaîne de fabrication
 
 | Étape | Outil | Sur le VPS |
 |---|---|---|
-| Scénario (180-230 mots) | Ollama local, à partir de `bible.json` (3 séries, 12 épisodes chacune, personnages, suspens) | déjà installé |
+| Scénario (79-91 mots pour 40 s, 180-230 en format long) | Ollama local, à partir de `bible.json` (3 séries, 12 épisodes chacune, personnages, suspens) | déjà installé |
 | Voix | une narratrice (Kokoro `ff_siwis`) et un narrateur (Supertonic 3 `M2`), choisis selon la série, dans leur environnement isolé ; Piper `fr_FR-siwis-medium` en dernier secours | `python3 revenus/tiktok/studio.py voix` (une fois) |
 | Image | plans photographiques réalistes mis en mouvement (`photos.py`, images dans `medias/<serie>/`) quand la série en a, sinon décors animés dessinés image par image (`scenes.py`) ; un plan par phrase, caméra qui bouge, sous-titres mot à mot calés sur la voix, titre d'ouverture, carte « La suite demain à 20 h » | `pillow numpy` |
 | Nappe sonore | générée (bourdons + souffle), libre de droits | — |
-| Montage | ffmpeg H.264 + AAC, 70-90 s, 20-40 Mo (débit plafonné pour rester sous la limite Telegram) | `sudo apt-get install -y ffmpeg` |
+| Montage | ffmpeg H.264 + AAC, 40 s et 10 Mo environ (70-90 s et 20-40 Mo en format long) (débit plafonné pour rester sous la limite Telegram) | `sudo apt-get install -y ffmpeg` |
 | Livraison | Telegram `sendVideo` + légende (titre, accroche, hashtags) à coller | déjà configuré |
 
 Timer : `revenus-tiktok.timer` à 17:30 UTC (18:30 Paris l'hiver) ; la vidéo est sur Telegram vers 18:40, à publier à 20 h.
@@ -28,7 +28,7 @@ python3 revenus/tiktok/studio.py refaire     # refait le dernier épisode envoy�
 python3 revenus/tiktok/studio.py etat        # avancement des séries
 ```
 
-Réglages `.env` (facultatifs) : `STUDIO_MODELE` (défaut `OLLAMA_MODEL`), `STUDIO_ALLURE` (0.90 = débit de la narratrice, plus grand = plus rapide), `STUDIO_ALLURE_HOMME` (0.86 = débit du narrateur),
+Réglages `.env` (facultatifs) : `STUDIO_DUREE` (40 = durée visée en secondes ; 70 = format long, plus d'une minute ; voir « La durée » plus bas), `STUDIO_MODELE` (défaut `OLLAMA_MODEL`), `STUDIO_ALLURE` (0.90 = débit de la narratrice, plus grand = plus rapide), `STUDIO_ALLURE_HOMME` (0.86 = débit du narrateur),
 `STUDIO_VOIX_HOMME` (`M2` par défaut ; `M5` et `M3` sont aussi graves, `M4` et `M1` plus aiguës), `STUDIO_DIALOGUES=0` (une seule voix par épisode), `STUDIO_NETTETE=0` (finition plus ronde du narrateur, comme avant),
 `STUDIO_MOTEUR_VOIX=piper` (revenir à l'ancienne voix ;
 `STUDIO_VITESSE` 1.06 règle alors son débit, plus grand = plus lent),
@@ -37,6 +37,19 @@ Réglages `.env` (facultatifs) : `STUDIO_MODELE` (défaut `OLLAMA_MODEL`), `STUD
 `STUDIO_FPS` (24 images par seconde ; 20 allège le calcul sur un petit VPS), `STUDIO_FLASH=0` (coupes sans flash ni parasites),
 `STUDIO_PHOTOS=0` (revenir aux décors dessinés pour toutes les séries), `STUDIO_DEFILE=0` (tunnel figé), `STUDIO_VIBRATION=0` (cabine sans vibration),
 `STUDIO_PLAN_MAXI` (3.4 = durée maximale d'un plan photographique, en secondes).
+
+## La durée : 40 secondes par défaut
+
+`STUDIO_DUREE` fixe la durée visée, carte de fin comprise (40 par défaut, de 20 à 120).
+
+- **En dessous de 55** : format court. Le studio lit d'abord `textes/<série>/court/epNN.txt` ; sans texte court, Ollama reçoit une cible de mots
+  calculée sur le débit de la voix (79 à 91 mots pour 40 secondes) et le texte est coupé à la fin d'une phrase s'il déborde, suspens conservé.
+- **`STUDIO_DUREE=70`** : format long, les textes de `textes/<série>/` (150 à 170 mots) et les réglages d'origine (180 à 230 mots pour Ollama).
+- `refaire` reprend le dernier épisode au format en cours : un épisode fabriqué en long est réécrit en court, sans avancer la série.
+
+À savoir avant de choisir : le programme Récompenses Créateurs de TikTok ne rémunère que les vidéos de **plus d'une minute**. Le format court
+sert à gagner des vues complètes et des abonnés ; le jour où le compte approche des 10 000 abonnés, `STUDIO_DUREE=70` remet les épisodes au-dessus
+de la minute sans rien changer d'autre.
 
 ## L'animation (ce qui retient le regard)
 
@@ -180,7 +193,8 @@ Les épisodes 4 à 12 de la ligne 13 sont écrits d'avance dans `textes/ligne13/
   un épisode sans `choc` garde aussi le titre ;
 - **l'accroche d'abord**, mot pour mot celle de la légende, puis **un rappel en une phrase** (métro de nuit, ligne 13, station fantôme) :
   celui qui tombe sur l'épisode 7 sans avoir vu les autres comprend en dix secondes, et les mots que les gens cherchent sont dits tôt ;
-- **150 à 170 mots**, soit 65 à 75 secondes : plus d'une minute, mais sans temps mort ; phrases de 19 mots au plus, une information par phrase ;
+- **80 à 98 mots en format court** (`textes/ligne13/court/`, 38 à 41 secondes mesurées avec la vraie voix, carte de fin comprise), **150 à 170 mots en format long**
+  (`textes/ligne13/`, 65 à 75 secondes) ; phrases de 19 mots au plus, une information par phrase ; les deux versions ont la même accroche et la même dernière phrase ;
 - **une image par révélation** : les mots du texte appellent les plans (le mur, le journal, la lanterne, la photo), et rien n'est montré avant
   que Malik le voie (la femme du quai n'apparaît qu'à la dernière phrase de l'épisode 4) ;
 - **le suspens coupé juste avant la réponse**, et la phrase qui l'annonce nomme celui qui parle pour que la bonne voix la dise ;
