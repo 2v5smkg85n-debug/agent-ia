@@ -423,6 +423,11 @@ def section_signaux(heures, log):
     c_cerv = Counter(x.get("etape") for x in recents if x.get("action") != "ACHAT")
     for k, n in c_cerv.most_common(6):
         print(f"     {n:5d}  RIEN a l'etape '{k}'")
+    for etape in ("porte", "analyste", "critique"):
+        motifs = Counter(re.sub(r"[-+]?\d+(?:[.,]\d+)?", "N", str(x.get("raison", "")))[:100] for x in recents
+                         if x.get("etape") == etape and x.get("action") != "ACHAT")
+        for k, v in motifs.most_common(4):
+            print(f"        {etape:9s} {v:3d} x  {k}")
     for x in recents[-3:]:
         print(f"     {str(x.get('date'))[5:16]} {x.get('action')} {x.get('sym') or ''} conf {x.get('confiance')} [{x.get('etape')}] {str(x.get('raison', ''))[:90]}")
     if dec and not recents:
@@ -463,6 +468,87 @@ def section_signaux(heures, log):
     if not ent and not porte and not recents:
         cause(1, f"Aucun signal en {heures} h : ni veto, ni passage a la porte, ni decision du cerveau. Le bot ne genere plus de candidats "
                  "(boucle arretee, version du code sans entonnoir, ou source de prix en panne).", "tail -n 40 paper_trading.log")
+
+
+# ------------------------------------------------------------------ 4 bis. trajet des candidats autorises
+# Les couches mesurees (entonnoir) et la porte laissent un journal ; les verrous places entre les deux (registre,
+# taille minimale, regles apprises, Revolut X, taille nulle) n'ecrivent que dans paper_trading.log. Ici on suit, dans la
+# fin du log, chaque candidat qui a le droit d'ouvrir jusqu'a la ligne qui l'arrete.
+_ENTETE = re.compile(r"^\s*\[REGISTRE\] (.+?): strategie '([^']+)' autorisee a ouvrir")
+_ARRETS = [re.compile(x) for x in (
+    r"^\s*\[ACHAT\]", r"^\s*\[COOLDOWN", r"^\s*\[VOLATILITE\]", r"^\s*\[FLASH\] Circuit breaker", r"^\s*\[LIQUIDITE\].*minimum",
+    r"^\s*\[CASIER\].*(bloquee|skip)", r"^\s*\[ANTI-CORR\]", r"^\s*\[ANTI-GAP\]", r"^\s*\[CIRCUIT BREAKER\]",
+    r"^\s*\[POIDS STRAT\].*bloqu", r"^\s*\[SENTIMENT GATE\].*bloqu", r"^\s*\[PROFESSEURS\]", r"^\s*\[MACRO GATE\].*bloqu",
+    r"^\s*\[SOCIAL GATE\].*bloqu", r"^\s*\[BOUGIES\].*bloqu", r"^\s*\[META-IA\].*(SKIP|bloque|skip \()",
+    r"^\s*\[PLUGIN [^\]]*\] entr.e bloqu", r"^\s*\[CONFLUENCE\].*entree bloquee", r"^\s*\[REVOLUT-X\]", r"^\s*\[S/R\].*SKIP",
+    r"^\s*\[SKIP\]", r"^\s*\[CORREL\].*skip", r"^\s*\[REGISTRE\].*(retiree|probation: 1 position)", r"^\s*\[REGLE\]")]
+_FIN_BLOC = re.compile(r"Verification des prix|^\s*\[BLACKLIST\]|^\s*\[STAGGER\]|Aucun signal d'achat")
+
+
+def _motif(ligne, nom):
+    """Ligne d'arret rendue comparable : sans le nom de la crypto ni les nombres."""
+    t = ligne.strip()
+    if nom:
+        t = t.replace(nom, "X")
+    t = re.sub(r"\b[A-Z0-9]{2,12}USDT\b", "X", t)
+    t = re.sub(r"[-+]?\d+(?:[.,]\d+)?", "N", t)
+    return t[:96]
+
+
+def section_trajet():
+    titre("4 bis. Ou s'arretent les candidats qui ont le droit d'ouvrir (fin du log)")
+    lignes = queue("paper_trading.log", 12_000_000).splitlines()
+    if not lignes:
+        print("  paper_trading.log illisible")
+        return
+    cycles = [l for l in lignes if "Verification des prix" in l]
+    if cycles:
+        print(f"  {len(lignes)} lignes, {len(cycles)} cycles, de {cycles[0].strip()[:10]} a {cycles[-1].strip()[:10]} (heure du VPS)")
+    par_strat = {}
+    exemples = {}
+    i, n = 0, len(lignes)
+    while i < n:
+        m = _ENTETE.match(lignes[i])
+        if not m:
+            i += 1
+            continue
+        nom, strat = m.group(1), m.group(2)
+        fin, j, dern = None, i + 1, ""
+        while j < n and j < i + 120:
+            l = lignes[j]
+            if _ENTETE.match(l) or _FIN_BLOC.search(l):
+                break
+            if l.strip():
+                dern = l
+            if "DESARMEE" not in l and any(r.match(l) for r in _ARRETS):
+                fin = l
+                break
+            j += 1
+        if fin is None:
+            cle = "(aucune ligne d'arret : taille nulle, liquidites < 80 EUR ou fin de cycle) derniere ligne : " + _motif(dern, nom)[:60]
+            brut = dern
+        else:
+            cle, brut = _motif(fin, nom), fin
+        par_strat.setdefault(strat, Counter())[cle] += 1
+        exemples.setdefault((strat, cle), brut.strip()[:150])
+        i = j if j > i else i + 1
+    if not par_strat:
+        print("  aucun candidat autorise dans cette partie du log (fenetre interdite, ou aucune strategie autorisee ne signale)")
+        return
+    for strat, c in sorted(par_strat.items(), key=lambda kv: -sum(kv[1].values())):
+        total = sum(c.values())
+        ouverts = sum(v for k, v in c.items() if k.startswith("[ACHAT]"))
+        print(f"  {strat} : {total} candidat(s), {ouverts} ouvert(s)")
+        for cle, v in c.most_common(4):
+            print(f"     {v:5d}  {cle}")
+            print(f"            ex. {exemples[(strat, cle)]}")
+        if not ouverts:
+            cle, v = c.most_common(1)[0]
+            if "retiree" in cle:
+                cause(3, f"{strat} est retiree du registre (perdante a vie) : ses {total} candidats traversent toutes les couches puis sont refuses, c'est voulu.",
+                      "python3 registre_strategies.py")
+            else:
+                cause(1 if v / total >= 0.7 else 2, f"{strat} a le droit d'ouvrir mais ses {total} candidats s'arretent tous avant la porte ; premier motif ({v} fois) : {cle[:80]}", "")
 
 
 # ------------------------------------------------------------------ 5. verdict
@@ -510,4 +596,8 @@ if __name__ == "__main__":
         section_signaux(heures, log)
     except Exception as e:
         print(f"  (section 4 interrompue : {e})")
+    try:
+        section_trajet()
+    except Exception as e:
+        print(f"  (section 4 bis interrompue : {e})")
     verdict()
