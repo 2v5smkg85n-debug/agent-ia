@@ -2671,6 +2671,43 @@ def _ouvrir_trade_essai(pf, prix):
     return True
 
 
+def _labo_observer_sans_ouvrir():
+    """Pendant une fenetre interdite le bot n'ouvre rien, mais il continue de regarder : toutes les LABO_FENETRE_MIN
+    minutes il calcule les signaux et les confie au laboratoire comme trades virtuels (contexte 'fenetre_interdite').
+    C'est ce qui permettra de mesurer si la fenetre protege vraiment. N'ouvre, ne ferme et ne modifie rien."""
+    try:
+        import laboratoire as _lab
+        if not _lab.doit_observer_hors_ouverture():
+            return
+        prix = tous_les_prix()
+        if not prix:
+            return
+        signaux = []
+        try:
+            import signaux_gagnants as sg
+            signaux += list(sg.generer_signaux_gagnants(prix, MARCHES_PAPER) or [])
+        except Exception:
+            pass
+        try:
+            import professeur_virtuel as prof
+            signaux += list(prof.generer_signaux_professeur(prix, MARCHES_PAPER) or [])
+        except Exception:
+            pass
+        try:
+            signaux += list(analyser_signaux_tendance(prix) or [])
+        except Exception:
+            pass
+        if not signaux:                 # meme repli que le cycle normal : les indicateurs techniques (pas l'IA)
+            try:
+                signaux = list(analyser_signaux_techniques(prix) or [])
+            except Exception:
+                pass
+        n = _lab.observer(signaux, prix, contexte="fenetre_interdite")
+        print(f"  [LABO] fenetre interdite : {len(signaux)} signal(aux) regarde(s), {n} nouveau(x) trade(s) virtuel(s), aucune ouverture")
+    except Exception as _e:
+        print(f"  [LABO] observation: {_e}")
+
+
 def tick():
     pf = charger_portefeuille()
     if not pf:
@@ -2713,6 +2750,14 @@ def tick():
             print(f"  [ENTONNOIR] couches desarmees (mesurees nuisibles) : {', '.join(_des)}")
     except Exception as _e:
         print(f"  [ENTONNOIR] evaluation: {_e}")
+    # === LABORATOIRE (22/11) : juge les trades virtuels arrives a terme, puis donne le droit d'ouvrir (probation) aux
+    # strategies prouvees en observation. LABO=0 coupe tout, LABO_AUTO=0 garde l'observation sans promotion. ===
+    try:
+        import laboratoire as _lab
+        _lab.juger()
+        _lab.promouvoir()
+    except Exception as _e:
+        print(f"  [LABO] evaluation: {_e}")
     # === FIN D'ESSAI: ferme les positions MetaTrader restantes (plus de prix hors essai) ===
     if not _essai_actif():
         for _p in list(pf.get("positions", [])):
@@ -2757,6 +2802,7 @@ def tick():
         _b, _why = _pe_h.fenetre_interdite()
         if _b:
             print(f"  [RISK] fenetre interdite ({_why}) -> skip nouveaux trades")
+            _labo_observer_sans_ouvrir()
             return
     except Exception:
         pass
@@ -2841,6 +2887,13 @@ def tick():
             print("\nAucun signal technique -> analyse IA (fallback)...")
             signaux_ia = analyser_signaux_ia(prix)
             tous_signaux = signaux_ia
+        # LABORATOIRE : chaque signal brut, avant tout filtre et quel que soit son droit d'ouverture, devient un trade
+        # virtuel juge plus tard (laboratoire.py). Aucune influence sur la suite du cycle.
+        try:
+            import laboratoire as _lab_o
+            _lab_o.observer(tous_signaux, prix)
+        except Exception:
+            pass
         if tous_signaux:
             # Les signaux du Professeur Virtuel bypassent l'apprentissage (strategies nouvelles)
             _signaux_prof_avant = [s for s in tous_signaux if _saute_couches(s)]

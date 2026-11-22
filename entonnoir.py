@@ -254,6 +254,22 @@ def _bilan_cache():
 _ETAT = {}   # hysteresis : couche -> True (armee) / False
 
 
+_ETAT_JOURNAL = {"src": None, "d": {}}
+
+
+def _etat_au_demarrage(c):
+    """22/11/2026 : l'etat arme/desarme vivait en memoire seulement. A chaque redemarrage du service, une couche desarmee
+    dont le bilan etait remonte entre R_DESARME et 0 se rearmait toute seule (l'hysteresis repartait de « armee ») et
+    recommencait a bloquer sans que rien ne l'ait mesuree utile. On repart donc du dernier etat ecrit dans le journal."""
+    if _ETAT_JOURNAL["src"] != LOG:
+        d = {}
+        for r in _lire(LOG, 5000):
+            if r.get("couche") is not None and isinstance(r.get("armee"), bool):
+                d[str(r["couche"])] = r["armee"]
+        _ETAT_JOURNAL["src"], _ETAT_JOURNAL["d"] = LOG, d
+    return _ETAT_JOURNAL["d"].get(c, True)
+
+
 def armee(couche):
     """True si la couche doit bloquer. Protegee -> toujours. ENTONNOIR_<COUCHE>=0 -> jamais, =1 -> toujours.
     Sinon : desarmee quand >= N_MIN vetos juges et R evite <= R_DESARME ; rearmee quand R evite >= 0."""
@@ -270,7 +286,9 @@ def armee(couche):
     st = (_bilan_cache().get("couches") or {}).get(c)
     if not st or st["n"] < N_MIN:
         return _ETAT.get(c, True)
-    etat = _ETAT.get(c, True)
+    etat = _ETAT.get(c)
+    if etat is None:
+        etat = _etat_au_demarrage(c)
     if etat and st["r_evite"] <= R_DESARME:
         etat = False
     elif not etat and st["r_evite"] >= 0:

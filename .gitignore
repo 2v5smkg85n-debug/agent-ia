@@ -21,3 +21,6 @@ professeurs_externes.json
 professeur_hyperliquid.json
 entonnoir_log.jsonl
 entonnoir_eval.jsonl
+laboratoire_log.jsonl
+laboratoire_eval.jsonl
+laboratoire_etat.json

@@ -9,6 +9,8 @@ Chaque strategie a une fiche a vie (tous les trades fermes depuis le debut) et u
   - candidate  : aucun trade
 
 Le statut peut etre force a la main (forcer()). Les changements de statut sont journalises.
+Depuis le 22/11/2026 le laboratoire (laboratoire.py) peut donner tout seul le droit d'ouvrir a une strategie prouvee
+en observation, ou reprendre une strategie retiree (promotion_labo) ; un statut force a la main n'est jamais touche.
 Le droit d'ouverture reste separe (droit_ouverture): aujourd'hui seule ia_autonome ouvre,
 les professeurs nourrissent l'IA sans ouvrir (decision user). Le registre indique quand
 une strategie bloquee meriterait d'etre reactivee — la decision reste humaine.
@@ -54,6 +56,14 @@ def _reprises():
             continue
         nom, _, date = part.partition(":")
         out[nom.strip()] = (date.strip() or "2026-10-26")
+    # 22/11/2026 : reprises decidees par le laboratoire (laboratoire.py) sur des preuves posterieures au dernier vrai
+    # trade de la strategie. La date la plus recente l'emporte : la strategie est rejugee sur ses trades depuis cette date.
+    try:
+        for nom, date in (_charger().get("reprises_auto") or {}).items():
+            if str(date) > out.get(nom, ""):
+                out[nom] = str(date)
+    except Exception:
+        pass
     return out
 def _epoque():
     try:
@@ -153,6 +163,37 @@ def jour_interdit(dt=None):
     if k:
         return True, f"{noms[j]}: {k['n']} trades, net {k['net']:+.2f} EUR, borne haute 90% {k['ic_haut']:+.3f} < 0"
     return False, ""
+
+
+def promotion_labo(strat, reprise=False, motif=""):
+    """Appele par laboratoire.py : une strategie prouvee en observation (trades virtuels, frais deduits) recoit le droit
+    d'ouvrir. Elle demarre en probation (1 position, demi-risque) : si elle n'a encore aucun vrai trade, une fiche vide
+    'probation' est creee pour que le calcul du risque (stop_atr) la traite comme telle ; son premier vrai trade la
+    remplace par une vraie fiche. `reprise=True` pour une strategie retiree : elle repart en probation et n'est plus
+    jugee que sur ses trades a partir d'aujourd'hui. Le registre garde la main ensuite : il la retire si ses vrais
+    trades perdent."""
+    d = _charger()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    droits = set(d.get("droits", []))
+    avait = strat in droits or a_le_droit(strat)
+    droits.add(strat)
+    d["droits"] = sorted(droits)
+    p = d.setdefault("promotions_labo", {}).setdefault(strat, {"n": 0})
+    p["n"] = int(p.get("n", 0)) + 1
+    p["date"], p["motif"], p["reprise"] = now, motif, bool(reprise)
+    if reprise:
+        d.setdefault("reprises_auto", {})[strat] = now[:10]
+    if strat not in d.setdefault("strategies", {}):
+        d["strategies"][strat] = {
+            "n": 0, "g": 0, "net": 0.0, "brut_gains": 0.0, "brut_pertes": 0.0, "n_30j": 0, "net_30j": 0.0, "premier": None,
+            "dernier": None, "pire_serie": 0, "stops": 0, "wr": 0.0, "esperance": 0.0, "gain_moyen": 0.0, "perte_moyenne": 0.0,
+            "taux_stops": 0, "statut_auto": "probation", "statut": "probation", "force": False, "droit_ouverture": True,
+            "recommandation": "promue par le laboratoire, aucun vrai trade pour l'instant", "mis_a_jour": now}
+    d.setdefault("historique_statuts", []).append({
+        "date": now, "strategie": strat, "de": "retiree" if reprise else ("avec droit" if avait else "sans droit"),
+        "vers": "REPRISE (laboratoire)" if reprise else "DROIT D'OUVERTURE (laboratoire)", "motif": motif})
+    _sauver(d)
+    return mettre_a_jour()
 
 
 def droits_supplementaires():
