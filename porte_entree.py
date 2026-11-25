@@ -205,7 +205,23 @@ def tendance_lente_btc():
         except Exception:
             pass
         return out
-    return _cache("tendance_lente", 3600, _calc)
+    # Une panne de donnees ne doit pas rendre la tendance "inconnue" pendant une heure (la garde de baisse
+    # et le filtre de tendance laissent alors tout passer) : on garde la derniere tendance connue (48 h au plus)
+    # et on reessaie au bout de 5 minutes.
+    e = _CACHE.get("tendance_lente")
+    now = time.time()
+    if e and now - e[0] < (3600 if e[1].get("haussiere") is not None else 300):
+        v = e[1]
+    else:
+        v = _calc()
+        _CACHE["tendance_lente"] = (now, v)
+        if v.get("haussiere") is not None:
+            _CACHE["tendance_lente_connue"] = (now, v)
+    if v.get("haussiere") is None:
+        c = _CACHE.get("tendance_lente_connue")
+        if c and now - c[0] < 48 * 3600:
+            return dict(c[1], ancienne=True)
+    return v
 
 
 # ------------------------------------------------------------------ 3. chaleur du portefeuille

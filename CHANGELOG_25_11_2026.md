@@ -30,3 +30,8 @@ La garde ne rend pas ces trades gagnants ; elle borne la perte d'une journée de
 
 - Le coupe-circuit rouvre toujours après 30 min, y compris pour une pause de drawdown (choix d'origine contre le blocage définitif).
 - `rsi_oversold` reste jugée par le registre et le laboratoire ; aucune stratégie n'a été retirée à la main.
+
+## Complément
+
+- Une panne de l'historique BTC rendait la tendance lente « inconnue » pendant une heure (garde de baisse et filtre de tendance muets).
+  La dernière tendance connue est maintenant gardée 48 h au plus et l'échec n'est retenu que 5 minutes.

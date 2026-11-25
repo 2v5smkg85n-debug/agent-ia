@@ -329,3 +329,28 @@ def test_limites_de_risque_jamais_desarmees_par_le_bilan(monkeypatch):
     monkeypatch.setitem(pe._DESARMES, "t", 0.0)
     assert pe.filtres_desarmes() == {"chaleur", "cadence", "baisse", "cusum", "tendance_lente"}
     monkeypatch.setitem(pe._DESARMES, "t", 0.0)
+
+
+def test_tendance_lente_survit_a_une_panne_de_donnees(monkeypatch):
+    """Une panne de l'historique ne doit pas rendre la tendance inconnue (donc la garde de baisse muette)."""
+    import sys, types
+    import porte_entree as pe
+    for cle in ("tendance_lente", "tendance_lente_connue"):
+        monkeypatch.delitem(pe._CACHE, cle, raising=False)
+    n = pe.EMA_LENTE_JOURS + 40
+    faux = types.SimpleNamespace(historique_ohlcv=lambda s, tf, k: [{"cloture": 100.0 - i * 0.3} for i in range(n)])
+    monkeypatch.setitem(sys.modules, "indicateurs", faux)
+    assert pe.tendance_lente_btc()["haussiere"] is False
+    # panne : plus de donnees, cache expire
+    faux.historique_ohlcv = lambda s, tf, k: []
+    t0, v0 = pe._CACHE["tendance_lente"]
+    pe._CACHE["tendance_lente"] = (t0 - 4000, v0)
+    tl = pe.tendance_lente_btc()
+    assert tl["haussiere"] is False and tl.get("ancienne") is True
+    # l'echec n'est garde que 5 minutes, pas une heure
+    assert pe._CACHE["tendance_lente"][1]["haussiere"] is None
+    pe._CACHE["tendance_lente"] = (pe._CACHE["tendance_lente"][0] - 400, pe._CACHE["tendance_lente"][1])
+    faux.historique_ohlcv = lambda s, tf, k: [{"cloture": 100.0 + i * 0.3} for i in range(n)]
+    assert pe.tendance_lente_btc()["haussiere"] is True
+    for cle in ("tendance_lente", "tendance_lente_connue"):
+        pe._CACHE.pop(cle, None)
