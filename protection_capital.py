@@ -9,7 +9,8 @@ Avant le vrai argent, il faut un filet de sécurité automatique.
 Déclencheurs:
   - drawdown >= 12% depuis le peak du portefeuille -> pause
   - >= 5 pertes consécutives (trades fermés) -> pause
-  - auto-resume (paper) quand drawdown < 6% ET plus de pertes consécutives
+  - reprise auto apres RESUME_DELAI (30 min), puis RESUME_GRACE (1 h) sans re-pause pour pertes consecutives
+    (le message Telegram annoncait a tort une reprise « quand les conditions s'ameliorent » : corrige le 25/11/2026)
 
 État persisté dans protection_capital.json (peak, paused, raison, last_alert).
 Alerte Telegram throttlée (1x/h max) sur transition pause.
@@ -80,8 +81,9 @@ def _alerter(raison):
         import requests
         msg = (f"🛑 CIRCUIT BREAKER ACTIVÉ\n\n"
                f"Entrées suspendues: {raison}\n\n"
-               f"Le système protège le capital. Reprise auto quand conditions s'améliorent "
-               f"(drawdown < 6% et plus de pertes consécutives).")
+               f"Le système protège le capital. Reprise automatique dans {RESUME_DELAI // 60} min, puis "
+               f"{RESUME_GRACE // 60} min sans compter les pertes consécutives. En marché baissier, la garde "
+               f"de baisse de la porte limite en plus les achats (python3 porte_entree.py baisse).")
         requests.post(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
                       json={"chat_id": TELEGRAM_CHAT, "text": msg}, timeout=10)
     except Exception:

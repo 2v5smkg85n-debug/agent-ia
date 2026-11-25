@@ -259,3 +259,73 @@ def test_reprise_probation_puis_regles_normales(monkeypatch):
     assert s["epoque"]["n"] == 30 and s["statut_auto"] == "active"   # jugee sur l'epoque : 30 trades, 67 %, net > 0
     pires = [{"strategie": "pattern_reversal", "symbole": "X", "gain_eur": -0.6, "date_fermeture": "2026-10-28 10:00", "raison": "SL"}] * 30
     assert rs.calculer(vieux + pires)["pattern_reversal"]["statut_auto"] == "retiree"   # et peut etre retiree sur l'epoque
+
+
+def test_garde_de_baisse_rejoue_le_24_novembre(monkeypatch):
+    """25/11/2026 : en tendance lente baissiere, deux positions crypto a la fois et plus d'achat apres deux stops en 24 h.
+    Rejoue la journee du 24/11 (8 achats, 8 stops) : la garde n'en laisse passer que trois."""
+    from datetime import datetime, timedelta
+    import porte_entree as pe
+    for k in ("PORTE_BAISSE", "BAISSE_MAX_POSITIONS", "BAISSE_STOPS_MAX", "BAISSE_STOPS_H", "PORTE_AUTO_LIMITES"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setattr(pe, "_reglage", lambda nom, defaut: float(defaut))
+    baisse, hausse = {"haussiere": False, "ecart_pct": -8.0}, {"haussiere": True}
+    j = "2026-11-24 "
+    journee = [("FETUSDT", "02:35", "16:03"), ("NEARUSDT", "04:06", "11:16"), ("ETHUSDT", "05:13", "15:17"), ("SOLUSDT", "05:16", "11:15"),
+               ("PENDLEUSDT", "05:41", "09:02"), ("PENDLEUSDT", "10:33", "13:08"), ("BTCUSDT", "12:15", "17:03"), ("INJUSDT", "12:18", "13:10")]
+    pris, pf = [], {"positions": [], "trades_fermes": []}
+    for sym, ouv, ferm in journee:
+        t = datetime.strptime(j + ouv, "%Y-%m-%d %H:%M")
+        for p in list(pf["positions"]):  # les stops deja touches a cette heure
+            if p["_ferme"] <= j + ouv:
+                pf["positions"].remove(p)
+                pf["trades_fermes"].append({"symbole": p["symbole"], "gain_eur": -2.5, "raison": "SL-EXEC (perte -3.0%)", "date_fermeture": p["_ferme"]})
+        gb = pe.garde_baisse(pf, baisse, maintenant=t)
+        if gb["ok"]:
+            pris.append(sym)
+            pf["positions"].append({"symbole": sym, "marche": "crypto", "montant_eur": 90, "_ferme": j + ferm})
+    assert pris == ["FETUSDT", "NEARUSDT", "BTCUSDT"], pris  # 3 achats au lieu de 8
+    # apres deux stops : plus d'achat, et l'heure de reprise est annoncee (24 h apres l'avant-dernier stop compte)
+    pf = {"positions": [], "trades_fermes": [
+        {"gain_eur": -2.4, "raison": "SL-EXEC (perte -3.0%)", "date_fermeture": j + "11:16"},
+        {"gain_eur": -1.5, "raison": "SL-EXEC (perte -3.0%)", "date_fermeture": j + "16:03"},
+        {"gain_eur": 0.02, "raison": "TEMPS-stale (+0.25%)", "date_fermeture": j + "16:30"},
+        {"gain_eur": 3.1, "raison": "TRAILING-SL (gain)", "date_fermeture": j + "16:40"}]}
+    soir = datetime(2026, 11, 24, 18, 0)
+    gb = pe.garde_baisse(pf, baisse, maintenant=soir)
+    assert not gb["ok"] and gb["stops"] == 2 and gb["reprise"] == "2026-11-25 11:16" and "2 stops" in gb["raison"]
+    assert pe.garde_baisse(pf, baisse, maintenant=soir + timedelta(hours=18))["ok"]  # le premier stop est sorti de la fenetre
+    # tendance haussiere ou inconnue : la garde ne change rien
+    plein = {"positions": [{"marche": "crypto"}] * 4, "trades_fermes": pf["trades_fermes"]}
+    assert pe.garde_baisse(plein, hausse, maintenant=soir)["ok"] and pe.garde_baisse(plein, {"haussiere": None}, maintenant=soir)["ok"]
+    assert not pe.garde_baisse(plein, baisse, maintenant=soir + timedelta(hours=30))["ok"]  # 4 positions > 2
+    # dans la porte : la garde bloque (raison ecrite, verdict juge) ; PORTE_BAISSE=0 la coupe
+    monkeypatch.setattr(pe, "tendance_lente_btc", lambda: baisse)
+    monkeypatch.setattr(pe, "_journaliser", lambda rec: None)
+    monkeypatch.setattr(pe, "filtres_desarmes", lambda: {"tendance_lente"})
+    monkeypatch.setattr(pe, "fenetre_interdite", lambda maintenant=None: (False, ""))
+    deux = {"liquidites": 800, "positions": [{"marche": "crypto", "montant_eur": 90, "sl_risque": 2.5}] * 2, "trades_fermes": []}
+    v = pe.verifier("ETHUSDT", 1700.0, {}, deux, 90, 2.5, strategie="rsi_oversold", risque_nouveau=2.5)
+    assert not v["ok"] and v["raison"].startswith("garde de baisse") and v["infos"]["verdicts"]["baisse"] is False
+    raison, _ = pe.blocage_global(deux)
+    assert raison and raison.startswith("garde de baisse")
+    monkeypatch.setenv("PORTE_BAISSE", "0")
+    v = pe.verifier("ETHUSDT", 1700.0, {}, deux, 90, 2.5, strategie="rsi_oversold", risque_nouveau=2.5)
+    assert not str(v["raison"]).startswith("garde de baisse") and v["infos"]["verdicts"]["baisse"] is False
+
+
+def test_limites_de_risque_jamais_desarmees_par_le_bilan(monkeypatch):
+    """PORTE_AUTO desarme les filtres de pronostic dont le bilan est negatif, pas les limites de risque."""
+    import porte_entree as pe
+    monkeypatch.delenv("PORTE_AUTO_LIMITES", raising=False)
+    monkeypatch.setenv("PORTE_AUTO", "1")
+    mauvais = {"filtres": {n: {"verdict": "a revoir"} for n in ("chaleur", "cadence", "baisse", "cusum", "tendance_lente")}}
+    monkeypatch.setattr(pe, "bilan_filtres", lambda: mauvais)
+    monkeypatch.setitem(pe._DESARMES, "noms", set())  # rendu tel quel a la fin du test
+    monkeypatch.setitem(pe._DESARMES, "t", 0.0)
+    assert pe.filtres_desarmes() == {"cusum", "tendance_lente"}
+    assert pe._actif("CHALEUR") and pe._actif("CADENCE") and pe._actif("BAISSE") and not pe._actif("CUSUM")
+    monkeypatch.setenv("PORTE_AUTO_LIMITES", "1")  # retour a l'ancien comportement, a la main
+    monkeypatch.setitem(pe._DESARMES, "t", 0.0)
+    assert pe.filtres_desarmes() == {"chaleur", "cadence", "baisse", "cusum", "tendance_lente"}
+    monkeypatch.setitem(pe._DESARMES, "t", 0.0)

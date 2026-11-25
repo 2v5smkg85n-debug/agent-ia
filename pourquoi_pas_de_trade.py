@@ -293,6 +293,18 @@ def section_globaux(pf):
                          "aucune ouverture tant qu'une position ne se ferme pas.", "")
         except Exception:
             pass
+        try:  # garde de baisse (25/11) : limite de risque quand BTC est sous son EMA lente
+            gb = pe.garde_baisse(pf_, tl if isinstance(tl, dict) else None)
+            if gb.get("baissier"):
+                arme = pe._actif("BAISSE")
+                print(f"  garde de baisse : positions crypto {gb.get('n_crypto')}/{gb.get('max_positions')}, stops recents {gb.get('stops')}/{gb.get('stops_max')} "
+                      f"| {'ARMEE' if arme else 'coupee (PORTE_BAISSE=0)'}")
+                if arme and not gb.get("ok"):
+                    bloque_tout.append("garde de baisse")
+                    cause(1, "Garde de baisse : " + str(gb.get("raison")) + ". Blocage voulu (le 24/11 : 8 achats en baisse, 8 stops), il se leve seul.",
+                          "python3 porte_entree.py baisse")
+        except Exception:
+            pass
         print("  => la porte bloque TOUT en ce moment : " + ", ".join(bloque_tout) if bloque_tout else "  => la porte ne bloque rien de global en ce moment")
     except Exception as e:
         print(f"  porte indisponible : {str(e)[:100]}")

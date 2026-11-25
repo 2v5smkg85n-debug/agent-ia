@@ -10,6 +10,8 @@ Filtres (dans l'ordre, du moins cher au plus cher) :
   1. PORTE_FENETRES       13h00-15h00 UTC par defaut (FENETRES_UTC=...) + annonce macro USD High dans l'heure
   2. PORTE_TENDANCE_LENTE BTC au-dessus de son EMA 12 semaines (journalier) et EMA en hausse
   3. PORTE_CHALEUR        max N positions crypto ouvertes (meme cluster BTC) et risque total ouvert <= RISQUE_TOTAL_PCT % du capital
+  3a. PORTE_BAISSE        garde de baisse : BTC sous son EMA lente -> au plus BAISSE_MAX_POSITIONS positions crypto a la fois,
+                          et plus d'achat apres BAISSE_STOPS_MAX stops en BAISSE_STOPS_H heures (limite de risque, jamais desarmee seule)
   4. PORTE_REGIME         pas d'entree en regime "turbulent" (ATR 1h au-dessus du 90e percentile sur 100 bougies)
   5. PORTE_CUSUM          un evenement de prix (CUSUM symetrique, seuil max(1 %, 2.5 x ATR 1h)) dans les 4 dernieres heures
   6. PORTE_LIQUIDITE      spread Kraken <= 0.15 % et profondeur a +/-0.5 % >= 10 x le montant
@@ -36,6 +38,29 @@ _CACHE = {}
 RISQUE_TOTAL_PCT = float(os.getenv("RISQUE_TOTAL_PCT", "2.0"))        # risque total ouvert <= 2 % du capital (20 EUR sur 1 000)
 RISQUE_TOTAL_MAX = float(os.getenv("RISQUE_TOTAL_MAX", "3.0"))        # plancher absolu (ancien plafond fixe)
 MAX_POSITIONS_CRYPTO = int(os.getenv("MAX_POSITIONS_CRYPTO", "4"))    # 2 -> 4 (+1 si BTC haussier) ; MAX_POSITIONS=5 et le plancher de 200 EUR gardent la main
+
+
+# 25/11/2026 : garde de baisse. Le 24/11, BTC sous son EMA lente et tout le marche en survente : 8 achats dans la journee
+# (7 par rsi_oversold, 5 ouverts en meme temps, une crypto rachetee 1 h 31 apres son stop), 8 stops, -17,66 EUR. En baisse
+# les cryptos tombent ensemble : 8 achats ne sont pas 8 paris, c'est le meme pari pris 8 fois. Les filtres qui auraient
+# du limiter (tendance lente, chaleur, cadence) ne bloquaient plus. Deux corrections, mesurees et reversibles :
+#   - les LIMITES DE RISQUE (chaleur, cadence, baisse) ne sont plus desarmees par PORTE_AUTO : le bilan contrefactuel juge
+#     chaque candidat seul, il ne voit pas que cinq positions correlees perdent ensemble (PORTE_AUTO_LIMITES=1 pour revenir) ;
+#   - tant que BTC est sous son EMA lente : BAISSE_MAX_POSITIONS positions crypto a la fois, et plus aucun achat apres
+#     BAISSE_STOPS_MAX stops en BAISSE_STOPS_H heures (PORTE_BAISSE=0 pour couper).
+# Rien ne change quand la tendance lente est haussiere ou inconnue.
+LIMITES_DE_RISQUE = {"chaleur", "cadence", "baisse"}
+
+
+def _reglage(nom, defaut):
+    try:
+        from config_env import lire
+        return float(lire(nom, defaut) or defaut)
+    except Exception:
+        try:
+            return float(os.getenv(nom, defaut))
+        except Exception:
+            return float(defaut)
 
 
 def risque_total_max(pf=None):
@@ -73,7 +98,7 @@ FENETRES = _fenetres()
 
 _NOM_FILTRE = {"FENETRES": "fenetres", "TENDANCE_LENTE": "tendance_lente", "CHALEUR": "chaleur", "REGIME": "regime",
                "CUSUM": "cusum", "LIQUIDITE": "liquidite", "FLUX": "flux", "META": "meta",
-               "CADENCE": "cadence", "CASIER": "casier", "ADX_RANGE": "adx_range"}
+               "CADENCE": "cadence", "CASIER": "casier", "ADX_RANGE": "adx_range", "BAISSE": "baisse"}
 # ADX(14) 4 h de la crypto au-dela duquel on n'achete PAS a contre-tendance (strategies de retour a la moyenne seulement :
 # rsi_oversold, consensus_reversion, pattern_reversal, bollinger_bounce...). Vantixs 2023-2025 : facteur de profit 1,11 sans
 # ce filtre, 1,78 avec ; en tendance etablie (ADX > 30) la meme regle perd. Mesure par le bilan contrefactuel ; PORTE_ADX_RANGE=0 coupe.
@@ -99,6 +124,13 @@ def filtres_desarmes():
         try:
             b = bilan_filtres()
             _DESARMES["noms"] = {f for f, st in b.get("filtres", {}).items() if st.get("verdict") == "a revoir"}
+            try:
+                from config_env import lire as _lire_lim
+                _garder = _lire_lim("PORTE_AUTO_LIMITES", "0") != "1"
+            except Exception:
+                _garder = True
+            if _garder:  # une limite de risque n'est pas un pronostic : elle ne se desarme pas sur un bilan trade par trade
+                _DESARMES["noms"] -= LIMITES_DE_RISQUE
         except Exception:
             _DESARMES["noms"] = set()
         _DESARMES["t"] = time.time()
@@ -188,6 +220,46 @@ def chaleur_portefeuille(pf, risque_nouveau=1.0, sl_defaut=1.0):
         except Exception:
             risque += risque_nouveau
     return {"n_crypto": len(crypto), "risque_ouvert": round(risque, 2), "risque_apres": round(risque + risque_nouveau, 2)}
+
+
+# ------------------------------------------------------------------ 3a. garde de baisse
+def garde_baisse(pf, tl=None, maintenant=None):
+    """Tant que BTC est sous son EMA lente : au plus BAISSE_MAX_POSITIONS positions crypto a la fois, et plus d'achat
+    apres BAISSE_STOPS_MAX stops (trades fermes en perte sur un stop) dans les BAISSE_STOPS_H dernieres heures.
+    -> {'baissier': bool|None, 'ok', 'raison', 'n_crypto', 'max_positions', 'stops', 'stops_max', 'reprise'}.
+    Tendance inconnue ou haussiere : ok. Dates du portefeuille en heure locale du VPS (UTC), comme cadence()."""
+    tl = tl if isinstance(tl, dict) and tl else tendance_lente_btc()
+    haussiere = tl.get("haussiere")
+    max_pos, stops_max, heures = int(_reglage("BAISSE_MAX_POSITIONS", "2")), int(_reglage("BAISSE_STOPS_MAX", "2")), _reglage("BAISSE_STOPS_H", "24")
+    out = {"baissier": None if haussiere is None else not haussiere, "ok": True, "raison": "", "n_crypto": 0,
+           "max_positions": max_pos, "stops": 0, "stops_max": stops_max, "reprise": None}
+    if out["baissier"] is not True:
+        return out
+    out["n_crypto"] = len([p for p in (pf or {}).get("positions", []) or [] if p.get("marche", "crypto") in ("crypto", "?")])
+    now = maintenant or datetime.now()
+    dates = []
+    for t in ((pf or {}).get("trades_fermes", []) or [])[-300:]:
+        try:
+            if float(t.get("gain_eur") or 0) >= 0 or "SL" not in str(t.get("raison", "")).upper():
+                continue
+            dt = datetime.strptime(str(t.get("date_fermeture", ""))[:16], "%Y-%m-%d %H:%M")
+            if 0 <= (now - dt).total_seconds() < heures * 3600:
+                dates.append(dt)
+        except Exception:
+            continue
+    dates.sort()
+    out["stops"] = len(dates)
+    if stops_max > 0 and len(dates) >= stops_max:
+        from datetime import timedelta
+        out["reprise"] = (dates[len(dates) - stops_max] + timedelta(hours=heures)).strftime("%Y-%m-%d %H:%M")
+        out["ok"] = False
+        out["raison"] = (f"garde de baisse: {len(dates)} stops en {heures:g} h (max {stops_max}) avec BTC sous son EMA {EMA_LENTE_JOURS} jours : "
+                         f"pas de nouvel achat avant le {out['reprise']} UTC")
+    elif max_pos > 0 and out["n_crypto"] >= max_pos:
+        out["ok"] = False
+        out["raison"] = (f"garde de baisse: deja {out['n_crypto']} positions crypto ouvertes (max {max_pos} tant que BTC est sous son "
+                         f"EMA {EMA_LENTE_JOURS} jours : en baisse elles tombent ensemble)")
+    return out
 
 
 # ------------------------------------------------------------------ 4. regime
@@ -332,6 +404,15 @@ def verifier(sym, prix, ctx, pf, montant, sl_pct=None, strategie=None, risque_no
                 bloque = f"risque total ouvert {ch['risque_ouvert']:.2f} + {risque_nouveau:.2f} > {_rtm:.2f} EUR ({RISQUE_TOTAL_PCT:g}% du capital)"
     except Exception:
         verdicts["chaleur"] = None
+    # 3a. garde de baisse (limite de risque : PORTE_AUTO ne la desarme pas ; PORTE_BAISSE=0 la coupe)
+    try:
+        gb = garde_baisse(pf, tl)
+        infos["baisse"] = {k: gb.get(k) for k in ("baissier", "n_crypto", "stops", "reprise")}
+        verdicts["baisse"] = None if gb["baissier"] is not True else bool(gb["ok"])
+        if not gb["ok"] and not bloque and _actif("BAISSE"):
+            bloque = gb["raison"]
+    except Exception:
+        verdicts["baisse"] = None
     # 3b. cadence (refroidissement par crypto + plafond du jour, commun bot/IA)
     try:
         cad = cadence(pf, sym)
@@ -605,6 +686,14 @@ def blocage_global(pf, risque_nouveau=1.0):
             return f"deja {ch['n_crypto']} positions crypto (max {max_pos})", infos
         if ch["risque_apres"] > risque_total_max(pf):
             return f"risque total ouvert {ch['risque_ouvert']:.2f} + {risque_nouveau:.2f} > {risque_total_max(pf):.2f} EUR", infos
+    if _actif("BAISSE"):
+        try:
+            gb = garde_baisse(pf)
+            infos["baisse"] = gb
+            if not gb["ok"]:
+                return gb["raison"], infos
+        except Exception:
+            pass
     if _actif("REGIME"):
         reg = regime_actuel("BTCUSDT")
         infos["regime"] = reg
@@ -673,6 +762,26 @@ if __name__ == "__main__":
         for f, st in sorted(b["filtres"].items(), key=lambda kv: -kv[1]["r_evite"]):
             bb = st["bloquerait"]
             print(f"  {f:15s} aurait bloque {bb['tp']+bb['sl']+bb['neutre']:3d} (objectif {bb['tp']}, stop {bb['sl']}) -> R evite {st['r_evite']:+.1f} : {st['verdict']}")
+        sys.exit(0)
+    if len(sys.argv) > 1 and sys.argv[1].strip().strip("\u00a0") == "baisse":
+        # lecture seule : l'etat de la garde de baisse et des limites de risque
+        try:
+            with open(os.path.join(DOSSIER, "paper_trading.json")) as f:
+                _pf = json.load(f)
+        except Exception as e:
+            _pf = {}
+            print("portefeuille illisible :", str(e)[:80])
+        _tl = tendance_lente_btc()
+        _gb = garde_baisse(_pf, _tl)
+        _etat = {True: "BAISSIERE", False: "haussiere", None: "inconnue (la garde laisse passer)"}[_gb["baissier"]]
+        print(f"Tendance lente BTC (EMA {EMA_LENTE_JOURS} j) : {_etat} | prix {_tl.get('ecart_pct')} % vs EMA")
+        print(f"Garde de baisse : {'armee' if _actif('BAISSE') else 'COUPEE (PORTE_BAISSE=0)'} | positions crypto {_gb['n_crypto']}/{_gb['max_positions']} | "
+              f"stops recents {_gb['stops']}/{_gb['stops_max']}")
+        print("  => " + (_gb["raison"] if not _gb["ok"] else "achats autorises par la garde"))
+        _d = filtres_desarmes()
+        print("Filtres desarmes par le bilan : " + (", ".join(sorted(_d)) or "aucun") + " | limites de risque toujours armees : " + ", ".join(sorted(LIMITES_DE_RISQUE)))
+        _c = cadence(_pf, "")
+        print(f"Ouvertures aujourd'hui : {_c.get('n_jour')}/{MAX_OUVERTURES_JOUR} | positions crypto max hors baisse : {MAX_POSITIONS_CRYPTO}")
         sys.exit(0)
     sym = sys.argv[1] if len(sys.argv) > 1 else "ETHUSDT"
     print("Tendance lente BTC :", tendance_lente_btc())
