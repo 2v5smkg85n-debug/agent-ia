@@ -175,8 +175,11 @@ def test_cadence_cooldown_et_plafond():
 
 def test_palier_de_risque():
     import stop_atr as sa
-    # 11/11/2026 : base = RISQUE_PCT (0,25 %) du capital = 2,5 EUR sur 1 000 ; paliers x2 / x3 sur preuve ; plafond 1 %
+    # base = RISQUE_PCT du capital ; paliers x2 / x3 sur preuve ; plafond 1 %
+    # 25/11/2026 : la base est 0,10 % (1 EUR sur 1 000) tant que rien n'est prouve — 0,25 % avait ete donne sans preuve le 11/11
+    assert sa.RISQUE_PCT == 0.10
     base = round(1000 * sa.RISQUE_PCT / 100, 2)
+    assert base == 1.0
     assert sa.risque_courant(trades=[], capital=1000, capital_initial=1000) == base
     assert sa.risque_courant(trades=[{"gain_eur": 0.5}] * 40, capital=1000, capital_initial=1000) == round(base * 2, 2)
     assert sa.risque_courant(trades=[{"gain_eur": 0.5}] * 70, capital=1000, capital_initial=1000) == round(base * 3, 2)

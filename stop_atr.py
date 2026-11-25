@@ -57,13 +57,34 @@ def stop_pct(atr, maintenant=None):
 # ---------------------------------------------------------------- risque par trade (22/10/2026, revu le 11/11/2026)
 # Jusqu'au 11/11 le risque etait 1 EUR fixe (0,1 % du capital) et le palier x2 exigeait que TOUTES les strategies melangees
 # soient prouvees gagnantes : il n'a jamais ete atteint -> 76 trades, WR 50 %, net -0,56 EUR, « sur place » mathematique.
-# Desormais :
-#   - base = RISQUE_PCT du capital (0,25 % = 2,5 EUR sur 1 000 ; un systematique prudent risque 0,25-0,5 %, 1 % au plus),
+# Depuis le 11/11 (base corrigee le 25/11, voir plus bas) :
+#   - base = RISQUE_PCT du capital (0,10 % = 1 EUR sur 1 000 tant qu'une strategie n'a rien prouve),
 #   - la preuve se mesure PAR STRATEGIE sur son epoque courante (registre) : >= 30 trades et borne basse 90 % du gain
 #     moyen > 0 -> x2 ; >= 60 -> x3 ; une strategie en probation -> x0,5 ; plafond RISQUE_MAX_PCT (1 %) du capital,
 #   - protocole de drawdown (paliers) : capital sous le depart de 5 % -> x0,75 ; 10 % -> x0,5 ; 15 % -> x0,25.
 # Tout redescend seul quand la preuve disparait. RISQUE_EUR reste le plancher (1 EUR) et la valeur de secours.
-RISQUE_PCT = float(os.getenv("RISQUE_PCT", "0.25"))
+#
+# 25/11/2026 — correction : la base repasse de 0,25 % a 0,10 % du capital (1 EUR sur 1 000).
+# Le 11/11 la mise avait ete multipliee par 2,5 pour TOUTES les strategies, prouvees ou non, au motif que le bot
+# « faisait du sur place ». C'etait une erreur de lecture : 76 trades a l'equilibre montrent une absence d'avantage,
+# pas une mise trop petite, et grossir la mise d'un pari sans avantage ne fait que grossir ses ecarts.
+# Mesure sur le VPS : 77 trades avant le 11/11 = -1,83 EUR ; 12 trades apres = -21,41 EUR (10 stops a ~2,5 EUR).
+# La mise ne monte plus que sur preuve, strategie par strategie : x2 a 30 trades prouves, x3 a 60 (2 puis 3 EUR).
+# Retour arriere : RISQUE_PCT=0.25 dans .env.
+def _reglage_env(nom, defaut):
+    """Lit l'environnement puis .env (config_env) : un service systemd ne charge pas toujours .env."""
+    try:
+        from config_env import lire
+        v = lire(nom, None)
+    except Exception:
+        v = os.getenv(nom)
+    try:
+        return float(v) if v not in (None, "") else float(defaut)
+    except Exception:
+        return float(defaut)
+
+
+RISQUE_PCT = _reglage_env("RISQUE_PCT", 0.10)
 RISQUE_MAX_PCT = float(os.getenv("RISQUE_MAX_PCT", "1.0"))
 PALIERS = [(60, 3.0), (30, 2.0)]
 DRAWDOWN_PALIERS = [(15.0, 0.25), (10.0, 0.5), (5.0, 0.75)]

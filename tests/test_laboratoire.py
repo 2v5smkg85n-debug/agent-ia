@@ -174,7 +174,8 @@ def test_promotion_donne_le_droit_en_probation(tmp_path, monkeypatch):
     monkeypatch.setattr(sa.os.path, "dirname", lambda p: str(tmp_path))
     (tmp_path / "registre_strategies.json").write_text(json.dumps(json.load(open(rs.FICHIER))))
     base = round(1000 * sa.RISQUE_PCT / 100, 2)
-    assert sa.risque_courant(trades=[], capital=1000, strategie="autre_gagnante", capital_initial=1000) == round(base * 0.5, 2)
+    # probation = demi-risque, jamais sous le plancher RISQUE_EUR
+    assert sa.risque_courant(trades=[], capital=1000, strategie="autre_gagnante", capital_initial=1000) == max(sa.RISQUE_EUR, round(base * 0.5, 2))
     # son premier vrai trade remplace la fiche vide par une vraie fiche
     (tmp_path / "pt.json").write_text(json.dumps({"trades_fermes": [
         {"strategie": "autre_gagnante", "symbole": "X", "gain_eur": 0.4, "raison": "TP", "date_fermeture": datetime.now().strftime("%Y-%m-%d %H:%M")}]}))

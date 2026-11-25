@@ -95,12 +95,12 @@ def test_juger_sur_bougies(tmp_path, monkeypatch):
 def test_risque_par_strategie():
     import stop_atr as sa
     tr = [{"strategie": "rsi", "gain_eur": g, "date_fermeture": "2026-11-01 00:00"} for g in [0.5, 0.7, -0.3, 0.6, 0.4, -0.2, 0.5, 0.8, 0.3, -0.4] * 4]
-    assert sa.risque_courant(tr, 1000, strategie="rsi", capital_initial=1000) == 5.0            # base 2,5 x palier 2
-    assert sa.risque_courant(tr[:10], 1000, strategie="rsi", capital_initial=1000) == 2.5       # < 30 trades
-    assert sa.risque_courant([], 1000, strategie=None, capital_initial=1000) == 2.5
-    assert sa.risque_courant(tr, 900, strategie="rsi", capital_initial=1000) == 2.25            # drawdown 10 % -> x0,5
+    assert sa.risque_courant(tr, 1000, strategie="rsi", capital_initial=1000) == 2.0            # base 1 EUR (0,10 %, 25/11) x palier 2
+    assert sa.risque_courant(tr[:10], 1000, strategie="rsi", capital_initial=1000) == 1.0       # < 30 trades
+    assert sa.risque_courant([], 1000, strategie=None, capital_initial=1000) == 1.0
+    assert sa.risque_courant(tr, 900, strategie="rsi", capital_initial=1000) == 1.0             # drawdown 10 % -> x0,5 (base au plancher de 1 EUR)
     perd = [{"strategie": "p", "gain_eur": -0.5, "date_fermeture": "2026-11-01 00:00"}] * 40
-    assert sa.risque_courant(perd, 1000, strategie="p", capital_initial=1000) == 2.5            # pas de palier sans preuve
+    assert sa.risque_courant(perd, 1000, strategie="p", capital_initial=1000) == 1.0            # pas de palier sans preuve
     assert sa.risque_courant(tr * 3, 1000, strategie="rsi", capital_initial=1000) <= 10.0       # plafond 1 %
     assert sa.calculer(1.0, 1000.0, risque_eur=2.5)["montant"] > 0
 
@@ -190,4 +190,4 @@ def test_preuve_a_vie_pour_strategie_active(tmp_path, monkeypatch):
     monkeypatch.delenv("RISQUE_PREUVE_VIE")
     # 65 trades a vie, tous positifs -> palier x3 (plafond 1 %)
     r = sa.risque_courant(trades=trades, capital=1000.0, strategie="rsi_oversold", capital_initial=1000.0)
-    assert r == 7.5
+    assert r == 3.0   # base 1 EUR x palier 3 (25/11 : la base n'est plus 2,5 EUR)

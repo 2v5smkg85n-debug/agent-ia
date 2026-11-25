@@ -33,7 +33,8 @@ SEUIL_N_REGLE, SEUIL_PERTE_REGLE = 10, -8.0
 # (12h et 15h n'etaient pas dans les pires heures) et se cumulait avec la porte, la preselection et le prompt.
 _HP = os.getenv("HEURES_PERDANTES_UTC", "13,14")
 HEURES_PERDANTES = {int(x) for x in _HP.split(",") if x.strip().isdigit()} or {13, 14}
-MONTANT_MIN = float(os.getenv("MONTANT_MIN", "20"))   # taille minimale d'un trade (paper) ; 50 bloquait tout stop > 1.8 %
+MONTANT_MIN = float(os.getenv("MONTANT_MIN", "10"))   # taille minimale d'un trade (paper) ; 50 bloquait tout stop > 1.8 % ; 20 bloquait
+                                                      # un stop de 3 % en demi-taille (1 EUR / 3,2 % x 0,5 = 16 EUR) depuis le retour a 1 EUR de risque (25/11)
 RISQUE_EUR, SL_MIN, SL_MAX, ATR_MULT = 1.0, 0.8, 3.0, 2.0   # secours seulement : stop_atr.py fait foi
 
 DESCRIPTIONS = {

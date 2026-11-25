@@ -35,3 +35,19 @@ La garde ne rend pas ces trades gagnants ; elle borne la perte d'une journée de
 
 - Une panne de l'historique BTC rendait la tendance lente « inconnue » pendant une heure (garde de baisse et filtre de tendance muets).
   La dernière tendance connue est maintenant gardée 48 h au plus et l'échec n'est retenu que 5 minutes.
+
+## Soir — la mise par trade revient à 1 EUR tant que rien n'est prouvé
+
+Historique complet du VPS (89 trades depuis le 19/10, −23,24 EUR) :
+
+- octobre : 47 trades, +1,45 EUR ; novembre : 42 trades, −24,69 EUR ;
+- 77 trades avant le 11/11 : −1,83 EUR ; 12 trades après : −21,41 EUR, dont 10 stops à environ 2,5 EUR ;
+- par sortie : les 30 stops coûtent −37,50 EUR, toutes les autres sorties réunies rapportent +14,26 EUR ;
+- aucune des 7 stratégies n'est positive sur sa vie.
+
+Le 11/11 la mise de base était passée de 1 EUR à 0,25 % du capital (2,5 EUR) pour toutes les stratégies, au motif que le bot
+« faisait du sur place ». C'était une erreur : 76 trades à l'équilibre montrent une absence d'avantage, pas une mise trop petite.
+
+Correction : `RISQUE_PCT` vaut 0,10 % par défaut (1 EUR sur 1 000). La mise ne monte que sur preuve, stratégie par stratégie
+(x2 à 30 trades prouvés, x3 à 60). `RISQUE_PCT` est maintenant lu aussi dans `.env`. Taille minimale d'un trade : 10 EUR au lieu
+de 20 (sinon un stop de 3 % en demi-taille était refusé). Retour arrière : `RISQUE_PCT=0.25` dans `.env`.
