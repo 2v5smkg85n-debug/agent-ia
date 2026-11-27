@@ -144,3 +144,13 @@ def test_module_leger_et_jamais_importe_par_le_trading():
         chemin = os.path.join(racine, fichier)
         if os.path.exists(chemin):
             assert "professeur_tabpfn" not in open(chemin).read(), fichier
+
+
+def test_vue_par_strategie(tmp_path, monkeypatch):
+    pt = _prof(tmp_path, monkeypatch)
+    assert "Aucun candidat" in pt.resume_strategies()
+    _ecrire(pt, jours=6, par_jour=10)
+    t = pt.resume_strategies()
+    assert "rsi_oversold : 30 sur 6 jours" in t and "donchian_breakout : 30 sur 6 jours" in t
+    assert "porte ouverte" in t and "porte bloquee" in t and "par mois : 2026-10" in t
+    assert pt._motif("BTC sous son EMA 84 jours (-18.49%, pente -0.2%)") == pt._motif("BTC sous son EMA 84 jours (-3.1%, pente -1.25%)")

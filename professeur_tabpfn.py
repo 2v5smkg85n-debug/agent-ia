@@ -36,7 +36,7 @@ Variables (.env) : PROF_TABPFN (1 ; 0 = coupe), PROF_TABPFN_N_MAX (1000 exemples
 processeur), PROF_TABPFN_N_MIN (150), PROF_TABPFN_EMBARGO_H (12), PROF_TABPFN_LOTS (40 jours notes au plus par passage),
 PROF_TABPFN_DELAI_S (600), PROF_TABPFN_THREADS (2), PROF_TABPFN_MARGE (0.05), PROF_TABPFN_BILAN_N (200),
 PROF_TABPFN_BILAN_JOURS (10), PROF_TABPFN_Z (2.0).
-CLI : python3 professeur_tabpfn.py [bilan|donnees|noter|verifier|etat]
+CLI : python3 professeur_tabpfn.py [bilan|donnees|strategies|noter|verifier|etat]
 Modele : TabPFN v2 (poids sous licence Prior Labs, Apache 2.0 avec attribution) — https://github.com/PriorLabs/TabPFN
 """
 import json
@@ -196,7 +196,8 @@ def donnees():
             continue
         r_net = round(r - frais / sl, 3)
         out.append({"cle": cle, "date": str(i.get("date"))[:16], "ts": ts, "sym": i.get("sym"), "strategie": str(i.get("strategie") or "inconnu"),
-                    "f": mesures(rec), "y": 1 if r_net > 0 else 0, "r": r_net, "resultat": e.get("resultat"), "ok": bool(rec.get("ok"))})
+                    "f": mesures(rec), "y": 1 if r_net > 0 else 0, "r": r_net, "resultat": e.get("resultat"), "ok": bool(rec.get("ok")),
+                    "raison": str(rec.get("raison") or "")})
     out.sort(key=lambda x: (x["ts"], x["cle"]))
     return out
 
@@ -518,6 +519,53 @@ def resume_donnees():
     return "\n".join(l)
 
 
+def _motif(raison):
+    """Raison d'un blocage sans ses chiffres, pour pouvoir compter les blocages de meme nature."""
+    import re
+    return re.sub(r"\s+", " ", re.sub(r"[-+]?\d+(?:[.,:]\d+)*\s*%?", "N", str(raison))).strip()[:48]
+
+
+def resume_strategies():
+    """Par strategie : ce que ses candidats auraient donne 8 h apres (R net de frais, intervalle par jour), porte ouverte
+    et porte bloquee separees, avec les blocages les plus frequents. Lecture seule, bibliotheque standard."""
+    lignes = donnees()
+    if not lignes:
+        return "Aucun candidat juge pour l'instant."
+    z = _f("PROF_TABPFN_Z", "2.0")
+
+    def txt(nom, cas):
+        st = _stats_r(cas, z)
+        if not st["n"]:
+            return f"{nom} : aucun"
+        ic = f" [{st['ic_bas']:+.2f} ; {st['ic_haut']:+.2f}]" if st.get("ic_bas") is not None else " [intervalle impossible : un seul jour]"
+        return f"{nom} : {st['n']} sur {st['jours']} jours, {st['gagnants'] / st['n']:.0%} gagnants, R net {st['r_moyen']:+.3f}{ic}"
+
+    par = {}
+    for r in lignes:
+        par.setdefault(r["strategie"], []).append(r)
+    l = [f"Candidats de la porte juges 8 h apres, du {lignes[0]['date'][:10]} au {lignes[-1]['date'][:10]} (R net de frais, intervalle calcule par jour)",
+         txt("TOUS", lignes), txt("  porte ouverte", [r for r in lignes if r["ok"]]), txt("  porte bloquee", [r for r in lignes if not r["ok"]])]
+    for s, cas in sorted(par.items(), key=lambda kv: -len(kv[1])):
+        l.append("")
+        l.append(txt(s, cas))
+        l.append(txt("  porte ouverte", [r for r in cas if r["ok"]]))
+        bloques = [r for r in cas if not r["ok"]]
+        l.append(txt("  porte bloquee", bloques))
+        motifs = {}
+        for r in bloques:
+            m = motifs.setdefault(_motif(r.get("raison")), [])
+            m.append(r)
+        for m, rs in sorted(motifs.items(), key=lambda kv: -len(kv[1]))[:4]:
+            l.append(f"    {len(rs)} x {m} -> R net {sum(x['r'] for x in rs) / len(rs):+.2f}")
+        mois = {}
+        for r in cas:
+            mois.setdefault(r["date"][:7], []).append(r["r"])
+        l.append("  par mois : " + " | ".join(f"{k} : {len(v)} candidats, R net {sum(v) / len(v):+.2f}" for k, v in sorted(mois.items())))
+    l.append("")
+    l.append("A lire avec prudence : un candidat juge n'a ni glissement ni les sorties reelles du bot ; un intervalle qui contient 0 ne prouve rien.")
+    return "\n".join(l)
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "bilan"
     if cmd == "noter":
@@ -527,6 +575,8 @@ if __name__ == "__main__":
         sys.exit(0 if verifier() else 1)
     elif cmd == "donnees":
         print(resume_donnees())
+    elif cmd == "strategies":
+        print(resume_strategies())
     elif cmd == "etat":
         print(json.dumps({"etat": etat(), "bilan": bilan()}, ensure_ascii=False, indent=1))
     else:
