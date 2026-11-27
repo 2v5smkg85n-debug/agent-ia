@@ -77,7 +77,7 @@ Source du tableau : [Arct](https://www.arct.cloud/blog/best-ollama-models-cpu).
 
 - **Second avis** : `phi4-mini` pèse 2,5 Go et est présenté comme fort en raisonnement et en mathématiques ([Ollama, phi4-mini](https://ollama.com/library/phi4-mini)). `granite4.2:3b` pèse 2,2 Go, sous licence Apache 2.0, avec sortie JSON structurée ([Ollama, granite4.2](https://ollama.com/library/granite4.2)).
 - **Idée** : le critique sert à contredire le décideur. Deux modèles de la même famille se trompent souvent ensemble ; un critique d'une autre famille (Phi ou Granite) à la place de `llama3.2:3b` est un essai simple. Je n'ai pas trouvé de mesure qui le prouve : ce serait à juger sur les décisions du bot.
-- **Verdict** : rien à ajouter tant que je ne connais pas la mémoire du VPS.
+- **Verdict** : ne rien changer. Le VPS a 11 Go de mémoire mais 5,8 Go seulement de disponibles : `qwen3.5:9b` (6,6 Go) n'y tient pas à côté du reste.
 
 ### 6. Mémoire en langage naturel — EmbeddingGemma
 
@@ -120,9 +120,14 @@ Règles de branchement, pour que rien ne casse :
 - **Bug trouvé au premier passage** : sur le tableau de bord, la ligne « filtres désarmés par les faits » ne s'affichait jamais (variable inconnue, erreur avalée en silence). C'est la ligne qui indique quels filtres le bot a désarmés, dont le filtre de tendance vu le 25/11. Corrigé.
 - Ce contrôle tourne de mon côté avant chaque envoi. Il ne garantit pas l'absence de bug ; il supprime une famille d'erreurs.
 
+## Mise à jour du 27/11 au soir
+
+- **VPS mesuré** : 6 cœurs, 11 Go de mémoire dont 5,8 Go disponibles, 44 Go de disque libres. Les modèles locaux `qwen3.5:4b` et `llama3.2:3b` sont bien installés.
+- **TabPFN est branché**, en observation seule (voir `CHANGELOG_27_11_2026.md`) : il note chaque candidat de la porte, une régression simple sert de témoin, et le verdict est écrit à l'avance. Il n'a aucun droit.
+- Kronos-mini et TTM restent à faire, un par un, une fois que TabPFN a tourné quelques jours sans incident.
+
 ## Limites de ce document
 
-- Les tailles et vitesses viennent des pages citées, pas de mesures sur le VPS.
-- Je ne connais pas la mémoire ni le nombre de cœurs du VPS : c'est ce qui décide de ce qui peut tourner.
+- Les tailles et vitesses des modèles non installés viennent des pages citées, pas de mesures sur le VPS.
 - Les études citées portent surtout sur des actions et des contrats à terme ; les résultats sur les cryptos peuvent différer.
-- Rien n'est installé à ce stade, sauf le contrôle du code et la correction du tableau de bord.
+- Le comportement de TabPFN sur les vraies données du bot n'est pas encore connu.

@@ -80,6 +80,11 @@ def etat():
     except Exception as ex:
         e["triple_barriere"] = str(ex)
     try:
+        import professeur_tabpfn as _ptab   # 27/11/2026 (soir) : texte ecrit au dernier passage du professeur, rien n'est recalcule ici
+        e["prof_tabpfn"] = _ptab.resume_enregistre()
+    except Exception as ex:
+        e["prof_tabpfn"] = str(ex)
+    try:
         p = os.path.join(DOSSIER, "prix_ws.json")
         import time
         e["ws"] = {"age_s": round(time.time() - os.path.getmtime(p)), "n": json.load(open(p)).get("n")} if os.path.exists(p) else None
@@ -208,6 +213,7 @@ def build_page():
         out.append(f"<tr><td>{H(str(s.get('nom')))}</td><td>{H(str(s.get('statut')))}</td><td>{s.get('n')}</td><td>{s.get('wr')}%</td><td class='{cls}'>{ic}</td><td>{pm}%</td><td>{s.get('net')}</td><td>{s.get('dsr')}</td><td class='m'>{H(par_reg)}</td></tr>")
     out.append("</table>")
     out.append(f"<h2>Méta-modèle &amp; triple barrière</h2><pre>{H(str(e.get('meta')))}\n\n{H(str(e.get('triple_barriere')))}</pre>")
+    out.append(f"<h2>Professeur TabPFN — observation seule</h2><pre>{H(str(e.get('prof_tabpfn')))}</pre>")
     out.append("</body></html>")
     return "\n".join(out)
 

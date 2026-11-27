@@ -24,3 +24,8 @@ entonnoir_eval.jsonl
 laboratoire_log.jsonl
 laboratoire_eval.jsonl
 laboratoire_etat.json
+.tabpfn_libs/
+.tabpfn_libs.tmp/
+professeur_tabpfn_notes.jsonl
+professeur_tabpfn.json
+professeur_tabpfn.lock
