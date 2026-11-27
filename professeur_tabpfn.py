@@ -318,7 +318,7 @@ def noter(lots=None, verbose=True, predire=None):
     deja = _notes()
     a_noter = [r for r in lignes if r["cle"] not in deja]
     jours = sorted(set(r["date"][:10] for r in a_noter))
-    moteur = "injecte"
+    moteur = "moteur de test" if predire is not None else "rien de nouveau a noter, TabPFN non charge"
     if predire is None and jours:
         try:
             predire, moteur = _moteur(int(_f("PROF_TABPFN_THREADS", "2")))

@@ -154,3 +154,17 @@ def test_vue_par_strategie(tmp_path, monkeypatch):
     assert "rsi_oversold : 30 sur 6 jours" in t and "donchian_breakout : 30 sur 6 jours" in t
     assert "porte ouverte" in t and "porte bloquee" in t and "par mois : 2026-10" in t
     assert pt._motif("BTC sous son EMA 84 jours (-18.49%, pente -0.2%)") == pt._motif("BTC sous son EMA 84 jours (-3.1%, pente -1.25%)")
+
+
+def test_passage_sans_nouveaute_ne_charge_pas_tabpfn(tmp_path, monkeypatch):
+    """27/11 : relance alors que tout est deja note -> TabPFN n'est pas charge, et le bilan le dit en clair
+    (avant, la ligne « Dernier passage » affichait « injecte », le mot reserve aux tests)."""
+    pt = _prof(tmp_path, monkeypatch)
+    monkeypatch.setenv("PROF_TABPFN_N_MIN", "40")
+    _ecrire(pt, jours=8, par_jour=20)
+    pt.noter(verbose=False, predire=lambda Xtr, ytr, Xte: ([0.5] * len(Xte), [0.5] * len(Xte), len(Xtr[0])))
+    avant = dict(pt._notes())
+    monkeypatch.setattr(pt, "_moteur", lambda threads: (_ for _ in ()).throw(AssertionError("TabPFN charge pour rien")))
+    assert pt.noter(verbose=False) == 0
+    assert pt._notes() == avant and not pt.etat().get("erreur")
+    assert "rien de nouveau a noter" in pt.resume() and "injecte" not in pt.resume()
