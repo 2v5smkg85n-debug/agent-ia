@@ -29,3 +29,15 @@ laboratoire_etat.json
 professeur_tabpfn_notes.jsonl
 professeur_tabpfn.json
 professeur_tabpfn.lock
+
+# rejeu historique (27/11/2026) : donnees et resultats locaux
+rejeu_data/
+rejeu_etat.json
+rejeu_bilan.txt
+rejeu_bilan.json
+rejeu_modeles.json
+rejeu.lock
+rejeu_journal.log
+.rejeu_libs
+.rejeu_libs/
+.rejeu_libs.tmp/
