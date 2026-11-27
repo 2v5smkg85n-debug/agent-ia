@@ -172,6 +172,7 @@ def build_page():
         out.append(f"<p>Porte ouverte : objectif <b class='ok'>{o.get('tp', 0)}</b> · stop <b class='ko'>{o.get('sl', 0)}</b> · neutre {o.get('neutre', 0)} → <b>{o.get('r', 0):+.1f} R</b> &nbsp;|&nbsp; "
                    f"Porte bloquée : objectif {b.get('tp', 0)} · stop {b.get('sl', 0)} · neutre {b.get('neutre', 0)} → <b>{b.get('r', 0):+.1f} R</b> (négatif = les blocages ont protégé)</p>")
         try:
+            import porte_entree as pe   # 27/11/2026 : `pe` n'existait pas ici (NameError avale) -> la ligne ne s'affichait jamais
             des = pe.filtres_desarmes()
             out.append("<p>Mode auto (PORTE_AUTO) : <b>" + ("actif — filtres désarmés par les faits : " + (", ".join(sorted(des)) or "aucun") if des or __import__("config_env").lire("PORTE_AUTO", "1") == "1" else "inactif (PORTE_AUTO=1 pour que les filtres « à revoir » cessent de bloquer tout en restant mesurés)") + "</b></p>")
         except Exception:
